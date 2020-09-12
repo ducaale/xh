@@ -91,18 +91,19 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let response = client.execute(request)?;
+    if !opt.offline {
+        let response = client.execute(request)?;
 
-    let headers = response.headers().clone();
-    let content_type = get_content_type(&headers);
+        let headers = response.headers().clone();
+        let content_type = get_content_type(&headers);
 
-    display::print_status_line(response.version(), response.status(), &format_option);
-    display::print_headers(&headers, &format_option);
-    display::print_body(
-        Box::new(|| response.text().unwrap()), // TODO: read response as stream
-        content_type,
-        &format_option,
-    );
-
+        display::print_status_line(response.version(), response.status(), &format_option);
+        display::print_headers(&headers, &format_option);
+        display::print_body(
+            Box::new(|| response.text().unwrap()), // TODO: read response as stream
+            content_type,
+            &format_option,
+        );
+    }
     Ok(())
 }
