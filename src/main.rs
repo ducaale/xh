@@ -49,19 +49,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         };
     }
 
-    let body = if body.len() > 0 {
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        Value::Object(body.clone()).to_string()
-    } else {
-        String::from("")
-    };
-
     let client = Client::new();
-
     let request = match opt.method {
-        Method::PUT | Method::POST | Method::PATCH => {
+        Method::PUT | Method::POST | Method::PATCH if body.len() > 0 => {
+            let body = Value::Object(body.clone()).to_string();
             let content_length = HeaderValue::from_str(&body.len().to_string())?;
             headers.insert(CONTENT_LENGTH, content_length);
+            headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             client
                 .request(opt.method.clone().into(), url)
                 .query(&query)
@@ -86,8 +80,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             &format_option,
         );
         display::print_headers(request.headers(), &format_option);
-        if !body.is_empty() {
-            display::print_json(&body, &format_option);
+        if let Some(body) = request.body() {
+            display::print_json(
+                &String::from_utf8(body.as_bytes().unwrap().into())?,
+                &format_option,
+            );
         }
     }
 
