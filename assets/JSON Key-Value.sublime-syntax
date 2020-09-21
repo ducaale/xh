@@ -1,0 +1,40 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: JSON Key-Value
+file_extensions:
+  - json
+scope: source.json
+contexts:
+  main:
+    - match: //.*
+      comment: Single-line comment
+      scope: comment.single.line.jsonkv
+    - match: /\*
+      comment: Multi-line comment
+      push:
+        - meta_scope: comment.block.jsonkv
+        - match: \*/
+          pop: true
+    - match: '"(?i)([^\"]+)"\s*?:'
+      comment: Key names
+      captures:
+        1: keyword.other.name.jsonkv
+    - match: '"'
+      comment: String values
+      push:
+        - meta_scope: string.quoted.jsonkv
+        - match: '"'
+          pop: true
+        - match: '\\[tnr"]'
+          comment: Escape characters
+          scope: constant.character.escape.jsonkv
+    - match: \d+(?:.\d+)?
+      comment: Numeric values
+      scope: constant.numeric.jsonkv
+    - match: true|false
+      comment: Boolean values
+      scope: constant.language.boolean.jsonkv
+    - match: "null"
+      comment: Null value
+      scope: constant.language.null.jsonkv

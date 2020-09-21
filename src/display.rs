@@ -1,122 +1,121 @@
+use std::fmt::Write;
+
 use crate::Pretty;
-use ansi_term::Colour;
+use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::{StatusCode, Url, Version};
 use serde::Serialize;
 use serde_json::Value;
+use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, ThemeSet};
+use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
+use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+
+fn colorize<'a>(text: &'a str, syntax: &str) -> impl Iterator<Item = String> + 'a {
+    lazy_static! {
+        // static ref PS: SyntaxSet = SyntaxSet::load_defaults_newlines();
+        static ref TS: ThemeSet = ThemeSet::load_defaults();
+        static ref PS: SyntaxSet = {
+            let mut ps = SyntaxSetBuilder::new();
+            ps.add_from_folder("assets", true).unwrap();
+            ps.build()
+        };
+    }
+    let syntax = PS.find_syntax_by_extension(syntax).unwrap();
+    let mut h = HighlightLines::new(syntax, &TS.themes["Solarized (dark)"]);
+    LinesWithEndings::from(text).map(move |line| {
+        let ranges: Vec<(Style, &str)> = h.highlight(line, &PS);
+        as_24_bit_terminal_escaped(&ranges[..], false)
+    })
+}
+
+fn indent_json(text: &str) -> String {
+    let data: Value = serde_json::from_str(&text).unwrap();
+    let buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+    data.serialize(&mut ser).unwrap();
+    String::from_utf8(ser.into_inner()).unwrap()
+}
 
 pub fn print_json(text: &str, options: &Pretty) {
-    // TODO: replace colored_json with syntec
-    use colored_json::{Color, ColoredFormatter, CompactFormatter, PrettyFormatter, Styler};
-    let style = Styler {
-        key: Color::Blue.bold(),
-        string_value: Color::Yellow.normal(),
-        integer_value: Color::Blue.normal(),
-        float_value: Color::Blue.normal(),
-        nil_value: Color::Blue.normal(),
-        ..Default::default()
-    };
-    let data: Value = serde_json::from_str(&text).unwrap();
-
     match options {
         Pretty::All => {
-            let f = ColoredFormatter::with_styler(PrettyFormatter::with_indent(b"    "), style);
-            println!("{}", f.to_colored_json_auto(&data).unwrap());
+            colorize(&indent_json(text), "json").for_each(|line| print!("{}", line));
         }
         Pretty::Colors => {
-            // don't format response in this case
-            let f = ColoredFormatter::with_styler(CompactFormatter {}, style);
-            println!("{}", f.to_colored_json_auto(&data).unwrap());
+            colorize(text, "json").for_each(|line| print!("{}", line));
         }
-        Pretty::Format => {
-            // https://stackoverflow.com/a/49087292/5915221
-            let buf = Vec::new();
-            let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-            let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-            data.serialize(&mut ser).unwrap();
-            println!("{}", String::from_utf8(ser.into_inner()).unwrap());
-        }
-        Pretty::None => {
-            println!("{}", text);
-        }
+        Pretty::Format => println!("{}", indent_json(text)),
+        Pretty::None => println!("{}", text),
     }
-    print!("\n");
+    println!("\x1b[0m");
 }
 
-fn http_version_to_number(version: Version) -> f64 {
-    match version {
-        Version::HTTP_09 => 0.9,
-        Version::HTTP_10 => 1.0,
-        Version::HTTP_11 => 1.1,
-        Version::HTTP_2 => 2.0,
-        Version::HTTP_3 => 3.0,
-        _ => -1.0,
+pub fn print_xml(text: &str, options: &Pretty) {
+    match options {
+        Pretty::All | Pretty::Colors => colorize(text, "xml").for_each(|line| print!("{}", line)),
+        Pretty::Format | Pretty::None => println!("{}", text),
     }
+    println!("\x1b[0m");
 }
 
-pub fn print_request_line(version: Version, method: &crate::Method, url: &Url, pretty: &Pretty) {
-    let query = url.query().map_or(String::from(""), |q| ["?", q].concat());
-    let version_number = http_version_to_number(version);
-    match pretty {
-        Pretty::All | Pretty::Colors => {
-            println!(
-                "{} {}{} {}/{}",
-                Colour::Green.paint(method.to_string()),
-                Colour::Cyan.underline().paint(url.path()),
-                Colour::Cyan.underline().paint(query),
-                Colour::Blue.paint("HTTP"),
-                Colour::Blue.paint(version_number.to_string())
-            );
-        }
-        Pretty::Format | Pretty::None => {
-            println!("{} {}{} {:?}", method, url.path(), query, version);
-        }
+pub fn print_html(text: &str, options: &Pretty) {
+    match options {
+        Pretty::All | Pretty::Colors => colorize(text, "html").for_each(|line| print!("{}", line)),
+        Pretty::Format | Pretty::None => println!("{}", text),
     }
+    println!("\x1b[0m");
 }
 
-pub fn print_status_line(version: Version, status: StatusCode, pretty: &Pretty) {
-    let version_number = http_version_to_number(version);
-    match pretty {
-        Pretty::All | Pretty::Colors => {
-            println!(
-                "{}/{} {} {}",
-                Colour::Blue.paint("HTTP"),
-                Colour::Blue.paint(version_number.to_string()),
-                Colour::Blue.paint(status.as_str()),
-                Colour::Cyan.paint(status.canonical_reason().unwrap())
-            );
-        }
-        Pretty::Format | Pretty::None => {
-            println!(
-                "{}/{} {} {}",
-                "HTTP",
-                version_number.to_string(),
-                status.as_str(),
-                status.canonical_reason().unwrap()
-            );
-        }
-    }
-}
-
-pub fn print_headers(headers: &HeaderMap, pretty: &Pretty) {
+fn headers_to_string(headers: &HeaderMap, sort: bool) -> String {
     let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
-    if *pretty != Pretty::None {
+    if sort {
         headers.sort_by(|(a, _), (b, _)| a.to_string().cmp(&b.to_string()))
     }
 
+    let mut header_string = String::new();
     for (key, value) in headers {
         let key = key.to_string();
         let value = value.to_str().unwrap();
-        match pretty {
-            Pretty::All | Pretty::Colors => {
-                println!("{}: {}", Colour::Cyan.paint(key), value);
-            }
-            Pretty::Format | Pretty::None => {
-                println!("{}: {}", key, value);
-            }
-        }
+        writeln!(&mut header_string, "{}: {}", key, value).unwrap();
     }
-    println!("");
+
+    header_string
+}
+
+pub fn print_request_headers(request: &Request) {
+    let method = request.method();
+    let url = request.url();
+    let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
+    let version = reqwest::Version::HTTP_11;
+    let headers = request.headers();
+
+    let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
+    let headers = &headers_to_string(headers, true);
+
+    for line in colorize(&(request_line + &headers), "http") {
+        print!("{}", line)
+    }
+    println!("\x1b[0m");
+}
+
+pub fn print_response_headers(response: &Response) {
+    let version = response.version();
+    let status = response.status();
+    let headers = response.headers();
+
+    let status_line = format!(
+        "{:?} {} {}\n",
+        version,
+        status.as_str(),
+        status.canonical_reason().unwrap()
+    );
+    let headers = headers_to_string(headers, true);
+
+    for line in colorize(&(status_line + &headers), "http") {
+        print!("{}", line)
+    }
+    println!("\x1b[0m");
 }
 
 // TODO: support pretty printing more response types
@@ -128,10 +127,12 @@ pub fn print_body(body: Box<dyn FnOnce() -> String>, content_type: Option<&str>,
             println!("| NOTE: binary data not shown in terminal |");
             println!("+-----------------------------------------+");
             print!("\n\n");
-        } else if content_type.contains("application/json") {
+        } else if content_type.contains("json") {
             print_json(&body(), &pretty)
-        } else {
-            println!("{}", body())
+        } else if content_type.contains("xml") {
+            print_xml(&body(), &pretty)
+        } else if content_type.contains("html") {
+            print_html(&body(), &pretty)
         }
     }
 }

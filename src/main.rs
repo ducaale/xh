@@ -5,6 +5,8 @@ use reqwest::header::{
 };
 use serde_json::{Map, Value};
 use structopt::StructOpt;
+#[macro_use]
+extern crate lazy_static;
 
 mod cli;
 mod display;
@@ -73,13 +75,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     print!("\n");
 
     if opt.verbose {
-        display::print_request_line(
-            reqwest::Version::HTTP_11,
-            &opt.method,
-            request.url(),
-            &format_option,
-        );
-        display::print_headers(request.headers(), &format_option);
+        display::print_request_headers(&request);
         if let Some(body) = request.body() {
             display::print_json(
                 &String::from_utf8(body.as_bytes().unwrap().into())?,
@@ -90,12 +86,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     if !opt.offline {
         let response = client.execute(request)?;
-
         let headers = response.headers().clone();
         let content_type = get_content_type(&headers);
 
-        display::print_status_line(response.version(), response.status(), &format_option);
-        display::print_headers(&headers, &format_option);
+        display::print_response_headers(&response);
         display::print_body(
             Box::new(|| response.text().unwrap()), // TODO: read response as stream
             content_type,

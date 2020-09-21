@@ -1,0 +1,256 @@
+%YAML 1.2
+---
+name: XML
+file_extensions:
+  - xml
+  - xsd
+  - xslt
+  - tld
+  - dtml
+  - rss
+  - opml
+  - svg
+first_line_match: |-
+    (?x)
+    ^(?:
+        <\?xml\s
+     |  \s*<([\w-]+):Envelope\s+xmlns:\1\s*=\s*"http://schemas.xmlsoap.org/soap/envelope/"\s*>
+     )
+scope: text.xml
+variables:
+  # This is the full XML Name production, but should not be used where namespaces
+  # are possible. Those locations should use a qualified_name.
+  name: '[[:alpha:]:_][[:alnum:]:_.-]*'
+  # This is the form that allows a namespace prefix (ns:) followed by a local
+  # name. The captures are:
+  #  1: namespace prefix name
+  #  2: namespace prefix colon
+  #  3: local tag name
+  qualified_name: '(?:([[:alpha:]_][[:alnum:]_.-]*)(:))?([[:alpha:]_][[:alnum:]_.-]*)'
+
+contexts:
+  main:
+    - match: '(<\?)(xml)(?=\s)'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: entity.name.tag.xml
+      push:
+        - meta_scope: meta.tag.preprocessor.xml
+        - match: \?>
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - match: '\s+{{qualified_name}}(=)?'
+          captures:
+            1: entity.other.attribute-name.namespace.xml
+            2: entity.other.attribute-name.xml punctuation.separator.namespace.xml
+            3: entity.other.attribute-name.localname.xml
+            4: punctuation.separator.key-value.xml
+        - include: double-quoted-string
+        - include: single-quoted-string
+    - match: '(<!)(DOCTYPE)(?:\s+({{name}}))?'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: keyword.doctype.xml
+        3: variable.documentroot.xml
+      push:
+        - meta_scope: meta.tag.sgml.doctype.xml
+        - match: \s*(>)
+          captures:
+            1: punctuation.definition.tag.end.xml
+          pop: true
+        - include: internal-subset
+    - include: comment
+    - match: '(</?){{qualified_name}}([^/>\s]*)'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: entity.name.tag.namespace.xml
+        3: entity.name.tag.xml punctuation.separator.namespace.xml
+        4: entity.name.tag.localname.xml
+        5: invalid.illegal.bad-tag-name.xml
+      push:
+        - meta_scope: meta.tag.xml
+        - match: /?>
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: tag-stuff
+    - match: '(</?)([[:digit:].-][[:alnum:]:_.-]*)'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: invalid.illegal.bad-tag-name.xml
+      push:
+        - meta_scope: meta.tag.xml
+        - match: /?>
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: tag-stuff
+    - match: '(<\?)(xml-stylesheet|xml-model)(?=\s|\?>)'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: entity.name.tag.xml
+      push:
+        - meta_scope: meta.tag.preprocessor.xml
+        - match: \?>
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: tag-stuff
+    - match: '(<\?)((?![xX][mM][lL]){{qualified_name}})(?=\s|\?>)'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: entity.name.tag.xml
+      push:
+        - meta_scope: meta.tag.preprocessor.xml
+        - match: \?>
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+    - include: entity
+    - match: '<!\[CDATA\['
+      scope: punctuation.definition.string.begin.xml
+      push:
+        - meta_scope: string.unquoted.cdata.xml
+        - match: ']]>'
+          scope: punctuation.definition.string.end.xml
+          pop: true
+    - match: ']]>'
+      scope: invalid.illegal.missing-entity.xml
+    - include: should-be-entity
+  should-be-entity:
+    - match: '&'
+      scope: invalid.illegal.bad-ampersand.xml
+    - match: '<'
+      scope: invalid.illegal.missing-entity.xml
+  double-quoted-string:
+    - match: '"'
+      scope: punctuation.definition.string.begin.xml
+      push:
+        - meta_scope: string.quoted.double.xml
+        - match: '"'
+          scope: punctuation.definition.string.end.xml
+          pop: true
+        - include: entity
+        - include: should-be-entity
+  entity:
+    - match: '(&)(?:{{name}}|#[0-9]+|#x\h+)(;)'
+      scope: constant.character.entity.xml
+      captures:
+        1: punctuation.definition.constant.xml
+        2: punctuation.definition.constant.xml
+  comment:
+    - match: '<!--'
+      scope: punctuation.definition.comment.begin.xml
+      push:
+        - meta_scope: comment.block.xml
+        - match: '-->'
+          scope: punctuation.definition.comment.end.xml
+          pop: true
+        - match: '-{2,}'
+          scope: invalid.illegal.double-hyphen-within-comment.xml
+  internal-subset:
+    - match: \[
+      scope: punctuation.definition.constant.xml
+      push:
+        - meta_scope: meta.internalsubset.xml
+        - match: \]
+          pop: true
+        - include: comment
+        - include: entity-decl
+        - include: element-decl
+        - include: attlist-decl
+        - include: notation-decl
+        - include: parameter-entity
+  entity-decl:
+    - match: '(<!)(ENTITY)\s+(%\s+)?({{name}})(\s+(?:SYSTEM|PUBLIC)\s+)?'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: keyword.entity.xml
+        3: punctuation.definition.entity.xml
+        4: variable.entity.xml
+        5: keyword.entitytype.xml
+      push:
+        - match: '>'
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: double-quoted-string
+        - include: single-quoted-string
+  element-decl:
+    - match: '(<!)(ELEMENT)\s+({{name}})\s+'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: keyword.element.xml
+        3: variable.element.xml
+      push:
+        - match: '>'
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - match: '\b(EMPTY|ANY)\b'
+          scope: constant.other.xml
+        - include: element-parens
+  element-parens:
+    - match: \(
+      scope: punctuation.definition.group.xml
+      push:
+        - match: (\))([*?+])?
+          captures:
+            1: punctuation.definition.group.xml
+            2: keyword.operator.xml
+          pop: true
+        - match: '#PCDATA'
+          scope: constant.other.xml
+        - match: '[*?+]'
+          scope: keyword.operator.xml
+        - match: '[,|]'
+          scope: punctuation.separator.xml
+        - include: element-parens
+  attlist-decl:
+    - match: '(<!)(ATTLIST)\s+({{name}})\s+({{name}})'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: keyword.attlist.xml
+        3: variable.element.xml
+        4: variable.attribute-name.xml
+      push:
+        - match: '>'
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: double-quoted-string
+        - include: single-quoted-string
+  notation-decl:
+    - match: '(<!)(NOTATION)\s+({{name}})'
+      captures:
+        1: punctuation.definition.tag.begin.xml
+        2: keyword.notation.xml
+        3: variable.notation.xml
+      push:
+        - match: '>'
+          scope: punctuation.definition.tag.end.xml
+          pop: true
+        - include: double-quoted-string
+        - include: single-quoted-string
+  parameter-entity:
+    - match: '(%){{name}}(;)'
+      scope: constant.character.parameter-entity.xml
+      captures:
+        1: punctuation.definition.constant.xml
+        2: punctuation.definition.constant.xml
+  single-quoted-string:
+    - match: "'"
+      scope: punctuation.definition.string.begin.xml
+      push:
+        - meta_scope: string.quoted.single.xml
+        - match: "'"
+          scope: punctuation.definition.string.end.xml
+          pop: true
+        - include: entity
+        - include: should-be-entity
+  tag-stuff:
+    - match: '(?:\s+|^){{qualified_name}}\s*(=)'
+      captures:
+        1: entity.other.attribute-name.namespace.xml
+        2: entity.other.attribute-name.xml punctuation.separator.namespace.xml
+        3: entity.other.attribute-name.localname.xml
+        4: punctuation.separator.key-value.xml
+    - match: '(?:\s+|^)([[:alnum:]:_.-]+)\s*(=)'
+      captures:
+        1: invalid.illegal.bad-attribute-name.xml
+        2: punctuation.separator.key-value.xml
+    - include: double-quoted-string
+    - include: single-quoted-string

@@ -1,0 +1,71 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: HTTP
+file_extensions:
+  - http
+  - rest
+scope: source.http
+contexts:
+  main:
+    - match: ^\s*(?=curl)
+      push:
+        - meta_scope: http.request.curl
+        - match: '^\s*(\#{3,}.*?)?\s*$'
+          captures:
+            0: comment.source.sharp.http
+          pop: true
+        - include: scope:source.shell
+    - match: '^\s*(?=[\{\[])'
+      push:
+        - meta_scope: http.request.body.json
+        - match: '^\s*(\#{3,}.*?)?\s*$'
+          captures:
+            0: comment.source.sharp.http
+          pop: true
+        - include: scope:source.json
+    - match: ^\s*(?=\<\S)
+      push:
+        - meta_scope: http.request.body.xml
+        - match: '^\s*(\#{3,}.*?)?\s*$'
+          captures:
+            0: comment.source.sharp.http
+          pop: true
+        - include: scope:text.xml
+    - match: '^\s*#{1,}\s*(((@)name)\s+(\S+))?.*$'
+      scope: comment.source.sharp.http
+      captures:
+        2: storage.type.class.metadata
+        3: punctuation.definition.block.tag.metadata
+        4: entity.name.type.instance.metadata
+    - match: '^\s*/{2,}\s*(((@)name)\s+(\S+))?.*$'
+      scope: comment.source.double-slash.http
+      captures:
+        2: storage.type.class.metadata
+        3: punctuation.definition.block.tag.metadata
+        4: entity.name.type.instance.metadata
+    - match: ^(?:((?i)get|post|put|delete|patch|head|options|connect|trace(-?))\s+)?\s*(\S+)(?:\s+(((?i)HTTP(-?))\/(\S+)))?$
+      scope: http.requestline
+      captures:
+        1: keyword.control.http
+        3: const.language.http
+        5: keyword.other.http
+        7: constant.numeric.http
+    - match: '^([\w\-]+)\s*\:\s*(.*?)\s*$'
+      scope: http.requestheaders
+      captures:
+        1: support.variable.http
+        2: string.other.http
+    - match: '^\s*((?i)HTTP(-?))\/(\S+)\s([1-5][0-9][0-9])\s(.*)$'
+      scope: http.responseLine
+      captures:
+        1: keyword.other.http
+        3: constant.numeric.http
+        4: constant.numeric.http
+        5: keyword.other.http
+    - match: '^\s*(@)([^\s=]+)\s*=\s*(.+)\s*$'
+      scope: http.filevariable
+      captures:
+        1: keyword.other.http
+        2: variable.other.http
+        3: string.other.http
