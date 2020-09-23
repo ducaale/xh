@@ -4,7 +4,7 @@ use crate::Pretty;
 use ansi_term;
 use ansi_term::Color::{self, Fixed, RGB};
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use serde::Serialize;
 use serde_json::Value;
 use syntect::easy::HighlightLines;
@@ -159,24 +159,34 @@ pub fn print_response_headers(response: &Response) {
     println!("\x1b[0m");
 }
 
-// TODO: support pretty printing more response types
-pub fn print_body(body: Box<dyn FnOnce() -> String>, content_type: Option<&str>, pretty: &Pretty) {
-    if let Some(content_type) = content_type {
-        if !content_type.contains("application") && !content_type.contains("text") {
-            print!("\n\n");
-            println!("+-----------------------------------------+");
-            println!("| NOTE: binary data not shown in terminal |");
-            println!("+-----------------------------------------+");
-            print!("\n\n");
-        } else if content_type.contains("json") {
-            print_json(&body(), &pretty);
-        } else if content_type.contains("xml") {
-            print_xml(&body(), &pretty);
-        } else if content_type.contains("html") {
-            print_html(&body(), &pretty);
-        } else {
-            println!("{}", &body());
-        }
+fn print_binary_suppressor() {
+    print!("\n\n");
+    println!("+-----------------------------------------+");
+    println!("| NOTE: binary data not shown in terminal |");
+    println!("+-----------------------------------------+");
+    print!("\n\n");
+}
+
+fn get_content_type(headers: &HeaderMap) -> Option<&str> {
+    headers.get(CONTENT_TYPE)?.to_str().ok()
+}
+
+pub fn print_response_body(response: Response, pretty: &Pretty) {
+    let content_type = match get_content_type(&response.headers()) {
+        Some(content_type) => content_type,
+        None => return
+    };
+
+    if !content_type.contains("application") && !content_type.contains("text") {
+        print_binary_suppressor();
+    } else if content_type.contains("json") {
+        print_json(&response.text().unwrap(), &pretty);
+    } else if content_type.contains("xml") {
+        print_xml(&response.text().unwrap(), &pretty);
+    } else if content_type.contains("html") {
+        print_html(&response.text().unwrap(), &pretty);
+    } else {
+        println!("{}", &response.text().unwrap());
     }
     print!("\n");
 }

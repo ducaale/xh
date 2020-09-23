@@ -13,10 +13,6 @@ mod display;
 
 use cli::{Method, Opt, Pretty, RequestItem};
 
-fn get_content_type(headers: &HeaderMap) -> Option<&str> {
-    headers.get(CONTENT_TYPE)?.to_str().ok()
-}
-
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
@@ -86,15 +82,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     if !opt.offline {
         let response = client.execute(request)?;
-        let headers = response.headers().clone();
-        let content_type = get_content_type(&headers);
-
         display::print_response_headers(&response);
-        display::print_body(
-            Box::new(|| response.text().unwrap()), // TODO: read response as stream
-            content_type,
-            &format_option,
-        );
+        display::print_response_body(response, &format_option);
     }
     Ok(())
 }
