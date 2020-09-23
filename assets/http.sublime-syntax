@@ -62,7 +62,7 @@ contexts:
         1: keyword.other.http
         3: constant.numeric.http
         4: constant.numeric.http
-        5: keyword.other.http
+        5: keyword.reason.http
     - match: '^\s*(@)([^\s=]+)\s*=\s*(.+)\s*$'
       scope: http.filevariable
       captures:

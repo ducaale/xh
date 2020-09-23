@@ -16,7 +16,7 @@ contexts:
         - meta_scope: comment.block.jsonkv
         - match: \*/
           pop: true
-    - match: '"(?i)([^\"]+)"\s*?:'
+    - match: '(\".+?\")\s*?:'
       comment: Key names
       captures:
         1: keyword.other.name.jsonkv
