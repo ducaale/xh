@@ -555,8 +555,7 @@
                     <string>#06000000</string>
                 </dict>
             </dict>
-            <!-- numbers, booleans and null -->
-            <!-- HTTP headers -->
+            <!-- JSON -->
             <dict>
                 <key>name</key>
                 <string>JSON keys</string>
