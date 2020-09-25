@@ -209,7 +209,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#03000000</string>
+                    <string>#04000000</string>
                 </dict>
             </dict>
             <dict>
@@ -220,18 +220,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#03000000</string>
-                </dict>
-            </dict>
-            <dict>
-                <key>name</key>
-                <string>Boolean</string>
-                <key>scope</key>
-                <string>none</string>
-                <key>settings</key>
-                <dict>
-                    <key>foreground</key>
-                    <string>#03000000</string>
+                    <string>#04000000</string>
                 </dict>
             </dict>
             <dict>
@@ -242,7 +231,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#03000000</string>
+                    <string>#04000000</string>
                 </dict>
             </dict>
             <dict>
