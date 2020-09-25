@@ -560,6 +560,8 @@
                 <string>const.language.http</string>
                 <key>settings</key>
                 <dict>
+                    <key>fontStyle</key>
+                    <string>underline</string>
                     <key>foreground</key>
                     <string>#06000000</string>
                 </dict>

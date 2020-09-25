@@ -1,14 +1,14 @@
 use std::fmt::Write;
 
 use crate::Pretty;
-use ansi_term;
+use ansi_term::{self, Style};
 use ansi_term::Color::{self, Fixed, RGB};
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use serde::Serialize;
 use serde_json::Value;
 use syntect::easy::HighlightLines;
-use syntect::highlighting::ThemeSet;
+use syntect::highlighting::{ThemeSet, FontStyle};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
 
@@ -62,13 +62,18 @@ fn colorize<'a>(text: &'a str, syntax: &str) -> impl Iterator<Item = String> + '
         let mut s: String = String::new();
         let highlights = h.highlight(line, &PS);
         for (style, component) in highlights {
-            let color = to_ansi_color(style.foreground);
+            let mut color = Style::from(to_ansi_color(style.foreground));
+            if style.font_style.contains(FontStyle::UNDERLINE) {
+                color = color.underline();
+            }
             write!(s, "{}", &color.paint(component)).unwrap();
         }
         s
     })
 }
 
+// TODO: determine if I should replace serde with https://github.com/gamache/jsonxf
+// since the latter has support for pretty printing streams
 fn indent_json(text: &str) -> String {
     let data: Value = serde_json::from_str(&text).unwrap();
     let buf = Vec::new();
@@ -86,8 +91,8 @@ pub fn print_json(text: &str, options: &Pretty) {
         Pretty::Colors => {
             colorize(text, "json").for_each(|line| print!("{}", line));
         }
-        Pretty::Format => println!("{}", indent_json(text)),
-        Pretty::None => println!("{}", text),
+        Pretty::Format => print!("{}", indent_json(text)),
+        Pretty::None => print!("{}", text),
     }
     println!("\x1b[0m");
 }
@@ -95,7 +100,7 @@ pub fn print_json(text: &str, options: &Pretty) {
 pub fn print_xml(text: &str, options: &Pretty) {
     match options {
         Pretty::All | Pretty::Colors => colorize(text, "xml").for_each(|line| print!("{}", line)),
-        Pretty::Format | Pretty::None => println!("{}", text),
+        Pretty::Format | Pretty::None => print!("{}", text),
     }
     println!("\x1b[0m");
 }
@@ -103,7 +108,7 @@ pub fn print_xml(text: &str, options: &Pretty) {
 pub fn print_html(text: &str, options: &Pretty) {
     match options {
         Pretty::All | Pretty::Colors => colorize(text, "html").for_each(|line| print!("{}", line)),
-        Pretty::Format | Pretty::None => println!("{}", text),
+        Pretty::Format | Pretty::None => print!("{}", text),
     }
     println!("\x1b[0m");
 }
@@ -124,7 +129,7 @@ fn headers_to_string(headers: &HeaderMap, sort: bool) -> String {
     header_string
 }
 
-pub fn print_request_headers(request: &Request) {
+pub fn print_request_headers(request: &Request, options: &Pretty) {
     let method = request.method();
     let url = request.url();
     let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -132,15 +137,22 @@ pub fn print_request_headers(request: &Request) {
     let headers = request.headers();
 
     let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-    let headers = &headers_to_string(headers, true);
+    let headers = &headers_to_string(headers, *options != Pretty::None);
 
-    for line in colorize(&(request_line + &headers), "http") {
-        print!("{}", line)
+    match options {
+        Pretty::All | Pretty::Colors => {
+            for line in colorize(&(request_line + &headers), "http") {
+                print!("{}", line)
+            }
+            println!("\x1b[0m");
+        }
+        Pretty::Format | Pretty::None => {
+            println!("{}", &(request_line + &headers));
+        }
     }
-    println!("\x1b[0m");
 }
 
-pub fn print_response_headers(response: &Response) {
+pub fn print_response_headers(response: &Response, options: &Pretty) {
     let version = response.version();
     let status = response.status();
     let headers = response.headers();
@@ -151,12 +163,19 @@ pub fn print_response_headers(response: &Response) {
         status.as_str(),
         status.canonical_reason().unwrap()
     );
-    let headers = headers_to_string(headers, true);
+    let headers = headers_to_string(headers, *options != Pretty::None);
 
-    for line in colorize(&(status_line + &headers), "http") {
-        print!("{}", line)
+    match options {
+        Pretty::All | Pretty::Colors => {
+            for line in colorize(&(status_line + &headers), "http") {
+                print!("{}", line)
+            }
+            println!("\x1b[0m");
+        }
+        Pretty::Format | Pretty::None => {
+            println!("{}", &(status_line + &headers));
+        }
     }
-    println!("\x1b[0m");
 }
 
 fn print_binary_suppressor() {

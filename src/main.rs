@@ -71,7 +71,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     print!("\n");
 
     if opt.verbose {
-        display::print_request_headers(&request);
+        display::print_request_headers(&request, &format_option);
         if let Some(body) = request.body() {
             display::print_json(
                 &String::from_utf8(body.as_bytes().unwrap().into())?,
@@ -82,7 +82,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     if !opt.offline {
         let response = client.execute(request)?;
-        display::print_response_headers(&response);
+        display::print_response_headers(&response, &format_option);
         display::print_response_body(response, &format_option);
     }
     Ok(())
