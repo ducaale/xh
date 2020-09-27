@@ -1,12 +1,12 @@
 use std::fmt::Write;
 
 use crate::Pretty;
-use ansi_term::{self, Style};
 use ansi_term::Color::{self, Fixed, RGB};
+use ansi_term::{self, Style};
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{ThemeSet, FontStyle};
+use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
 
@@ -186,7 +186,7 @@ fn get_content_type(headers: &HeaderMap) -> Option<&str> {
 pub fn print_response_body(response: Response, pretty: &Pretty) {
     let content_type = match get_content_type(&response.headers()) {
         Some(content_type) => content_type,
-        None => return
+        None => return,
     };
 
     if !content_type.contains("application") && !content_type.contains("text") {
