@@ -10,6 +10,7 @@ regex = "1"
 reqwest = { version = "0.10", features = ["blocking"] }
 serde = "1.0"
 serde_json = "1.0"
+jsonxf = "1.0"
 syntect = "4.4"
 ansi_term = "0.12"
 lazy_static = "1.4.0"

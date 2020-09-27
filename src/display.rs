@@ -5,8 +5,6 @@ use ansi_term::{self, Style};
 use ansi_term::Color::{self, Fixed, RGB};
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
-use serde::Serialize;
-use serde_json::Value;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{ThemeSet, FontStyle};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
@@ -72,15 +70,10 @@ fn colorize<'a>(text: &'a str, syntax: &str) -> impl Iterator<Item = String> + '
     })
 }
 
-// TODO: determine if I should replace serde with https://github.com/gamache/jsonxf
-// since the latter has support for pretty printing streams
 fn indent_json(text: &str) -> String {
-    let data: Value = serde_json::from_str(&text).unwrap();
-    let buf = Vec::new();
-    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-    data.serialize(&mut ser).unwrap();
-    String::from_utf8(ser.into_inner()).unwrap()
+    let mut fmt = jsonxf::Formatter::pretty_printer();
+    fmt.indent = String::from("    ");
+    fmt.format(text).unwrap()
 }
 
 pub fn print_json(text: &str, options: &Pretty) {

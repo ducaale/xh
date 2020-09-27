@@ -268,6 +268,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -437,6 +446,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85a7e2c92a4804dd459b86c339278d0fe87cf93757fae222c3fa3ae75458bc73"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "jsonxf"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1c131021d6dd5a3baa45e184fd99dc0955024c17945aaa8f21802e1d0c977f3"
+dependencies = [
+ "getopts",
 ]
 
 [[package]]
@@ -1449,6 +1467,7 @@ name = "yahc"
 version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
+ "jsonxf",
  "lazy_static",
  "regex",
  "reqwest",
