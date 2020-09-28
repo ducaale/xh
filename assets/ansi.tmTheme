@@ -70,7 +70,7 @@
                 <key>name</key>
                 <string>Doctype</string>
                 <key>scope</key>
-                <string>meta.tag.sgml, keyword.doctype, variable.documentroot</string>
+                <string>meta.tag.sgml, entity.name.tag.doctype</string>
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
