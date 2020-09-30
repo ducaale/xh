@@ -22,6 +22,10 @@ pub struct Opt {
     #[structopt(short, long, possible_values = &Pretty::variants(), case_insensitive = true)]
     pub pretty: Option<Pretty>,
 
+    /// Output coloring style.
+    #[structopt(short, long, possible_values = &Theme::variants(), case_insensitive = true)]
+    pub style: Option<Theme>,
+
     /// Specify the auth mechanism.
     #[structopt(short = "A", long = "auth-type")]
     pub auth_type: Option<String>,
@@ -109,5 +113,12 @@ arg_enum! {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Pretty {
         All, Colors, Format, None
+    }
+}
+
+arg_enum! {
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Theme {
+        Auto, Solarized
     }
 }

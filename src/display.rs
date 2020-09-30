@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use crate::Pretty;
+use crate::{Pretty, Theme};
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use reqwest::blocking::{Request, Response};
@@ -9,6 +9,9 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
+
+
+// TOOD: convert display to an object that gets instantiated
 
 // https://github.com/sharkdp/bat/blob/3a85fd767bd1f03debd0a60ac5bc08548f95bc9d/src/terminal.rs
 fn to_ansi_color(color: syntect::highlighting::Color) -> ansi_term::Color {
@@ -45,7 +48,7 @@ fn to_ansi_color(color: syntect::highlighting::Color) -> ansi_term::Color {
     }
 }
 
-fn colorize<'a>(text: &'a str, syntax: &str) -> impl Iterator<Item = String> + 'a {
+fn colorize<'a>(text: &'a str, syntax: &str, theme: &Theme) -> impl Iterator<Item = String> + 'a {
     lazy_static! {
         static ref TS: ThemeSet = ThemeSet::load_from_folder("assets").unwrap();
         static ref PS: SyntaxSet = {
@@ -55,7 +58,11 @@ fn colorize<'a>(text: &'a str, syntax: &str) -> impl Iterator<Item = String> + '
         };
     }
     let syntax = PS.find_syntax_by_extension(syntax).unwrap();
-    let mut h = HighlightLines::new(syntax, &TS.themes["ansi"]);
+    let mut h = match theme {
+        Theme::Auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
+        Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
+    };
+
     LinesWithEndings::from(text).map(move |line| {
         let mut s: String = String::new();
         let highlights = h.highlight(line, &PS);
@@ -76,13 +83,13 @@ fn indent_json(text: &str) -> String {
     fmt.format(text).unwrap()
 }
 
-pub fn print_json(text: &str, options: &Pretty) {
+pub fn print_json(text: &str, options: &Pretty, theme: &Theme) {
     match options {
         Pretty::All => {
-            colorize(&indent_json(text), "json").for_each(|line| print!("{}", line));
+            colorize(&indent_json(text), "json", theme).for_each(|line| print!("{}", line));
         }
         Pretty::Colors => {
-            colorize(text, "json").for_each(|line| print!("{}", line));
+            colorize(text, "json", theme).for_each(|line| print!("{}", line));
         }
         Pretty::Format => print!("{}", indent_json(text)),
         Pretty::None => print!("{}", text),
@@ -90,17 +97,17 @@ pub fn print_json(text: &str, options: &Pretty) {
     println!("\x1b[0m");
 }
 
-pub fn print_xml(text: &str, options: &Pretty) {
+pub fn print_xml(text: &str, options: &Pretty, theme: &Theme) {
     match options {
-        Pretty::All | Pretty::Colors => colorize(text, "xml").for_each(|line| print!("{}", line)),
+        Pretty::All | Pretty::Colors => colorize(text, "xml", theme).for_each(|line| print!("{}", line)),
         Pretty::Format | Pretty::None => print!("{}", text),
     }
     println!("\x1b[0m");
 }
 
-pub fn print_html(text: &str, options: &Pretty) {
+pub fn print_html(text: &str, options: &Pretty, theme: &Theme) {
     match options {
-        Pretty::All | Pretty::Colors => colorize(text, "html").for_each(|line| print!("{}", line)),
+        Pretty::All | Pretty::Colors => colorize(text, "html", theme).for_each(|line| print!("{}", line)),
         Pretty::Format | Pretty::None => print!("{}", text),
     }
     println!("\x1b[0m");
@@ -122,7 +129,7 @@ fn headers_to_string(headers: &HeaderMap, sort: bool) -> String {
     header_string
 }
 
-pub fn print_request_headers(request: &Request, options: &Pretty) {
+pub fn print_request_headers(request: &Request, options: &Pretty, theme: &Theme) {
     let method = request.method();
     let url = request.url();
     let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -134,7 +141,7 @@ pub fn print_request_headers(request: &Request, options: &Pretty) {
 
     match options {
         Pretty::All | Pretty::Colors => {
-            for line in colorize(&(request_line + &headers), "http") {
+            for line in colorize(&(request_line + &headers), "http", theme) {
                 print!("{}", line)
             }
             println!("\x1b[0m");
@@ -145,7 +152,7 @@ pub fn print_request_headers(request: &Request, options: &Pretty) {
     }
 }
 
-pub fn print_response_headers(response: &Response, options: &Pretty) {
+pub fn print_response_headers(response: &Response, options: &Pretty, theme: &Theme) {
     let version = response.version();
     let status = response.status();
     let headers = response.headers();
@@ -160,7 +167,7 @@ pub fn print_response_headers(response: &Response, options: &Pretty) {
 
     match options {
         Pretty::All | Pretty::Colors => {
-            for line in colorize(&(status_line + &headers), "http") {
+            for line in colorize(&(status_line + &headers), "http", theme) {
                 print!("{}", line)
             }
             println!("\x1b[0m");
@@ -183,7 +190,7 @@ fn get_content_type(headers: &HeaderMap) -> Option<&str> {
     headers.get(CONTENT_TYPE)?.to_str().ok()
 }
 
-pub fn print_response_body(response: Response, pretty: &Pretty) {
+pub fn print_response_body(response: Response, pretty: &Pretty, theme: &Theme) {
     let content_type = match get_content_type(&response.headers()) {
         Some(content_type) => content_type,
         None => return,
@@ -192,11 +199,11 @@ pub fn print_response_body(response: Response, pretty: &Pretty) {
     if !content_type.contains("application") && !content_type.contains("text") {
         print_binary_suppressor();
     } else if content_type.contains("json") {
-        print_json(&response.text().unwrap(), &pretty);
+        print_json(&response.text().unwrap(), &pretty, &theme);
     } else if content_type.contains("xml") {
-        print_xml(&response.text().unwrap(), &pretty);
+        print_xml(&response.text().unwrap(), &pretty, &theme);
     } else if content_type.contains("html") {
-        print_html(&response.text().unwrap(), &pretty);
+        print_html(&response.text().unwrap(), &pretty, &theme);
     } else {
         println!("{}", &response.text().unwrap());
     }
