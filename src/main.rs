@@ -1,9 +1,10 @@
+use std::collections::HashMap;
+
 use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_LENGTH,
     CONTENT_TYPE, HOST,
 };
-use serde_json::{Map, Value};
 use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
@@ -22,7 +23,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let url = opt.url;
     let mut query = vec![];
     let mut headers = HeaderMap::new();
-    let mut body = Map::new();
+    let mut body = HashMap::new();
 
     headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
     headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"));
@@ -43,7 +44,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 query.push((key, value));
             }
             RequestItem::DataField(key, value) => {
-                body.insert(key, Value::String(value));
+                body.insert(key, value);
             }
         };
     }
@@ -51,7 +52,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let request = match opt.method {
         Method::PUT | Method::POST | Method::PATCH if body.len() > 0 => {
-            let body = Value::Object(body.clone()).to_string();
+            let body = serde_json::to_string(&body).unwrap();
             let content_length = HeaderValue::from_str(&body.len().to_string())?;
             headers.insert(CONTENT_LENGTH, content_length);
             headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));

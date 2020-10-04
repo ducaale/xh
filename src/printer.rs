@@ -1,6 +1,5 @@
 use std::fmt::Write;
 
-use crate::{Opt, Pretty, Theme};
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use reqwest::blocking::{Request, Response};
@@ -9,6 +8,8 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
+
+use crate::{Opt, Pretty, Theme};
 
 pub struct Printer {
     indent_json: bool,
