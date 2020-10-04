@@ -7,8 +7,6 @@
 - [ansi-dark theme](https://github.com/sharkdp/bat/blob/master/assets/themes/ansi-dark.tmTheme)
 
 ## TODO
-- [ ] Stream response body https://stackoverflow.com/questions/60197787/how-do-i-deserialize-the-byte-stream-from-a-reqwest-response-into-json
-- [ ] Cleanup assets
-- [ ] Port more themes from HTTPie
+- [ ] support sending forms
 - [ ] Implement auth flag
 - [ ] Implement HTTPie-like plugin system, preferably in lua
