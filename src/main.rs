@@ -52,10 +52,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let request = match opt.method {
         Method::PUT | Method::POST | Method::PATCH if body.len() > 0 => {
-            let body = serde_json::to_string(&body).unwrap();
+            let body = if opt.form {
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/x-www-form-urlencoded"));
+                serde_urlencoded::to_string(&body).unwrap()
+            } else if opt.json {
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                serde_json::to_string(&body).unwrap()
+            } else {
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                serde_json::to_string(&body).unwrap()
+            };
             let content_length = HeaderValue::from_str(&body.len().to_string())?;
             headers.insert(CONTENT_LENGTH, content_length);
-            headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             client
                 .request(opt.method.clone().into(), url)
                 .query(&query)
@@ -74,9 +82,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     if opt.verbose {
         printer.print_request_headers(&request);
-        if let Some(body) = request.body() {
-            printer.print_json(&String::from_utf8(body.as_bytes().unwrap().into())?);
-        }
+        printer.print_request_body(&request);
     }
 
     if !opt.offline {

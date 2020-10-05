@@ -131,6 +131,23 @@ impl Printer {
         print!("\n\n");
     }
 
+    pub fn print_request_body(&self, request: &Request) {
+        let content_type = match get_content_type(&request.headers()) {
+            Some(content_type) => content_type,
+            None => return,
+        };
+
+        if let Some(body) = request.body() {
+            let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
+            if content_type.contains("json") {
+                self.print_json(body);
+            } else {
+                println!("{}", body);
+            }
+        }
+        print!("\n");
+    }
+
     pub fn print_response_body(&self, response: Response) {
         let content_type = match get_content_type(&response.headers()) {
             Some(content_type) => content_type,

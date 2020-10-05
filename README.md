@@ -7,6 +7,7 @@
 - [ansi-dark theme](https://github.com/sharkdp/bat/blob/master/assets/themes/ansi-dark.tmTheme)
 
 ## TODO
-- [ ] support sending forms
+- [ ] Add Monokai theme
 - [ ] Implement auth flag
+- [ ] Support sending files as form fields
 - [ ] Implement HTTPie-like plugin system, preferably in lua

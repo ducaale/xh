@@ -15,6 +15,14 @@ pub struct Opt {
     #[structopt(short, long)]
     pub offline: bool,
 
+    /// (default) Data items from the command line are serialized as a JSON object.
+    #[structopt(short = "j", long)]
+    pub json: bool,
+
+    /// Data items from the command line are serialized as form fields.
+    #[structopt(short = "f", long)]
+    pub form: bool,
+
     #[structopt(short = "a", long)]
     pub auth: Option<String>,
 
