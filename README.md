@@ -9,5 +9,5 @@
 ## TODO
 - [ ] Add Monokai theme
 - [ ] Implement auth flag
-- [ ] Support sending files as form fields
+- [ ] Support sending files as form fields. https://stackoverflow.com/questions/63873082/converting-a-simple-python-requests-post-to-rust-reqwest
 - [ ] Implement HTTPie-like plugin system, preferably in lua

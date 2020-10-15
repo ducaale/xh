@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_LENGTH,
@@ -12,7 +10,7 @@ extern crate lazy_static;
 mod cli;
 mod printer;
 
-use cli::{Method, Opt, Pretty, RequestItem, Theme};
+use cli::{Opt, Pretty, RequestItem, Theme};
 use printer::Printer;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -23,7 +21,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let url = opt.url;
     let mut query = vec![];
     let mut headers = HeaderMap::new();
-    let mut body = HashMap::new();
+    let mut body = serde_json::Map::new();
 
     headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
     headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"));
@@ -44,39 +42,44 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 query.push((key, value));
             }
             RequestItem::DataField(key, value) => {
+                body.insert(key, serde_json::Value::String(value));
+            }
+            RequestItem::RawDataField(key, value) => {
                 body.insert(key, value);
             }
         };
     }
 
-    let client = Client::new();
-    let request = match opt.method {
-        Method::PUT | Method::POST | Method::PATCH if body.len() > 0 => {
-            let body = if opt.form {
-                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/x-www-form-urlencoded"));
-                serde_urlencoded::to_string(&body).unwrap()
-            } else if opt.json {
-                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-                serde_json::to_string(&body).unwrap()
-            } else {
-                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-                serde_json::to_string(&body).unwrap()
-            };
-            let content_length = HeaderValue::from_str(&body.len().to_string())?;
-            headers.insert(CONTENT_LENGTH, content_length);
-            client
-                .request(opt.method.clone().into(), url)
-                .query(&query)
-                .headers(headers)
-                .body(body.clone())
-                .build()?
+    let body = if body.len() > 0 {
+        if opt.form {
+            serde_urlencoded::to_string(&body).unwrap()
+        } else {
+            serde_json::to_string(&body).unwrap()
         }
-        _ => client
-            .request(opt.method.clone().into(), url)
-            .query(&query)
-            .headers(headers)
-            .build()?,
+    } else {
+        String::from("")
     };
+
+    if body.len() > 0 {
+        if opt.form {
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/x-www-form-urlencoded"),
+            );
+        } else {
+            headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        }
+        let content_length = HeaderValue::from_str(&body.len().to_string())?;
+        headers.insert(CONTENT_LENGTH, content_length);
+    }
+
+    let client = Client::new();
+    let request = client
+        .request(opt.method.clone().into(), url)
+        .query(&query)
+        .headers(headers)
+        .body(body)
+        .build()?;
 
     print!("\n");
 
