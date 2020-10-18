@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
@@ -87,10 +87,17 @@ impl Printer {
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
         let version = reqwest::Version::HTTP_11;
-        let headers = request.headers();
+        let mut headers = request.headers().clone();
+
+        // See https://github.com/seanmonstar/reqwest/issues/1030
+        if let Some(body) = request.body() {
+            let content_length =
+                HeaderValue::from_str(&body.as_bytes().unwrap().len().to_string()).unwrap();
+            headers.insert(CONTENT_LENGTH, content_length);
+        }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-        let headers = &headers_to_string(headers, self.sort_headers);
+        let headers = &headers_to_string(&headers, self.sort_headers);
 
         if self.color {
             colorize(&(request_line + &headers), "http", &self.theme)

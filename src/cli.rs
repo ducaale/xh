@@ -50,6 +50,7 @@ pub struct Opt {
     pub request_items: Vec<RequestItem>,
 }
 
+// TODO: add remaining methods
 arg_enum! {
     #[derive(Debug, Clone)]
     pub enum Method {
@@ -92,13 +93,14 @@ pub enum RequestItem {
     HttpHeader(String, String),
     UrlParam(String, String),
     DataField(String, String),
-    RawDataField(String, serde_json::Value),
+    JSONField(String, serde_json::Value),
+    FormFile(String, String),
 }
 
 impl std::str::FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re = Regex::new(r"^(.+?)(==|:=|=|:)(.+)$").unwrap();
+        let re = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
         if let Some(caps) = re.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
@@ -106,10 +108,11 @@ impl std::str::FromStr for RequestItem {
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
                 "==" => Ok(RequestItem::UrlParam(key, value)),
                 "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::RawDataField(
+                ":=" => Ok(RequestItem::JSONField(
                     key,
                     serde_json::from_str(&value).unwrap(),
                 )),
+                "@" => Ok(RequestItem::FormFile(key, value)),
                 _ => unreachable!(),
             }
         } else {
