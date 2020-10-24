@@ -2,6 +2,9 @@ use reqwest::blocking::multipart;
 
 use crate::{Opt, RequestItem};
 
+// TODO: replace this with RequestItem enum from cli.rs
+// and add methods for getting headers, url_params, and
+// an enum body that is either json, form or url_encoded
 pub enum RequestBody {
     JSON(serde_json::Map<String, serde_json::Value>),
     Form {
