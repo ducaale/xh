@@ -1,8 +1,8 @@
 use reqwest::blocking::multipart;
-use reqwest::Url;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, HOST,
 };
+use reqwest::Url;
 
 use crate::RequestItem;
 
@@ -44,9 +44,8 @@ pub fn query(request_items: &Vec<RequestItem>) -> Vec<(&String, &String)> {
 pub enum Body {
     Json(serde_json::Map<String, serde_json::Value>),
     Form(Vec<(String, String)>),
-    Multipart(multipart::Form)
+    Multipart(multipart::Form),
 }
-
 
 pub fn body(request_items: &Vec<RequestItem>, as_form: bool) -> Option<Body> {
     if !as_form {
@@ -68,8 +67,7 @@ pub fn body(request_items: &Vec<RequestItem>, as_form: bool) -> Option<Body> {
         } else {
             None
         }
-    }
-    else {
+    } else {
         let mut text_fields = Vec::<(String, String)>::new();
         let mut files = Vec::<(String, String)>::new();
         for item in request_items {

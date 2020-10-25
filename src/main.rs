@@ -4,12 +4,12 @@ use structopt::StructOpt;
 extern crate lazy_static;
 
 mod cli;
-mod request_items;
 mod printer;
+mod request_items;
 
 use cli::{Opt, Pretty, RequestItem, Theme};
-use request_items::Body;
 use printer::Printer;
+use request_items::Body;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
@@ -24,16 +24,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::new();
     let request = {
-        let mut request_builder = client
-            .request(method, url)
-            .query(&query)
-            .headers(headers);
-        
-        request_builder =  match body {
+        let mut request_builder = client.request(method, url).query(&query).headers(headers);
+
+        request_builder = match body {
             Some(Body::Json(body)) => request_builder.json(&body),
             Some(Body::Form(body)) => request_builder.form(&body),
             Some(Body::Multipart(body)) => request_builder.multipart(body),
-            None => request_builder
+            None => request_builder,
         };
 
         request_builder.build()?
