@@ -88,7 +88,7 @@ fn parse_url(url: &str) -> Url {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RequestItem {
     HttpHeader(String, String),
     UrlParam(String, String),

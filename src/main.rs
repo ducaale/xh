@@ -1,17 +1,14 @@
 use reqwest::blocking::Client;
-use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, HOST,
-};
 use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
 
 mod cli;
-mod request_body;
+mod request_items;
 mod printer;
 
 use cli::{Opt, Pretty, RequestItem, Theme};
-use request_body::RequestBody;
+use request_items::Body;
 use printer::Printer;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -20,48 +17,24 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let printer = Printer::new(&opt);
 
     let url = opt.url.clone();
-    let mut query = vec![];
-    let mut headers = HeaderMap::new();
-    let mut body = RequestBody::new(&opt);
-
-    headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
-    headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"));
-    headers.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
-    headers.insert(
-        HOST,
-        HeaderValue::from_str(&url.host().unwrap().to_string())?,
-    );
-
-    for item in opt.request_items {
-        match item {
-            RequestItem::HttpHeader(key, value) => {
-                let key = HeaderName::from_bytes(&key.as_bytes())?;
-                let value = HeaderValue::from_str(&value)?;
-                headers.insert(key, value);
-            }
-            RequestItem::UrlParam(key, value) => {
-                query.push((key, value));
-            }
-            request_item => body.insert(request_item)
-        };
-    }
+    let method = opt.method.clone().into();
+    let query = request_items::query(&opt.request_items);
+    let headers = request_items::headers(&opt.request_items, &url);
+    let body = request_items::body(&opt.request_items, opt.form);
 
     let client = Client::new();
     let request = {
         let mut request_builder = client
-            .request(opt.method.clone().into(), url)
+            .request(method, url)
             .query(&query)
             .headers(headers);
-
-        if let Some(json) = body.json() {
-            request_builder = request_builder.json(json)
-        }
-        if let Some(form) = body.form() {
-            request_builder = request_builder.form(form)
-        }
-        if let Some(multipart) = body.multipart() {
-            request_builder = request_builder.multipart(multipart)
-        }
+        
+        request_builder =  match body {
+            Some(Body::Json(body)) => request_builder.json(&body),
+            Some(Body::Form(body)) => request_builder.form(&body),
+            Some(Body::Multipart(body)) => request_builder.multipart(body),
+            None => request_builder
+        };
 
         request_builder.build()?
     };

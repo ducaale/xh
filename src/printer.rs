@@ -92,6 +92,7 @@ impl Printer {
         // See https://github.com/seanmonstar/reqwest/issues/1030
         if let Some(body) = request.body() {
             let content_length =
+                // TODO: figure a way to print streamed requests i.e files
                 HeaderValue::from_str(&body.as_bytes().unwrap().len().to_string()).unwrap();
             headers.insert(CONTENT_LENGTH, content_length);
         }
