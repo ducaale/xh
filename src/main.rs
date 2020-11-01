@@ -7,9 +7,9 @@ mod cli;
 mod printer;
 mod request_items;
 
-use cli::{Opt, Pretty, RequestItem, Theme};
+use cli::{Opt, Pretty, Theme};
 use printer::Printer;
-use request_items::Body;
+use request_items::{RequestItems, Body};
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
@@ -18,9 +18,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let url = opt.url.clone();
     let method = opt.method.clone().into();
-    let query = request_items::query(&opt.request_items);
-    let headers = request_items::headers(&opt.request_items, &url);
-    let body = request_items::body(&opt.request_items, opt.form);
+    let request_items = RequestItems::new(opt.request_items);
+    let query = request_items.query();
+    let headers = request_items.headers(&url);
+    let body = request_items.body(opt.form);
 
     let client = Client::new();
     let request = {

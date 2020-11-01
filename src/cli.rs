@@ -1,6 +1,6 @@
 use regex::Regex;
 use reqwest::Url;
-use structopt::clap::{arg_enum, Error, ErrorKind, Result};
+use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
 /// Yet another HTTPie clone
@@ -47,7 +47,7 @@ pub struct Opt {
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(name = "REQUEST_ITEM")]
-    pub request_items: Vec<RequestItem>,
+    pub request_items: Vec<String>,
 }
 
 // TODO: add remaining methods
@@ -85,42 +85,6 @@ fn parse_url(url: &str) -> Url {
         Url::parse(&url).unwrap()
     } else {
         Url::parse(url).unwrap()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum RequestItem {
-    HttpHeader(String, String),
-    UrlParam(String, String),
-    DataField(String, String),
-    JSONField(String, serde_json::Value),
-    FormFile(String, String),
-}
-
-impl std::str::FromStr for RequestItem {
-    type Err = Error;
-    fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
-        if let Some(caps) = re.captures(request_item) {
-            let key = caps[1].to_string();
-            let value = caps[3].to_string();
-            match &caps[2] {
-                ":" => Ok(RequestItem::HttpHeader(key, value)),
-                "==" => Ok(RequestItem::UrlParam(key, value)),
-                "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JSONField(
-                    key,
-                    serde_json::from_str(&value).unwrap(),
-                )),
-                "@" => Ok(RequestItem::FormFile(key, value)),
-                _ => unreachable!(),
-            }
-        } else {
-            Err(Error::with_description(
-                &format!("{:?} is not a valid value", request_item),
-                ErrorKind::InvalidValue,
-            ))
-        }
     }
 }
 
