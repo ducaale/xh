@@ -1,5 +1,3 @@
-use regex::Regex;
-use reqwest::Url;
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
@@ -12,7 +10,7 @@ pub struct Opt {
     pub verbose: bool,
 
     /// Construct HTTP requests without sending them anywhere.
-    #[structopt(short, long)]
+    #[structopt(long)]
     pub offline: bool,
 
     /// (default) Data items from the command line are serialized as a JSON object.
@@ -27,23 +25,27 @@ pub struct Opt {
     pub auth: Option<String>,
 
     /// Controls output processing.
-    #[structopt(short, long, possible_values = &Pretty::variants(), case_insensitive = true)]
+    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short, long, possible_values = &Theme::variants(), case_insensitive = true)]
-    pub style: Option<Theme>,
+    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
+    pub theme: Option<Theme>,
 
     /// Specify the auth mechanism.
     #[structopt(short = "A", long = "auth-type")]
     pub auth_type: Option<String>,
 
+    /// The default scheme to use if not specified in the URL.
+    #[structopt(long = "default-scheme")]
+    pub default_scheme: Option<String>,
+
     /// The HTTP method to be used for the request.
     #[structopt(name = "METHOD", possible_values = &Method::variants(), case_insensitive = true)]
     pub method: Method,
 
-    #[structopt(name = "URL", parse(from_str = parse_url))]
-    pub url: Url,
+    #[structopt(name = "URL")]
+    pub url: String,
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(name = "REQUEST_ITEM")]
@@ -71,21 +73,6 @@ impl From<Method> for reqwest::Method {
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
         }
-    }
-}
-
-// TODO: define url struct
-fn parse_url(url: &str) -> Url {
-    let re = Regex::new("[a-zA-Z]://.+").unwrap();
-
-    if url.starts_with(":") {
-        let url = String::from("http://localhost") + url;
-        Url::parse(&url).unwrap()
-    } else if !re.is_match(url) {
-        let url = String::from("http://") + url;
-        Url::parse(&url).unwrap()
-    } else {
-        Url::parse(url).unwrap()
     }
 }
 

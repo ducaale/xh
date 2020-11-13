@@ -21,7 +21,7 @@ pub struct Printer {
 impl Printer {
     pub fn new(opt: &Opt) -> Printer {
         let pretty = opt.pretty.as_ref().unwrap_or(&Pretty::All);
-        let theme = opt.style.as_ref().unwrap_or(&Theme::Auto);
+        let theme = opt.theme.as_ref().unwrap_or(&Theme::Auto);
 
         match pretty {
             Pretty::All => Printer {

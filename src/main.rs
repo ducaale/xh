@@ -6,17 +6,19 @@ extern crate lazy_static;
 mod cli;
 mod printer;
 mod request_items;
+mod url;
 
 use cli::{Opt, Pretty, Theme};
 use printer::Printer;
-use request_items::{RequestItems, Body};
+use request_items::{Body, RequestItems};
+use url::Url;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     let printer = Printer::new(&opt);
 
-    let url = opt.url.clone();
+    let url = Url::new(&opt.url, opt.default_scheme.as_deref());
     let method = opt.method.clone().into();
     let request_items = RequestItems::new(opt.request_items);
     let query = request_items.query();
@@ -25,7 +27,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::new();
     let request = {
-        let mut request_builder = client.request(method, url).query(&query).headers(headers);
+        let mut request_builder = client.request(method, url.0).query(&query).headers(headers);
 
         request_builder = match body {
             Some(Body::Json(body)) => request_builder.json(&body),
