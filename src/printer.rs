@@ -51,7 +51,7 @@ impl Printer {
         }
     }
 
-    pub fn print_json(&self, text: &str) {
+    fn print_json(&self, text: &str) {
         match (self.indent_json, self.color) {
             (true, true) => colorize(&indent_json(text), "json", &self.theme)
                 .for_each(|line| print!("{}", line)),
@@ -64,7 +64,7 @@ impl Printer {
         println!("\x1b[0m");
     }
 
-    pub fn print_xml(&self, text: &str) {
+    fn print_xml(&self, text: &str) {
         if self.color {
             colorize(text, "xml", &self.theme).for_each(|line| print!("{}", line))
         } else {
@@ -73,7 +73,7 @@ impl Printer {
         println!("\x1b[0m");
     }
 
-    pub fn print_html(&self, text: &str) {
+    fn print_html(&self, text: &str) {
         if self.color {
             colorize(text, "html", &self.theme).for_each(|line| print!("{}", line))
         } else {
@@ -90,10 +90,8 @@ impl Printer {
         let mut headers = request.headers().clone();
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
-        if let Some(body) = request.body() {
-            let content_length =
-                // TODO: figure a way to print streamed requests i.e files
-                HeaderValue::from_str(&body.as_bytes().unwrap().len().to_string()).unwrap();
+        if let Some(body) = request.body().and_then(|body| body.as_bytes()) {
+            let content_length = HeaderValue::from_str(&body.len().to_string()).unwrap();
             headers.insert(CONTENT_LENGTH, content_length);
         }
 
@@ -131,11 +129,19 @@ impl Printer {
         }
     }
 
-    pub fn print_binary_suppressor(&self) {
+    fn print_binary_suppressor(&self) {
         print!("\n\n");
         println!("+-----------------------------------------+");
         println!("| NOTE: binary data not shown in terminal |");
         println!("+-----------------------------------------+");
+        print!("\n\n");
+    }
+
+    fn print_multipart_suppressor(&self) {
+        print!("\n\n");
+        println!("+--------------------------------------------+");
+        println!("| NOTE: multipart data not shown in terminal |");
+        println!("+--------------------------------------------+");
         print!("\n\n");
     }
 
@@ -146,10 +152,13 @@ impl Printer {
         };
 
         if let Some(body) = request.body() {
-            let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
-            if content_type.contains("json") {
+            if content_type.contains("multipart") {
+                self.print_multipart_suppressor();
+            } else if content_type.contains("json") {
+                let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
                 self.print_json(body);
             } else {
+                let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
                 println!("{}", body);
             }
         }

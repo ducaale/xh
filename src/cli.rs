@@ -74,6 +74,7 @@ impl From<Method> for reqwest::Method {
     }
 }
 
+// TODO: define url struct
 fn parse_url(url: &str) -> Url {
     let re = Regex::new("[a-zA-Z]://.+").unwrap();
 
