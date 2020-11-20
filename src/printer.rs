@@ -3,8 +3,8 @@ use std::fmt::Write;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
 
+use crate::utils::{colorize, get_content_type, indent_json};
 use crate::{Opt, Pretty, Theme};
-use crate::utils::{colorize, indent_json, get_content_type};
 
 pub struct Printer {
     indent_json: bool,
@@ -155,7 +155,6 @@ impl Printer {
             println!("{}", &(status_line + &headers));
         }
     }
-
 
     pub fn print_request_body(&self, request: &Request) {
         let content_type = match get_content_type(&request.headers()) {

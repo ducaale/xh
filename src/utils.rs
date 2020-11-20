@@ -21,7 +21,11 @@ pub fn indent_json(text: &str) -> String {
     fmt.format(text).unwrap()
 }
 
-pub fn colorize<'a>(text: &'a str, syntax: &str, theme: &Theme) -> impl Iterator<Item = String> + 'a {
+pub fn colorize<'a>(
+    text: &'a str,
+    syntax: &str,
+    theme: &Theme,
+) -> impl Iterator<Item = String> + 'a {
     lazy_static! {
         static ref TS: ThemeSet = ThemeSet::load_from_folder("assets").unwrap();
         static ref PS: SyntaxSet = {
