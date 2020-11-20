@@ -1,6 +1,7 @@
 use structopt::clap::arg_enum;
 use structopt::StructOpt;
 
+// Following doc comments were copy-pasted from HTTPie
 /// Yet another HTTPie clone
 #[derive(StructOpt, Debug)]
 #[structopt(name = "yahc")]
@@ -21,6 +22,10 @@ pub struct Opt {
     #[structopt(short = "f", long)]
     pub form: bool,
 
+    /// Specify the auth mechanism.
+    #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
+    pub auth_type: Option<AuthType>,
+
     #[structopt(short = "a", long)]
     pub auth: Option<String>,
 
@@ -31,10 +36,6 @@ pub struct Opt {
     /// Output coloring style.
     #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
     pub theme: Option<Theme>,
-
-    /// Specify the auth mechanism.
-    #[structopt(short = "A", long = "auth-type")]
-    pub auth_type: Option<String>,
 
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
@@ -73,6 +74,13 @@ impl From<Method> for reqwest::Method {
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
         }
+    }
+}
+
+arg_enum! {
+    #[derive(Debug)]
+    pub enum AuthType {
+        Basic, Bearer
     }
 }
 

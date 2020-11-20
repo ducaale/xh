@@ -8,5 +8,4 @@
 
 ## TODO
 - [ ] Add Monokai theme
-- [ ] Implement auth flag
 - [ ] Implement HTTPie-like plugin system, preferably in lua
