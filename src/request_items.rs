@@ -18,6 +18,14 @@ enum RequestItem {
     FormFile(String, String),
 }
 
+pub struct RequestItems(Vec<RequestItem>);
+
+pub enum Body {
+    Json(serde_json::Map<String, serde_json::Value>),
+    Form(Vec<(String, String)>),
+    Multipart(multipart::Form),
+}
+
 impl FromStr for RequestItem {
     type Err = Box<dyn Error>;
     fn from_str(request_item: &str) -> Result<RequestItem, Box<dyn Error>> {
@@ -42,14 +50,6 @@ impl FromStr for RequestItem {
         }
     }
 }
-
-pub enum Body {
-    Json(serde_json::Map<String, serde_json::Value>),
-    Form(Vec<(String, String)>),
-    Multipart(multipart::Form),
-}
-
-pub struct RequestItems(Vec<RequestItem>);
 
 impl From<Vec<String>> for RequestItems {
     fn from(request_items: Vec<String>) -> RequestItems {

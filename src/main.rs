@@ -7,6 +7,7 @@ mod cli;
 mod printer;
 mod request_items;
 mod url;
+mod utils;
 
 use cli::{Opt, Pretty, Theme};
 use printer::Printer;
