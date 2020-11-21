@@ -7,5 +7,6 @@
 - [ansi-dark theme](https://github.com/sharkdp/bat/blob/master/assets/themes/ansi-dark.tmTheme)
 
 ## TODO
+- [ ] disable coloring stdout is being piped https://stackoverflow.com/questions/54013753/is-there-a-cross-platform-way-to-check-if-stdout-is-being-piped-into-another-pro
 - [ ] Add Monokai theme
 - [ ] Implement HTTPie-like plugin system, preferably in lua
