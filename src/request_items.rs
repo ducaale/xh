@@ -1,22 +1,8 @@
-use std::error::Error;
-use std::str::FromStr;
-
-use regex::Regex;
 use reqwest::blocking::multipart;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, HOST,
 };
-
-use crate::Url;
-
-#[derive(Debug, Clone)]
-enum RequestItem {
-    HttpHeader(String, String),
-    UrlParam(String, String),
-    DataField(String, String),
-    JSONField(String, serde_json::Value),
-    FormFile(String, String),
-}
+use crate::{RequestItem, Url};
 
 pub struct RequestItems(Vec<RequestItem>);
 
@@ -26,45 +12,9 @@ pub enum Body {
     Multipart(multipart::Form),
 }
 
-impl FromStr for RequestItem {
-    type Err = Box<dyn Error>;
-    fn from_str(request_item: &str) -> Result<RequestItem, Box<dyn Error>> {
-        let re = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
-        if let Some(caps) = re.captures(request_item) {
-            let key = caps[1].to_string();
-            let value = caps[3].to_string();
-            match &caps[2] {
-                ":" => Ok(RequestItem::HttpHeader(key, value)),
-                "==" => Ok(RequestItem::UrlParam(key, value)),
-                "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JSONField(
-                    key,
-                    serde_json::from_str(&value).unwrap(),
-                )),
-                "@" => Ok(RequestItem::FormFile(key, value)),
-                _ => unreachable!(),
-            }
-        } else {
-            // TODO: replace panic with error
-            panic!(format!("{:?} is not a valid value", request_item))
-        }
-    }
-}
-
-impl From<Vec<String>> for RequestItems {
-    fn from(request_items: Vec<String>) -> RequestItems {
-        RequestItems(
-            request_items
-                .iter()
-                .map(|r| RequestItem::from_str(r).unwrap())
-                .collect(),
-        )
-    }
-}
-
 impl RequestItems {
-    pub fn new(request_items: Vec<String>) -> RequestItems {
-        request_items.into()
+    pub fn new(request_items: Vec<RequestItem>) -> RequestItems {
+        RequestItems(request_items)
     }
 
     pub fn headers(&self, url: &Url) -> HeaderMap<HeaderValue> {
