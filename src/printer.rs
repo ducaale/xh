@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use atty::Stream;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
 
@@ -21,13 +22,13 @@ impl Printer {
         match pretty {
             Pretty::All => Printer {
                 indent_json: true,
-                color: true,
+                color: atty::is(Stream::Stdout),
                 theme: theme.clone(),
                 sort_headers: true,
             },
             Pretty::Colors => Printer {
                 indent_json: false,
-                color: true,
+                color: atty::is(Stream::Stdout),
                 theme: theme.clone(),
                 sort_headers: false,
             },
@@ -56,7 +57,6 @@ impl Printer {
             (true, false) => print!("{}", indent_json(text)),
             (false, false) => print!("{}", text),
         }
-        println!("\x1b[0m");
     }
 
     fn print_xml(&self, text: &str) {
@@ -65,7 +65,6 @@ impl Printer {
         } else {
             print!("{}", text)
         }
-        println!("\x1b[0m");
     }
 
     fn print_html(&self, text: &str) {
@@ -74,7 +73,6 @@ impl Printer {
         } else {
             print!("{}", text)
         }
-        println!("\x1b[0m");
     }
 
     fn print_binary_suppressor(&self) {
@@ -170,10 +168,15 @@ impl Printer {
                 self.print_json(body);
             } else {
                 let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
-                println!("{}", body);
+                print!("{}", body);
             }
         }
-        print!("\n");
+
+        if self.color {
+            print!("\x1b[0m\n\n");
+        } else {
+            print!("\n\n");
+        }
     }
 
     pub fn print_response_body(&self, response: Response) {
@@ -191,8 +194,13 @@ impl Printer {
         } else if content_type.contains("html") {
             self.print_html(&response.text().unwrap());
         } else {
-            println!("{}", &response.text().unwrap());
+            print!("{}", &response.text().unwrap());
         }
-        print!("\n");
+
+        if self.color {
+            print!("\x1b[0m\n\n");
+        } else {
+            print!("\n\n");
+        }
     }
 }
