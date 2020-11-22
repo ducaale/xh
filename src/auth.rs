@@ -1,10 +1,11 @@
 use regex::Regex;
+
 use crate::AuthType;
 
 #[derive(Debug, Clone)]
 pub enum Auth {
     Bearer(String),
-    Basic(String, Option<String>)
+    Basic(String, Option<String>),
 }
 
 impl Auth {
@@ -12,7 +13,9 @@ impl Auth {
         let auth_type = auth_type.unwrap_or(AuthType::Basic);
         let auth = match auth {
             Some(auth) if !auth.is_empty() => auth,
-            _ => { return None; }
+            _ => {
+                return None;
+            }
         };
 
         match auth_type {
@@ -25,7 +28,7 @@ impl Auth {
                     Some(Auth::Basic(auth, None))
                 }
             }
-            AuthType::Bearer => Some(Auth::Bearer(auth))
+            AuthType::Bearer => Some(Auth::Bearer(auth)),
         }
     }
 }

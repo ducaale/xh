@@ -43,7 +43,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request_builder = match auth {
             Some(Auth::Bearer(token)) => request_builder.bearer_auth(token),
             Some(Auth::Basic(username, password)) => request_builder.basic_auth(username, password),
-            None => request_builder
+            None => request_builder,
         };
 
         request_builder.build()?
