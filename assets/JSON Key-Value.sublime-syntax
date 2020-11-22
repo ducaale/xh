@@ -16,10 +16,12 @@ contexts:
         - meta_scope: comment.block.jsonkv
         - match: \*/
           pop: true
-    - match: '(\".+?\")\s*?:'
+    - match: '(")(?i)([^\"]+)(")\s*?:'
       comment: Key names
       captures:
-        1: keyword.other.name.jsonkv
+        1: keyword.other.name.jsonkv.start
+        2: keyword.other.name.jsonkv
+        3: keyword.other.name.jsonkv.end
     - match: '"'
       comment: String values
       push:
