@@ -1,4 +1,4 @@
-# yahc
+# Yahc
 
 ```
 yahc 0.1.0
@@ -35,7 +35,8 @@ ARGS:
 - [ansi-dark theme](https://github.com/sharkdp/bat/blob/master/assets/themes/ansi-dark.tmTheme)
 
 ## TODO
-- [ ] Replace panic!() with proper errors
+- [ ] Decode responses compressed in deflate format
+- [ ] Replace `panic!()` with proper errors
 - [ ] Support streaming requests and responses
 - [ ] Add Monokai theme
 - [ ] Port remaining flags from HTTPie
