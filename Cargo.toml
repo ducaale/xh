@@ -11,6 +11,7 @@ jsonxf = "1.0"
 lazy_static = "1.4.0"
 regex = "1"
 reqwest = { version = "0.10", features = ["blocking", "json", "gzip"] }
+rpassword = "5.0.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"

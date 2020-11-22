@@ -22,10 +22,15 @@ impl Auth {
             AuthType::Basic => {
                 let re = Regex::new(r"^(.+?):(.*)$").unwrap();
                 if let Some(cap) = re.captures(&auth) {
-                    // TODO: prompt for password when cap[2] is empty
-                    Some(Auth::Basic(cap[1].to_string(), Some(cap[2].to_string())))
+                    let username = cap[1].to_string();
+                    let password = if !cap[2].is_empty() { Some(cap[2].to_string()) } else { None };
+                    Some(Auth::Basic(username, password))
                 } else {
-                    Some(Auth::Basic(auth, None))
+                    let username = auth;
+                    // TODO: print the httpbin.org with the actual HOST
+                    let prompt = format!("http: password for {}@{}: ", username, "httpbin.org");
+                    let password = rpassword::read_password_from_tty(Some(&prompt)).unwrap();
+                    Some(Auth::Basic(username, Some(password)))
                 }
             }
             AuthType::Bearer => Some(Auth::Bearer(auth)),
