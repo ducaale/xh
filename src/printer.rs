@@ -76,19 +76,15 @@ impl Printer {
     }
 
     fn print_binary_suppressor(&self) {
-        print!("\n\n");
-        println!("+-----------------------------------------+");
-        println!("| NOTE: binary data not shown in terminal |");
-        println!("+-----------------------------------------+");
-        print!("\n\n");
+        print!("+-----------------------------------------+\n");
+        print!("| NOTE: binary data not shown in terminal |\n");
+        print!("+-----------------------------------------+");
     }
 
     fn print_multipart_suppressor(&self) {
-        print!("\n\n");
-        println!("+--------------------------------------------+");
-        println!("| NOTE: multipart data not shown in terminal |");
-        println!("+--------------------------------------------+");
-        print!("\n\n");
+        print!("+--------------------------------------------+\n");
+        print!("| NOTE: multipart data not shown in terminal |\n");
+        print!("+--------------------------------------------+");
     }
 
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
