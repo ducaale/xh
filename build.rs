@@ -1,0 +1,20 @@
+use std::env;
+use std::path::Path;
+
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSetBuilder;
+use syntect::dumps::*;
+
+fn main() {
+    let out_dir = env::var_os("OUT_DIR").unwrap();
+
+    let mut builder = SyntaxSetBuilder::new();
+    builder.add_plain_text_syntax();
+    builder.add_from_folder("assets", true).unwrap();
+    let ss = builder.build();
+    dump_to_file(&ss, Path::new(&out_dir).join("syntax.packdump")).unwrap();
+
+
+    let ts = ThemeSet::load_from_folder("assets").unwrap();
+    dump_to_file(&ts, Path::new(&out_dir).join("themepack.themedump")).unwrap();
+}

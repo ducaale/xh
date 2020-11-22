@@ -12,6 +12,13 @@ serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
 jsonxf = "1.0"
-syntect = "4.4"
 ansi_term = "0.12"
 lazy_static = "1.4.0"
+
+[dependencies.syntect]
+version = "4.4"
+default-features = false
+features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+
+[build-dependencies]
+syntect = { version = "4.4", default-features = false }

@@ -3,9 +3,10 @@ use std::fmt::Write;
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
-use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
+use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
 use crate::Theme;
@@ -27,12 +28,12 @@ pub fn colorize<'a>(
     theme: &Theme,
 ) -> impl Iterator<Item = String> + 'a {
     lazy_static! {
-        static ref TS: ThemeSet = ThemeSet::load_from_folder("assets").unwrap();
-        static ref PS: SyntaxSet = {
-            let mut ps = SyntaxSetBuilder::new();
-            ps.add_from_folder("assets", true).unwrap();
-            ps.build()
-        };
+        static ref TS: ThemeSet = ThemeSet::from(
+            from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/themepack.themedump")))
+        );
+        static ref PS: SyntaxSet = SyntaxSet::from(
+            from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/syntax.packdump")))
+        );
     }
     let syntax = PS.find_syntax_by_extension(syntax).unwrap();
     let mut h = match theme {
