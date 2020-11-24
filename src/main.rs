@@ -22,9 +22,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let printer = Printer::new(&opt);
     let request_items = RequestItems::new(opt.request_items);
 
-    let auth = Auth::new(opt.auth, opt.auth_type);
     let url = Url::new(opt.url, opt.default_scheme);
     let method = opt.method.into();
+    let auth = Auth::new(opt.auth, opt.auth_type, &url);
     let query = request_items.query();
     let headers = request_items.headers(&url);
     let body = request_items.body(opt.form)?;

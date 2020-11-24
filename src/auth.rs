@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use crate::AuthType;
+use crate::{AuthType, Url};
 
 #[derive(Debug, Clone)]
 pub enum Auth {
@@ -9,7 +9,7 @@ pub enum Auth {
 }
 
 impl Auth {
-    pub fn new(auth: Option<String>, auth_type: Option<AuthType>) -> Option<Auth> {
+    pub fn new(auth: Option<String>, auth_type: Option<AuthType>, url: &Url) -> Option<Auth> {
         let auth_type = auth_type.unwrap_or(AuthType::Basic);
         let auth = match auth {
             Some(auth) if !auth.is_empty() => auth,
@@ -23,12 +23,16 @@ impl Auth {
                 let re = Regex::new(r"^(.+?):(.*)$").unwrap();
                 if let Some(cap) = re.captures(&auth) {
                     let username = cap[1].to_string();
-                    let password = if !cap[2].is_empty() { Some(cap[2].to_string()) } else { None };
+                    let password = if !cap[2].is_empty() {
+                        Some(cap[2].to_string())
+                    } else {
+                        None
+                    };
                     Some(Auth::Basic(username, password))
                 } else {
                     let username = auth;
-                    // TODO: print the httpbin.org with the actual HOST
-                    let prompt = format!("http: password for {}@{}: ", username, "httpbin.org");
+                    let prompt =
+                        format!("http: password for {}@{}: ", username, url.host().unwrap());
                     let password = rpassword::read_password_from_tty(Some(&prompt)).unwrap();
                     Some(Auth::Basic(username, Some(password)))
                 }
