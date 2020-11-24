@@ -1,6 +1,8 @@
 # Yahc
 Yet another [HTTPie](https://httpie.io/) clone.
 
+[![asciicast](https://asciinema.org/a/375052.svg)](https://asciinema.org/a/375052)
+
 ## Building from source
 You will need rust 1.46 or later. To compile run cargo build --release.
 
