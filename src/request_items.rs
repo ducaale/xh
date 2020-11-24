@@ -50,7 +50,7 @@ impl RequestItems {
         query
     }
 
-    pub fn body(&self, as_form: bool) -> Option<Body> {
+    pub fn body(&self, as_form: bool) -> Result<Option<Body>, &str> {
         if !as_form {
             let mut body = serde_json::Map::new();
             for item in &self.0 {
@@ -61,29 +61,33 @@ impl RequestItems {
                     RequestItem::DataField(key, value) => {
                         body.insert(key, serde_json::Value::String(value));
                     }
-                    RequestItem::FormFile(_, _) => panic!("boom!"),
+                    RequestItem::FormFile(_, _) => {
+                        return Err("Sending Files is not supported when the request body is in JSON format");
+                    }
                     _ => {}
                 }
             }
             if body.len() > 0 {
-                Some(Body::Json(body))
+                Ok(Some(Body::Json(body)))
             } else {
-                None
+                Ok(None)
             }
         } else {
             let mut text_fields = Vec::<(String, String)>::new();
             let mut files = Vec::<(String, String)>::new();
             for item in &self.0 {
                 match item.clone() {
-                    RequestItem::JSONField(_, _) => panic!("boom"),
+                    RequestItem::JSONField(_, _) => {
+                        return Err("JSON values are not supported in Form fields");
+                    }
                     RequestItem::DataField(key, value) => text_fields.push((key, value)),
                     RequestItem::FormFile(key, value) => files.push((key, value)),
                     _ => {}
                 }
             }
             match (text_fields.len(), files.len()) {
-                (0, 0) => None,
-                (_, 0) => Some(Body::Form(text_fields)),
+                (0, 0) => Ok(None),
+                (_, 0) => Ok(Some(Body::Form(text_fields))),
                 (_, _) => {
                     let mut form = multipart::Form::new();
                     for (key, value) in text_fields {
@@ -92,7 +96,7 @@ impl RequestItems {
                     for (key, value) in files {
                         form = form.file(key, value).unwrap();
                     }
-                    Some(Body::Multipart(form))
+                    Ok(Some(Body::Multipart(form)))
                 }
             }
         }

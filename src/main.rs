@@ -27,7 +27,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let method = opt.method.into();
     let query = request_items.query();
     let headers = request_items.headers(&url);
-    let body = request_items.body(opt.form);
+    let body = request_items.body(opt.form)?;
 
     let client = Client::new();
     let request = {
