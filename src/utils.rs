@@ -11,9 +11,34 @@ use syntect::util::LinesWithEndings;
 
 use crate::Theme;
 
-// TODO: return enum
-pub fn get_content_type(headers: &HeaderMap) -> Option<&str> {
-    headers.get(CONTENT_TYPE)?.to_str().ok()
+pub enum ContentType {
+    Json,
+    Html,
+    Xml,
+    UrlencodedForm,
+    Multipart,
+}
+
+pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
+    headers
+        .get(CONTENT_TYPE)?
+        .to_str()
+        .ok()
+        .and_then(|content_type| {
+            if content_type.contains("json") {
+                Some(ContentType::Json)
+            } else if content_type.contains("html") {
+                Some(ContentType::Html)
+            } else if content_type.contains("xml") {
+                Some(ContentType::Xml)
+            } else if content_type.contains("multipart") {
+                Some(ContentType::Multipart)
+            } else if content_type.contains("pat") {
+                Some(ContentType::UrlencodedForm)
+            } else {
+                None
+            }
+        })
 }
 
 pub fn indent_json(text: &str) -> String {

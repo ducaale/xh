@@ -4,7 +4,7 @@ use atty::Stream;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
 
-use crate::utils::{colorize, get_content_type, indent_json};
+use crate::utils::{colorize, get_content_type, indent_json, ContentType};
 use crate::{Opt, Pretty, Theme};
 
 pub struct Printer {
@@ -151,41 +151,42 @@ impl Printer {
     }
 
     pub fn print_request_body(&self, request: &Request) {
-        let content_type = match get_content_type(&request.headers()) {
-            Some(content_type) => content_type,
-            None => return,
+        let get_body = || {
+            request
+                .body()
+                .and_then(|b| b.as_bytes())
+                .and_then(|b| String::from_utf8(b.into()).ok())
         };
 
-        if let Some(body) = request.body() {
-            if content_type.contains("multipart") {
+        match get_content_type(&request.headers()) {
+            Some(ContentType::Multipart) => {
                 self.print_multipart_suppressor();
-            } else if content_type.contains("json") {
-                let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
-                self.print_json(body);
-            } else {
-                let body = &String::from_utf8(body.as_bytes().unwrap().into()).unwrap();
-                print!("{}", body);
+                print!("\n\n");
             }
-        }
-
-        if self.color {
-            print!("\x1b[0m\n\n");
-        } else {
-            print!("\n\n");
-        }
+            Some(ContentType::Json) => {
+                if let Some(body) = get_body() {
+                    self.print_json(&body);
+                    if self.color {
+                        print!("\x1b[0m\n\n");
+                    } else {
+                        print!("\n\n");
+                    }
+                }
+            }
+            Some(ContentType::UrlencodedForm) | _ => {
+                if let Some(body) = get_body() {
+                    print!("{}", body);
+                    print!("\n\n");
+                }
+            }
+        };
     }
 
     pub fn print_response_body(&self, response: Response) {
         match get_content_type(&response.headers()) {
-            Some(content_type) if content_type.contains("json") => {
-                self.print_json(&response.text().unwrap())
-            }
-            Some(content_type) if content_type.contains("xml") => {
-                self.print_xml(&response.text().unwrap())
-            }
-            Some(content_type) if content_type.contains("html") => {
-                self.print_html(&response.text().unwrap())
-            }
+            Some(ContentType::Json) => self.print_json(&response.text().unwrap()),
+            Some(ContentType::Xml) => self.print_xml(&response.text().unwrap()),
+            Some(ContentType::Html) => self.print_html(&response.text().unwrap()),
             _ => {
                 let text = response.text().unwrap();
                 if text.contains('\0') {
