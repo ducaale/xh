@@ -176,22 +176,26 @@ impl Printer {
     }
 
     pub fn print_response_body(&self, response: Response) {
-        let content_type = match get_content_type(&response.headers()) {
-            Some(content_type) => content_type,
-            None => return,
+        match get_content_type(&response.headers()) {
+            Some(content_type) if content_type.contains("json") => {
+                self.print_json(&response.text().unwrap())
+            }
+            Some(content_type) if content_type.contains("xml") => {
+                self.print_xml(&response.text().unwrap())
+            }
+            Some(content_type) if content_type.contains("html") => {
+                self.print_html(&response.text().unwrap())
+            }
+            _ => {
+                let text = response.text().unwrap();
+                if text.contains('\0') {
+                    // TODO: don't suppress output when piping output
+                    self.print_binary_suppressor();
+                } else {
+                    print!("{}", text);
+                }
+            }
         };
-
-        if !content_type.contains("application") && !content_type.contains("text") {
-            self.print_binary_suppressor();
-        } else if content_type.contains("json") {
-            self.print_json(&response.text().unwrap());
-        } else if content_type.contains("xml") {
-            self.print_xml(&response.text().unwrap());
-        } else if content_type.contains("html") {
-            self.print_html(&response.text().unwrap());
-        } else {
-            print!("{}", &response.text().unwrap());
-        }
 
         if self.color {
             print!("\x1b[0m\n\n");
