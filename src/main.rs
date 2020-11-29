@@ -1,3 +1,6 @@
+use std::io::{self, Read};
+
+use atty::Stream;
 use reqwest::blocking::Client;
 use structopt::StructOpt;
 #[macro_use]
@@ -27,7 +30,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let auth = Auth::new(opt.auth, opt.auth_type, &url);
     let query = request_items.query();
     let headers = request_items.headers(&url);
-    let body = request_items.body(opt.form)?;
+    let body = if atty::is(Stream::Stdin) || opt.ignore_stdin {
+        request_items.body(opt.form)?
+    } else {
+        // TODO: return error if request_items.body is not None
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer)?;
+        if opt.form {
+            Some(Body::Form(serde_urlencoded::from_str(&buffer.trim())?))
+        } else {
+            Some(Body::Json(serde_json::from_str(&buffer.trim())?))
+        }
+    };
 
     let client = Client::new();
     let request = {

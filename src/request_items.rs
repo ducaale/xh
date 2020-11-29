@@ -8,7 +8,7 @@ use crate::{RequestItem, Url};
 pub struct RequestItems(Vec<RequestItem>);
 
 pub enum Body {
-    Json(serde_json::Map<String, serde_json::Value>),
+    Json(serde_json::Value),
     Form(Vec<(String, String)>),
     Multipart(multipart::Form),
 }
@@ -68,7 +68,7 @@ impl RequestItems {
                 }
             }
             if body.len() > 0 {
-                Ok(Some(Body::Json(body)))
+                Ok(Some(Body::Json(body.into())))
             } else {
                 Ok(None)
             }

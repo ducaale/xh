@@ -25,6 +25,9 @@ pub struct Opt {
     #[structopt(short = "f", long)]
     pub form: bool,
 
+    #[structopt(short, long = "ignore-stdin")]
+    pub ignore_stdin: bool,
+
     /// Specify the auth mechanism.
     #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
