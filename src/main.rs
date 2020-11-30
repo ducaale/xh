@@ -45,7 +45,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::new();
     let request = {
-        let mut request_builder = client.request(method, url.0).query(&query).headers(headers);
+        let mut request_builder = client.request(method, url.0);
 
         request_builder = match body {
             Some(Body::Json(body)) => request_builder.json(&body),
@@ -60,7 +60,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             None => request_builder,
         };
 
-        request_builder.build()?
+        request_builder.query(&query).headers(headers).build()?
     };
 
     print!("\n");
