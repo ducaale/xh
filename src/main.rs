@@ -20,13 +20,13 @@ use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
 
-fn body_from_stdin() -> Option<Body> {
-    if atty::isnt(Stream::Stdin) {
+fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {
+    if atty::is(Stream::Stdin) || ignore_stdin {
+        None
+    } else {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer).unwrap();
         Some(Body::Raw(buffer))
-    } else {
-        None
     }
 }
 
@@ -44,7 +44,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let (headers, headers_to_unset) = request_items.headers();
     let body = match (
         request_items.body(opt.form, opt.multipart)?,
-        body_from_stdin(),
+        body_from_stdin(opt.ignore_stdin),
     ) {
         (Some(_), Some(_)) => {
             return Err(
