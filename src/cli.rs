@@ -122,8 +122,9 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
-        if let Some(caps) = re.captures(request_item) {
+        let re1 = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+        let re2 = Regex::new(r"^(.+?)(:|;)$").unwrap();
+        if let Some(caps) = re1.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -135,6 +136,13 @@ impl FromStr for RequestItem {
                     serde_json::from_str(&value).unwrap(),
                 )),
                 "@" => Ok(RequestItem::FormFile(key, value)),
+                _ => unreachable!(),
+            }
+        } else if let Some(caps) = re2.captures(request_item) {
+            let key = caps[1].to_string();
+            match &caps[2] {
+                ":" => todo!(),
+                ";" => Ok(RequestItem::HttpHeader(key, "".into())),
                 _ => unreachable!(),
             }
         } else {

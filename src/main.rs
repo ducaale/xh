@@ -62,12 +62,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             Some(Body::Form(body)) => request_builder.form(&body),
             Some(Body::Multipart(body)) => request_builder.multipart(body),
             Some(Body::Json(body)) => {
-                headers.entry(ACCEPT).or_insert(HeaderValue::from_static("application/json, */*"));
+                headers
+                    .entry(ACCEPT)
+                    .or_insert(HeaderValue::from_static("application/json, */*"));
                 request_builder.json(&body)
             }
             Some(Body::Raw(body)) => {
-                headers.entry(ACCEPT).or_insert(HeaderValue::from_static("application/json, */*"));
-                headers.entry(CONTENT_TYPE).or_insert(HeaderValue::from_static("application/json"));
+                headers
+                    .entry(ACCEPT)
+                    .or_insert(HeaderValue::from_static("application/json, */*"));
+                headers
+                    .entry(CONTENT_TYPE)
+                    .or_insert(HeaderValue::from_static("application/json"));
                 request_builder.body(body)
             }
             None => request_builder,
