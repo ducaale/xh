@@ -107,24 +107,20 @@ impl RequestItems {
     }
 
     fn body_as_multipart(&self) -> Result<Option<Body>, &str> {
-        let mut text_fields = Vec::<(String, String)>::new();
-        let mut files = Vec::<(String, String)>::new();
+        let mut form = multipart::Form::new();
         for item in &self.0 {
             match item.clone() {
                 RequestItem::JSONField(_, _) => {
                     return Err("JSON values are not supported in multipart fields");
                 }
-                RequestItem::DataField(key, value) => text_fields.push((key, value)),
-                RequestItem::FormFile(key, value) => files.push((key, value)),
+                RequestItem::DataField(key, value) => {
+                    form = form.text(key, value);
+                }
+                RequestItem::FormFile(key, value) => {
+                    form = form.file(key, value).unwrap();
+                }
                 _ => {}
             }
-        }
-        let mut form = multipart::Form::new();
-        for (key, value) in text_fields {
-            form = form.text(key, value);
-        }
-        for (key, value) in files {
-            form = form.file(key, value).unwrap();
         }
         Ok(Some(Body::Multipart(form)))
     }
