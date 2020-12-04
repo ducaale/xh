@@ -22,5 +22,9 @@ version = "4.4"
 default-features = false
 features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
 
+[dev-dependencies]
+assert_cmd = "1.0"
+indoc = "1.0"
+
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }
