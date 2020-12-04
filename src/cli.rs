@@ -25,6 +25,11 @@ pub struct Opt {
     #[structopt(short = "f", long)]
     pub form: bool,
 
+    /// Similar to --form, but always sends a multipart/form-data request (i.e., even without files).
+    #[structopt(short, long)]
+    pub multipart: bool,
+
+    /// Do not attempt to read stdin.
     #[structopt(short, long = "ignore-stdin")]
     pub ignore_stdin: bool,
 
