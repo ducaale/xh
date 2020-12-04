@@ -2,6 +2,7 @@ use std::io::{self, Read};
 
 use atty::Stream;
 use reqwest::blocking::Client;
+use reqwest::header::{HeaderValue, ACCEPT, CONTENT_TYPE};
 use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
@@ -19,6 +20,16 @@ use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
 
+fn body_from_stdin() -> Option<Body> {
+    if atty::isnt(Stream::Stdin) {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer).unwrap();
+        Some(Body::Raw(buffer))
+    } else {
+        None
+    }
+}
+
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
@@ -29,18 +40,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let method = opt.method.into();
     let auth = Auth::new(opt.auth, opt.auth_type, &url);
     let query = request_items.query();
-    let headers = request_items.headers(&url);
-    let body = if atty::is(Stream::Stdin) || opt.ignore_stdin {
-        request_items.body(opt.form)?
-    } else {
-        // TODO: return error if request_items.body is not None
-        let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer)?;
-        if opt.form {
-            Some(Body::Form(serde_urlencoded::from_str(&buffer.trim())?))
-        } else {
-            Some(Body::Json(serde_json::from_str(&buffer.trim())?))
+    let mut headers = request_items.headers(&url);
+    let body = match (
+        request_items.body(opt.form, opt.multipart)?,
+        body_from_stdin(),
+    ) {
+        (Some(_), Some(_)) => {
+            return Err(
+                "Request body (from stdin) and Request data (key=value) cannot be mixed".into(),
+            )
         }
+        (Some(body), None) | (None, Some(body)) => Some(body),
+        (None, None) => None,
     };
 
     let client = Client::new();
@@ -48,9 +59,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let mut request_builder = client.request(method, url.0);
 
         request_builder = match body {
-            Some(Body::Json(body)) => request_builder.json(&body),
             Some(Body::Form(body)) => request_builder.form(&body),
             Some(Body::Multipart(body)) => request_builder.multipart(body),
+            Some(Body::Json(body)) => {
+                headers.entry(ACCEPT).or_insert(HeaderValue::from_static("application/json, */*"));
+                request_builder.json(&body)
+            }
+            Some(Body::Raw(body)) => {
+                headers.entry(ACCEPT).or_insert(HeaderValue::from_static("application/json, */*"));
+                headers.entry(CONTENT_TYPE).or_insert(HeaderValue::from_static("application/json"));
+                request_builder.body(body)
+            }
             None => request_builder,
         };
 

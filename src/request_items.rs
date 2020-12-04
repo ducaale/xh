@@ -11,6 +11,7 @@ pub enum Body {
     Json(serde_json::Value),
     Form(Vec<(String, String)>),
     Multipart(multipart::Form),
+    Raw(String),
 }
 
 impl RequestItems {
