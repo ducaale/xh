@@ -5,7 +5,7 @@ use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
 
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
-use crate::{Opt, Pretty, Theme};
+use crate::{Pretty, Theme};
 
 pub struct Printer {
     indent_json: bool,
@@ -15,9 +15,9 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(opt: &Opt) -> Printer {
-        let pretty = opt.pretty.as_ref().unwrap_or(&Pretty::All);
-        let theme = opt.theme.as_ref().unwrap_or(&Theme::Auto);
+    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>) -> Printer {
+        let pretty = pretty.unwrap_or(Pretty::All);
+        let theme = theme.unwrap_or(Theme::Auto);
 
         match pretty {
             Pretty::All => Printer {

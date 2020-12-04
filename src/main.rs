@@ -33,7 +33,7 @@ fn body_from_stdin() -> Option<Body> {
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
-    let printer = Printer::new(&opt);
+    let printer = Printer::new(opt.pretty, opt.theme);
     let request_items = RequestItems::new(opt.request_items);
 
     let url = Url::new(opt.url, opt.default_scheme);
