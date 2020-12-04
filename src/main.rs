@@ -40,7 +40,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let method = opt.method.into();
     let auth = Auth::new(opt.auth, opt.auth_type, &url);
     let query = request_items.query();
-    let mut headers = request_items.headers(&url);
+    let (mut headers, headers_to_unset) = request_items.headers(&url);
     let body = match (
         request_items.body(opt.form, opt.multipart)?,
         body_from_stdin(),
@@ -85,7 +85,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             None => request_builder,
         };
 
-        request_builder.query(&query).headers(headers).build()?
+        let mut request = request_builder.query(&query).headers(headers).build()?;
+        headers_to_unset.iter().for_each(|h| {
+            request.headers_mut().remove(h);
+        });
+        request
     };
 
     print!("\n");

@@ -30,8 +30,9 @@ impl RequestItems {
         count
     }
 
-    pub fn headers(&self, url: &Url) -> HeaderMap<HeaderValue> {
+    pub fn headers(&self, url: &Url) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
         let mut headers = HeaderMap::new();
+        let mut headers_to_unset = vec![];
         headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
         headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"));
         headers.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
@@ -43,10 +44,14 @@ impl RequestItems {
                     let value = HeaderValue::from_str(&value).unwrap();
                     headers.insert(key, value);
                 }
+                RequestItem::HttpHeaderToUnset(key) => {
+                    let key = HeaderName::from_bytes(&key.as_bytes()).unwrap();
+                    headers_to_unset.push(key);
+                }
                 _ => {}
             }
         }
-        headers
+        (headers, headers_to_unset)
     }
 
     pub fn query(&self) -> Vec<(&String, &String)> {

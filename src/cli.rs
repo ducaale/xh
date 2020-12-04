@@ -113,6 +113,7 @@ arg_enum! {
 #[derive(Debug, Clone)]
 pub enum RequestItem {
     HttpHeader(String, String),
+    HttpHeaderToUnset(String),
     UrlParam(String, String),
     DataField(String, String),
     JSONField(String, serde_json::Value),
@@ -141,7 +142,7 @@ impl FromStr for RequestItem {
         } else if let Some(caps) = re2.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
-                ":" => todo!(),
+                ":" => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ";" => Ok(RequestItem::HttpHeader(key, "".into())),
                 _ => unreachable!(),
             }
