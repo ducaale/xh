@@ -1,9 +1,7 @@
 use reqwest::blocking::multipart;
-use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, HOST,
-};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
-use crate::{RequestItem, Url};
+use crate::RequestItem;
 
 pub struct RequestItems(Vec<RequestItem>);
 
@@ -30,13 +28,9 @@ impl RequestItems {
         count
     }
 
-    pub fn headers(&self, url: &Url) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
+    pub fn headers(&self) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
         let mut headers = HeaderMap::new();
         let mut headers_to_unset = vec![];
-        headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
-        headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"));
-        headers.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
-        headers.insert(HOST, HeaderValue::from_str(&url.host().unwrap()).unwrap());
         for item in &self.0 {
             match item {
                 RequestItem::HttpHeader(key, value) => {
