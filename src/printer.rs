@@ -87,6 +87,14 @@ impl Printer {
         print!("+--------------------------------------------+");
     }
 
+    fn print_seperator(&self) {
+        if self.color {
+            print!("\x1b[0m\n\n");
+        } else {
+            print!("\n\n");
+        }
+    }
+
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
         let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
         if sort {
@@ -99,6 +107,7 @@ impl Printer {
             let value = value.to_str().unwrap();
             writeln!(&mut header_string, "{}: {}", key, value).unwrap();
         }
+        header_string.pop();
 
         header_string
     }
@@ -122,10 +131,10 @@ impl Printer {
         if self.color {
             colorize(&(request_line + &headers), "http", &self.theme)
                 .for_each(|line| print!("{}", line));
-            println!("\x1b[0m");
         } else {
-            println!("{}", &(request_line + &headers));
+            print!("{}", &(request_line + &headers));
         }
+        self.print_seperator();
     }
 
     pub fn print_response_headers(&self, response: &Response) {
@@ -144,10 +153,10 @@ impl Printer {
         if self.color {
             colorize(&(status_line + &headers), "http", &self.theme)
                 .for_each(|line| print!("{}", line));
-            println!("\x1b[0m");
         } else {
-            println!("{}", &(status_line + &headers));
+            print!("{}", &(status_line + &headers));
         }
+        self.print_seperator();
     }
 
     pub fn print_request_body(&self, request: &Request) {
@@ -161,25 +170,19 @@ impl Printer {
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
                 self.print_multipart_suppressor();
-                print!("\n\n");
             }
             Some(ContentType::Json) => {
                 if let Some(body) = get_body() {
                     self.print_json(&body);
-                    if self.color {
-                        print!("\x1b[0m\n\n");
-                    } else {
-                        print!("\n\n");
-                    }
                 }
             }
             Some(ContentType::UrlencodedForm) | _ => {
                 if let Some(body) = get_body() {
                     print!("{}", body);
-                    print!("\n\n");
                 }
             }
         };
+        self.print_seperator();
     }
 
     pub fn print_response_body(&self, response: Response) {
@@ -197,11 +200,6 @@ impl Printer {
                 }
             }
         };
-
-        if self.color {
-            print!("\x1b[0m\n\n");
-        } else {
-            print!("\n\n");
-        }
+        self.print_seperator();
     }
 }
