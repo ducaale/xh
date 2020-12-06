@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use atty::Stream;
-use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
+use reqwest::{Request, Response};
 
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
 use crate::{Pretty, Theme};
@@ -185,13 +185,13 @@ impl Printer {
         self.print_seperator();
     }
 
-    pub fn print_response_body(&self, response: Response) {
+    pub async fn print_response_body(&self, response: Response) {
         match get_content_type(&response.headers()) {
-            Some(ContentType::Json) => self.print_json(&response.text().unwrap()),
-            Some(ContentType::Xml) => self.print_xml(&response.text().unwrap()),
-            Some(ContentType::Html) => self.print_html(&response.text().unwrap()),
+            Some(ContentType::Json) => self.print_json(&response.text().await.unwrap()),
+            Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap()),
+            Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
             _ => {
-                let text = response.text().unwrap();
+                let text = response.text().await.unwrap();
                 if text.contains('\0') {
                     // TODO: don't suppress output when piping output
                     self.print_binary_suppressor();

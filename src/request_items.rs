@@ -1,5 +1,7 @@
-use reqwest::blocking::multipart;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::multipart;
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::RequestItem;
 
@@ -100,7 +102,7 @@ impl RequestItems {
         Ok(Some(Body::Form(text_fields)))
     }
 
-    fn body_as_multipart(&self) -> Result<Option<Body>, &str> {
+    async fn body_as_multipart(&self) -> Result<Option<Body>, &str> {
         let mut form = multipart::Form::new();
         for item in &self.0 {
             match item.clone() {
@@ -111,7 +113,11 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::FormFile(key, value) => {
-                    form = form.file(key, value).unwrap();
+                    // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
+                    let file = File::open(value).await.unwrap();
+                    let reader =
+                        reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
+                    form = form.part(key, multipart::Part::stream(reader));
                 }
                 _ => {}
             }
@@ -119,10 +125,10 @@ impl RequestItems {
         Ok(Some(Body::Multipart(form)))
     }
 
-    pub fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>, &str> {
+    pub async fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>, &str> {
         match (form, multipart) {
-            (_, true) => self.body_as_multipart(),
-            (true, _) if self.form_file_count() > 0 => self.body_as_multipart(),
+            (_, true) => self.body_as_multipart().await,
+            (true, _) if self.form_file_count() > 0 => self.body_as_multipart().await,
             (true, _) => self.body_as_form(),
             (_, _) => self.body_as_json(),
         }

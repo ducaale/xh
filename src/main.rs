@@ -1,8 +1,8 @@
 use std::io::{self, Read};
 
 use atty::Stream;
-use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST};
+use reqwest::Client;
 use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
@@ -30,7 +30,8 @@ fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {
     }
 }
 
-fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     let printer = Printer::new(opt.pretty, opt.theme);
@@ -43,7 +44,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers();
     let body = match (
-        request_items.body(opt.form, opt.multipart)?,
+        request_items.body(opt.form, opt.multipart).await?,
         body_from_stdin(opt.ignore_stdin),
     ) {
         (Some(_), Some(_)) => {
@@ -100,9 +101,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     if !opt.offline {
-        let response = client.execute(request)?;
+        let response = client.execute(request).await?;
         printer.print_response_headers(&response);
-        printer.print_response_body(response);
+        printer.print_response_body(response).await;
     }
     Ok(())
 }
