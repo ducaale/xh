@@ -33,7 +33,7 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 Some(ContentType::Xml)
             } else if content_type.contains("multipart") {
                 Some(ContentType::Multipart)
-            } else if content_type.contains("pat") {
+            } else if content_type.contains("x-www-form-urlencoded") {
                 Some(ContentType::UrlencodedForm)
             } else {
                 None
