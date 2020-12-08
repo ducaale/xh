@@ -16,32 +16,38 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>) -> Printer {
-        let pretty = pretty.unwrap_or(Pretty::All);
+        let pretty = pretty.unwrap_or(
+            if atty::is(Stream::Stdin) {
+                Pretty::All
+            } else {
+                Pretty::None
+            }
+        );
         let theme = theme.unwrap_or(Theme::Auto);
 
         match pretty {
             Pretty::All => Printer {
                 indent_json: true,
-                color: atty::is(Stream::Stdout),
-                theme: theme.clone(),
+                color: true,
+                theme: theme,
                 sort_headers: true,
             },
             Pretty::Colors => Printer {
                 indent_json: false,
-                color: atty::is(Stream::Stdout),
-                theme: theme.clone(),
+                color: true,
+                theme: theme,
                 sort_headers: false,
             },
             Pretty::Format => Printer {
                 indent_json: true,
                 color: false,
-                theme: theme.clone(),
+                theme: theme,
                 sort_headers: true,
             },
             Pretty::None => Printer {
                 indent_json: false,
                 color: false,
-                theme: theme.clone(),
+                theme: theme,
                 sort_headers: false,
             },
         }
