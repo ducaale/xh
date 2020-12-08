@@ -16,13 +16,11 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>) -> Printer {
-        let pretty = pretty.unwrap_or(
-            if atty::is(Stream::Stdin) {
-                Pretty::All
-            } else {
-                Pretty::None
-            }
-        );
+        let pretty = pretty.unwrap_or(if atty::is(Stream::Stdin) {
+            Pretty::All
+        } else {
+            Pretty::None
+        });
         let theme = theme.unwrap_or(Theme::Auto);
 
         match pretty {
