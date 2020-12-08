@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::multipart;
 use tokio::fs::File;
@@ -113,11 +115,13 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::FormFile(key, value) => {
+                    let path = Path::new(&value);
+                    let file_name = path.file_name().unwrap().to_string_lossy().to_string();
                     // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-                    let file = File::open(value).await.unwrap();
+                    let file = File::open(&path).await.unwrap();
                     let reader =
                         reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
-                    form = form.part(key, multipart::Part::stream(reader));
+                    form = form.part(key, multipart::Part::stream(reader).file_name(file_name));
                 }
                 _ => {}
             }
