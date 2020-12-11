@@ -8,7 +8,7 @@ You will need rust 1.46 or later. To compile run `cargo build --release`.
 
 ## Usage
 ```
-yahc.exe [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
+yahc [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
 ```
 
 ## Syntaxes and themes used
