@@ -200,8 +200,7 @@ impl Printer {
             Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
             _ => {
                 let text = response.text().await.unwrap();
-                if text.contains('\0') {
-                    // TODO: don't suppress output when piping output
+                if atty::is(Stream::Stdin) && text.contains('\0') {
                     self.print_binary_suppressor();
                 } else {
                     print!("{}", text);
