@@ -16,7 +16,7 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>) -> Printer {
-        let pretty = pretty.unwrap_or(if atty::is(Stream::Stdin) {
+        let pretty = pretty.unwrap_or(if atty::is(Stream::Stdout) {
             Pretty::All
         } else {
             Pretty::None
@@ -53,10 +53,14 @@ impl Printer {
 
     fn print_json(&self, text: &str) {
         match (self.indent_json, self.color) {
-            (true, true) => colorize(&indent_json(text), "json", &self.theme)
-                .for_each(|line| print!("{}", line)),
+            (true, true) => {
+                colorize(&indent_json(text), "json", &self.theme)
+                    .for_each(|line| print!("{}", line));
+                print!("\x1b[0m");
+            }
             (false, true) => {
-                colorize(text, "json", &self.theme).for_each(|line| print!("{}", line))
+                colorize(text, "json", &self.theme).for_each(|line| print!("{}", line));
+                print!("\x1b[0m");
             }
             (true, false) => print!("{}", indent_json(text)),
             (false, false) => print!("{}", text),
@@ -65,7 +69,8 @@ impl Printer {
 
     fn print_xml(&self, text: &str) {
         if self.color {
-            colorize(text, "xml", &self.theme).for_each(|line| print!("{}", line))
+            colorize(text, "xml", &self.theme).for_each(|line| print!("{}", line));
+            print!("\x1b[0m");
         } else {
             print!("{}", text)
         }
@@ -73,7 +78,8 @@ impl Printer {
 
     fn print_html(&self, text: &str) {
         if self.color {
-            colorize(text, "html", &self.theme).for_each(|line| print!("{}", line))
+            colorize(text, "html", &self.theme).for_each(|line| print!("{}", line));
+            print!("\x1b[0m");
         } else {
             print!("{}", text)
         }
@@ -89,14 +95,6 @@ impl Printer {
         print!("+--------------------------------------------+\n");
         print!("| NOTE: multipart data not shown in terminal |\n");
         print!("+--------------------------------------------+");
-    }
-
-    fn print_seperator(&self) {
-        if self.color {
-            print!("\x1b[0m\n\n");
-        } else {
-            print!("\n\n");
-        }
     }
 
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
@@ -135,10 +133,12 @@ impl Printer {
         if self.color {
             colorize(&(request_line + &headers), "http", &self.theme)
                 .for_each(|line| print!("{}", line));
+            print!("\x1b[0m");
         } else {
             print!("{}", &(request_line + &headers));
         }
-        self.print_seperator();
+
+        print!("\n\n");
     }
 
     pub fn print_response_headers(&self, response: &Response) {
@@ -157,10 +157,12 @@ impl Printer {
         if self.color {
             colorize(&(status_line + &headers), "http", &self.theme)
                 .for_each(|line| print!("{}", line));
+            print!("\x1b[0m");
         } else {
             print!("{}", &(status_line + &headers));
         }
-        self.print_seperator();
+
+        print!("\n\n");
     }
 
     pub fn print_request_body(&self, request: &Request) {
@@ -174,19 +176,21 @@ impl Printer {
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
                 self.print_multipart_suppressor();
+                print!("\n\n");
             }
             Some(ContentType::Json) => {
                 if let Some(body) = get_body() {
                     self.print_json(&body);
+                    print!("\n\n");
                 }
             }
             Some(ContentType::UrlencodedForm) | _ => {
                 if let Some(body) = get_body() {
                     print!("{}", body);
+                    print!("\n\n");
                 }
             }
         };
-        self.print_seperator();
     }
 
     pub async fn print_response_body(&self, response: Response) {
@@ -204,6 +208,5 @@ impl Printer {
                 }
             }
         };
-        self.print_seperator();
     }
 }

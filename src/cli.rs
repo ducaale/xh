@@ -40,6 +40,10 @@ pub struct Opt {
     #[structopt(short = "a", long)]
     pub auth: Option<String>,
 
+    /// String specifying what the output should contain
+    #[structopt(short = "p", long)]
+    pub print: Option<Print>,
+
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]
     pub pretty: Option<Pretty>,
@@ -107,6 +111,54 @@ arg_enum! {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Theme {
         Auto, Solarized
+    }
+}
+
+#[derive(Debug)]
+pub struct Print {
+    pub request_headers: bool,
+    pub request_body: bool,
+    pub response_headers: bool,
+    pub response_body: bool,
+}
+
+impl Print {
+    pub fn new(
+        request_headers: bool,
+        request_body: bool,
+        response_headers: bool,
+        response_body: bool,
+    ) -> Print {
+        Print {
+            request_headers,
+            request_body,
+            response_headers,
+            response_body,
+        }
+    }
+}
+
+impl FromStr for Print {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Print> {
+        let mut p = Print::new(false, false, false, false);
+
+        for char in s.chars() {
+            match char {
+                'H' => p.request_headers = true,
+                'B' => p.request_body = true,
+                'h' => p.response_headers = true,
+                'b' => p.response_body = true,
+                char => {
+                    return Err(Error::with_description(
+                        &format!("{:?} is not a valid value", char),
+                        ErrorKind::InvalidValue,
+                    ))
+                }
+            }
+        }
+
+        Ok(p)
     }
 }
 

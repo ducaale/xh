@@ -15,7 +15,7 @@ mod url;
 mod utils;
 
 use auth::Auth;
-use cli::{AuthType, Opt, Pretty, RequestItem, Theme};
+use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
@@ -93,17 +93,28 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    print!("\n");
+    let print = opt.print.unwrap_or(if opt.verbose {
+        Print::new(true, true, true, true)
+    } else if atty::is(Stream::Stdout) {
+        Print::new(false, false, true, true)
+    } else {
+        Print::new(false, false, false, true)
+    });
 
-    if opt.verbose {
+    if print.request_headers {
         printer.print_request_headers(&request);
+    }
+    if print.request_body {
         printer.print_request_body(&request);
     }
-
     if !opt.offline {
         let response = client.execute(request).await?;
-        printer.print_response_headers(&response);
-        printer.print_response_body(response).await;
+        if print.response_headers {
+            printer.print_response_headers(&response);
+        }
+        if print.response_body {
+            printer.print_response_body(response).await;
+        }
     }
     Ok(())
 }
