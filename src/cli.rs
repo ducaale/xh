@@ -3,16 +3,13 @@ use std::str::FromStr;
 use regex::Regex;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
+use structopt::clap::AppSettings;
 
 // Following doc comments were copy-pasted from HTTPie
 /// Yet another HTTPie clone
 #[derive(StructOpt, Debug)]
-#[structopt(name = "yahc")]
+#[structopt(name = "yahc", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Opt {
-    /// Print the whole request as well as the response.
-    #[structopt(short = "v", long)]
-    pub verbose: bool,
-
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
     pub offline: bool,
@@ -43,6 +40,10 @@ pub struct Opt {
     /// String specifying what the output should contain
     #[structopt(short = "p", long)]
     pub print: Option<Print>,
+
+    /// Print the whole request as well as the response.
+    #[structopt(short = "v", long)]
+    pub verbose: bool,
 
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]
