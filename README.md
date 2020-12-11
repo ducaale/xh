@@ -12,7 +12,7 @@ yahc 0.1.0
 Yet another HTTPie clone
 
 USAGE:
-    yahc.exe [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
+    yahc [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
