@@ -200,11 +200,11 @@ impl Printer {
             Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap()),
             Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
             _ => {
-                let text = response.text().await.unwrap();
-                if atty::is(Stream::Stdin) && text.contains('\0') {
+                let bytes = response.bytes().await.unwrap();
+                if atty::is(Stream::Stdout) && bytes.contains(&b'\0') {
                     self.print_binary_suppressor();
                 } else {
-                    print!("{}", text);
+                    std::io::stdout().write(&bytes).unwrap();
                 }
             }
         };
