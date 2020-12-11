@@ -1,4 +1,5 @@
-use std::fmt::Write;
+use std::fmt::Write as FmtWrite;
+use std::io::Write as IoWrite;
 
 use atty::Stream;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
@@ -207,5 +208,7 @@ impl Printer {
                 }
             }
         };
+
+        std::io::stdout().flush().unwrap();
     }
 }
