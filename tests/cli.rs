@@ -14,7 +14,6 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         .arg("name=ali");
 
     cmd.assert().stdout(indoc! {r#"
-
         POST /post HTTP/1.1
         accept: */*
         accept: application/json, */*
