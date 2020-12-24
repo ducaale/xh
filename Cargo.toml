@@ -8,6 +8,7 @@ edition = "2018"
 ansi_term = "0.12"
 atty = "0.2"
 jsonxf = "1.0"
+indicatif = "0.15.0"
 lazy_static = "1.4.0"
 regex = "1"
 reqwest = { version = "0.10", features = ["stream", "json", "gzip", "brotli"] }

@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
-use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, CONTENT_TYPE, CONTENT_LENGTH};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
@@ -39,6 +39,13 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 None
             }
         })
+}
+
+pub fn get_content_length(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
 }
 
 pub fn indent_json(text: &str) -> String {

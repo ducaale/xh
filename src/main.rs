@@ -9,12 +9,14 @@ extern crate lazy_static;
 
 mod auth;
 mod cli;
+mod download;
 mod printer;
 mod request_items;
 mod url;
 mod utils;
 
 use auth::Auth;
+use download::download_file;
 use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -112,7 +114,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         if print.response_headers {
             printer.print_response_headers(&response);
         }
-        if print.response_body {
+        if opt.download {
+            download_file(response).await;
+        } else if print.response_body {
             printer.print_response_body(response).await;
         }
     }

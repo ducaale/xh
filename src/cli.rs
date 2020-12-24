@@ -37,6 +37,9 @@ pub struct Opt {
     #[structopt(short = "a", long)]
     pub auth: Option<String>,
 
+    #[structopt(short = "d", long)]
+    pub download: bool,
+
     /// String specifying what the output should contain
     #[structopt(short = "p", long)]
     pub print: Option<Print>,
