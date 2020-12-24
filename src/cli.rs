@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use regex::Regex;
+use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
-use structopt::clap::AppSettings;
 
 // Following doc comments were copy-pasted from HTTPie
 /// Yet another HTTPie clone

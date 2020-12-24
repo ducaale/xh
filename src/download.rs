@@ -13,8 +13,12 @@ fn get_file_name(response: &reqwest::Response) -> &str {
 pub async fn download_file(mut response: reqwest::Response) {
     let file_name = get_file_name(&response);
     let total_size = get_content_length(&response.headers()).unwrap();
-    
-    eprintln!("Downloading {} to \"{}\"", HumanBytes(total_size), file_name);
+
+    eprintln!(
+        "Downloading {} to \"{}\"",
+        HumanBytes(total_size),
+        file_name
+    );
 
     let pb = ProgressBar::new(total_size);
     pb.set_style(ProgressStyle::default_bar()

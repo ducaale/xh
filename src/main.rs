@@ -14,8 +14,8 @@ mod url;
 mod utils;
 
 use auth::Auth;
-use download::download_file;
 use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
+use download::download_file;
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;

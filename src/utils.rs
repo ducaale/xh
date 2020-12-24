@@ -5,7 +5,7 @@ use std::path::Path;
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use atty::Stream;
-use reqwest::header::{HeaderMap, CONTENT_TYPE, CONTENT_LENGTH};
+use reqwest::header::{HeaderMap, CONTENT_LENGTH, CONTENT_TYPE};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
@@ -14,8 +14,8 @@ use syntect::util::LinesWithEndings;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use crate::Theme;
 use crate::Body;
+use crate::Theme;
 
 pub enum ContentType {
     Json,
