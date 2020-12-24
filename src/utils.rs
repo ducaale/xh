@@ -1,9 +1,10 @@
 use std::fmt::Write;
+use std::io::{self, Read};
 use std::path::Path;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
-use reqwest::Body;
+use atty::Stream;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, CONTENT_LENGTH};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
@@ -14,6 +15,7 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::Theme;
+use crate::Body;
 
 pub enum ContentType {
     Json,
@@ -53,9 +55,19 @@ pub fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 }
 
 // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-pub async fn body_to_file(path: impl AsRef<Path>) -> Body {
+pub async fn body_to_file(path: impl AsRef<Path>) -> reqwest::Body {
     let file = File::open(&path).await.unwrap();
-    Body::wrap_stream(FramedRead::new(file, BytesCodec::new()))
+    reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()))
+}
+
+pub fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {
+    if atty::is(Stream::Stdin) || ignore_stdin {
+        None
+    } else {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer).unwrap();
+        Some(Body::Raw(buffer))
+    }
 }
 
 pub fn indent_json(text: &str) -> String {

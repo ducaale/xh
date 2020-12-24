@@ -1,5 +1,3 @@
-use std::io::{self, Read};
-
 use atty::Stream;
 use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST};
 use reqwest::Client;
@@ -21,16 +19,7 @@ use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
-
-fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {
-    if atty::is(Stream::Stdin) || ignore_stdin {
-        None
-    } else {
-        let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer).unwrap();
-        Some(Body::Raw(buffer))
-    }
-}
+use utils::body_from_stdin;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
