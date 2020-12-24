@@ -118,6 +118,7 @@ impl RequestItems {
                     let path = Path::new(&value);
                     let file_name = path.file_name().unwrap().to_string_lossy().to_string();
                     // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
+                    // TODO: move to utils.rs and name it file_to_body()
                     let file = File::open(&path).await.unwrap();
                     let reader =
                         reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
