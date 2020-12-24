@@ -1,13 +1,17 @@
 use std::fmt::Write;
+use std::path::Path;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
+use reqwest::Body;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, CONTENT_LENGTH};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::Theme;
 
@@ -46,6 +50,12 @@ pub fn get_content_length(headers: &HeaderMap) -> Option<u64> {
         .get(CONTENT_LENGTH)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.parse::<u64>().ok())
+}
+
+// https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
+pub async fn body_to_file(path: impl AsRef<Path>) -> Body {
+    let file = File::open(&path).await.unwrap();
+    Body::wrap_stream(FramedRead::new(file, BytesCodec::new()))
 }
 
 pub fn indent_json(text: &str) -> String {

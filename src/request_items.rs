@@ -2,10 +2,9 @@ use std::path::Path;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::multipart;
-use tokio::fs::File;
-use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::RequestItem;
+use crate::utils::body_to_file;
 
 pub struct RequestItems(Vec<RequestItem>);
 
@@ -117,12 +116,8 @@ impl RequestItems {
                 RequestItem::FormFile(key, value) => {
                     let path = Path::new(&value);
                     let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-                    // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-                    // TODO: move to utils.rs and name it file_to_body()
-                    let file = File::open(&path).await.unwrap();
-                    let reader =
-                        reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
-                    form = form.part(key, multipart::Part::stream(reader).file_name(file_name));
+                    let part = multipart::Part::stream(body_to_file(&path).await).file_name(file_name);
+                    form = form.part(key, part);
                 }
                 _ => {}
             }
