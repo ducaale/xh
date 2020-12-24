@@ -27,7 +27,7 @@ pub struct Opt {
     pub multipart: bool,
 
     /// Do not attempt to read stdin.
-    #[structopt(short, long = "ignore-stdin")]
+    #[structopt(short = "I", long = "ignore-stdin")]
     pub ignore_stdin: bool,
 
     /// Specify the auth mechanism.
