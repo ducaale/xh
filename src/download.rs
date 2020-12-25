@@ -45,5 +45,5 @@ pub async fn download_file(mut response: reqwest::Response, file_name: Option<St
         pb.set_position(downloaded);
     }
 
-    pb.finish_with_message("downloaded");
+    pb.finish();
 }
