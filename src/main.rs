@@ -104,7 +104,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             printer.print_response_headers(&response);
         }
         if opt.download {
-            download_file(response).await;
+            download_file(response, opt.output).await;
         } else if print.response_body {
             printer.print_response_body(response).await;
         }
