@@ -6,6 +6,7 @@ use regex::Regex;
 
 use crate::utils::get_content_length;
 
+// TODO: avoid name conflict unless `continue` flag is specified
 fn get_file_name(response: &reqwest::Response) -> String {
     let fallback = response.url().path_segments().unwrap().last().unwrap();
 
@@ -21,6 +22,7 @@ fn get_file_name(response: &reqwest::Response) -> String {
     }
 }
 
+// TODO: support resumable downloads
 pub async fn download_file(mut response: reqwest::Response, file_name: Option<String>) {
     let file_name = file_name.unwrap_or(get_file_name(&response));
     let mut buffer = File::create(&file_name).unwrap();
