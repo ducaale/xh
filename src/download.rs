@@ -1,5 +1,5 @@
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use regex::Regex;
@@ -16,7 +16,6 @@ fn get_file_name(response: &reqwest::Response) -> String {
         } else {
             fallback.to_string()
         }
-            
     } else {
         fallback.to_string()
     }
@@ -24,19 +23,29 @@ fn get_file_name(response: &reqwest::Response) -> String {
 
 pub async fn download_file(mut response: reqwest::Response, file_name: Option<String>) {
     let file_name = file_name.unwrap_or(get_file_name(&response));
-    let total_size = get_content_length(&response.headers()).unwrap();
     let mut buffer = File::create(&file_name).unwrap();
 
-    eprintln!(
-        "Downloading {} to \"{}\"",
-        HumanBytes(total_size),
-        file_name
-    );
-
-    let pb = ProgressBar::new(total_size);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}")
-        .progress_chars("#>-"));
+    let pb = match get_content_length(&response.headers()) {
+        Some(content_length) => {
+            eprintln!(
+                "Downloading {} to \"{}\"",
+                HumanBytes(content_length),
+                file_name
+            );
+            ProgressBar::new(content_length).with_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}")
+                    .progress_chars("#>-")
+            )
+        }
+        None => {
+            eprintln!("Downloading to \"{}\"", file_name);
+            ProgressBar::new_spinner().with_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}"),
+            )
+        }
+    };
 
     let mut downloaded = 0;
     while let Some(chunk) = response.chunk().await.unwrap() {
@@ -45,5 +54,5 @@ pub async fn download_file(mut response: reqwest::Response, file_name: Option<St
         pb.set_position(downloaded);
     }
 
-    pb.finish();
+    pb.finish_with_message("Done");
 }
