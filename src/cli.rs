@@ -44,13 +44,17 @@ pub struct Opt {
     #[structopt(short = "d", long)]
     pub download: bool,
 
-    /// String specifying what the output should contain
+    /// String specifying what the output should contain.
     #[structopt(short = "p", long)]
     pub print: Option<Print>,
 
     /// Print the whole request as well as the response.
     #[structopt(short = "v", long)]
     pub verbose: bool,
+
+    /// Do not print to stdout or stderr.
+    #[structopt(short = "q", long)]
+    pub quiet: bool,
 
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]

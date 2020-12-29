@@ -86,12 +86,13 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut printer = Printer::new(opt.pretty, opt.theme, &opt.output);
 
     let print = opt.print.unwrap_or(
-        match (opt.verbose, opt.offline, atty::isnt(Stream::Stdout), &opt.output, opt.download) {
-            (true, _, _, _, _) => Print::new(true, true, true, true),
-            (_, true, _, _, _) => Print::new(true, true, false, false),
-            (_, _, true, _, _) => Print::new(false, false, false, true),
-            (_, _, _, Some(_), false) => Print::new(false, false, false, true),
-            (_, _, _, _, _) => Print::new(false, false, true, true)
+        match (opt.verbose, opt.quiet, opt.offline, atty::isnt(Stream::Stdout), &opt.output, opt.download) {
+            (true, _, _, _, _, _) => Print::new(true, true, true, true),
+            (_, true, _, _, _, _) => Print::new(false, false, false, false),
+            (_, _, true, _, _, _) => Print::new(true, true, false, false),
+            (_, _, _, true, _, _) => Print::new(false, false, false, true),
+            (_, _, _, _, Some(_), false) => Print::new(false, false, false, true),
+            (_, _, _, _, _, _) => Print::new(false, false, true, true)
         }
     );
 
@@ -107,7 +108,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             printer.print_response_headers(&response)?;
         }
         if opt.download {
-            download_file(response, opt.output).await;
+            download_file(response, opt.output, opt.quiet).await;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }

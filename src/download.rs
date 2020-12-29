@@ -23,29 +23,36 @@ fn get_file_name(response: &reqwest::Response) -> String {
 }
 
 // TODO: support resumable downloads
-pub async fn download_file(mut response: reqwest::Response, file_name: Option<String>) {
+pub async fn download_file(mut response: reqwest::Response, file_name: Option<String>, quiet: bool) {
     let file_name = file_name.unwrap_or(get_file_name(&response));
     let mut buffer = File::create(&file_name).unwrap();
 
-    let pb = match get_content_length(&response.headers()) {
-        Some(content_length) => {
-            eprintln!(
-                "Downloading {} to \"{}\"",
-                HumanBytes(content_length),
-                file_name
-            );
-            ProgressBar::new(content_length).with_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}")
-                    .progress_chars("#>-")
-            )
-        }
-        None => {
-            eprintln!("Downloading to \"{}\"", file_name);
-            ProgressBar::new_spinner().with_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}"),
-            )
+    let pb =  if quiet {
+        None
+    } else {
+        match get_content_length(&response.headers()) {
+            Some(content_length) => {
+                eprintln!(
+                    "Downloading {} to \"{}\"",
+                    HumanBytes(content_length),
+                    file_name
+                );
+                let template = "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
+                Some(
+                    ProgressBar::new(content_length).with_style(
+                        ProgressStyle::default_bar()
+                            .template(template)
+                            .progress_chars("#>-"))
+                )
+            }
+            None => {
+                eprintln!("Downloading to \"{}\"", file_name);
+                Some(
+                    ProgressBar::new_spinner().with_style(
+                        ProgressStyle::default_bar()
+                            .template("{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}"))
+                )
+            }
         }
     };
 
@@ -53,8 +60,12 @@ pub async fn download_file(mut response: reqwest::Response, file_name: Option<St
     while let Some(chunk) = response.chunk().await.unwrap() {
         buffer.write(&chunk).unwrap();
         downloaded += chunk.len() as u64;
-        pb.set_position(downloaded);
+        if let Some(pb) = &pb {
+            pb.set_position(downloaded);
+        }
     }
 
-    pb.finish_with_message("Done");
+    if let Some(pb) = &pb {
+        pb.finish_with_message("Done");
+    }
 }
