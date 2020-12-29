@@ -24,6 +24,7 @@ FLAGS:
     -I, --ignore-stdin    Do not attempt to read stdin
     -d, --download
     -v, --verbose         Print the whole request as well as the response
+    -q, --quiet           Do not print to stdout or stderr
     -h, --help            Prints help information
     -V, --version         Prints version information
 
