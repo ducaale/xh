@@ -37,7 +37,6 @@ pub struct Opt {
     #[structopt(short = "a", long)]
     pub auth: Option<String>,
 
-    // TODO: save to file even when download flag is not being used
     /// Save output to FILE instead of stdout.
     #[structopt(short, long)]
     pub output: Option<String>,

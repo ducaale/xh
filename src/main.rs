@@ -25,7 +25,6 @@ use utils::body_from_stdin;
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
-    let printer = Printer::new(opt.pretty, opt.theme);
     let request_items = RequestItems::new(opt.request_items);
 
     let url = Url::new(opt.url, opt.default_scheme);
@@ -84,29 +83,33 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let print = opt.print.unwrap_or(if opt.verbose {
-        Print::new(true, true, true, true)
-    } else if atty::is(Stream::Stdout) {
-        Print::new(false, false, true, true)
-    } else {
-        Print::new(false, false, false, true)
-    });
+    let mut printer = Printer::new(opt.pretty, opt.theme, &opt.output);
+
+    let print = opt.print.unwrap_or(
+        match (opt.verbose, opt.offline, atty::isnt(Stream::Stdout), &opt.output, opt.download) {
+            (true, _, _, _, _) => Print::new(true, true, true, true),
+            (_, true, _, _, _) => Print::new(true, true, false, false),
+            (_, _, true, _, _) => Print::new(false, false, false, true),
+            (_, _, _, Some(_), false) => Print::new(false, false, false, true),
+            (_, _, _, _, _) => Print::new(false, false, true, true)
+        }
+    );
 
     if print.request_headers {
         printer.print_request_headers(&request);
     }
     if print.request_body {
-        printer.print_request_body(&request);
+        printer.print_request_body(&request)?;
     }
     if !opt.offline {
         let response = client.execute(request).await?;
         if print.response_headers {
-            printer.print_response_headers(&response);
+            printer.print_response_headers(&response)?;
         }
         if opt.download {
             download_file(response, opt.output).await;
         } else if print.response_body {
-            printer.print_response_body(response).await;
+            printer.print_response_body(response).await?;
         }
     }
     Ok(())

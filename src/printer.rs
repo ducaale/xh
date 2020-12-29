@@ -8,21 +8,42 @@ use reqwest::{Request, Response};
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
 use crate::{Pretty, Theme};
 
+
+const MULTIPART_SUPPRESSOR: &str = concat!(
+    "+--------------------------------------------+\n",
+    "| NOTE: multipart data not shown in terminal |\n",
+    "+--------------------------------------------+"
+);
+
+const BINARY_SUPPRESSOR: &str = concat!(
+    "+-----------------------------------------+\n",
+    "| NOTE: binary data not shown in terminal |\n",
+    "+-----------------------------------------+"
+);
+
 pub struct Printer {
     indent_json: bool,
     color: bool,
     theme: Theme,
     sort_headers: bool,
+    buffer: Box<dyn IoWrite>
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>) -> Printer {
-        let pretty = pretty.unwrap_or(if atty::is(Stream::Stdout) {
-            Pretty::All
-        } else {
+    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, output: &Option<String>) -> Printer {
+        let pretty = pretty.unwrap_or(if atty::isnt(Stream::Stdout) {
             Pretty::None
+        } else if output.is_some() {
+            Pretty::None
+        } else {
+            Pretty::All
         });
         let theme = theme.unwrap_or(Theme::Auto);
+        let buffer: Box<dyn std::io::Write> = if let Some(output) = output {
+            Box::new(std::fs::File::create(output).unwrap())
+        } else {
+            Box::new(std::io::stdout())
+        };
 
         match pretty {
             Pretty::All => Printer {
@@ -30,72 +51,74 @@ impl Printer {
                 color: true,
                 theme: theme,
                 sort_headers: true,
+                buffer
             },
             Pretty::Colors => Printer {
                 indent_json: false,
                 color: true,
                 theme: theme,
                 sort_headers: false,
+                buffer
             },
             Pretty::Format => Printer {
                 indent_json: true,
                 color: false,
                 theme: theme,
                 sort_headers: true,
+                buffer
             },
             Pretty::None => Printer {
                 indent_json: false,
                 color: false,
                 theme: theme,
                 sort_headers: false,
+                buffer
             },
         }
     }
 
-    fn print_json(&self, text: &str) {
+    fn print_json(&mut self, text: &str) -> std::io::Result<()> {
         match (self.indent_json, self.color) {
             (true, true) => {
-                colorize(&indent_json(text), "json", &self.theme)
-                    .for_each(|line| print!("{}", line));
-                print!("\x1b[0m");
+                for line in colorize(&indent_json(text), "json", &self.theme) {
+                    write!(self.buffer, "{}", line)?;
+                }
+                write!(self.buffer, "\x1b[0m")?;
             }
             (false, true) => {
-                colorize(text, "json", &self.theme).for_each(|line| print!("{}", line));
-                print!("\x1b[0m");
+                for line in colorize(text, "json", &self.theme) {
+                    write!(self.buffer, "{}", line)?;
+                }
+                write!(self.buffer, "\x1b[0m")?;
             }
-            (true, false) => print!("{}", indent_json(text)),
-            (false, false) => print!("{}", text),
+            (true, false) => write!(self.buffer, "{}", indent_json(text))?,
+            (false, false) => write!(self.buffer, "{}", text)?,
         }
+        Ok(())
     }
 
-    fn print_xml(&self, text: &str) {
+    fn print_xml(&mut self, text: &str) -> std::io::Result<()> {
         if self.color {
-            colorize(text, "xml", &self.theme).for_each(|line| print!("{}", line));
-            print!("\x1b[0m");
+            for line in colorize(text, "xml", &self.theme) {
+                write!(self.buffer, "{}", line)?;
+            }
+            write!(self.buffer, "\x1b[0m")?;
         } else {
-            print!("{}", text)
+            write!(self.buffer, "{}", text)?;
         }
+        Ok(())
     }
 
-    fn print_html(&self, text: &str) {
+    fn print_html(&mut self, text: &str) -> std::io::Result<()> {
         if self.color {
-            colorize(text, "html", &self.theme).for_each(|line| print!("{}", line));
-            print!("\x1b[0m");
+            for line in colorize(text, "html", &self.theme) {
+                write!(self.buffer, "{}", line)?;
+            }
+            write!(self.buffer, "\x1b[0m")?;
         } else {
-            print!("{}", text)
+            write!(self.buffer, "{}", text)?;
         }
-    }
-
-    fn print_binary_suppressor(&self) {
-        print!("+-----------------------------------------+\n");
-        print!("| NOTE: binary data not shown in terminal |\n");
-        print!("+-----------------------------------------+");
-    }
-
-    fn print_multipart_suppressor(&self) {
-        print!("+--------------------------------------------+\n");
-        print!("| NOTE: multipart data not shown in terminal |\n");
-        print!("+--------------------------------------------+");
+        Ok(())
     }
 
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
@@ -115,7 +138,7 @@ impl Printer {
         header_string
     }
 
-    pub fn print_request_headers(&self, request: &Request) {
+    pub fn print_request_headers(&mut self, request: &Request) {
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -133,16 +156,16 @@ impl Printer {
 
         if self.color {
             colorize(&(request_line + &headers), "http", &self.theme)
-                .for_each(|line| print!("{}", line));
-            print!("\x1b[0m");
+                .for_each(|line| write!(self.buffer, "{}", line).unwrap());
+            write!(self.buffer, "\x1b[0m").unwrap();
         } else {
-            print!("{}", &(request_line + &headers));
+            write!(self.buffer, "{}", &(request_line + &headers)).unwrap();
         }
 
-        print!("\n\n");
+        write!(self.buffer, "\n\n").unwrap();
     }
 
-    pub fn print_response_headers(&self, response: &Response) {
+    pub fn print_response_headers(&mut self, response: &Response) -> std::io::Result<()> {
         let version = response.version();
         let status = response.status();
         let headers = response.headers();
@@ -156,17 +179,19 @@ impl Printer {
         let headers = self.headers_to_string(headers, self.sort_headers);
 
         if self.color {
-            colorize(&(status_line + &headers), "http", &self.theme)
-                .for_each(|line| print!("{}", line));
-            print!("\x1b[0m");
+            for line in colorize(&(status_line + &headers), "http", &self.theme) {
+                write!(self.buffer, "{}", line)?
+            }
+            write!(self.buffer, "\x1b[0m").unwrap();
         } else {
-            print!("{}", &(status_line + &headers));
+            write!(self.buffer, "{}", &(status_line + &headers))?;
         }
 
-        print!("\n\n");
+        write!(self.buffer, "\n\n")?;
+        Ok(())
     }
 
-    pub fn print_request_body(&self, request: &Request) {
+    pub fn print_request_body(&mut self, request: &Request) -> std::io::Result<()> {
         let get_body = || {
             request
                 .body()
@@ -176,39 +201,41 @@ impl Printer {
 
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
-                self.print_multipart_suppressor();
-                print!("\n\n");
+                write!(self.buffer, "{}", MULTIPART_SUPPRESSOR)?;
+                write!(self.buffer, "\n\n")?;
             }
             Some(ContentType::Json) => {
                 if let Some(body) = get_body() {
-                    self.print_json(&body);
-                    print!("\n\n");
+                    self.print_json(&body)?;
+                    write!(self.buffer, "\n\n")?;
                 }
             }
             Some(ContentType::UrlencodedForm) | _ => {
                 if let Some(body) = get_body() {
-                    print!("{}", body);
-                    print!("\n\n");
+                    write!(self.buffer, "{}", body)?;
+                    write!(self.buffer, "\n\n")?;
                 }
             }
         };
+        Ok(())
     }
 
-    pub async fn print_response_body(&self, response: Response) {
+    pub async fn print_response_body(&mut self, response: Response) -> std::io::Result<()> {
         match get_content_type(&response.headers()) {
-            Some(ContentType::Json) => self.print_json(&response.text().await.unwrap()),
-            Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap()),
-            Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
+            Some(ContentType::Json) => self.print_json(&response.text().await.unwrap())?,
+            Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap())?,
+            Some(ContentType::Html) => self.print_html(&response.text().await.unwrap())?,
             _ => {
                 let bytes = response.bytes().await.unwrap();
                 if atty::is(Stream::Stdout) && bytes.contains(&b'\0') {
-                    self.print_binary_suppressor();
+                    write!(self.buffer, "{}", BINARY_SUPPRESSOR)?;
                 } else {
-                    std::io::stdout().write(&bytes).unwrap();
+                    self.buffer.write(&bytes).unwrap();
                 }
             }
         };
 
-        std::io::stdout().flush().unwrap();
+        self.buffer.flush().unwrap();
+        Ok(())
     }
 }
