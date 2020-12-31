@@ -443,6 +443,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ht"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "assert_cmd",
+ "atty",
+ "indicatif",
+ "indoc",
+ "jsonxf",
+ "lazy_static",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "structopt",
+ "syntect",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "http"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1787,29 +1810,6 @@ name = "xml-rs"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b07db065a5cf61a7e4ba64f29e67db906fb1787316516c4e6e5ff0fea1efcd8a"
-
-[[package]]
-name = "yahc"
-version = "0.1.0"
-dependencies = [
- "ansi_term 0.12.1",
- "assert_cmd",
- "atty",
- "indicatif",
- "indoc",
- "jsonxf",
- "lazy_static",
- "regex",
- "reqwest",
- "rpassword",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "structopt",
- "syntect",
- "tokio",
- "tokio-util",
-]
 
 [[package]]
 name = "yaml-rust"

@@ -4,7 +4,7 @@ use std::process::Command;
 
 #[test]
 fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("yahc")?;
+    let mut cmd = Command::cargo_bin("ht")?;
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")

@@ -1,18 +1,17 @@
-# Yahc
-Yet another [HTTPie](https://httpie.io/) clone.
+# ht
+Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
-[![asciicast](/assets/yahc-demo.gif)](https://asciinema.org/a/381777)
+[![asciicast](/assets/ht-demo.gif)](https://asciinema.org/a/382056)
 
 ## Building from source
 You will need rust 1.46 or later. To compile run `cargo build --release`.
 
 ## Usage
 ```
-yahc 0.1.0
-Yet another HTTPie clone
+ht 0.1.0
 
 USAGE:
-    yahc [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
+    ht [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere

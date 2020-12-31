@@ -6,9 +6,8 @@ use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
 // Following doc comments were copy-pasted from HTTPie
-/// Yet another HTTPie clone
 #[derive(StructOpt, Debug)]
-#[structopt(name = "yahc", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Opt {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
