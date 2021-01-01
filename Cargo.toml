@@ -3,6 +3,12 @@ name = "ht"
 version = "0.2.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "Yet another HTTPie clone"
+documentation = "https://github.com/ducaale/ht"
+homepage = "https://github.com/ducaale/ht"
+repository = "https://github.com/ducaale/ht"
+readme = "README.md"
 
 [dependencies]
 ansi_term = "0.12"
