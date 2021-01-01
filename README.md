@@ -8,7 +8,7 @@ You will need rust 1.46 or later. To compile run `cargo build --release`.
 
 ## Usage
 ```
-ht 0.1.0
+ht 0.2.0
 
 USAGE:
     ht [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
