@@ -3,8 +3,12 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 [![asciicast](/assets/ht-demo.gif)](https://asciinema.org/a/382056)
 
-## Building from source
-You will need rust 1.46 or later. To compile run `cargo build --release`.
+## Installation
+```sh
+cargo install ht
+```
+
+**NB**: Make sure that you have Rust 1.46 or later installed.
 
 ## Usage
 ```
