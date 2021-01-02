@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use crate::{AuthType, Url};
+use crate::AuthType;
 
 #[derive(Debug, Clone)]
 pub enum Auth {
@@ -9,7 +9,7 @@ pub enum Auth {
 }
 
 impl Auth {
-    pub fn new(auth: Option<String>, auth_type: Option<AuthType>, url: &Url) -> Option<Auth> {
+    pub fn new(auth: Option<String>, auth_type: Option<AuthType>, host: &str) -> Option<Auth> {
         let auth_type = auth_type.unwrap_or(AuthType::Basic);
         let auth = match auth {
             Some(auth) if !auth.is_empty() => auth,
@@ -31,8 +31,7 @@ impl Auth {
                     Some(Auth::Basic(username, password))
                 } else {
                     let username = auth;
-                    let prompt =
-                        format!("http: password for {}@{}: ", username, url.host().unwrap());
+                    let prompt = format!("http: password for {}@{}: ", username, host);
                     let password = rpassword::read_password_from_tty(Some(&prompt)).unwrap();
                     Some(Auth::Basic(username, Some(password)))
                 }

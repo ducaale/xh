@@ -30,7 +30,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let url = Url::new(opt.url, opt.default_scheme);
     let host = url.host().unwrap();
     let method = opt.method.into();
-    let auth = Auth::new(opt.auth, opt.auth_type, &url);
+    let auth = Auth::new(opt.auth, opt.auth_type, &host);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers();
     let body = match (
