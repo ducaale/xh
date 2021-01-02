@@ -1,4 +1,6 @@
 # ht
+[![Version info](https://img.shields.io/crates/v/ht.svg)](https://crates.io/crates/ht)
+
 Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 [![asciicast](/assets/ht-demo.gif)](https://asciinema.org/a/382056)
