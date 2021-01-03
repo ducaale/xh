@@ -8,7 +8,7 @@ use structopt::StructOpt;
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
 #[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
-pub struct Opt {
+pub struct Cli {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
     pub offline: bool,

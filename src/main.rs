@@ -16,7 +16,7 @@ mod url;
 mod utils;
 
 use auth::Auth;
-use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
+use cli::{AuthType, Cli, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::{Buffer, Printer};
 use request_items::{Body, RequestItems};
@@ -25,19 +25,19 @@ use utils::body_from_stdin;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let opt = Opt::from_args();
+    let args = Cli::from_args();
 
-    let request_items = RequestItems::new(opt.request_items);
+    let request_items = RequestItems::new(args.request_items);
 
-    let url = Url::new(opt.url, opt.default_scheme);
+    let url = Url::new(args.url, args.default_scheme);
     let host = url.host().unwrap();
-    let method = opt.method.into();
-    let auth = Auth::new(opt.auth, opt.auth_type, &host);
+    let method = args.method.into();
+    let auth = Auth::new(args.auth, args.auth_type, &host);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers();
     let body = match (
-        request_items.body(opt.form, opt.multipart).await?,
-        body_from_stdin(opt.ignore_stdin),
+        request_items.body(args.form, args.multipart).await?,
+        body_from_stdin(args.ignore_stdin),
     ) {
         (Some(_), Some(_)) => {
             return Err(
@@ -70,8 +70,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             None => request_builder,
         };
 
-        request_builder = match get_file_size(&opt.output) {
-            Some(r) if opt.download && opt.resume => {
+        request_builder = match get_file_size(&args.output) {
+            Some(r) if args.download && args.resume => {
                 request_builder.header(RANGE, HeaderValue::from_str(&format!("bytes={}", r))?)
             }
             _ => request_builder,
@@ -92,18 +92,18 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let buffer = match &opt.output {
-        Some(output) if !opt.download => Buffer::File(Box::new(std::fs::File::create(&output)?)),
+    let buffer = match &args.output {
+        Some(output) if !args.download => Buffer::File(Box::new(std::fs::File::create(&output)?)),
         _ if atty::isnt(Stream::Stdout) => Buffer::Redirect(Box::new(std::io::stdout())),
         Some(_) => Buffer::Terminal(Box::new(std::io::stdout())),
         None => Buffer::Terminal(Box::new(std::io::stdout())),
     };
-    let print = opt.print.unwrap_or(
-        if opt.verbose {
+    let print = args.print.unwrap_or(
+        if args.verbose {
             Print::new(true, true, true, true)
-        } else if opt.quiet {
+        } else if args.quiet {
             Print::new(false, false, false, false)
-        } else if opt.offline {
+        } else if args.offline {
             Print::new(true, true, false, false)
         } else if !matches!(&buffer, Buffer::Terminal(_)) {
             Print::new(false, false, false, true)
@@ -111,7 +111,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             Print::new(false, false, true, true)
         }
     );
-    let mut printer = Printer::new(opt.pretty, opt.theme, buffer);
+    let mut printer = Printer::new(args.pretty, args.theme, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request);
@@ -119,14 +119,14 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     if print.request_body {
         printer.print_request_body(&request)?;
     }
-    if !opt.offline {
+    if !args.offline {
         let response = client.execute(request).await?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
-        if opt.download {
+        if args.download {
             let resume = &response.status() == &StatusCode::OK;
-            download_file(response, opt.output, resume, opt.quiet).await;
+            download_file(response, args.output, resume, args.quiet).await;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
