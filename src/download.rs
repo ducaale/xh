@@ -41,6 +41,7 @@ pub async fn download_file(
     resume: bool,
     quiet: bool,
 ) {
+    // TODO: support downloading to stdout
     let file_name = file_name.unwrap_or(get_file_name(&response));
     let mut buffer = OpenOptions::new()
         .write(true)
