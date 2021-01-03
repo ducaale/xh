@@ -43,6 +43,10 @@ pub struct Opt {
     #[structopt(short = "d", long)]
     pub download: bool,
 
+    /// Resume an interrupted download.
+    #[structopt(short = "c", long = "continue")]
+    pub resume: bool,
+
     /// String specifying what the output should contain.
     #[structopt(short = "p", long)]
     pub print: Option<Print>,

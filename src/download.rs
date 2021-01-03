@@ -1,10 +1,16 @@
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::prelude::*;
 
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use regex::Regex;
+use reqwest::header::{HeaderMap, CONTENT_LENGTH};
 
-use crate::utils::get_content_length;
+fn get_content_length(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+}
 
 // TODO: avoid name conflict unless `continue` flag is specified
 fn get_file_name(response: &reqwest::Response) -> String {
@@ -22,12 +28,28 @@ fn get_file_name(response: &reqwest::Response) -> String {
     }
 }
 
-// TODO: support resumable downloads
-pub async fn download_file(mut response: reqwest::Response, file_name: Option<String>, quiet: bool) {
-    let file_name = file_name.unwrap_or(get_file_name(&response));
-    let mut buffer = File::create(&file_name).unwrap();
+pub fn get_file_size(path: &Option<String>) -> Option<u64> {
+    match path {
+        Some(path) => Some(std::fs::metadata(path).ok()?.len()),
+        _ => None,
+    }
+}
 
-    let pb =  if quiet {
+pub async fn download_file(
+    mut response: reqwest::Response,
+    file_name: Option<String>,
+    resume: bool,
+    quiet: bool,
+) {
+    let file_name = file_name.unwrap_or(get_file_name(&response));
+    let mut buffer = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(resume)
+        .open(&file_name)
+        .unwrap();
+
+    let pb = if quiet {
         None
     } else {
         match get_content_length(&response.headers()) {
@@ -42,15 +64,16 @@ pub async fn download_file(mut response: reqwest::Response, file_name: Option<St
                     ProgressBar::new(content_length).with_style(
                         ProgressStyle::default_bar()
                             .template(template)
-                            .progress_chars("#>-"))
+                            .progress_chars("#>-"),
+                    ),
                 )
             }
             None => {
                 eprintln!("Downloading to \"{}\"", file_name);
                 Some(
-                    ProgressBar::new_spinner().with_style(
-                        ProgressStyle::default_bar()
-                            .template("{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}"))
+                    ProgressBar::new_spinner().with_style(ProgressStyle::default_bar().template(
+                        "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}",
+                    )),
                 )
             }
         }

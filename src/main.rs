@@ -1,6 +1,8 @@
 use atty::Stream;
-use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST};
-use reqwest::Client;
+use reqwest::header::{
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
+};
+use reqwest::{Client, StatusCode};
 use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
@@ -15,6 +17,7 @@ mod utils;
 
 use auth::Auth;
 use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
+use download::{download_file, get_file_size};
 use printer::{Buffer, Printer};
 use request_items::{Body, RequestItems};
 use url::Url;
@@ -52,7 +55,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             .header(ACCEPT, HeaderValue::from_static("*/*"))
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
-            .header(HOST, HeaderValue::from_str(&host).unwrap());
+            .header(HOST, HeaderValue::from_str(&host)?);
 
         request_builder = match body {
             Some(Body::Form(body)) => request_builder.form(&body),
@@ -65,6 +68,13 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
                 .body(body),
             None => request_builder,
+        };
+
+        request_builder = match get_file_size(&opt.output) {
+            Some(r) if opt.download && opt.resume => {
+                request_builder.header(RANGE, HeaderValue::from_str(&format!("bytes={}", r))?)
+            }
+            _ => request_builder,
         };
 
         request_builder = match auth {
@@ -115,7 +125,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             printer.print_response_headers(&response)?;
         }
         if opt.download {
-            download_file(response, opt.output, opt.quiet).await;
+            let resume = &response.status() == &StatusCode::OK;
+            download_file(response, opt.output, resume, opt.quiet).await;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
