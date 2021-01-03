@@ -8,7 +8,6 @@ use reqwest::{Request, Response};
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
 use crate::{Pretty, Theme};
 
-
 const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+\n",
     "| NOTE: multipart data not shown in terminal |\n",
@@ -21,28 +20,33 @@ const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+"
 );
 
+pub enum Buffer {
+    File(Box<dyn IoWrite>),
+    Redirect(Box<dyn IoWrite>),
+    Terminal(Box<dyn IoWrite>)
+}
+
 pub struct Printer {
     indent_json: bool,
     color: bool,
     theme: Theme,
     sort_headers: bool,
-    buffer: Box<dyn IoWrite>
+    buffer: Box<dyn IoWrite>,
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, output: &Option<String>) -> Printer {
-        let pretty = pretty.unwrap_or(if atty::isnt(Stream::Stdout) {
-            Pretty::None
-        } else if output.is_some() {
-            Pretty::None
-        } else {
-            Pretty::All
-        });
+    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Printer {
+        let pretty = pretty.unwrap_or(
+            match buffer {
+                Buffer::File(_) | Buffer::Redirect(_) => Pretty::None,
+                Buffer::Terminal(_) => Pretty::All
+            }
+        );
         let theme = theme.unwrap_or(Theme::Auto);
-        let buffer: Box<dyn std::io::Write> = if let Some(output) = output {
-            Box::new(std::fs::File::create(output).unwrap())
-        } else {
-            Box::new(std::io::stdout())
+        let buffer = match buffer {
+            Buffer::File(buffer) => buffer,
+            Buffer::Redirect(buffer) => buffer,
+            Buffer::Terminal(buffer) => buffer
         };
 
         match pretty {
@@ -51,28 +55,28 @@ impl Printer {
                 color: true,
                 theme: theme,
                 sort_headers: true,
-                buffer
+                buffer,
             },
             Pretty::Colors => Printer {
                 indent_json: false,
                 color: true,
                 theme: theme,
                 sort_headers: false,
-                buffer
+                buffer,
             },
             Pretty::Format => Printer {
                 indent_json: true,
                 color: false,
                 theme: theme,
                 sort_headers: true,
-                buffer
+                buffer,
             },
             Pretty::None => Printer {
                 indent_json: false,
                 color: false,
                 theme: theme,
                 sort_headers: false,
-                buffer
+                buffer,
             },
         }
     }

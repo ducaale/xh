@@ -15,8 +15,7 @@ mod utils;
 
 use auth::Auth;
 use cli::{AuthType, Opt, Pretty, Print, RequestItem, Theme};
-use download::download_file;
-use printer::Printer;
+use printer::{Buffer, Printer};
 use request_items::{Body, RequestItems};
 use url::Url;
 use utils::body_from_stdin;
@@ -83,18 +82,26 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let mut printer = Printer::new(opt.pretty, opt.theme, &opt.output);
-
+    let buffer = match &opt.output {
+        Some(output) if !opt.download => Buffer::File(Box::new(std::fs::File::create(&output)?)),
+        _ if atty::isnt(Stream::Stdout) => Buffer::Redirect(Box::new(std::io::stdout())),
+        Some(_) => Buffer::Terminal(Box::new(std::io::stdout())),
+        None => Buffer::Terminal(Box::new(std::io::stdout())),
+    };
     let print = opt.print.unwrap_or(
-        match (opt.verbose, opt.quiet, opt.offline, atty::isnt(Stream::Stdout), &opt.output, opt.download) {
-            (true, _, _, _, _, _) => Print::new(true, true, true, true),
-            (_, true, _, _, _, _) => Print::new(false, false, false, false),
-            (_, _, true, _, _, _) => Print::new(true, true, false, false),
-            (_, _, _, true, _, _) => Print::new(false, false, false, true),
-            (_, _, _, _, Some(_), false) => Print::new(false, false, false, true),
-            (_, _, _, _, _, _) => Print::new(false, false, true, true)
+        if opt.verbose {
+            Print::new(true, true, true, true)
+        } else if opt.quiet {
+            Print::new(false, false, false, false)
+        } else if opt.offline {
+            Print::new(true, true, false, false)
+        } else if !matches!(&buffer, Buffer::Terminal(_)) {
+            Print::new(false, false, false, true)
+        } else {
+            Print::new(false, false, true, true)
         }
     );
+    let mut printer = Printer::new(opt.pretty, opt.theme, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request);
