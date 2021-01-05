@@ -3,7 +3,6 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
 };
 use reqwest::{Client, StatusCode};
-use structopt::StructOpt;
 #[macro_use]
 extern crate lazy_static;
 
@@ -16,7 +15,7 @@ mod url;
 mod utils;
 
 use auth::Auth;
-use cli::{AuthType, Cli, Pretty, Print, RequestItem, Theme};
+use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::{Buffer, Printer};
 use request_items::{Body, RequestItems};
@@ -28,11 +27,6 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let args = Cli::from_args();
 
     let request_items = RequestItems::new(args.request_items);
-
-    let url = Url::new(args.url, args.default_scheme);
-    let host = url.host().unwrap();
-    let method = args.method.into();
-    let auth = Auth::new(args.auth, args.auth_type, &host);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers();
     let body = match (
@@ -47,6 +41,18 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         (Some(body), None) | (None, Some(body)) => Some(body),
         (None, None) => None,
     };
+
+    let (method, url) = args.method_url;
+    let url = Url::new(url, args.default_scheme);
+    let host = url.host().unwrap();
+    let method = method
+        .unwrap_or(if body.is_none() {
+            Method::GET
+        } else {
+            Method::POST
+        })
+        .into();
+    let auth = Auth::new(args.auth, args.auth_type, &host);
 
     let client = Client::new();
     let request = {
@@ -98,19 +104,17 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Some(_) => Buffer::Terminal(Box::new(std::io::stdout())),
         None => Buffer::Terminal(Box::new(std::io::stdout())),
     };
-    let print = args.print.unwrap_or(
-        if args.verbose {
-            Print::new(true, true, true, true)
-        } else if args.quiet {
-            Print::new(false, false, false, false)
-        } else if args.offline {
-            Print::new(true, true, false, false)
-        } else if !matches!(&buffer, Buffer::Terminal(_)) {
-            Print::new(false, false, false, true)
-        } else {
-            Print::new(false, false, true, true)
-        }
-    );
+    let print = args.print.unwrap_or(if args.verbose {
+        Print::new(true, true, true, true)
+    } else if args.quiet {
+        Print::new(false, false, false, false)
+    } else if args.offline {
+        Print::new(true, true, false, false)
+    } else if !matches!(&buffer, Buffer::Terminal(_)) {
+        Print::new(false, false, false, true)
+    } else {
+        Print::new(false, false, true, true)
+    });
     let mut printer = Printer::new(args.pretty, args.theme, buffer);
 
     if print.request_headers {

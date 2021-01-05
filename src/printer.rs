@@ -23,7 +23,7 @@ const BINARY_SUPPRESSOR: &str = concat!(
 pub enum Buffer {
     File(Box<dyn IoWrite>),
     Redirect(Box<dyn IoWrite>),
-    Terminal(Box<dyn IoWrite>)
+    Terminal(Box<dyn IoWrite>),
 }
 
 pub struct Printer {
@@ -36,17 +36,15 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Printer {
-        let pretty = pretty.unwrap_or(
-            match buffer {
-                Buffer::File(_) | Buffer::Redirect(_) => Pretty::None,
-                Buffer::Terminal(_) => Pretty::All
-            }
-        );
+        let pretty = pretty.unwrap_or(match buffer {
+            Buffer::File(_) | Buffer::Redirect(_) => Pretty::None,
+            Buffer::Terminal(_) => Pretty::All,
+        });
         let theme = theme.unwrap_or(Theme::Auto);
         let buffer = match buffer {
             Buffer::File(buffer) => buffer,
             Buffer::Redirect(buffer) => buffer,
-            Buffer::Terminal(buffer) => buffer
+            Buffer::Terminal(buffer) => buffer,
         };
 
         match pretty {

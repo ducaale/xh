@@ -15,9 +15,8 @@ cargo install ht
 ## Usage
 ```
 ht 0.2.0
-
 USAGE:
-    ht [FLAGS] [OPTIONS] <METHOD> <URL> [REQUEST_ITEM]...
+    ht.exe [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
@@ -26,6 +25,7 @@ FLAGS:
     -m, --multipart       Similar to --form, but always sends a multipart/form-data request (i.e., even without files)
     -I, --ignore-stdin    Do not attempt to read stdin
     -d, --download
+    -c, --continue        Resume an interrupted download
     -v, --verbose         Print the whole request as well as the response
     -q, --quiet           Do not print to stdout or stderr
     -h, --help            Prints help information
@@ -41,8 +41,7 @@ OPTIONS:
         --default-scheme <default-scheme>    The default scheme to use if not specified in the URL
 
 ARGS:
-    <METHOD>             The HTTP method to be used for the request [possible values: GET, POST, PUT, PATCH, DELETE]
-    <URL>
+    <[METHOD] URL>       The request URL, preceded by an optional HTTP method
     <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
 ```
 

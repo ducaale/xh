@@ -71,27 +71,60 @@ pub struct Cli {
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
 
-    /// The HTTP method to be used for the request.
-    #[structopt(name = "METHOD", possible_values = &Method::variants(), case_insensitive = true)]
-    pub method: Method,
-
-    #[structopt(name = "URL")]
-    pub url: String,
+    /// The request URL, preceded by an optional HTTP method.
+    #[structopt(name = "[METHOD] URL", parse(try_from_str = parse_method_url))]
+    pub method_url: (Option<Method>, String),
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(name = "REQUEST_ITEM")]
     pub request_items: Vec<RequestItem>,
 }
 
-// TODO: add remaining methods
-arg_enum! {
-    #[derive(Debug, Clone, Copy)]
-    pub enum Method {
-        GET,
-        POST,
-        PUT,
-        PATCH,
-        DELETE
+impl Cli {
+    pub fn from_args() -> Self {
+        let mut args = vec![];
+        let mut method = None;
+        // Merge `method` and `url` entries from std::env::args()
+        for arg in std::env::args() {
+            if arg.parse::<Method>().is_ok() {
+                method = Some(arg)
+            } else if method.is_some() {
+                args.push(format!("{} {}", method.unwrap(), arg));
+                method = None;
+            } else {
+                args.push(arg);
+            }
+        }
+
+        Cli::from_iter(args)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Method {
+    GET,
+    POST,
+    PUT,
+    PATCH,
+    DELETE,
+}
+
+impl FromStr for Method {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Method> {
+        match s.to_ascii_uppercase().as_str() {
+            "GET" => Ok(Method::GET),
+            "POST" => Ok(Method::POST),
+            "PUT" => Ok(Method::PUT),
+            "PATCH" => Ok(Method::PATCH),
+            "DELETE" => Ok(Method::DELETE),
+            method => {
+                return Err(Error::with_description(
+                    &format!("unknown http method {}", method),
+                    ErrorKind::InvalidValue,
+                ))
+            }
+        }
     }
 }
 
@@ -104,6 +137,15 @@ impl From<Method> for reqwest::Method {
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
         }
+    }
+}
+
+fn parse_method_url(s: &str) -> Result<(Option<Method>, String)> {
+    let parts = s.split_whitespace().collect::<Vec<_>>();
+    if parts.len() == 1 {
+        Ok((None, parts[0].to_string()))
+    } else {
+        Ok((Some(parts[0].parse()?), parts[1].to_string()))
     }
 }
 
