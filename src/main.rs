@@ -125,7 +125,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             printer.print_response_headers(&response)?;
         }
         if args.download {
-            let resume = &response.status() == &StatusCode::OK;
+            let resume = &response.status() == &StatusCode::PARTIAL_CONTENT;
             download_file(response, args.output, resume, args.quiet).await;
         } else if print.response_body {
             printer.print_response_body(response).await?;
