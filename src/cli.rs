@@ -106,7 +106,7 @@ pub enum Method {
     POST,
     PUT,
     PATCH,
-    DELETE
+    DELETE,
 }
 
 impl FromStr for Method {
