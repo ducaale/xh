@@ -84,7 +84,7 @@ impl Cli {
     pub fn from_args() -> Self {
         let mut args = vec![];
         let mut method = None;
-        // merge method and url in the env args
+        // Merge `method` and `url` entries from std::env::args()
         for arg in std::env::args() {
             if arg.parse::<Method>().is_ok() {
                 method = Some(arg)
