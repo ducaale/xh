@@ -17,7 +17,7 @@ jsonxf = "1.0"
 indicatif = "0.15.0"
 lazy_static = "1.4.0"
 regex = "1"
-reqwest = { version = "0.10", features = ["stream", "json", "gzip", "brotli"] }
+reqwest = { version = "0.10", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli"] }
 rpassword = "5.0.0"
 serde = "1.0"
 serde_json = "1.0"
