@@ -16,7 +16,7 @@ cargo install ht
 ```
 ht 0.3.2
 USAGE:
-    ht.exe [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
+    ht [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
