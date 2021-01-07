@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+    tags: [ v*.*.* ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run: cargo test
+
+  deploy:
+    name: Deploy
+    needs: [ test ]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ${{ matrix.job.os }}
+    strategy: 
+      matrix:
+        job:
+          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: macos-latest   , target: x86_64-apple-darwin }
+          - { os: windows-latest , target: x86_64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build target
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --release --target ${{ matrix.job.target }}
+      - name: Package
+        shell: bash
+        run: |
+          cd target/${{ matrix.job.target }}/release          
+          if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
+            7z a ../../../hello-${{ matrix.job.target }}.zip hello.exe
+          else
+            tar czvf ../../../hello-${{ matrix.job.target }}.tar.gz hello
+          fi
+          cd -
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+            files: 'hello*'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
