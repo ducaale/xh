@@ -45,6 +45,22 @@ ARGS:
     <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
 ```
 
+## Examples
+
+```sh
+# Send a GET request
+ht httpbin.org/json
+
+# Send a POST request with body {"name": "ahmed", "age": 24}
+ht httpbin.org/post name=ahmed age:=24
+
+# Send a PUT request and pipe the result to less
+ht put httpbin.org/put id:=49 age:=25 | less
+
+# Download and save to res.json
+ht -d httpbin.org/json -o res.json
+```
+
 ## Syntaxes and themes used
 - [Sublime-HTTP](https://github.com/samsalisbury/Sublime-HTTP)
 - [json-kv](https://github.com/aurule/json-kv)
