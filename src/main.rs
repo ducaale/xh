@@ -98,41 +98,47 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let buffer = match &args.output {
-        Some(output) if !args.download => Buffer::File(Box::new(std::fs::File::create(&output)?)),
-        _ if atty::isnt(Stream::Stdout) => Buffer::Redirect(Box::new(std::io::stdout())),
-        Some(_) => Buffer::Terminal(Box::new(std::io::stdout())),
-        None => Buffer::Terminal(Box::new(std::io::stdout())),
+    let buffer = if args.download {
+        Buffer::Stderr
+    } else if let Some(output) = &args.output {
+        let file = std::fs::File::open(&output)?;
+        Buffer::File(file)
+    } else if atty::is(Stream::Stdout) {
+        Buffer::Stdout
+    } else {
+        Buffer::Redirect
     };
+
     let print = args.print.unwrap_or(if args.verbose {
         Print::new(true, true, true, true)
     } else if args.quiet {
         Print::new(false, false, false, false)
     } else if args.offline {
         Print::new(true, true, false, false)
-    } else if !matches!(&buffer, Buffer::Terminal(_)) {
+    } else if !matches!(&buffer, Buffer::Stdout | Buffer::Stderr) {
         Print::new(false, false, false, true)
     } else {
         Print::new(false, false, true, true)
     });
+
     let mut printer = Printer::new(args.pretty, args.theme, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request);
     }
     if print.request_body {
-        printer.print_request_body(&request)?;
+        printer.print_request_body(&request);
     }
     if !args.offline {
         let response = client.execute(request).await?;
         if print.response_headers {
-            printer.print_response_headers(&response)?;
+            printer.print_response_headers(&response);
         }
         if args.download {
             let resume = &response.status() == &StatusCode::PARTIAL_CONTENT;
             download_file(response, args.output, resume, args.quiet).await;
         } else if print.response_body {
-            printer.print_response_body(response).await?;
+            printer.print_response_body(response).await;
         }
     }
     Ok(())
