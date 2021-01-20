@@ -1,4 +1,3 @@
-use atty::Stream;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
 };
@@ -7,6 +6,7 @@ use reqwest::{Client, StatusCode};
 extern crate lazy_static;
 
 mod auth;
+mod buffer;
 mod cli;
 mod download;
 mod printer;
@@ -15,9 +15,10 @@ mod url;
 mod utils;
 
 use auth::Auth;
+use buffer::Buffer;
 use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
-use printer::{Buffer, Printer};
+use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
 use utils::body_from_stdin;
@@ -98,29 +99,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let buffer = if args.download {
-        Buffer::Stderr
-    } else if let Some(output) = &args.output {
-        let file = std::fs::File::open(&output)?;
-        Buffer::File(file)
-    } else if atty::is(Stream::Stdout) {
-        Buffer::Stdout
-    } else {
-        Buffer::Redirect
-    };
-
-    let print = args.print.unwrap_or(if args.verbose {
-        Print::new(true, true, true, true)
-    } else if args.quiet {
-        Print::new(false, false, false, false)
-    } else if args.offline {
-        Print::new(true, true, false, false)
-    } else if !matches!(&buffer, Buffer::Stdout | Buffer::Stderr) {
-        Print::new(false, false, false, true)
-    } else {
-        Print::new(false, false, true, true)
-    });
-
+    let buffer = Buffer::new(args.download, &args.output)?;
+    let print = args.print.unwrap_or(Print::new(args.verbose, args.quiet, args.offline, &buffer));
     let mut printer = Printer::new(args.pretty, args.theme, buffer);
 
     if print.request_headers {

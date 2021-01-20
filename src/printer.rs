@@ -1,12 +1,10 @@
-use std::fmt::Write as FmtWrite;
-use std::io::Write as IoWrite;
+use std::fmt::Write;
 
-use atty::Stream;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
 use reqwest::{Request, Response};
 
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
-use crate::{Pretty, Theme};
+use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+\n",
@@ -19,33 +17,6 @@ const BINARY_SUPPRESSOR: &str = concat!(
     "| NOTE: binary data not shown in terminal |\n",
     "+-----------------------------------------+"
 );
-
-pub enum Buffer {
-    File(std::fs::File),
-    Redirect,
-    Stdout,
-    Stderr
-}
-
-impl Buffer {
-    fn write(&mut self, s: &str) {
-        match self {
-            Buffer::Redirect => print!("{}", &s),
-            Buffer::Stdout => print!("{}", &s),
-            Buffer::Stderr => eprint!("{}", &s),
-            Buffer::File(ref mut f) => write!(f, "{}", &s).unwrap()
-        }
-    }
-
-    fn write_bytes(&mut self, s: &[u8]) {
-        match self {
-            Buffer::Redirect => std::io::stdout().write(&s).unwrap(),
-            Buffer::Stdout => std::io::stdout().write(&s).unwrap(),
-            Buffer::Stderr => std::io::stderr().write(&s).unwrap(),
-            Buffer::File(ref mut f) => f.write(&s).unwrap()
-        };
-    }
-}
 
 pub struct Printer {
     indent_json: bool,
@@ -240,7 +211,7 @@ impl Printer {
             Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
             _ => {
                 let bytes = response.bytes().await.unwrap();
-                if atty::is(Stream::Stdout) && bytes.contains(&b'\0') {
+                if matches!(self.buffer, Buffer::Stdout | Buffer::Stderr) && bytes.contains(&b'\0') {
                     self.buffer.write(BINARY_SUPPRESSOR);
                 } else {
                     self.buffer.write_bytes(&bytes);

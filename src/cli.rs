@@ -5,6 +5,8 @@ use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
+use crate::Buffer;
+
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
 #[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
@@ -180,17 +182,42 @@ pub struct Print {
 }
 
 impl Print {
-    pub fn new(
-        request_headers: bool,
-        request_body: bool,
-        response_headers: bool,
-        response_body: bool,
-    ) -> Print {
-        Print {
-            request_headers,
-            request_body,
-            response_headers,
-            response_body,
+    pub fn new(verbose: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
+        if verbose {
+            Print {
+                request_headers: true,
+                request_body: true,
+                response_headers: true,
+                response_body: true
+            }
+        } else if quiet {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: false,
+                response_body: false
+            }
+        } else if offline {
+            Print {
+                request_headers: true,
+                request_body: true,
+                response_headers: false,
+                response_body: false
+            }
+        } else if matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: false,
+                response_body: true
+            }
+        } else {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: true,
+                response_body: true
+            }
         }
     }
 }
@@ -198,14 +225,17 @@ impl Print {
 impl FromStr for Print {
     type Err = Error;
     fn from_str(s: &str) -> Result<Print> {
-        let mut p = Print::new(false, false, false, false);
+        let mut request_headers = false;
+        let mut request_body = false;
+        let mut response_headers = false;
+        let mut response_body = false;
 
         for char in s.chars() {
             match char {
-                'H' => p.request_headers = true,
-                'B' => p.request_body = true,
-                'h' => p.response_headers = true,
-                'b' => p.response_body = true,
+                'H' => request_headers = true,
+                'B' => request_body = true,
+                'h' => response_headers = true,
+                'b' => response_body = true,
                 char => {
                     return Err(Error::with_description(
                         &format!("{:?} is not a valid value", char),
@@ -215,6 +245,7 @@ impl FromStr for Print {
             }
         }
 
+        let p = Print { request_headers, request_body, response_headers, response_body };
         Ok(p)
     }
 }
