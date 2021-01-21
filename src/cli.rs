@@ -5,7 +5,7 @@ use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::Buffer;
+use crate::{Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
@@ -138,6 +138,15 @@ impl From<Method> for reqwest::Method {
             Method::PUT => reqwest::Method::PUT,
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
+        }
+    }
+}
+
+impl From<&Option<Body>> for Method {
+    fn from(body: &Option<Body>) -> Self {
+        match body {
+            Some(_) => Method::POST,
+            None => Method::GET
         }
     }
 }

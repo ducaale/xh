@@ -1,3 +1,4 @@
+use atty::Stream;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
 };
@@ -46,13 +47,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let (method, url) = args.method_url;
     let url = Url::new(url, args.default_scheme);
     let host = url.host().unwrap();
-    let method = method
-        .unwrap_or(if body.is_none() {
-            Method::GET
-        } else {
-            Method::POST
-        })
-        .into();
+    let method = method.unwrap_or(Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host);
 
     let client = Client::new();
