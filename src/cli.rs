@@ -158,11 +158,19 @@ arg_enum! {
     }
 }
 
-// TODO: rename this to format?
 arg_enum! {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Pretty {
         All, Colors, Format, None
+    }
+}
+
+impl From<&Buffer> for Pretty {
+    fn from(b: &Buffer) -> Self {
+        match b {
+            Buffer::File(_) | Buffer::Redirect => Pretty::None,
+            Buffer::Stdout | Buffer::Stderr => Pretty::All,
+        }
     }
 }
 

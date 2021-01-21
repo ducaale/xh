@@ -28,10 +28,7 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Printer {
-        let pretty = pretty.unwrap_or(match buffer {
-            Buffer::File(_) | Buffer::Redirect => Pretty::None,
-            Buffer::Stdout | Buffer::Stderr => Pretty::All,
-        });
+        let pretty = pretty.unwrap_or(Pretty::from(&buffer));
         let theme = theme.unwrap_or(Theme::Auto);
 
         match pretty {
