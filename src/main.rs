@@ -99,7 +99,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         request
     };
 
-    let buffer = Buffer::new(args.download, &args.output)?;
+    let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
     let print = args.print.unwrap_or(Print::new(args.verbose, args.quiet, args.offline, &buffer));
     let mut printer = Printer::new(args.pretty, args.theme, buffer);
 

@@ -1,7 +1,5 @@
 use std::io::Write;
 
-use atty::Stream;
-
 pub enum Buffer {
     File(std::fs::File),
     Redirect,
@@ -10,13 +8,13 @@ pub enum Buffer {
 }
 
 impl Buffer {
-    pub fn new(download: bool, output: &Option<String>) -> std::io::Result<Self> {
+    pub fn new(download: bool, output: &Option<String>, is_stdout_tty: bool) -> std::io::Result<Self> {
         let buffer = if download {
             Buffer::Stderr
         } else if let Some(output) = output {
             let file = std::fs::File::open(&output)?;
             Buffer::File(file)
-        } else if atty::is(Stream::Stdout) {
+        } else if is_stdout_tty {
             Buffer::Stdout
         } else {
             Buffer::Redirect
