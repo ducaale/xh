@@ -84,10 +84,14 @@ pub struct Cli {
 
 impl Cli {
     pub fn from_args() -> Self {
+        Cli::from_iter(std::env::args())
+    }
+
+    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Self {
         let mut args = vec![];
         let mut method = None;
         // Merge `method` and `url` entries from std::env::args()
-        for arg in std::env::args() {
+        for arg in iter {
             if arg.parse::<Method>().is_ok() {
                 method = Some(arg)
             } else if method.is_some() {
@@ -98,7 +102,7 @@ impl Cli {
             }
         }
 
-        Cli::from_iter(args)
+        StructOpt::from_iter(args)
     }
 }
 

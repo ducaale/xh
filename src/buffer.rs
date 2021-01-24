@@ -1,5 +1,6 @@
 use std::io::Write;
 
+#[derive(Debug)]
 pub enum Buffer {
     File(std::fs::File),
     Redirect,
@@ -12,7 +13,7 @@ impl Buffer {
         let buffer = if download {
             Buffer::Stderr
         } else if let Some(output) = output {
-            let file = std::fs::File::open(&output)?;
+            let file = std::fs::File::create(&output)?;
             Buffer::File(file)
         } else if is_stdout_tty {
             Buffer::Stdout

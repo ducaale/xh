@@ -217,3 +217,82 @@ impl Printer {
         };
     }
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{cli::Cli, vec_of_strings};
+
+    fn run_cmd(args: impl IntoIterator<Item=String>, is_stdout_tty: bool) -> Printer {
+        let args = Cli::from_iter(args);
+        let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
+        Printer::new(args.pretty, args.theme, buffer)
+    }
+
+    fn temp_path(filename: &str) -> String {
+        let mut dir = std::env::temp_dir();
+        dir.push(filename);
+        dir.to_str().unwrap().to_owned()
+    }
+
+    #[test]
+    fn test_1() {
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get"], true);
+        assert_eq!(p.color, true);
+        assert_matches!(p.buffer, Buffer::Stdout);
+    }
+
+    #[test]
+    fn test_2() {
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get"], false);
+        assert_eq!(p.color, false);
+        assert_matches!(p.buffer, Buffer::Redirect);
+    }
+
+    #[test]
+    fn test_3() {
+        let output = temp_path("temp3");
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-o", output], true);
+        assert_eq!(p.color, false);
+        assert_matches!(p.buffer, Buffer::File(_));
+    }
+
+    #[test]
+    fn test_4() {
+        let output = temp_path("temp4");
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-o", output], false);
+        assert_eq!(p.color, false);
+        assert_matches!(p.buffer, Buffer::File(_));
+    }
+
+    #[test]
+    fn test_5() {
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d"], true);
+        assert_eq!(p.color, true);
+        assert_matches!(p.buffer, Buffer::Stderr);
+    }
+
+    #[test]
+    fn test_6() {
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d"], false);
+        assert_eq!(p.color, true);
+        assert_matches!(p.buffer, Buffer::Stderr);
+    }
+
+    #[test]
+    fn test_7() {
+        let output = temp_path("temp7");
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d", "-o", output], true);
+        assert_eq!(p.color, true);
+        assert_matches!(p.buffer, Buffer::Stderr);
+    }
+
+    #[test]
+    fn test_8() {
+        let output = temp_path("temp8");
+        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d", "-o", output], false);
+        assert_eq!(p.color, true);
+        assert_matches!(p.buffer, Buffer::Stderr);
+    }
+}

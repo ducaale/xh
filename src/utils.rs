@@ -138,3 +138,11 @@ fn to_ansi_color(color: syntect::highlighting::Color) -> ansi_term::Color {
         RGB(color.r, color.g, color.b)
     }
 }
+
+// https://stackoverflow.com/a/45145246/5915221
+#[macro_export]
+macro_rules! vec_of_strings {
+    ($($str:expr),*) => ({
+        vec![$(String::from($str),)*] as Vec<String>
+    });
+}

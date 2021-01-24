@@ -12,6 +12,7 @@ readme = "README.md"
 
 [dependencies]
 ansi_term = "0.12"
+assert_matches = "1.4.0"
 atty = "0.2"
 jsonxf = "1.0"
 indicatif = "0.15.0"

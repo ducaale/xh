@@ -62,6 +62,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_matches"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "695579f0f2520f3774bb40461e5adb066459d4e0af4d59d20175484fb8e9edf1"
+
+[[package]]
 name = "async-compression"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -425,6 +431,7 @@ version = "0.3.2"
 dependencies = [
  "ansi_term 0.12.1",
  "assert_cmd",
+ "assert_matches",
  "atty",
  "indicatif",
  "indoc",

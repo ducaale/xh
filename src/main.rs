@@ -3,8 +3,13 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
 };
 use reqwest::{Client, StatusCode};
+
 #[macro_use]
 extern crate lazy_static;
+
+#[cfg(test)]
+#[macro_use]
+extern crate assert_matches;
 
 mod auth;
 mod buffer;
