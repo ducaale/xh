@@ -45,6 +45,16 @@ ARGS:
     <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
 ```
 
+## Request Items
+
+`ht` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
+
+* `=`/`:=` for setting the request body's JSON fields.
+* `==` for adding query strings.
+* `@` for including files in multipart requests.
+* `:` for removing existing headers e.g `connection:`.
+* `;` for including headers with empty values e.g `header-without-value;`.
+
 ## Examples
 
 ```sh
