@@ -15,7 +15,6 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
 
     cmd.assert().stdout(indoc! {r#"
         POST /post HTTP/1.1
-        accept: */*
         accept: application/json, */*
         accept-encoding: gzip, deflate
         connection: keep-alive

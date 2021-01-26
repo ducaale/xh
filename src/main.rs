@@ -59,14 +59,17 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let request = {
         let mut request_builder = client
             .request(method, url.0)
-            .header(ACCEPT, HeaderValue::from_static("*/*"))
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(HOST, HeaderValue::from_str(&host)?);
 
         request_builder = match body {
-            Some(Body::Form(body)) => request_builder.form(&body),
-            Some(Body::Multipart(body)) => request_builder.multipart(body),
+            Some(Body::Form(body)) => request_builder
+                .header(ACCEPT, HeaderValue::from_static("*/*"))
+                .form(&body),
+            Some(Body::Multipart(body)) => request_builder
+                .header(ACCEPT, HeaderValue::from_static("*/*"))
+                .multipart(body),
             Some(Body::Json(body)) => request_builder
                 .header(ACCEPT, HeaderValue::from_static("application/json, */*"))
                 .json(&body),
@@ -74,7 +77,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 .header(ACCEPT, HeaderValue::from_static("application/json, */*"))
                 .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
                 .body(body),
-            None => request_builder,
+            None => request_builder.header(ACCEPT, HeaderValue::from_static("*/*")),
         };
 
         request_builder = match get_file_size(&args.output) {
