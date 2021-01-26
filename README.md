@@ -54,6 +54,12 @@ ht httpbin.org/json
 # Send a POST request with body {"name": "ahmed", "age": 24}
 ht httpbin.org/post name=ahmed age:=24
 
+# Send a GET request with querystring id=5&sort=true
+ht get httpbin.org/json id==5 sort==true
+
+# Send a GET request and include a header named x-api-key with value 12345
+ht get httpbin.org/json x-api-key:12345
+
 # Send a PUT request and pipe the result to less
 ht put httpbin.org/put id:=49 age:=25 | less
 
