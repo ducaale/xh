@@ -5,11 +5,15 @@ pub enum Buffer {
     File(std::fs::File),
     Redirect,
     Stdout,
-    Stderr
+    Stderr,
 }
 
 impl Buffer {
-    pub fn new(download: bool, output: &Option<String>, is_stdout_tty: bool) -> std::io::Result<Self> {
+    pub fn new(
+        download: bool,
+        output: &Option<String>,
+        is_stdout_tty: bool,
+    ) -> std::io::Result<Self> {
         let buffer = if download {
             Buffer::Stderr
         } else if let Some(output) = output {
@@ -28,7 +32,7 @@ impl Buffer {
             Buffer::Redirect => print!("{}", &s),
             Buffer::Stdout => print!("{}", &s),
             Buffer::Stderr => eprint!("{}", &s),
-            Buffer::File(ref mut f) => write!(f, "{}", &s).unwrap()
+            Buffer::File(ref mut f) => write!(f, "{}", &s).unwrap(),
         }
     }
 
@@ -37,7 +41,7 @@ impl Buffer {
             Buffer::Redirect => std::io::stdout().write(&s).unwrap(),
             Buffer::Stdout => std::io::stdout().write(&s).unwrap(),
             Buffer::Stderr => std::io::stderr().write(&s).unwrap(),
-            Buffer::File(ref mut f) => f.write(&s).unwrap()
+            Buffer::File(ref mut f) => f.write(&s).unwrap(),
         };
     }
 }

@@ -150,7 +150,7 @@ impl From<&Option<Body>> for Method {
     fn from(body: &Option<Body>) -> Self {
         match body {
             Some(_) => Method::POST,
-            None => Method::GET
+            None => Method::GET,
         }
     }
 }
@@ -209,35 +209,35 @@ impl Print {
                 request_headers: true,
                 request_body: true,
                 response_headers: true,
-                response_body: true
+                response_body: true,
             }
         } else if quiet {
             Print {
                 request_headers: false,
                 request_body: false,
                 response_headers: false,
-                response_body: false
+                response_body: false,
             }
         } else if offline {
             Print {
                 request_headers: true,
                 request_body: true,
                 response_headers: false,
-                response_body: false
+                response_body: false,
             }
         } else if matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
             Print {
                 request_headers: false,
                 request_body: false,
                 response_headers: false,
-                response_body: true
+                response_body: true,
             }
         } else {
             Print {
                 request_headers: false,
                 request_body: false,
                 response_headers: true,
-                response_body: true
+                response_body: true,
             }
         }
     }
@@ -266,7 +266,12 @@ impl FromStr for Print {
             }
         }
 
-        let p = Print { request_headers, request_body, response_headers, response_body };
+        let p = Print {
+            request_headers,
+            request_body,
+            response_headers,
+            response_body,
+        };
         Ok(p)
     }
 }
