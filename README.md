@@ -14,7 +14,7 @@ cargo install ht
 
 ## Usage
 ```
-ht 0.3.2
+ht 0.3.3
 USAGE:
     ht [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
