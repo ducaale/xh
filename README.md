@@ -52,7 +52,7 @@ ARGS:
 * `=`/`:=` for setting the request body's JSON fields.
 * `==` for adding query strings.
 * `@` for including files in multipart requests.
-* `:` for removing existing headers e.g `connection:`.
+* `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 * `;` for including headers with empty values e.g `header-without-value;`.
 
 ## Examples
