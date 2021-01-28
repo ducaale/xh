@@ -7,6 +7,12 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ## Installation
 
+### On macOS via Homebrew
+```
+brew tap ducaale/ht-rs
+brew install ht-rs
+```
+
 ### On windows via Chocolatey
 ```
 choco install ht-rs
