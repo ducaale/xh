@@ -44,6 +44,8 @@ jobs:
           cd target/${{ matrix.job.target }}/release          
           if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
             7z a ../../../ht-${{ matrix.job.target }}.zip ht.exe
+          elif [ "${{ matrix.job.os }}" = "macos-latest" ]; then
+            zip ../../../ht-${{ matrix.job.target }}.zip ht
           else
             tar czvf ../../../ht-${{ matrix.job.target }}.tar.gz ht
           fi
