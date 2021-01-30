@@ -1,6 +1,7 @@
 use std::fs::OpenOptions;
-use std::io::prelude::*;
+use std::io::Write as IoWrite;
 
+use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use regex::Regex;
 use reqwest::header::{HeaderMap, CONTENT_LENGTH};
@@ -41,14 +42,34 @@ pub async fn download_file(
     resume: bool,
     quiet: bool,
 ) {
-    // TODO: support downloading to stdout
-    let file_name = file_name.unwrap_or(get_file_name(&response));
-    let mut buffer = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .append(resume)
-        .open(&file_name)
-        .unwrap();
+    let (mut buffer, dest_name): (Box<dyn IoWrite>, String) = match file_name {
+        Some(file_name) => (
+            Box::new(
+                OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .append(resume)
+                    .open(&file_name)
+                    .unwrap(),
+            ),
+            file_name,
+        ),
+        None if atty::is(Stream::Stdout) => {
+            let file_name = get_file_name(&response);
+            (
+                Box::new(
+                    OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .append(resume)
+                        .open(&file_name)
+                        .unwrap(),
+                ),
+                file_name,
+            )
+        }
+        None => (Box::new(std::io::stdout()), "stdout".into()),
+    };
 
     let pb = if quiet {
         None
@@ -58,7 +79,7 @@ pub async fn download_file(
                 eprintln!(
                     "Downloading {} to \"{}\"",
                     HumanBytes(content_length),
-                    file_name
+                    dest_name
                 );
                 let template = "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
                 Some(
@@ -70,7 +91,7 @@ pub async fn download_file(
                 )
             }
             None => {
-                eprintln!("Downloading to \"{}\"", file_name);
+                eprintln!("Downloading to \"{}\"", dest_name);
                 Some(
                     ProgressBar::new_spinner().with_style(ProgressStyle::default_bar().template(
                         "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}",
