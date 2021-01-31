@@ -6,11 +6,21 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 [![asciicast](/assets/ht-demo.gif)](https://asciinema.org/a/382056)
 
 ## Installation
+
+### On macOS via Homebrew
+```
+brew tap ducaale/ht-rs
+brew install ht-rs
+```
+
+### From binaries
+The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
+
+### From source
+Make sure that you have Rust 1.46 or later installed.
 ```sh
 cargo install ht
 ```
-
-**NB**: Make sure that you have Rust 1.46 or later installed.
 
 ## Usage
 ```
