@@ -13,11 +13,6 @@ brew tap ducaale/ht-rs
 brew install ht-rs
 ```
 
-### On windows via Chocolatey
-```
-choco install ht-rs
-```
-
 ### From binaries
 The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
