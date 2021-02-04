@@ -90,18 +90,20 @@ pub fn colorize<'a>(
         Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
     };
 
-    LinesWithEndings::from(text).map(move |line| {
-        let mut s: String = String::new();
-        let highlights = h.highlight(line, &PS);
-        for (style, component) in highlights {
-            let mut color = Style::from(to_ansi_color(style.foreground));
-            if style.font_style.contains(FontStyle::UNDERLINE) {
-                color = color.underline();
+    LinesWithEndings::from(text)
+        .map(move |line| {
+            let mut s: String = String::new();
+            let highlights = h.highlight(line, &PS);
+            for (style, component) in highlights {
+                let mut color = Style::from(to_ansi_color(style.foreground));
+                if style.font_style.contains(FontStyle::UNDERLINE) {
+                    color = color.underline();
+                }
+                write!(s, "{}", &color.paint(component)).unwrap();
             }
-            write!(s, "{}", &color.paint(component)).unwrap();
-        }
-        s
-    })
+            s
+        })
+        .chain(std::iter::once("\x1b[0m".into()))
 }
 
 // https://github.com/sharkdp/bat/blob/3a85fd767bd1f03debd0a60ac5bc08548f95bc9d/src/terminal.rs

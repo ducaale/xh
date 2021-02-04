@@ -27,55 +27,25 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Printer {
+    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Self {
         let pretty = pretty.unwrap_or(Pretty::from(&buffer));
         let theme = theme.unwrap_or(Theme::Auto);
 
-        match pretty {
-            Pretty::All => Printer {
-                indent_json: true,
-                color: true,
-                theme: theme,
-                sort_headers: true,
-                buffer,
-            },
-            Pretty::Colors => Printer {
-                indent_json: false,
-                color: true,
-                theme: theme,
-                sort_headers: false,
-                buffer,
-            },
-            Pretty::Format => Printer {
-                indent_json: true,
-                color: false,
-                theme: theme,
-                sort_headers: true,
-                buffer,
-            },
-            Pretty::None => Printer {
-                indent_json: false,
-                color: false,
-                theme: theme,
-                sort_headers: false,
-                buffer,
-            },
+        Printer {
+            indent_json: matches!(pretty, Pretty::All | Pretty::Format),
+            sort_headers: matches!(pretty, Pretty::All | Pretty::Format),
+            color: matches!(pretty, Pretty::All | Pretty::Colors),
+            theme,
+            buffer
         }
     }
 
     fn print_json(&mut self, text: &str) {
         match (self.indent_json, self.color) {
-            (true, true) => {
-                for line in colorize(&indent_json(text), "json", &self.theme) {
-                    self.buffer.write(&line);
-                }
-                self.buffer.write("\x1b[0m");
-            }
+            (true, true) => colorize(&indent_json(text), "json", &self.theme)
+                .for_each(|line| self.buffer.write(&line)),
             (false, true) => {
-                for line in colorize(text, "json", &self.theme) {
-                    self.buffer.write(&line);
-                }
-                self.buffer.write("\x1b[0m");
+                colorize(text, "json", &self.theme).for_each(|line| self.buffer.write(&line));
             }
             (true, false) => self.buffer.write(&indent_json(text)),
             (false, false) => self.buffer.write(text),
@@ -84,10 +54,7 @@ impl Printer {
 
     fn print_xml(&mut self, text: &str) {
         if self.color {
-            for line in colorize(text, "xml", &self.theme) {
-                self.buffer.write(&line);
-            }
-            self.buffer.write("\x1b[0m");
+            colorize(text, "xml", &self.theme).for_each(|line| self.buffer.write(&line));
         } else {
             self.buffer.write(text);
         }
@@ -95,10 +62,16 @@ impl Printer {
 
     fn print_html(&mut self, text: &str) {
         if self.color {
-            for line in colorize(text, "html", &self.theme) {
-                self.buffer.write(&line);
-            }
-            self.buffer.write("\x1b[0m");
+            colorize(text, "html", &self.theme).for_each(|line| self.buffer.write(&line));
+        } else {
+            self.buffer.write(text);
+        }
+    }
+
+    fn print_headers(&mut self, text: &str) {
+        if self.color {
+            colorize(text, "http", &self.theme)
+                .for_each(|line| self.buffer.write(&line));
         } else {
             self.buffer.write(text);
         }
@@ -137,14 +110,7 @@ impl Printer {
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
         let headers = &self.headers_to_string(&headers, self.sort_headers);
 
-        if self.color {
-            colorize(&(request_line + &headers), "http", &self.theme)
-                .for_each(|line| self.buffer.write(&line));
-            self.buffer.write("\x1b[0m");
-        } else {
-            self.buffer.write(&(request_line + &headers));
-        }
-
+        self.print_headers(&(request_line + &headers));
         self.buffer.write("\n\n");
     }
 
@@ -161,15 +127,7 @@ impl Printer {
         );
         let headers = self.headers_to_string(headers, self.sort_headers);
 
-        if self.color {
-            for line in colorize(&(status_line + &headers), "http", &self.theme) {
-                self.buffer.write(&line);
-            }
-            self.buffer.write("\x1b[0m");
-        } else {
-            self.buffer.write(&(status_line + &headers));
-        }
-
+        self.print_headers(&(status_line + &headers));
         self.buffer.write("\n\n");
     }
 
