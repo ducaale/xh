@@ -287,15 +287,22 @@ pub enum RequestItem {
     UrlParam(String, String),
     DataField(String, String),
     JSONField(String, serde_json::Value),
-    FormFile(String, String),
+    FormFile(String, String, Option<String>),
 }
 
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re1 = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
-        let re2 = Regex::new(r"^(.+?)(:|;)$").unwrap();
+        let re1 = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
+        let re2 = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+        let re3 = Regex::new(r"^(.+?)(:|;)$").unwrap();
+
         if let Some(caps) = re1.captures(request_item) {
+            let key = caps[1].to_string();
+            let value = caps[2].to_string();
+            let file_type = caps[3].to_string();
+            Ok(RequestItem::FormFile(key, value, Some(file_type)))
+        } else if let Some(caps) = re2.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -306,10 +313,10 @@ impl FromStr for RequestItem {
                     key,
                     serde_json::from_str(&value).unwrap(),
                 )),
-                "@" => Ok(RequestItem::FormFile(key, value)),
+                "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = re2.captures(request_item) {
+        } else if let Some(caps) = re3.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),

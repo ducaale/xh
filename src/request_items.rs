@@ -24,7 +24,7 @@ impl RequestItems {
         let mut count = 0;
         for item in &self.0 {
             match item {
-                RequestItem::FormFile(_, _) => count += 1,
+                RequestItem::FormFile(_, _, _) => count += 1,
                 _ => {}
             }
         }
@@ -74,7 +74,7 @@ impl RequestItems {
                 RequestItem::DataField(key, value) => {
                     body.insert(key, serde_json::Value::String(value));
                 }
-                RequestItem::FormFile(_, _) => {
+                RequestItem::FormFile(_, _, _) => {
                     return Err(
                         "Sending Files is not supported when the request body is in JSON format",
                     );
@@ -113,11 +113,15 @@ impl RequestItems {
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
                 }
-                RequestItem::FormFile(key, value) => {
+                RequestItem::FormFile(key, value, file_type) => {
                     let path = Path::new(&value);
                     let file_name = path.file_name().unwrap().to_string_lossy().to_string();
                     let part =
                         multipart::Part::stream(body_to_file(&path).await).file_name(file_name);
+                    let part = match file_type {
+                        Some(file_type) => part.mime_str(&file_type).unwrap(),
+                        None => part
+                    };
                     form = form.part(key, part);
                 }
                 _ => {}
