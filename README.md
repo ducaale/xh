@@ -60,7 +60,7 @@ ARGS:
 
 `ht` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
-* `=`/`:=` for setting the request body's JSON fields.
+* `=`/`:=` for setting the request body's JSON fields (`=` for strings and `:=` for other JSON types).
 * `==` for adding query strings.
 * `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
 * `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
