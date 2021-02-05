@@ -61,6 +61,10 @@ pub struct Cli {
     #[structopt(short = "q", long)]
     pub quiet: bool,
 
+    /// Always stream the response body
+    #[structopt(short = "S", long)]
+    pub stream: bool,
+
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]
     pub pretty: Option<Pretty>,

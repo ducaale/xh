@@ -106,7 +106,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let print = args
         .print
         .unwrap_or(Print::new(args.verbose, args.quiet, args.offline, &buffer));
-    let mut printer = Printer::new(args.pretty, args.theme, buffer);
+    let mut printer = Printer::new(args.pretty, args.theme, args.stream, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request);

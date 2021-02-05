@@ -38,6 +38,7 @@ FLAGS:
     -c, --continue        Resume an interrupted download
     -v, --verbose         Print the whole request as well as the response
     -q, --quiet           Do not print to stdout or stderr
+    -S, --stream          Always stream the response body
     -h, --help            Prints help information
     -V, --version         Prints version information
 

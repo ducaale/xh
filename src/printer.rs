@@ -23,11 +23,12 @@ pub struct Printer {
     color: bool,
     theme: Theme,
     sort_headers: bool,
+    stream: bool,
     buffer: Buffer,
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, buffer: Buffer) -> Self {
+    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let pretty = pretty.unwrap_or(Pretty::from(&buffer));
         let theme = theme.unwrap_or(Theme::Auto);
 
@@ -35,8 +36,9 @@ impl Printer {
             indent_json: matches!(pretty, Pretty::All | Pretty::Format),
             sort_headers: matches!(pretty, Pretty::All | Pretty::Format),
             color: matches!(pretty, Pretty::All | Pretty::Colors),
+            stream: matches!(pretty, Pretty::None) || stream,
             theme,
-            buffer
+            buffer,
         }
     }
 
@@ -70,8 +72,7 @@ impl Printer {
 
     fn print_headers(&mut self, text: &str) {
         if self.color {
-            colorize(text, "http", &self.theme)
-                .for_each(|line| self.buffer.write(&line));
+            colorize(text, "http", &self.theme).for_each(|line| self.buffer.write(&line));
         } else {
             self.buffer.write(text);
         }
@@ -159,17 +160,39 @@ impl Printer {
         };
     }
 
-    pub async fn print_response_body(&mut self, response: Response) {
+    pub async fn print_response_body(&mut self, mut response: Response) {
         match get_content_type(&response.headers()) {
+            Some(ContentType::Json) if self.stream => {
+                while let Some(bytes) = response.chunk().await.unwrap() {
+                    self.print_json(&String::from_utf8_lossy(&bytes));
+                    self.buffer.write("\n");
+                }
+            }
+            Some(ContentType::Xml) if self.stream => {
+                while let Some(bytes) = response.chunk().await.unwrap() {
+                    self.print_xml(&String::from_utf8_lossy(&bytes));
+                }
+            }
+            Some(ContentType::Html) if self.stream => {
+                while let Some(bytes) = response.chunk().await.unwrap() {
+                    self.print_html(&String::from_utf8_lossy(&bytes));
+                }
+            }
             Some(ContentType::Json) => self.print_json(&response.text().await.unwrap()),
             Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap()),
             Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
             _ => {
-                let bytes = response.bytes().await.unwrap();
-                if matches!(self.buffer, Buffer::Stdout | Buffer::Stderr) && bytes.contains(&b'\0')
-                {
-                    self.buffer.write(BINARY_SUPPRESSOR);
-                } else {
+                let mut is_first_chunk = true;
+                while let Some(bytes) = response.chunk().await.unwrap() {
+                    if is_first_chunk
+                        && matches!(self.buffer, Buffer::Stdout | Buffer::Stderr)
+                        && bytes.contains(&b'\0')
+                    {
+                        self.buffer.write(BINARY_SUPPRESSOR);
+                        break;
+                    }
+                    is_first_chunk = false;
+
                     self.buffer.write_bytes(&bytes);
                 }
             }
@@ -185,7 +208,7 @@ mod test {
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter(args);
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
-        Printer::new(args.pretty, args.theme, buffer)
+        Printer::new(args.pretty, args.theme, false, buffer)
     }
 
     fn temp_path(filename: &str) -> String {
