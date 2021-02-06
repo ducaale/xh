@@ -42,6 +42,14 @@ pub struct Cli {
     #[structopt(short, long)]
     pub output: Option<String>,
 
+    /// Do follow redirects.
+    #[structopt(short = "F", long = "follow")]
+    pub follow: bool,
+
+    /// Number of redirects to follow, only respected if `follow` is set.
+    #[structopt(long = "max-redirects")]
+    pub max_redirects: Option<usize>,
+
     #[structopt(short = "d", long)]
     pub download: bool,
 
