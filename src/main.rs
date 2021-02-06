@@ -4,13 +4,6 @@ use reqwest::header::{
 };
 use reqwest::{Client, StatusCode};
 
-#[macro_use]
-extern crate lazy_static;
-
-#[cfg(test)]
-#[macro_use]
-extern crate assert_matches;
-
 mod auth;
 mod buffer;
 mod cli;
@@ -30,6 +23,7 @@ use request_items::{Body, RequestItems};
 use url::Url;
 use utils::body_from_stdin;
 use session::Session;
+use reqwest::redirect::Policy;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -86,9 +80,14 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 Ok(_) => (),
             };
         },
-    };    
+    };
+  
+    let redirect = match args.follow {
+        true => Policy::limited(args.max_redirects.unwrap_or(10)),
+        false => Policy::none(),
+    };
 
-    let client = Client::new();
+    let client = Client::builder().redirect(redirect).build().unwrap();
     let request = {
         let mut request_builder = client
             .request(method, url.0)

@@ -204,6 +204,7 @@ impl Printer {
 mod test {
     use super::*;
     use crate::{cli::Cli, vec_of_strings};
+    use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter(args);
