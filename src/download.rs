@@ -103,7 +103,7 @@ pub async fn download_file(
 
     let mut downloaded = 0;
     while let Some(chunk) = response.chunk().await.unwrap() {
-        buffer.write(&chunk).unwrap();
+        buffer.write_all(&chunk).unwrap();
         downloaded += chunk.len() as u64;
         if let Some(pb) = &pb {
             pb.set_position(downloaded);
