@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 use reqwest::{Request, Response};
 
 use crate::utils::{colorize, get_content_type, indent_json, ContentType};
@@ -103,9 +103,26 @@ impl Printer {
         let mut headers = request.headers().clone();
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
+        // reqwest and hyper add certain headers, but only in the process of
+        // sending the request, which we haven't done yet
         if let Some(body) = request.body().and_then(|body| body.as_bytes()) {
-            let content_length = HeaderValue::from_str(&body.len().to_string()).unwrap();
-            headers.insert(CONTENT_LENGTH, content_length);
+            // Added at https://github.com/seanmonstar/reqwest/blob/e56bd160ba/src/blocking/request.rs#L132
+            headers
+                .entry(CONTENT_LENGTH)
+                .or_insert_with(|| body.len().into());
+        }
+        if let Some(host) = request.url().host_str() {
+            // This is incorrect in case of HTTP/2, but we're already assuming
+            // HTTP/1.1 anyway
+            headers.entry(HOST).or_insert_with(|| {
+                // Added at https://github.com/hyperium/hyper/blob/dfa1bb291d/src/client/client.rs#L237
+                if let Some(port) = request.url().port() {
+                    HeaderValue::from_str(&format!("{}:{}", host, port))
+                } else {
+                    HeaderValue::from_str(host)
+                }
+                .unwrap()
+            });
         }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
