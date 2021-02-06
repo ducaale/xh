@@ -1,11 +1,13 @@
 use std::fmt::Write;
 use std::io::{self, Read};
 use std::path::Path;
+use std::path::PathBuf;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use atty::Stream;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use std::fs;
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
@@ -16,6 +18,8 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::Body;
 use crate::Theme;
+
+extern crate dirs;
 
 pub enum ContentType {
     Json,
@@ -147,4 +151,14 @@ macro_rules! vec_of_strings {
     ($($str:expr),*) => ({
         vec![$(String::from($str),)*] as Vec<String>
     });
+}
+
+pub fn ensure_config_dir_exists() -> std::io::Result<PathBuf> {
+    let mut config_dir = match dirs::home_dir() {
+        None => panic!("couldn't get home directory"),
+        Some(dir) => dir,
+    };
+    config_dir.push(".ht");
+    fs::create_dir_all(&config_dir)?;
+    Ok(config_dir)
 }

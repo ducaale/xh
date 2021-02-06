@@ -19,6 +19,7 @@ mod printer;
 mod request_items;
 mod url;
 mod utils;
+mod session;
 
 use auth::Auth;
 use buffer::Buffer;
@@ -28,6 +29,7 @@ use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
 use utils::body_from_stdin;
+use session::Session;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -35,7 +37,6 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers();
     let body = match (
         request_items.body(args.form, args.multipart).await?,
         body_from_stdin(args.ignore_stdin),
@@ -53,7 +54,39 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let url = Url::new(url, args.default_scheme);
     let host = url.host().unwrap();
     let method = method.unwrap_or(Method::from(&body)).into();
-    let auth = Auth::new(args.auth, args.auth_type, &host);
+    let mut auth = Auth::new(args.auth, args.auth_type, &host);
+
+    // load previous session if present
+    let arg_session = args.session.clone();
+    let previous_session = match args.session {
+        None => None,
+        Some(identifier) => {
+            match Session::load(&identifier) {
+                Err(why) => panic!("couldn't load session {}: {}", &identifier, why),
+                Ok(result) => result,
+            }
+        },
+    };
+    let session_for_merge = previous_session.clone();
+    // Use auth from previous session if no auth present
+    match (auth.is_none(), previous_session) {
+        (true, Some(p)) => auth = p.auth,
+        (_, _) => (),
+    };
+    let saved_auth = auth.clone();
+    // Merge headers from parameters and previous session
+    let (headers, headers_to_unset) = request_items.headers(&session_for_merge);
+    // Save the current session if present
+    match arg_session {
+        None => (),
+        Some(identifier) => {
+            let new_session = Session::new(identifier.clone(), request_items.export_headers(&session_for_merge), saved_auth);
+            match new_session.save() {
+                Err(why) => panic!("couldn't save session {}: {}", new_session.identifier, why),
+                Ok(_) => (),
+            };
+        },
+    };    
 
     let client = Client::new();
     let request = {

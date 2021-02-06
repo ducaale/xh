@@ -77,6 +77,10 @@ pub struct Cli {
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
 
+    /// The default scheme to use if not specified in the URL.
+    #[structopt(long = "session")]
+    pub session: Option<String>,
+
     /// The request URL, preceded by an optional HTTP method.
     #[structopt(name = "[METHOD] URL", parse(try_from_str = parse_method_url))]
     pub method_url: (Option<Method>, String),
