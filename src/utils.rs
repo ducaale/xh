@@ -74,7 +74,7 @@ pub fn colorize<'a>(
     syntax: &str,
     theme: &Theme,
 ) -> impl Iterator<Item = String> + 'a {
-    lazy_static! {
+    lazy_static::lazy_static! {
         static ref TS: ThemeSet = ThemeSet::from(from_binary(include_bytes!(concat!(
             env!("OUT_DIR"),
             "/themepack.themedump"
