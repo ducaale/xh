@@ -4,13 +4,6 @@ use reqwest::header::{
 };
 use reqwest::{Client, StatusCode};
 
-#[macro_use]
-extern crate lazy_static;
-
-#[cfg(test)]
-#[macro_use]
-extern crate assert_matches;
-
 mod auth;
 mod buffer;
 mod cli;
