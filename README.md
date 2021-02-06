@@ -13,6 +13,13 @@ brew tap ducaale/ht-rs
 brew install ht-rs
 ```
 
+### On Arch Linux via AUR
+[ht-bin AUR package](https://aur.archlinux.org/ht-bin)
+
+```
+yay -S ht-bin
+```
+
 ### From binaries
 The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
