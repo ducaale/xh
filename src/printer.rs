@@ -165,7 +165,6 @@ impl Printer {
             Some(ContentType::Json) if self.stream => {
                 while let Some(bytes) = response.chunk().await.unwrap() {
                     self.print_json(&String::from_utf8_lossy(&bytes));
-                    self.buffer.write("\n");
                 }
             }
             Some(ContentType::Xml) if self.stream => {
