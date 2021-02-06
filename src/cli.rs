@@ -121,6 +121,7 @@ impl Cli {
 #[derive(Debug, Clone, Copy)]
 pub enum Method {
     GET,
+    HEAD,
     POST,
     PUT,
     PATCH,
@@ -132,6 +133,7 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Method> {
         match s.to_ascii_uppercase().as_str() {
             "GET" => Ok(Method::GET),
+            "HEAD" => Ok(Method::HEAD),
             "POST" => Ok(Method::POST),
             "PUT" => Ok(Method::PUT),
             "PATCH" => Ok(Method::PATCH),
@@ -150,6 +152,7 @@ impl From<Method> for reqwest::Method {
     fn from(method: Method) -> Self {
         match method {
             Method::GET => reqwest::Method::GET,
+            Method::HEAD => reqwest::Method::HEAD,
             Method::POST => reqwest::Method::POST,
             Method::PUT => reqwest::Method::PUT,
             Method::PATCH => reqwest::Method::PATCH,
