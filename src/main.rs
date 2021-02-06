@@ -1,7 +1,5 @@
 use atty::Stream;
-use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
-};
+use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE};
 use reqwest::{Client, StatusCode};
 
 mod auth;
@@ -58,8 +56,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let mut request_builder = client
             .request(method, url.0)
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
-            .header(HOST, HeaderValue::from_str(&host)?);
+            .header(CONNECTION, HeaderValue::from_static("keep-alive"));
 
         request_builder = match body {
             Some(Body::Form(body)) => request_builder
