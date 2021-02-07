@@ -35,6 +35,7 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 [dev-dependencies]
 assert_cmd = "1.0"
 indoc = "1.0"
+predicates = "1.0.7"
 
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }

@@ -1,6 +1,7 @@
 use assert_cmd::prelude::*;
 use indoc::indoc;
 use std::process::Command;
+use predicates::prelude::*;
 
 #[test]
 fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
@@ -72,5 +73,21 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
 
     "#});
 
+    Ok(())
+}
+
+#[test]
+fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("ht")?;
+    cmd.arg("-v")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("options")
+        .arg("httpbin.org/json");
+
+    // Verify that the response is ok and contains an 'allow' header.
+    cmd.assert().stdout(predicate::str::contains("HTTP/1.1 200 OK"));
+    cmd.assert().stdout(predicate::str::contains("allow:"));
+    
     Ok(())
 }
