@@ -13,7 +13,7 @@ brew install ht-rust
 ```
 
 ### On Arch Linux via AUR
-[ht-bin AUR package](https://aur.archlinux.org/ht-bin)
+[ht-bin AUR package](https://aur.archlinux.org/packages/ht-bin)
 
 ```
 yay -S ht-bin
