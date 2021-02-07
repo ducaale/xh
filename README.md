@@ -9,8 +9,7 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ### On macOS via Homebrew
 ```
-brew tap ducaale/ht-rs
-brew install ht-rs
+brew install ht-rust
 ```
 
 ### On Arch Linux via AUR
