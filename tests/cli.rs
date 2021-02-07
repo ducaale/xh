@@ -32,7 +32,48 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[test]
+fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("ht")?;
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("head")
+        .arg("httpbin.org/get");
 
+    cmd.assert().stdout(indoc! {r#"
+        HEAD /get HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        host: httpbin.org
+
+        "#});
+
+    Ok(())
+}
+#[test]
+fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("ht")?;
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("httpbin.org/get");
+
+    cmd.assert().stdout(indoc! {r#"
+            GET /get HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, deflate
+            connection: keep-alive
+            host: httpbin.org
+    
+        "#});
+
+    Ok(())
+}
 fn clear_session_file(name: String) -> std::io::Result<()> {
     // Clear session file
     let mut config_dir = match dirs::home_dir() {
@@ -49,7 +90,7 @@ fn clear_session_file(name: String) -> std::io::Result<()> {
             } else {
                 Err(why)
             }
-        },
+        }
         Ok(()) => Ok(()),
     }
 }
@@ -84,7 +125,6 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
 
     "#});
 
-    
     cmd = Command::cargo_bin("ht")?;
     cmd.arg("-v")
         .arg("--offline")
@@ -140,7 +180,6 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
 
     "#});
 
-    
     cmd = Command::cargo_bin("ht")?;
     cmd.arg("-v")
         .arg("--offline")

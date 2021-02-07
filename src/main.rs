@@ -1,7 +1,5 @@
 use atty::Stream;
-use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
-};
+use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE};
 use reqwest::{Client, StatusCode};
 
 mod auth;
@@ -20,10 +18,10 @@ use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
+use reqwest::redirect::Policy;
 use url::Url;
 use utils::body_from_stdin;
 use session::Session;
-use reqwest::redirect::Policy;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -92,8 +90,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let mut request_builder = client
             .request(method, url.0)
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
-            .header(HOST, HeaderValue::from_str(&host)?);
+            .header(CONNECTION, HeaderValue::from_static("keep-alive"));
 
         request_builder = match body {
             Some(Body::Form(body)) => request_builder

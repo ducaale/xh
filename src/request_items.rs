@@ -169,7 +169,7 @@ impl RequestItems {
                         multipart::Part::stream(body_to_file(&path).await).file_name(file_name);
                     let part = match file_type {
                         Some(file_type) => part.mime_str(&file_type).unwrap(),
-                        None => part
+                        None => part,
                     };
                     form = form.part(key, part);
                 }
