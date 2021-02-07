@@ -74,3 +74,25 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("ht")?;
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("options")
+        .arg("httpbin.org");
+
+    cmd.assert().stdout(indoc! {r#"
+        OPTIONS / HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        host: httpbin.org
+
+    "#});
+
+    Ok(())
+}

@@ -126,7 +126,7 @@ pub enum Method {
     PUT,
     PATCH,
     DELETE,
-    HEAD,
+    OPTIONS,
 }
 
 impl FromStr for Method {
@@ -139,7 +139,7 @@ impl FromStr for Method {
             "PUT" => Ok(Method::PUT),
             "PATCH" => Ok(Method::PATCH),
             "DELETE" => Ok(Method::DELETE),
-            "HEAD" => Ok(Method::HEAD),
+            "OPTIONS" => Ok(Method::OPTIONS),
             method => {
                 return Err(Error::with_description(
                     &format!("unknown http method {}", method),
@@ -159,7 +159,7 @@ impl From<Method> for reqwest::Method {
             Method::PUT => reqwest::Method::PUT,
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
-            Method::HEAD => reqwest::Method::HEAD,
+            Method::OPTIONS => reqwest::Method::OPTIONS,
         }
     }
 }
