@@ -17,9 +17,9 @@ use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
+use reqwest::redirect::Policy;
 use url::Url;
 use utils::body_from_stdin;
-use reqwest::redirect::Policy;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {

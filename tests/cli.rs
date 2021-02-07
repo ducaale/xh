@@ -74,4 +74,3 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
