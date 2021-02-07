@@ -53,7 +53,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let previous_session = match args.session {
         None => None,
         Some(identifier) => {
-            match Session::load(&identifier) {
+            match Session::load(&identifier, &host) {
                 Err(why) => panic!("couldn't load session {}: {}", &identifier, why),
                 Ok(result) => result,
             }
@@ -72,7 +72,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     match arg_session {
         None => (),
         Some(identifier) => {
-            let new_session = Session::new(identifier.clone(), request_items.export_headers(&session_for_merge), saved_auth);
+            let new_session = Session::new(identifier, &host, request_items.export_headers(&session_for_merge), saved_auth);
             match new_session.save() {
                 Err(why) => panic!("couldn't save session {}: {}", new_session.identifier, why),
                 Ok(_) => (),

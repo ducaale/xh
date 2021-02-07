@@ -159,12 +159,14 @@ macro_rules! vec_of_strings {
     });
 }
 
-pub fn ensure_config_dir_exists() -> std::io::Result<PathBuf> {
-    let mut config_dir = match dirs::home_dir() {
-        None => panic!("couldn't get home directory"),
+pub fn ensure_session_dir_exists(domain: &str) -> std::io::Result<PathBuf> {
+    let mut config_dir = match dirs::config_dir() {
+        None => panic!("couldn't get config directory"),
         Some(dir) => dir,
     };
-    config_dir.push(".ht");
+    config_dir.push("ht");
+    config_dir.push("sessions");
+    config_dir.push(domain);
     fs::create_dir_all(&config_dir)?;
     Ok(config_dir)
 }

@@ -76,11 +76,13 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
 }
 fn clear_session_file(name: String) -> std::io::Result<()> {
     // Clear session file
-    let mut config_dir = match dirs::home_dir() {
-        None => panic!("couldn't get home directory"),
+    let mut config_dir = match dirs::config_dir() {
+        None => panic!("couldn't get config directory"),
         Some(dir) => dir,
     };
-    config_dir.push(".ht");
+    config_dir.push("ht");
+    config_dir.push("sessions");
+    config_dir.push("httpbin.org");
     config_dir.push(name);
     config_dir.set_extension("json");
     match fs::remove_file(config_dir) {

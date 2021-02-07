@@ -2,7 +2,7 @@ extern crate dirs;
 
 use crate::auth::Auth;
 use crate::request_items::Parameter;
-use crate::utils::ensure_config_dir_exists;
+use crate::utils::ensure_session_dir_exists;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
@@ -12,15 +12,17 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Session {
     pub identifier: String,
+    pub host: String,
     pub headers: Vec<Parameter>,
     pub auth: Option<Auth>,
     ht_version: String,
 }
 
 impl Session {
-    pub fn new(identifier: String, headers: Vec<Parameter>, auth: Option<Auth>) -> Session {
+    pub fn new(identifier: String, host: &str, headers: Vec<Parameter>, auth: Option<Auth>) -> Session {
         Session {
             identifier,
+            host: host.to_string(),
             headers,
             auth,
             ht_version: String::from(VERSION),
@@ -30,13 +32,13 @@ impl Session {
     pub fn save(&self) -> std::io::Result<String> {
         let json = serde_json::to_string(&self)?;
         let identifier = &self.identifier;
-        let mut home_dir = match ensure_config_dir_exists() {
+        let mut config_dir = match ensure_session_dir_exists(&self.host) {
             Err(why) => panic!("couldn't get config directory: {}", why),
             Ok(dir) => dir,
         };
-        home_dir.push(identifier);
-        home_dir.set_extension("json");
-        let path = home_dir.as_path();
+        config_dir.push(identifier);
+        config_dir.set_extension("json");
+        let path = config_dir.as_path();
         let display = path.display();
         // Open a file in write-only mode, returns `io::Result<File>`
         let mut file = match File::create(&path) {
@@ -49,15 +51,15 @@ impl Session {
         Ok(String::from(identifier))
     }
 
-    pub fn load(identifier: &String) -> std::io::Result<Option<Session>> {
+    pub fn load(identifier: &str, host: &str) -> std::io::Result<Option<Session>> {
         // Create a path to the desired file
-        let mut home_dir = match ensure_config_dir_exists() {
+        let mut config_dir = match ensure_session_dir_exists(host) {
             Err(why) => panic!("couldn't get config directory: {}", why),
             Ok(dir) => dir,
         };
-        home_dir.push(identifier);
-        home_dir.set_extension("json");
-        let path = home_dir.as_path();
+        config_dir.push(identifier);
+        config_dir.set_extension("json");
+        let path = config_dir.as_path();
 
         // Open the path in read-only mode, returns `io::Result<File>`
         let mut file = match File::open(&path) {
