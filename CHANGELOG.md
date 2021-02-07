@@ -2,6 +2,7 @@
 
 ## [0.5.0] - 2021-02-07
 ### Features
+- Add support for HEAD requests, see #16 (@Till--H)
 - Support setting the content-type for files in multipart requests e.g
   `ht httpbin.org/post --multipart pic@cat.png;type=image/png`
 - Add `--follow` and `--max-redirects` for configuring redirect behaviour, see #19 (@Till--H)
