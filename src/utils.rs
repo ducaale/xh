@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fmt::Write;
 use std::io::{self, Read};
 use std::path::Path;
@@ -5,7 +6,10 @@ use std::path::Path;
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use atty::Stream;
-use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::{
+    header::{HeaderMap, CONTENT_TYPE},
+    multipart,
+};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
@@ -48,9 +52,20 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
 }
 
 // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-pub async fn body_to_file(path: impl AsRef<Path>) -> reqwest::Body {
-    let file = File::open(&path).await.unwrap();
-    reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new()))
+pub async fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
+    let path = path.as_ref();
+    let file_name = path
+        .file_name()
+        .map(OsStr::to_string_lossy)
+        .unwrap_or_else(|| "file".into())
+        .to_string();
+    let file = File::open(path).await?;
+    let file_length = file.metadata().await?.len();
+    Ok(multipart::Part::stream_with_length(
+        reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new())),
+        file_length,
+    )
+    .file_name(file_name))
 }
 
 pub fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {

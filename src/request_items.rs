@@ -1,9 +1,7 @@
-use std::path::Path;
-
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::multipart;
 
-use crate::utils::body_to_file;
+use crate::utils::file_to_part;
 use crate::RequestItem;
 
 pub struct RequestItems(Vec<RequestItem>);
@@ -114,14 +112,10 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::FormFile(key, value, file_type) => {
-                    let path = Path::new(&value);
-                    let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-                    let part =
-                        multipart::Part::stream(body_to_file(&path).await).file_name(file_name);
-                    let part = match file_type {
-                        Some(file_type) => part.mime_str(&file_type).unwrap(),
-                        None => part,
-                    };
+                    let mut part = file_to_part(&value).await.unwrap();
+                    if let Some(file_type) = file_type {
+                        part = part.mime_str(&file_type).unwrap();
+                    }
                     form = form.part(key, part);
                 }
                 _ => {}
