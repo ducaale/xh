@@ -75,14 +75,14 @@ pub fn colorize<'a>(
     theme: &Theme,
 ) -> impl Iterator<Item = String> + 'a {
     lazy_static::lazy_static! {
-        static ref TS: ThemeSet = ThemeSet::from(from_binary(include_bytes!(concat!(
+        static ref TS: ThemeSet = from_binary(include_bytes!(concat!(
             env!("OUT_DIR"),
             "/themepack.themedump"
-        ))));
-        static ref PS: SyntaxSet = SyntaxSet::from(from_binary(include_bytes!(concat!(
+        )));
+        static ref PS: SyntaxSet = from_binary(include_bytes!(concat!(
             env!("OUT_DIR"),
             "/syntax.packdump"
-        ))));
+        )));
     }
     let syntax = PS.find_syntax_by_extension(syntax).unwrap();
     let mut h = match theme {
