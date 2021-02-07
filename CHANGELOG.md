@@ -1,4 +1,6 @@
 ## [Unreleased]
+
+## [0.5.0] - 2021-02-07
 ### Features
 - Support setting the content-type for files in multipart requests e.g
   `ht httpbin.org/post --multipart pic@cat.png;type=image/png`
@@ -11,7 +13,6 @@
 
 ### Other
 - Init parsing regex for RequestItem once, see #22 (@jRimbault)
-- AUR package for Arch linux, see #15 (@nitsky)
 
 ## [0.4.0] - 2021-02-06
 ### Features
