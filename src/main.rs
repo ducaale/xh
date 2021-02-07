@@ -1,15 +1,6 @@
 use atty::Stream;
-use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, HOST, RANGE,
-};
+use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE};
 use reqwest::{Client, StatusCode};
-
-#[macro_use]
-extern crate lazy_static;
-
-#[cfg(test)]
-#[macro_use]
-extern crate assert_matches;
 
 mod auth;
 mod buffer;
@@ -26,6 +17,7 @@ use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
+use reqwest::redirect::Policy;
 use url::Url;
 use utils::body_from_stdin;
 
@@ -54,14 +46,17 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let host = url.host().unwrap();
     let method = method.unwrap_or(Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host);
+    let redirect = match args.follow {
+        true => Policy::limited(args.max_redirects.unwrap_or(10)),
+        false => Policy::none(),
+    };
 
-    let client = Client::new();
+    let client = Client::builder().redirect(redirect).build().unwrap();
     let request = {
         let mut request_builder = client
             .request(method, url.0)
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
-            .header(HOST, HeaderValue::from_str(&host)?);
+            .header(CONNECTION, HeaderValue::from_static("keep-alive"));
 
         request_builder = match body {
             Some(Body::Form(body)) => request_builder

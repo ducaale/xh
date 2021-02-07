@@ -42,6 +42,14 @@ pub struct Cli {
     #[structopt(short, long)]
     pub output: Option<String>,
 
+    /// Do follow redirects.
+    #[structopt(short = "F", long = "follow")]
+    pub follow: bool,
+
+    /// Number of redirects to follow, only respected if `follow` is set.
+    #[structopt(long = "max-redirects")]
+    pub max_redirects: Option<usize>,
+
     #[structopt(short = "d", long)]
     pub download: bool,
 
@@ -113,6 +121,7 @@ impl Cli {
 #[derive(Debug, Clone, Copy)]
 pub enum Method {
     GET,
+    HEAD,
     POST,
     PUT,
     PATCH,
@@ -125,6 +134,7 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Method> {
         match s.to_ascii_uppercase().as_str() {
             "GET" => Ok(Method::GET),
+            "HEAD" => Ok(Method::HEAD),
             "POST" => Ok(Method::POST),
             "PUT" => Ok(Method::PUT),
             "PATCH" => Ok(Method::PATCH),
@@ -144,6 +154,7 @@ impl From<Method> for reqwest::Method {
     fn from(method: Method) -> Self {
         match method {
             Method::GET => reqwest::Method::GET,
+            Method::HEAD => reqwest::Method::HEAD,
             Method::POST => reqwest::Method::POST,
             Method::PUT => reqwest::Method::PUT,
             Method::PATCH => reqwest::Method::PATCH,
@@ -296,16 +307,22 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re1 = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
-        let re2 = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
-        let re3 = Regex::new(r"^(.+?)(:|;)$").unwrap();
+        lazy_static::lazy_static! {
+            static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
+        }
+        lazy_static::lazy_static! {
+            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+        }
+        lazy_static::lazy_static! {
+            static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();
+        }
 
-        if let Some(caps) = re1.captures(request_item) {
+        if let Some(caps) = RE1.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[2].to_string();
             let file_type = caps[3].to_string();
             Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = re2.captures(request_item) {
+        } else if let Some(caps) = RE2.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -319,7 +336,7 @@ impl FromStr for RequestItem {
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = re3.captures(request_item) {
+        } else if let Some(caps) = RE3.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),

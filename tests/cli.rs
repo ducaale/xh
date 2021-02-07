@@ -32,6 +32,28 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("ht")?;
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("httpbin.org/get");
+
+    cmd.assert().stdout(indoc! {r#"
+        GET /get HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        host: httpbin.org
+
+    "#});
+
+    Ok(())
+}
+
+#[test]
 fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("ht")?;
     cmd.arg("-v")
@@ -39,10 +61,10 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         .arg("--ignore-stdin")
         .arg("--pretty=format")
         .arg("head")
-        .arg("httpbin.org/head");
+        .arg("httpbin.org/get");
 
     cmd.assert().stdout(indoc! {r#"
-        HEAD /head HTTP/1.1
+        HEAD /get HTTP/1.1
         accept: */*
         accept-encoding: gzip, deflate
         connection: keep-alive
