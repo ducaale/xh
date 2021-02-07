@@ -131,7 +131,7 @@ impl RequestItems {
                 _ => {}
             }
         }
-        if body.len() > 0 {
+        if !body.is_empty() {
             Ok(Some(Body::Json(body.into())))
         } else {
             Ok(None)
