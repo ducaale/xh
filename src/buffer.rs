@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{stderr, stdout, Write};
 
 #[derive(Debug)]
 pub enum Buffer {
@@ -27,21 +27,25 @@ impl Buffer {
         Ok(buffer)
     }
 
-    pub fn write(&mut self, s: &str) {
+    pub fn print(&mut self, s: &str) -> std::io::Result<()> {
+        write!(self, "{}", s)
+    }
+}
+
+impl Write for Buffer {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
-            Buffer::Redirect => print!("{}", &s),
-            Buffer::Stdout => print!("{}", &s),
-            Buffer::Stderr => eprint!("{}", &s),
-            Buffer::File(ref mut f) => write!(f, "{}", &s).unwrap(),
+            Buffer::File(file) => file.write(buf),
+            Buffer::Redirect | Buffer::Stdout => stdout().write(buf),
+            Buffer::Stderr => stderr().write(buf),
         }
     }
 
-    pub fn write_bytes(&mut self, s: &[u8]) {
+    fn flush(&mut self) -> std::io::Result<()> {
         match self {
-            Buffer::Redirect => std::io::stdout().write(&s).unwrap(),
-            Buffer::Stdout => std::io::stdout().write(&s).unwrap(),
-            Buffer::Stderr => std::io::stderr().write(&s).unwrap(),
-            Buffer::File(ref mut f) => f.write(&s).unwrap(),
-        };
+            Buffer::File(file) => file.flush(),
+            Buffer::Redirect | Buffer::Stdout => stdout().flush(),
+            Buffer::Stderr => stderr().flush(),
+        }
     }
 }

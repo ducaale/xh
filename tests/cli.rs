@@ -1,7 +1,7 @@
 use assert_cmd::prelude::*;
 use indoc::indoc;
-use std::process::Command;
 use predicates::prelude::*;
+use std::process::Command;
 
 fn get_command() -> Command {
     let mut cmd = Command::cargo_bin("ht").expect("binary should be present");
@@ -95,8 +95,9 @@ fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
         .arg("httpbin.org/json");
 
     // Verify that the response is ok and contains an 'allow' header.
-    cmd.assert().stdout(predicate::str::contains("HTTP/1.1 200 OK"));
+    cmd.assert()
+        .stdout(predicate::str::contains("HTTP/1.1 200 OK"));
     cmd.assert().stdout(predicate::str::contains("allow:"));
-    
+
     Ok(())
 }

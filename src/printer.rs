@@ -1,5 +1,6 @@
-use std::fmt::Write;
+use std::io::{self, Write};
 
+use anyhow::Result;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 use reqwest::{Request, Response};
 
@@ -29,7 +30,7 @@ pub struct Printer {
 
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
-        let pretty = pretty.unwrap_or(Pretty::from(&buffer));
+        let pretty = pretty.unwrap_or_else(|| Pretty::from(&buffer));
         let theme = theme.unwrap_or(Theme::Auto);
 
         Printer {
@@ -42,39 +43,37 @@ impl Printer {
         }
     }
 
-    fn print_json(&mut self, text: &str) {
+    fn print_json(&mut self, text: &str) -> Result<()> {
         match (self.indent_json, self.color) {
-            (true, true) => colorize(&indent_json(text), "json", &self.theme)
-                .for_each(|line| self.buffer.write(&line)),
-            (false, true) => {
-                colorize(text, "json", &self.theme).for_each(|line| self.buffer.write(&line));
-            }
-            (true, false) => self.buffer.write(&indent_json(text)),
-            (false, false) => self.buffer.write(text),
+            (true, true) => colorize(&indent_json(text)?, "json", &self.theme, &mut self.buffer)?,
+            (false, true) => colorize(text, "json", &self.theme, &mut self.buffer)?,
+            (true, false) => self.buffer.print(&indent_json(text)?)?,
+            (false, false) => self.buffer.print(text)?,
+        }
+        Ok(())
+    }
+
+    fn print_xml(&mut self, text: &str) -> io::Result<()> {
+        if self.color {
+            colorize(text, "xml", &self.theme, &mut self.buffer)
+        } else {
+            self.buffer.print(text)
         }
     }
 
-    fn print_xml(&mut self, text: &str) {
+    fn print_html(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            colorize(text, "xml", &self.theme).for_each(|line| self.buffer.write(&line));
+            colorize(text, "html", &self.theme, &mut self.buffer)
         } else {
-            self.buffer.write(text);
+            self.buffer.print(text)
         }
     }
 
-    fn print_html(&mut self, text: &str) {
+    fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            colorize(text, "html", &self.theme).for_each(|line| self.buffer.write(&line));
+            colorize(text, "http", &self.theme, &mut self.buffer)
         } else {
-            self.buffer.write(text);
-        }
-    }
-
-    fn print_headers(&mut self, text: &str) {
-        if self.color {
-            colorize(text, "http", &self.theme).for_each(|line| self.buffer.write(&line));
-        } else {
-            self.buffer.write(text);
+            self.buffer.print(text)
         }
     }
 
@@ -86,16 +85,20 @@ impl Printer {
 
         let mut header_string = String::new();
         for (key, value) in headers {
-            let key = key.to_string();
-            let value = value.to_str().unwrap();
-            writeln!(&mut header_string, "{}: {}", key, value).unwrap();
+            header_string.push_str(key.as_str());
+            header_string.push_str(": ");
+            match value.to_str() {
+                Ok(value) => header_string.push_str(value),
+                Err(_) => header_string.push_str(&format!("{:?}", value)),
+            }
+            header_string.push('\n');
         }
         header_string.pop();
 
         header_string
     }
 
-    pub fn print_request_headers(&mut self, request: &Request) {
+    pub fn print_request_headers(&mut self, request: &Request) -> io::Result<()> {
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -121,18 +124,19 @@ impl Printer {
                 } else {
                     HeaderValue::from_str(host)
                 }
-                .unwrap()
+                .expect("hostname should already be validated/parsed")
             });
         }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
         let headers = &self.headers_to_string(&headers, self.sort_headers);
 
-        self.print_headers(&(request_line + &headers));
-        self.buffer.write("\n\n");
+        self.print_headers(&(request_line + &headers))?;
+        self.buffer.print("\n\n")?;
+        Ok(())
     }
 
-    pub fn print_response_headers(&mut self, response: &Response) {
+    pub fn print_response_headers(&mut self, response: &Response) -> io::Result<()> {
         let version = response.version();
         let status = response.status();
         let headers = response.headers();
@@ -141,15 +145,16 @@ impl Printer {
             "{:?} {} {}\n",
             version,
             status.as_str(),
-            status.canonical_reason().unwrap()
+            status.canonical_reason().unwrap_or("Unknown Status Code")
         );
         let headers = self.headers_to_string(headers, self.sort_headers);
 
-        self.print_headers(&(status_line + &headers));
-        self.buffer.write("\n\n");
+        self.print_headers(&(status_line + &headers))?;
+        self.buffer.print("\n\n")?;
+        Ok(())
     }
 
-    pub fn print_request_body(&mut self, request: &Request) {
+    pub fn print_request_body(&mut self, request: &Request) -> Result<()> {
         let get_body = || {
             request
                 .body()
@@ -159,60 +164,62 @@ impl Printer {
 
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
-                self.buffer.write(MULTIPART_SUPPRESSOR);
-                self.buffer.write("\n\n");
+                self.buffer.print(MULTIPART_SUPPRESSOR)?;
+                self.buffer.print("\n\n")?;
             }
             Some(ContentType::Json) => {
                 if let Some(body) = get_body() {
-                    self.print_json(&body);
-                    self.buffer.write("\n\n");
+                    self.print_json(&body)?;
+                    self.buffer.print("\n\n")?;
                 }
             }
-            Some(ContentType::UrlencodedForm) | _ => {
+            _ => {
                 if let Some(body) = get_body() {
-                    self.buffer.write(&body);
-                    self.buffer.write("\n\n");
+                    self.buffer.print(&body)?;
+                    self.buffer.print("\n\n")?;
                 }
             }
         };
+        Ok(())
     }
 
-    pub async fn print_response_body(&mut self, mut response: Response) {
+    pub async fn print_response_body(&mut self, mut response: Response) -> Result<()> {
         match get_content_type(&response.headers()) {
             Some(ContentType::Json) if self.stream => {
-                while let Some(bytes) = response.chunk().await.unwrap() {
-                    self.print_json(&String::from_utf8_lossy(&bytes));
+                while let Some(bytes) = response.chunk().await? {
+                    self.print_json(&String::from_utf8_lossy(&bytes))?;
                 }
             }
             Some(ContentType::Xml) if self.stream => {
-                while let Some(bytes) = response.chunk().await.unwrap() {
-                    self.print_xml(&String::from_utf8_lossy(&bytes));
+                while let Some(bytes) = response.chunk().await? {
+                    self.print_xml(&String::from_utf8_lossy(&bytes))?;
                 }
             }
             Some(ContentType::Html) if self.stream => {
-                while let Some(bytes) = response.chunk().await.unwrap() {
-                    self.print_html(&String::from_utf8_lossy(&bytes));
+                while let Some(bytes) = response.chunk().await? {
+                    self.print_html(&String::from_utf8_lossy(&bytes))?;
                 }
             }
-            Some(ContentType::Json) => self.print_json(&response.text().await.unwrap()),
-            Some(ContentType::Xml) => self.print_xml(&response.text().await.unwrap()),
-            Some(ContentType::Html) => self.print_html(&response.text().await.unwrap()),
+            Some(ContentType::Json) => self.print_json(&response.text().await?)?,
+            Some(ContentType::Xml) => self.print_xml(&response.text().await?)?,
+            Some(ContentType::Html) => self.print_html(&response.text().await?)?,
             _ => {
                 let mut is_first_chunk = true;
-                while let Some(bytes) = response.chunk().await.unwrap() {
+                while let Some(bytes) = response.chunk().await? {
                     if is_first_chunk
                         && matches!(self.buffer, Buffer::Stdout | Buffer::Stderr)
                         && bytes.contains(&b'\0')
                     {
-                        self.buffer.write(BINARY_SUPPRESSOR);
+                        self.buffer.print(BINARY_SUPPRESSOR)?;
                         break;
                     }
                     is_first_chunk = false;
 
-                    self.buffer.write_bytes(&bytes);
+                    self.buffer.write_all(&bytes)?;
                 }
             }
         };
+        Ok(())
     }
 }
 

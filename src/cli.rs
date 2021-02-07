@@ -106,8 +106,8 @@ impl Cli {
         for arg in iter {
             if arg.parse::<Method>().is_ok() {
                 method = Some(arg)
-            } else if method.is_some() {
-                args.push(format!("{} {}", method.unwrap(), arg));
+            } else if let Some(method_value) = method {
+                args.push(format!("{} {}", method_value, arg));
                 method = None;
             } else {
                 args.push(arg);
@@ -140,12 +140,10 @@ impl FromStr for Method {
             "PATCH" => Ok(Method::PATCH),
             "DELETE" => Ok(Method::DELETE),
             "OPTIONS" => Ok(Method::OPTIONS),
-            method => {
-                return Err(Error::with_description(
-                    &format!("unknown http method {}", method),
-                    ErrorKind::InvalidValue,
-                ))
-            }
+            method => Err(Error::with_description(
+                &format!("unknown http method {}", method),
+                ErrorKind::InvalidValue,
+            )),
         }
     }
 }
@@ -331,7 +329,12 @@ impl FromStr for RequestItem {
                 "=" => Ok(RequestItem::DataField(key, value)),
                 ":=" => Ok(RequestItem::JSONField(
                     key,
-                    serde_json::from_str(&value).unwrap(),
+                    serde_json::from_str(&value).map_err(|err| {
+                        Error::with_description(
+                            &format!("{:?}: {}", request_item, err),
+                            ErrorKind::InvalidValue,
+                        )
+                    })?,
                 )),
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
