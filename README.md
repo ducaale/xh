@@ -40,6 +40,7 @@ FLAGS:
     -f, --form            Data items from the command line are serialized as form fields
     -m, --multipart       Similar to --form, but always sends a multipart/form-data request (i.e., even without files)
     -I, --ignore-stdin    Do not attempt to read stdin
+    -F, --follow          Do follow redirects
     -d, --download
     -c, --continue        Resume an interrupted download
     -v, --verbose         Print the whole request as well as the response
@@ -52,6 +53,7 @@ OPTIONS:
     -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
     -a, --auth <auth>
     -o, --output <output>                    Save output to FILE instead of stdout
+        --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
     -p, --print <print>                      String specifying what the output should contain
         --pretty <pretty>                    Controls output processing [possible values: All, Colors, Format, None]
     -s, --style <theme>                      Output coloring style [possible values: Auto, Solarized]
