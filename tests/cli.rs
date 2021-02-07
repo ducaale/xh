@@ -3,9 +3,15 @@ use indoc::indoc;
 use std::process::Command;
 use predicates::prelude::*;
 
+fn get_command() -> Command {
+    let mut cmd = Command::cargo_bin("ht").expect("binary should be present");
+    cmd.env("HT_TEST_MODE", "1");
+    cmd
+}
+
 #[test]
 fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -22,6 +28,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         content-length: 14
         content-type: application/json
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
         {
             "name": "ali"
@@ -34,7 +41,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -48,6 +55,7 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 
@@ -56,7 +64,7 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -70,6 +78,7 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 

@@ -1,5 +1,9 @@
+use std::env;
+
 use atty::Stream;
-use reqwest::header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE};
+use reqwest::header::{
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
+};
 use reqwest::{Client, StatusCode};
 
 mod auth;
@@ -20,6 +24,17 @@ use request_items::{Body, RequestItems};
 use reqwest::redirect::Policy;
 use url::Url;
 use utils::body_from_stdin;
+
+fn get_user_agent() -> &'static str {
+    // Hard-coded user agent for the benefit of tests
+    // In integration tests the binary isn't compiled with cfg(test), so we
+    // use an environment variable
+    if cfg!(test) || env::var_os("HT_TEST_MODE").is_some() {
+        "ht/0.0.0 (test mode)"
+    } else {
+        concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
+    }
+}
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -56,7 +71,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let mut request_builder = client
             .request(method, url.0)
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"));
+            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
+            .header(USER_AGENT, get_user_agent());
 
         request_builder = match body {
             Some(Body::Form(body)) => request_builder
