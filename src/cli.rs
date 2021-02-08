@@ -53,6 +53,10 @@ pub struct Cli {
     #[structopt(short = "d", long)]
     pub download: bool,
 
+    /// Print only the response body, Shortcut for --print=b.
+    #[structopt(short = "b", long)]
+    pub body: bool,
+
     /// Resume an interrupted download.
     #[structopt(short = "c", long = "continue")]
     pub resume: bool,
@@ -221,7 +225,7 @@ pub struct Print {
 }
 
 impl Print {
-    pub fn new(verbose: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
+    pub fn new(verbose: bool, body: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
         if verbose {
             Print {
                 request_headers: true,
@@ -243,7 +247,7 @@ impl Print {
                 response_headers: false,
                 response_body: false,
             }
-        } else if matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
+        } else if body || matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
             Print {
                 request_headers: false,
                 request_body: false,
