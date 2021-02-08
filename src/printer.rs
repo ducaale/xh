@@ -43,14 +43,22 @@ impl Printer {
         }
     }
 
-    fn print_json(&mut self, text: &str) -> Result<()> {
-        match (self.indent_json, self.color) {
-            (true, true) => colorize(&indent_json(text)?, "json", &self.theme, &mut self.buffer)?,
-            (false, true) => colorize(text, "json", &self.theme, &mut self.buffer)?,
-            (true, false) => self.buffer.print(&indent_json(text)?)?,
-            (false, false) => self.buffer.print(text)?,
+    fn print_json(&mut self, text: &str) -> io::Result<()> {
+        // This code is a little thorny because of ownership issues.
+        // We have to keep the indented text alive until the end of the function.
+        let indent_result = match self.indent_json {
+            true => Some(indent_json(text)),
+            false => None,
+        };
+        let text = match &indent_result {
+            Some(Ok(result)) => result.as_str(),
+            _ => text,
+        };
+        if self.color {
+            colorize(text, "json", &self.theme, &mut self.buffer)
+        } else {
+            self.buffer.print(text)
         }
-        Ok(())
     }
 
     fn print_xml(&mut self, text: &str) -> io::Result<()> {
@@ -154,7 +162,7 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_request_body(&mut self, request: &Request) -> Result<()> {
+    pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
         let get_body = || {
             request
                 .body()
