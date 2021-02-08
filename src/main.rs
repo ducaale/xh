@@ -119,7 +119,7 @@ async fn main() -> Result<()> {
     let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
     let print = match args.print {
         Some(print) => print,
-        None => Print::new(args.verbose, args.quiet, args.offline, &buffer),
+        None => Print::new(args.verbose, args.body, args.quiet, args.offline, &buffer),
     };
     let mut printer = Printer::new(args.pretty, args.theme, args.stream, buffer);
 
