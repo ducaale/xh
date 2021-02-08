@@ -1,8 +1,12 @@
+use std::env;
+
+use anyhow::{anyhow, Result};
 use atty::Stream;
+use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
-use reqwest::Client;
+use reqwest::redirect::Policy;
 
 mod auth;
 mod buffer;
@@ -13,14 +17,12 @@ mod request_items;
 mod url;
 mod utils;
 
-use anyhow::{anyhow, Result};
 use auth::Auth;
 use buffer::Buffer;
 use cli::{AuthType, Cli, Method, Pretty, Print, Proxy, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
-use reqwest::redirect::Policy;
 use url::Url;
 use utils::{body_from_stdin, test_mode};
 
@@ -35,9 +37,8 @@ fn get_user_agent() -> &'static str {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    std::process::exit(inner_main().await?);
+fn main() -> Result<()> {
+    std::process::exit(inner_main()?);
 }
 
 /// [`main`] is wrapped around this function so it can safely exit with an
@@ -47,7 +48,7 @@ async fn main() -> Result<()> {
 /// without doing any cleanup. So we need to return from this function first.
 ///
 /// The outer main function could also be a good place for error handling.
-async fn inner_main() -> Result<i32> {
+fn inner_main() -> Result<i32> {
     let args = Cli::from_args()?;
 
     let request_items = RequestItems::new(args.request_items);
@@ -55,9 +56,9 @@ async fn inner_main() -> Result<i32> {
     let (headers, headers_to_unset) = request_items.headers()?;
     #[allow(clippy::eval_order_dependence)]
     let body = match (
-        request_items.body(args.form, args.multipart).await?,
+        request_items.body(args.form, args.multipart)?,
         // TODO: can we give an error before reading all of stdin?
-        body_from_stdin(args.ignore_stdin).await?,
+        body_from_stdin(args.ignore_stdin)?,
     ) {
         (Some(_), Some(_)) => {
             return Err(anyhow!(
@@ -158,7 +159,7 @@ async fn inner_main() -> Result<i32> {
     }
     if !args.offline {
         let orig_url = request.url().clone();
-        let response = client.execute(request).await?;
+        let response = client.execute(request)?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
@@ -172,10 +173,10 @@ async fn inner_main() -> Result<i32> {
         };
         if args.download {
             if exit_code == 0 {
-                download_file(response, args.output, &orig_url, resume, args.quiet).await?;
+                download_file(response, args.output, &orig_url, resume, args.quiet)?;
             }
         } else if print.response_body {
-            printer.print_response_body(response).await?;
+            printer.print_response_body(response)?;
         }
         // TODO: print warning if output is being redirected
         Ok(exit_code)

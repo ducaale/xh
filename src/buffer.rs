@@ -1,7 +1,15 @@
 use std::io::{stderr, stdout, Write};
 
+use crate::printer::BINARY_SUPPRESSOR;
+
 #[derive(Debug)]
-pub enum Buffer {
+pub struct Buffer {
+    pub kind: BufferKind,
+    dirty: bool,
+}
+
+#[derive(Debug)]
+pub enum BufferKind {
     File(std::fs::File),
     Redirect,
     Stdout,
@@ -14,17 +22,21 @@ impl Buffer {
         output: &Option<String>,
         is_stdout_tty: bool,
     ) -> std::io::Result<Self> {
-        let buffer = if download {
-            Buffer::Stderr
+        let kind = if download {
+            BufferKind::Stderr
         } else if let Some(output) = output {
             let file = std::fs::File::create(&output)?;
-            Buffer::File(file)
+            BufferKind::File(file)
         } else if is_stdout_tty {
-            Buffer::Stdout
+            BufferKind::Stdout
         } else {
-            Buffer::Redirect
+            BufferKind::Redirect
         };
-        Ok(buffer)
+        Ok(Buffer { kind, dirty: false })
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        matches!(self.kind, BufferKind::Stdout | BufferKind::Stderr)
     }
 
     pub fn print(&mut self, s: &str) -> std::io::Result<()> {
@@ -34,18 +46,27 @@ impl Buffer {
 
 impl Write for Buffer {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Buffer::File(file) => file.write(buf),
-            Buffer::Redirect | Buffer::Stdout => stdout().write(buf),
-            Buffer::Stderr => stderr().write(buf),
+        if self.dirty {
+            return Ok(buf.len());
+        }
+        if self.is_terminal() && buf.contains(&b'\0') {
+            self.print(BINARY_SUPPRESSOR)?;
+            self.print("\n\n")?;
+            self.dirty = true;
+            return Ok(buf.len());
+        }
+        match &mut self.kind {
+            BufferKind::File(file) => file.write(buf),
+            BufferKind::Redirect | BufferKind::Stdout => stdout().write(buf),
+            BufferKind::Stderr => stderr().write(buf),
         }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Buffer::File(file) => file.flush(),
-            Buffer::Redirect | Buffer::Stdout => stdout().flush(),
-            Buffer::Stderr => stderr().flush(),
+        match &mut self.kind {
+            BufferKind::File(file) => file.flush(),
+            BufferKind::Redirect | BufferKind::Stdout => stdout().flush(),
+            BufferKind::Stderr => stderr().flush(),
         }
     }
 }

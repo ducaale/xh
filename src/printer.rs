@@ -1,10 +1,9 @@
-use std::io::{self, Write};
+use std::io::{self, Read};
 
-use anyhow::Result;
+use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
-use reqwest::{Request, Response};
 
-use crate::utils::{colorize, get_content_type, indent_json, test_mode, ContentType};
+use crate::utils::{colorize, get_content_type, get_json_formatter, test_mode, ContentType};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
@@ -13,7 +12,7 @@ const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+"
 );
 
-const BINARY_SUPPRESSOR: &str = concat!(
+pub(crate) const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "| NOTE: binary data not shown in terminal |\n",
     "+-----------------------------------------+"
@@ -43,43 +42,48 @@ impl Printer {
         }
     }
 
-    fn print_json(&mut self, text: &str) -> io::Result<()> {
-        // This code is a little thorny because of ownership issues.
-        // We have to keep the indented text alive until the end of the function.
-        let indent_result = match self.indent_json {
-            true => Some(indent_json(text)),
-            false => None,
-        };
-        let text = match &indent_result {
-            Some(Ok(result)) => result.as_str(),
-            _ => text,
-        };
-        if self.color {
-            colorize(text, "json", &self.theme, &mut self.buffer)
-        } else {
-            self.buffer.print(text)
+    fn colorize(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+        colorize(text, syntax, &self.theme, &mut self.buffer)
+    }
+
+    fn dump(&mut self, reader: &mut impl Read) -> io::Result<()> {
+        io::copy(reader, &mut self.buffer)?;
+        Ok(())
+    }
+
+    fn print_json(&mut self, body: &mut impl Read) -> io::Result<()> {
+        match (self.indent_json, self.color) {
+            (false, false) => self.dump(body),
+            (true, false) => get_json_formatter().format_stream(body, &mut self.buffer),
+            (false, true) => {
+                let mut buf = Vec::new();
+                body.read_to_end(&mut buf)?;
+                let text = String::from_utf8_lossy(&buf);
+                self.colorize(&text, "json")
+            }
+            (true, true) => {
+                let mut buf = Vec::new();
+                get_json_formatter().format_stream(body, &mut buf)?;
+                let text = String::from_utf8_lossy(&buf);
+                self.colorize(&text, "json")
+            }
         }
     }
 
-    fn print_xml(&mut self, text: &str) -> io::Result<()> {
+    fn print_syntax(&mut self, body: &mut impl Read, syntax: &'static str) -> io::Result<()> {
         if self.color {
-            colorize(text, "xml", &self.theme, &mut self.buffer)
+            let mut buf = Vec::new();
+            body.read_to_end(&mut buf)?;
+            let text = String::from_utf8_lossy(&buf);
+            self.colorize(&text, syntax)
         } else {
-            self.buffer.print(text)
-        }
-    }
-
-    fn print_html(&mut self, text: &str) -> io::Result<()> {
-        if self.color {
-            colorize(text, "html", &self.theme, &mut self.buffer)
-        } else {
-            self.buffer.print(text)
+            self.dump(body)
         }
     }
 
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            colorize(text, "http", &self.theme, &mut self.buffer)
+            self.colorize(text, "http")
         } else {
             self.buffer.print(text)
         }
@@ -159,71 +163,63 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
-        let get_body = || {
-            request
-                .body()
-                .and_then(|b| b.as_bytes())
-                .and_then(|b| String::from_utf8(b.into()).ok())
-        };
+    fn print_body(
+        &mut self,
+        content_type: Option<ContentType>,
+        body: &mut impl Read,
+    ) -> io::Result<()> {
+        match content_type {
+            Some(ContentType::Json) => self.print_json(body),
+            Some(ContentType::Xml) => self.print_syntax(body, "xml"),
+            Some(ContentType::Html) => self.print_syntax(body, "html"),
+            _ => self.dump(body),
+        }
+    }
 
+    pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
                 self.buffer.print("\n\n")?;
             }
-            Some(ContentType::Json) => {
-                if let Some(body) = get_body() {
-                    self.print_json(&body)?;
+            // TODO: Should this print BINARY_SUPPRESSOR?
+            content_type => {
+                if let Some(body) = request
+                    .body()
+                    .and_then(|b| b.as_bytes())
+                    .filter(|b| !b.contains(&b'\0'))
+                    .and_then(|b| String::from_utf8(b.into()).ok())
+                {
+                    self.print_body(content_type, &mut body.as_bytes())?;
                     self.buffer.print("\n\n")?;
                 }
             }
-            _ => {
-                if let Some(body) = get_body() {
-                    self.buffer.print(&body)?;
-                    self.buffer.print("\n\n")?;
-                }
-            }
-        };
+        }
         Ok(())
     }
 
-    pub async fn print_response_body(&mut self, mut response: Response) -> Result<()> {
-        match get_content_type(&response.headers()) {
-            Some(ContentType::Json) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_json(&String::from_utf8_lossy(&bytes))?;
+    pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
+        if self.stream {
+            self.print_body(get_content_type(&response.headers()), &mut response)?;
+        } else {
+            let content_type = get_content_type(&response.headers());
+            let text = match response.text() {
+                Ok(text) => text,
+                Err(err) if err.is_decode() => {
+                    self.buffer.print(BINARY_SUPPRESSOR)?;
+                    self.buffer.print("\n\n")?;
+                    return Ok(());
                 }
+                Err(err) => return Err(err.into()),
+            };
+            if text.contains('\0') {
+                self.buffer.print(BINARY_SUPPRESSOR)?;
+                self.buffer.print("\n\n")?;
+                return Ok(());
             }
-            Some(ContentType::Xml) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_xml(&String::from_utf8_lossy(&bytes))?;
-                }
-            }
-            Some(ContentType::Html) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_html(&String::from_utf8_lossy(&bytes))?;
-                }
-            }
-            Some(ContentType::Json) => self.print_json(&response.text().await?)?,
-            Some(ContentType::Xml) => self.print_xml(&response.text().await?)?,
-            Some(ContentType::Html) => self.print_html(&response.text().await?)?,
-            _ => {
-                let mut is_first_chunk = true;
-                while let Some(bytes) = response.chunk().await? {
-                    if is_first_chunk
-                        && matches!(self.buffer, Buffer::Stdout | Buffer::Stderr)
-                        && bytes.contains(&b'\0')
-                    {
-                        self.buffer.print(BINARY_SUPPRESSOR)?;
-                        break;
-                    }
-                    is_first_chunk = false;
-
-                    self.buffer.write_all(&bytes)?;
-                }
-            }
-        };
+            self.print_body(content_type, &mut text.as_bytes())?;
+            self.buffer.print("\n")?;
+        }
         Ok(())
     }
 }
@@ -231,7 +227,7 @@ impl Printer {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{cli::Cli, vec_of_strings};
+    use crate::{buffer::BufferKind, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
@@ -250,14 +246,14 @@ mod test {
     fn test_1() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stdout);
+        assert_matches!(p.buffer.kind, BufferKind::Stdout);
     }
 
     #[test]
     fn test_2() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::Redirect);
+        assert_matches!(p.buffer.kind, BufferKind::Redirect);
     }
 
     #[test]
@@ -265,7 +261,7 @@ mod test {
         let output = temp_path("temp3");
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::File(_));
+        assert_matches!(p.buffer.kind, BufferKind::File(_));
     }
 
     #[test]
@@ -276,21 +272,21 @@ mod test {
             false,
         );
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::File(_));
+        assert_matches!(p.buffer.kind, BufferKind::File(_));
     }
 
     #[test]
     fn test_5() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer.kind, BufferKind::Stderr);
     }
 
     #[test]
     fn test_6() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer.kind, BufferKind::Stderr);
     }
 
     #[test]
@@ -301,7 +297,7 @@ mod test {
             true,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer.kind, BufferKind::Stderr);
     }
 
     #[test]
@@ -312,6 +308,6 @@ mod test {
             false,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer.kind, BufferKind::Stderr);
     }
 }

@@ -1,21 +1,20 @@
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, stdin, Read, Write};
 use std::path::Path;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use atty::Stream;
 use reqwest::{
+    blocking::multipart,
     header::{HeaderMap, CONTENT_TYPE},
-    multipart,
 };
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use tokio::{fs::File, io::AsyncReadExt};
-use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::Body;
 use crate::Theme;
@@ -55,37 +54,34 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
 }
 
 // https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-pub async fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
+pub fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
     let path = path.as_ref();
     let file_name = path
         .file_name()
         .map(|file_name| file_name.to_string_lossy().to_string());
-    let file = File::open(path).await?;
-    let file_length = file.metadata().await?.len();
-    let mut part = multipart::Part::stream_with_length(
-        reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new())),
-        file_length,
-    );
+    let file = File::open(path)?;
+    let file_length = file.metadata()?.len();
+    let mut part = multipart::Part::reader_with_length(file, file_length);
     if let Some(file_name) = file_name {
         part = part.file_name(file_name);
     }
     Ok(part)
 }
 
-pub async fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {
+pub fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {
     if atty::is(Stream::Stdin) || ignore_stdin {
         Ok(None)
     } else {
         let mut buffer = String::new();
-        tokio::io::stdin().read_to_string(&mut buffer).await?;
+        stdin().read_to_string(&mut buffer)?;
         Ok(Some(Body::Raw(buffer)))
     }
 }
 
-pub fn indent_json(text: &str) -> Result<String> {
+pub fn get_json_formatter() -> jsonxf::Formatter {
     let mut fmt = jsonxf::Formatter::pretty_printer();
     fmt.indent = String::from("    ");
-    fmt.format(text).map_err(|msg| anyhow!(msg))
+    fmt
 }
 
 pub fn colorize<'a>(

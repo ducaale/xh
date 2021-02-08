@@ -42,7 +42,8 @@ fn basic_json_post() {
         {
             "got": "name",
             "status": "ok"
-        }"#});
+        }
+        "#});
     mock.assert();
 }
 

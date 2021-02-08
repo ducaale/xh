@@ -237,9 +237,10 @@ arg_enum! {
 
 impl From<&Buffer> for Pretty {
     fn from(b: &Buffer) -> Self {
-        match b {
-            Buffer::File(_) | Buffer::Redirect => Pretty::None,
-            Buffer::Stdout | Buffer::Stderr => Pretty::All,
+        if b.is_terminal() {
+            Pretty::All
+        } else {
+            Pretty::None
         }
     }
 }
@@ -296,7 +297,7 @@ impl Print {
                 response_headers: true,
                 response_body: false,
             }
-        } else if body || matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
+        } else if body || !buffer.is_terminal() {
             Print {
                 request_headers: false,
                 request_body: false,

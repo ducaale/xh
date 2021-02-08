@@ -5,11 +5,11 @@ use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
-use reqwest::header::{
-    HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE,
+use reqwest::{
+    blocking::Response,
+    header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE},
+    StatusCode,
 };
-use reqwest::Response;
-use reqwest::StatusCode;
 
 use crate::regex;
 
@@ -145,8 +145,8 @@ const BAR_TEMPLATE: &str =
     "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
 const SPINNER_TEMPLATE: &str = "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}";
 
-pub async fn download_file(
-    mut response: reqwest::Response,
+pub fn download_file(
+    mut response: Response,
     file_name: Option<String>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
@@ -219,17 +219,14 @@ pub async fn download_file(
         pb.set_position(starting_length);
     }
 
-    let mut downloaded = starting_length;
-    while let Some(chunk) = response.chunk().await? {
-        buffer.write_all(&chunk)?;
-        downloaded += chunk.len() as u64;
-        if let Some(pb) = &pb {
-            pb.set_position(downloaded);
+    match pb {
+        Some(ref pb) => {
+            io::copy(&mut pb.wrap_read(response), &mut buffer)?;
+            pb.finish_with_message("Done");
         }
-    }
-
-    if let Some(pb) = &pb {
-        pb.finish_with_message("Done");
+        None => {
+            io::copy(&mut response, &mut buffer)?;
+        }
     }
 
     Ok(())

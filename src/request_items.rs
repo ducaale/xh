@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
+use reqwest::blocking::multipart;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::multipart;
 
 use crate::utils::file_to_part;
 use crate::RequestItem;
@@ -95,7 +95,7 @@ impl RequestItems {
         Ok(Some(Body::Form(text_fields)))
     }
 
-    async fn body_as_multipart(&self) -> Result<Option<Body>> {
+    fn body_as_multipart(&self) -> Result<Option<Body>> {
         let mut form = multipart::Form::new();
         for item in &self.0 {
             match item.clone() {
@@ -106,7 +106,7 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::FormFile(key, value, file_type) => {
-                    let mut part = file_to_part(&value).await?;
+                    let mut part = file_to_part(&value)?;
                     if let Some(file_type) = file_type {
                         part = part.mime_str(&file_type)?;
                     }
@@ -118,10 +118,10 @@ impl RequestItems {
         Ok(Some(Body::Multipart(form)))
     }
 
-    pub async fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>> {
+    pub fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>> {
         match (form, multipart) {
-            (_, true) => self.body_as_multipart().await,
-            (true, _) if self.form_file_count() > 0 => self.body_as_multipart().await,
+            (_, true) => self.body_as_multipart(),
+            (true, _) if self.form_file_count() > 0 => self.body_as_multipart(),
             (true, _) => self.body_as_form(),
             (_, _) => self.body_as_json(),
         }

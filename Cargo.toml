@@ -13,21 +13,16 @@ readme = "README.md"
 [dependencies]
 ansi_term = "0.12"
 anyhow = "1.0.38"
-assert_matches = "1.4.0"
 atty = "0.2"
 jsonxf = "1.0"
 indicatif = "0.15.0"
 lazy_static = "1.4.0"
 mime2ext = "0.1.0"
 regex = "1"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli", "multipart", "socks"] }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli", "multipart", "blocking", "socks"] }
 rpassword = "5.0.0"
-serde = "1.0"
 serde_json = "1.0"
-serde_urlencoded = "0.7"
 structopt = "0.3"
-tokio = { version = "1.0", features = ["full"] }
-tokio-util = {version = "0.6", features= ["codec"]}
 
 [dependencies.syntect]
 version = "4.4"
@@ -36,6 +31,7 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 
 [dev-dependencies]
 assert_cmd = "1.0"
+assert_matches = "1.4.0"
 indoc = "1.0"
 predicates = "1.0.7"
 httpmock = "0.5.5"
