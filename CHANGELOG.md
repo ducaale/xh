@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+## [0.6.0] - 2021-02-08
+### Features
+- Add support for OPTIONS HTTP method, see #17 (@plombard)
+- Add _--body_ flag for printing only response body, see #38 (@idanski)
+- Add content length to file upload stream, see #32 (@blyxxyz)
+- Include User-Agent header in outgoing requests, see #33 (@blyxxyz)
+
+### Other
+- Ensure filename from `content-disposition` doesn't overwrite existing files,
+  isn't a hidden file, or doesn't end up outside the current directory,
+  see #37 (@blyxxyz)
+- Bubble errors up to main() instead of panicking see #37 (@blyxxyz)
+
 ## [0.5.0] - 2021-02-07
 ### Features
 - Add support for HEAD requests, see #16 (@Till--H)
@@ -20,7 +33,7 @@
 - Support streaming responses. This on by default for unformatted responses and can also
   be enabled via the `--stream` flag
 
-## [0.3.5] - 2021-02-06
+## [0.3.5] - 2021-01-31
 ### Features
 - Support output redirection for downloads e.g `ht -d httpbin.org/json > temp.json`
 
