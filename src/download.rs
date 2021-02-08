@@ -55,14 +55,13 @@ fn exists(file_name: &str) -> bool {
 }
 
 /// Find a file name that doesn't exist yet.
-fn generate_file_name(mut file_name: String) -> String {
+fn generate_file_name(file_name: String) -> String {
     if !exists(&file_name) {
         return file_name;
     }
-    file_name.push('-');
     let mut suffix: u32 = 1;
     loop {
-        let candidate = file_name.clone() + &suffix.to_string();
+        let candidate = format!("{}-{}", file_name, suffix);
         if !exists(&candidate) {
             return candidate;
         }
