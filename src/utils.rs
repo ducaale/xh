@@ -1,9 +1,9 @@
-use std::fmt::Write;
-use std::io::{self, Read};
+use std::io::{self, Write};
 use std::path::Path;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
+use anyhow::{anyhow, Result};
 use atty::Stream;
 use reqwest::{
     header::{HeaderMap, CONTENT_TYPE},
@@ -14,7 +14,7 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use tokio::fs::File;
+use tokio::{fs::File, io::AsyncReadExt};
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::Body;
@@ -68,27 +68,28 @@ pub async fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part>
     Ok(part)
 }
 
-pub fn body_from_stdin(ignore_stdin: bool) -> Option<Body> {
+pub async fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {
     if atty::is(Stream::Stdin) || ignore_stdin {
-        None
+        Ok(None)
     } else {
         let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer).unwrap();
-        Some(Body::Raw(buffer))
+        tokio::io::stdin().read_to_string(&mut buffer).await?;
+        Ok(Some(Body::Raw(buffer)))
     }
 }
 
-pub fn indent_json(text: &str) -> String {
+pub fn indent_json(text: &str) -> Result<String> {
     let mut fmt = jsonxf::Formatter::pretty_printer();
     fmt.indent = String::from("    ");
-    fmt.format(text).unwrap()
+    fmt.format(text).map_err(|msg| anyhow!(msg))
 }
 
 pub fn colorize<'a>(
     text: &'a str,
     syntax: &str,
     theme: &Theme,
-) -> impl Iterator<Item = String> + 'a {
+    mut out: impl Write,
+) -> io::Result<()> {
     lazy_static::lazy_static! {
         static ref TS: ThemeSet = from_binary(include_bytes!(concat!(
             env!("OUT_DIR"),
@@ -99,29 +100,29 @@ pub fn colorize<'a>(
             "/syntax.packdump"
         )));
     }
-    let syntax = PS.find_syntax_by_extension(syntax).unwrap();
+    let syntax = PS
+        .find_syntax_by_extension(syntax)
+        .expect("syntax not found");
     let mut h = match theme {
         Theme::Auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
         Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
     };
 
-    LinesWithEndings::from(text)
-        .map(move |line| {
-            let mut s: String = String::new();
-            let highlights = h.highlight(line, &PS);
-            for (style, component) in highlights {
-                let mut color = Style {
-                    foreground: to_ansi_color(style.foreground),
-                    ..Style::default()
-                };
-                if style.font_style.contains(FontStyle::UNDERLINE) {
-                    color = color.underline();
-                }
-                write!(s, "{}", &color.paint(component)).unwrap();
+    for line in LinesWithEndings::from(text) {
+        let highlights = h.highlight(line, &PS);
+        for (style, component) in highlights {
+            let mut color = Style {
+                foreground: to_ansi_color(style.foreground),
+                ..Style::default()
+            };
+            if style.font_style.contains(FontStyle::UNDERLINE) {
+                color = color.underline();
             }
-            s
-        })
-        .chain(std::iter::once("\x1b[0m".into()))
+            write!(out, "{}", color.paint(component))?;
+        }
+    }
+    write!(out, "\x1b[0m")?;
+    Ok(())
 }
 
 // https://github.com/sharkdp/bat/blob/3a85fd767bd1f03debd0a60ac5bc08548f95bc9d/src/terminal.rs

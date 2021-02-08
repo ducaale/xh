@@ -15,6 +15,7 @@ mod request_items;
 mod url;
 mod utils;
 
+use anyhow::{anyhow, Result};
 use auth::Auth;
 use buffer::Buffer;
 use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
@@ -37,36 +38,38 @@ fn get_user_agent() -> &'static str {
 }
 
 #[tokio::main]
-async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let args = Cli::from_args();
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers();
+    let (headers, headers_to_unset) = request_items.headers()?;
+    #[allow(clippy::eval_order_dependence)]
     let body = match (
         request_items.body(args.form, args.multipart).await?,
-        body_from_stdin(args.ignore_stdin),
+        // TODO: can we give an error before reading all of stdin?
+        body_from_stdin(args.ignore_stdin).await?,
     ) {
         (Some(_), Some(_)) => {
-            return Err(
-                "Request body (from stdin) and Request data (key=value) cannot be mixed".into(),
-            )
+            return Err(anyhow!(
+                "Request body (from stdin) and Request data (key=value) cannot be mixed"
+            ))
         }
         (Some(body), None) | (None, Some(body)) => Some(body),
         (None, None) => None,
     };
 
     let (method, url) = args.method_url;
-    let url = Url::new(url, args.default_scheme);
-    let host = url.host().unwrap();
-    let method = method.unwrap_or(Method::from(&body)).into();
-    let auth = Auth::new(args.auth, args.auth_type, &host);
+    let url = Url::new(url, args.default_scheme)?;
+    let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
+    let method = method.unwrap_or_else(|| Method::from(&body)).into();
+    let auth = Auth::new(args.auth, args.auth_type, &host)?;
     let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
 
-    let client = Client::builder().redirect(redirect).build().unwrap();
+    let client = Client::builder().redirect(redirect).build()?;
     let request = {
         let mut request_builder = client
             .request(method, url.0)
@@ -114,31 +117,28 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
 
     let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
-    let print = args.print.unwrap_or(Print::new(
-        args.verbose,
-        args.body,
-        args.quiet,
-        args.offline,
-        &buffer,
-    ));
+    let print = match args.print {
+        Some(print) => print,
+        None => Print::new(args.verbose, args.body, args.quiet, args.offline, &buffer),
+    };
     let mut printer = Printer::new(args.pretty, args.theme, args.stream, buffer);
 
     if print.request_headers {
-        printer.print_request_headers(&request);
+        printer.print_request_headers(&request)?;
     }
     if print.request_body {
-        printer.print_request_body(&request);
+        printer.print_request_body(&request)?;
     }
     if !args.offline {
         let response = client.execute(request).await?;
         if print.response_headers {
-            printer.print_response_headers(&response);
+            printer.print_response_headers(&response)?;
         }
         if args.download {
-            let resume = &response.status() == &StatusCode::PARTIAL_CONTENT;
-            download_file(response, args.output, resume, args.quiet).await;
+            let resume = response.status() == StatusCode::PARTIAL_CONTENT;
+            download_file(response, args.output, resume, args.quiet).await?;
         } else if print.response_body {
-            printer.print_response_body(response).await;
+            printer.print_response_body(response).await?;
         }
     }
     Ok(())
