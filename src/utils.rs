@@ -109,7 +109,6 @@ pub fn colorize<'a>(
     };
 
     for line in LinesWithEndings::from(text) {
-        let mut s: String = String::new();
         let highlights = h.highlight(line, &PS);
         for (style, component) in highlights {
             let mut color = Style {
@@ -119,9 +118,8 @@ pub fn colorize<'a>(
             if style.font_style.contains(FontStyle::UNDERLINE) {
                 color = color.underline();
             }
-            s.push_str(&color.paint(component));
+            write!(out, "{}", color.paint(component))?;
         }
-        write!(out, "{}", s)?;
     }
     write!(out, "\x1b[0m")?;
     Ok(())
