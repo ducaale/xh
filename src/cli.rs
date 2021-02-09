@@ -1,3 +1,6 @@
+use std::fmt;
+use std::fs::File;
+use std::io::Read;
 use std::mem;
 use std::str::FromStr;
 
@@ -118,6 +121,19 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
+
+    /// Skip the host's SSL certificate verification, or use an alternative CA
+    /// bundle. Disable = "no" or "false", enable = "yes" or "true".
+    #[structopt(long, default_value)]
+    pub verify: VerifyHttps,
+
+    /// Use a client side certificate for the SSL communication.
+    #[structopt(long)]
+    pub cert: Option<String>,
+
+    /// Pass the path of the private key file if the private key is not contained in the cert file.
+    #[structopt(long = "cert-key")]
+    pub cert_key: Option<String>,
 }
 
 impl Cli {
@@ -386,6 +402,50 @@ impl FromStr for RequestItem {
                 &format!("{:?} is not a valid request item", request_item),
                 ErrorKind::InvalidValue,
             ))
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VerifyHttps {
+    Yes,
+    No,
+    PrivateCerts(String, Vec<pem::Pem>),
+}
+
+impl FromStr for VerifyHttps {
+    type Err = Error;
+    fn from_str(verify: &str) -> Result<VerifyHttps> {
+        match verify.to_lowercase().as_str() {
+            "no" | "false" => Ok(VerifyHttps::No),
+            "yes" | "true" => Ok(VerifyHttps::Yes),
+            "" => Err(Error::with_description(
+                &format!("{:?} is not a valid value", verify),
+                ErrorKind::InvalidValue,
+            )),
+            path => {
+                let mut file = File::open(path)?;
+                let mut buffer = Vec::new();
+                file.read_to_end(&mut buffer)?;
+                let pems = pem::parse_many(buffer);
+                Ok(VerifyHttps::PrivateCerts(path.to_owned(), pems))
+            }
+        }
+    }
+}
+
+impl Default for VerifyHttps {
+    fn default() -> Self {
+        VerifyHttps::Yes
+    }
+}
+
+impl fmt::Display for VerifyHttps {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VerifyHttps::No => write!(f, "no"),
+            VerifyHttps::Yes => write!(f, "yes"),
+            VerifyHttps::PrivateCerts(path, _pems) => write!(f, "path: {}", path),
         }
     }
 }

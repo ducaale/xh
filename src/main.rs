@@ -16,11 +16,13 @@ mod utils;
 use anyhow::{anyhow, Result};
 use auth::Auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
+use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme, VerifyHttps};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use reqwest::redirect::Policy;
+use std::fs::File;
+use std::io::Read;
 use url::Url;
 use utils::{body_from_stdin, test_mode};
 
@@ -77,7 +79,36 @@ async fn inner_main() -> Result<i32> {
         false => Policy::none(),
     };
 
-    let client = Client::builder().redirect(redirect).build()?;
+    let mut client = Client::builder().redirect(redirect);
+
+    client = client.danger_accept_invalid_certs(args.verify == VerifyHttps::No);
+
+    if let VerifyHttps::PrivateCerts(_, pems) = args.verify {
+        // FIXME: Change the version of reqwest in Cargo.toml to an official released version (> 0.11.0) which should contain this function
+        // See: https://github.com/seanmonstar/reqwest/pull/1150
+        client = client.tls_built_in_root_certs(false);
+        for pem in pems {
+            let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())?;
+            client = client.add_root_certificate(certificate);
+        }
+    };
+
+    if let Some(cert) = args.cert {
+        let mut f = File::open(cert)?;
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer)?;
+
+        if let Some(cert_key) = args.cert_key {
+            buffer.push(0x0Au8);
+            let mut f = File::open(cert_key)?;
+            f.read_to_end(&mut buffer)?;
+        }
+
+        let identity = reqwest::Identity::from_pem(&buffer)?;
+        client = client.identity(identity);
+    };
+
+    let client = client.build()?;
     let mut resume: Option<u64> = None;
     let request = {
         let mut request_builder = client

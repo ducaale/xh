@@ -207,3 +207,148 @@ fn download() {
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59
+#[test]
+fn verify_default_yes() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("https://self-signed.badssl.com");
+
+    cmd.assert().stdout(indoc! {r#"
+        GET / HTTP/1.1
+        accept: application/json, */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        content-length: 0
+        content-type: application/json
+        host: self-signed.badssl.com
+        user-agent: xh/0.0.0 (test mode)
+
+
+
+    "#});
+
+    cmd.assert().stderr(indoc! {r#"
+    Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
+
+    Caused by:
+        0: error trying to connect: invalid certificate: UnknownIssuer
+        1: invalid certificate: UnknownIssuer
+    "#});
+
+    Ok(())
+}
+
+#[test]
+fn verify_explicit_yes() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=yes")
+        .arg("get")
+        .arg("https://self-signed.badssl.com");
+
+    cmd.assert().stdout(indoc! {r#"
+        GET / HTTP/1.1
+        accept: application/json, */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        content-length: 0
+        content-type: application/json
+        host: self-signed.badssl.com
+        user-agent: xh/0.0.0 (test mode)
+
+
+
+    "#});
+
+    cmd.assert().stderr(indoc! {r#"
+    Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
+
+    Caused by:
+        0: error trying to connect: invalid certificate: UnknownIssuer
+        1: invalid certificate: UnknownIssuer
+    "#});
+
+    Ok(())
+}
+
+#[test]
+fn verify_no() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=no")
+        .arg("get")
+        .arg("https://self-signed.badssl.com");
+
+    cmd.assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"));
+
+    cmd.assert()
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+
+    cmd.assert().stderr(predicates::str::is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn verify_valid_file() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
+        .arg("get")
+        .arg("https://self-signed.badssl.com");
+
+    cmd.assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"));
+
+    cmd.assert()
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+
+    cmd.assert().stderr(predicates::str::is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn cert_without_key() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("https://client.badssl.com");
+
+    cmd.assert().stdout(predicates::str::contains(
+        "<head><title>400 No required SSL certificate was sent</title></head>",
+    ));
+
+    cmd.assert().stderr(predicates::str::is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn cert_with_key() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--pretty=format")
+        .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
+        .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
+        .arg("get")
+        .arg("https://client.badssl.com");
+
+    cmd.assert()
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+
+    cmd.assert().stdout(predicates::str::contains(
+            r#"This site requires a <a href="https://en.wikipedia.org/wiki/Transport_Layer_Security#Client-authenticated_TLS_handshake">client-authenticated</a> TLS handshak"#
+    ));
+
+    cmd.assert().stderr(predicates::str::is_empty());
+
+    Ok(())
+}

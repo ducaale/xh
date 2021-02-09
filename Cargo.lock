@@ -1431,6 +1431,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pem"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4c220d01f863d13d96ca82359d1e81e64a7c6bf0637bcde7b2349630addf0c6"
+dependencies = [
+ "base64",
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1746,8 +1757,7 @@ dependencies = [
 [[package]]
 name = "reqwest"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd281b1030aa675fb90aa994d07187645bb3c8fc756ca766e7c3070b439de9de"
+source = "git+https://github.com/seanmonstar/reqwest.git?rev=31b11c3f#31b11c3f4c0f5b8a5854861bb1c26f912ec68aca"
 dependencies = [
  "async-compression",
  "base64",
@@ -2599,6 +2609,7 @@ dependencies = [
  "jsonxf",
  "lazy_static",
  "mime2ext",
+ "pem",
  "predicates",
  "regex",
  "reqwest",
