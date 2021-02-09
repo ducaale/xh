@@ -12,12 +12,13 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 brew install ht-rust
 ```
 
-### On Arch Linux via AUR
-[ht-bin AUR package](https://aur.archlinux.org/packages/ht-bin)
+### On Arch Linux via Pacman
 
 ```
-yay -S ht-bin
+pacman -S ht
 ```
+
+(`ht` binary will be installed as `ht-rust`)
 
 ### From binaries
 The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
