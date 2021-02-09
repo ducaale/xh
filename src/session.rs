@@ -19,24 +19,23 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(identifier: String, host: &str, headers: Vec<Parameter>, auth: Option<Auth>) -> Session {
+    pub fn new(identifier: String, host: String, headers: Vec<Parameter>, auth: Option<Auth>) -> Session {
         Session {
             identifier,
-            host: host.to_string(),
+            host,
             headers,
             auth,
             ht_version: String::from(VERSION),
         }
     }
 
-    pub fn save(&self) -> std::io::Result<String> {
+    pub fn save(&self) -> std::io::Result<()> {
         let json = serde_json::to_string(&self)?;
-        let identifier = &self.identifier;
         let mut config_dir = match ensure_session_dir_exists(&self.host) {
             Err(why) => panic!("couldn't get config directory: {}", why),
             Ok(dir) => dir,
         };
-        config_dir.push(identifier);
+        config_dir.push(&self.identifier);
         config_dir.set_extension("json");
         let path = config_dir.as_path();
         let display = path.display();
@@ -48,7 +47,7 @@ impl Session {
 
         // Write the json string to `file`, returns `io::Result<()>`
         file.write_all(json.as_bytes())?;
-        Ok(String::from(identifier))
+        Ok(())
     }
 
     pub fn load(identifier: &str, host: &str) -> std::io::Result<Option<Session>> {

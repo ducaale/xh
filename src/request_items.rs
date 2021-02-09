@@ -39,7 +39,7 @@ impl RequestItems {
         count
     }
 
-    pub fn headers(&self, session: &Option<Session>) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
+    pub fn headers(&self, session: Option<&Session>) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
         let mut headers = HeaderMap::new();
         let mut headers_to_unset = vec![];
         for item in &self.0 {
@@ -57,7 +57,7 @@ impl RequestItems {
             }
         }
         // handle session additional headers
-        match &*session {
+        match session {
             None => (),
             Some(s) => {
                 for h in &*s.headers {
@@ -71,7 +71,7 @@ impl RequestItems {
         (headers, headers_to_unset)
     }
 
-    pub fn export_headers(&self, session: &Option<Session>) -> Vec<Parameter> {
+    pub fn export_headers(&self, session: Option<&Session>) -> Vec<Parameter> {
         let mut headers = vec![];
         let mut headernames_present = vec![];
         for item in &self.0 {

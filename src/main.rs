@@ -61,22 +61,20 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
     let session_for_merge = previous_session.clone();
     // Use auth from previous session if no auth present
-    match (auth.is_none(), previous_session) {
-        (true, Some(p)) => auth = p.auth,
-        (_, _) => (),
-    };
+    if let (true, Some(p)) = (auth.is_none(), previous_session) {
+        auth = p.auth;
+    }
     let saved_auth = auth.clone();
     // Merge headers from parameters and previous session
-    let (headers, headers_to_unset) = request_items.headers(&session_for_merge);
+    let (headers, headers_to_unset) = request_items.headers(session_for_merge.as_ref());
     // Save the current session if present
     match arg_session {
         None => (),
         Some(identifier) => {
-            let new_session = Session::new(identifier, &host, request_items.export_headers(&session_for_merge), saved_auth);
-            match new_session.save() {
-                Err(why) => panic!("couldn't save session {}: {}", new_session.identifier, why),
-                Ok(_) => (),
-            };
+            let new_session = Session::new(identifier, host, request_items.export_headers(session_for_merge.as_ref()), saved_auth);
+            if let Err(why) = new_session.save() {
+                panic!("couldn't save session {}: {}", new_session.identifier, why);
+            }
         },
     };    
 
