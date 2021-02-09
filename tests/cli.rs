@@ -1,4 +1,5 @@
 use assert_cmd::prelude::*;
+use blake2::{Blake2b, Digest};
 use indoc::indoc;
 use std::fs;
 use std::process::Command;
@@ -74,6 +75,7 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
 fn clear_session_file(name: String) -> std::io::Result<()> {
     // Clear session file
     let mut config_dir = match dirs::config_dir() {
@@ -83,7 +85,8 @@ fn clear_session_file(name: String) -> std::io::Result<()> {
     config_dir.push("ht");
     config_dir.push("sessions");
     config_dir.push("httpbin.org");
-    config_dir.push(name);
+    let hash = Blake2b::new().chain(name).finalize();
+    config_dir.push(format!("{:x}", hash).get(0..10).unwrap().to_string());
     config_dir.set_extension("json");
     match fs::remove_file(config_dir) {
         Err(why) => {

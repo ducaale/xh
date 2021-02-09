@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::str::FromStr;
 
 use regex::Regex;
@@ -85,8 +86,8 @@ pub struct Cli {
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
 
-    /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "session")]
+    /// Create, or reuse and update a session. By default, sessions are stored in ~/.config/ht/sessions/.
+    #[structopt(long = "session", parse(try_from_str = validate_session_name))]
     pub session: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -180,6 +181,19 @@ fn parse_method_url(s: &str) -> Result<(Option<Method>, String)> {
         Ok((None, parts[0].to_string()))
     } else {
         Ok((Some(parts[0].parse()?), parts[1].to_string()))
+    }
+}
+
+fn validate_session_name(s: &str) -> Result<String> {
+    let path = Path::new(s);
+    match path.to_str() {
+        Some(identifier) => Ok(identifier.to_string()),
+        None => {
+            return Err(Error::with_description(
+                &format!("{:?} contains invalid characters", s),
+                ErrorKind::InvalidValue,
+            ))
+        }
     }
 }
 

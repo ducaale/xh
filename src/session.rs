@@ -3,6 +3,7 @@ extern crate dirs;
 use crate::auth::Auth;
 use crate::request_items::Parameter;
 use crate::utils::ensure_session_dir_exists;
+use crate::utils::session_filename;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
@@ -35,7 +36,7 @@ impl Session {
             Err(why) => panic!("couldn't get config directory: {}", why),
             Ok(dir) => dir,
         };
-        config_dir.push(&self.identifier);
+        config_dir.push(session_filename(&self.identifier));
         config_dir.set_extension("json");
         let path = config_dir.as_path();
         let display = path.display();
@@ -56,7 +57,7 @@ impl Session {
             Err(why) => panic!("couldn't get config directory: {}", why),
             Ok(dir) => dir,
         };
-        config_dir.push(identifier);
+        config_dir.push(session_filename(identifier));
         config_dir.set_extension("json");
         let path = config_dir.as_path();
 

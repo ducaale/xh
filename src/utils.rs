@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use atty::Stream;
+use blake2::{Blake2b, Digest};
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use std::fs;
 use syntect::dumps::from_binary;
@@ -159,6 +160,7 @@ macro_rules! vec_of_strings {
     });
 }
 
+// Create the directory ~/.config/ht/sessions/{domain} if not present.
 pub fn ensure_session_dir_exists(domain: &str) -> std::io::Result<PathBuf> {
     let mut config_dir = match dirs::config_dir() {
         None => panic!("couldn't get config directory"),
@@ -169,4 +171,10 @@ pub fn ensure_session_dir_exists(domain: &str) -> std::io::Result<PathBuf> {
     config_dir.push(domain);
     fs::create_dir_all(&config_dir)?;
     Ok(config_dir)
+}
+
+// Calculate an hash from session identifier to use as the session filename.
+pub fn session_filename(identifier: &str) -> String {
+    let hash = Blake2b::new().chain(identifier).finalize();
+    format!("{:x}", hash).get(0..10).unwrap().to_string()
 }
