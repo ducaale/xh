@@ -1,3 +1,4 @@
+use anyhow::Result;
 use regex::Regex;
 
 use crate::AuthType;
@@ -11,19 +12,23 @@ pub enum Auth {
 }
 
 impl Auth {
-    pub fn new(auth: Option<String>, auth_type: Option<AuthType>, host: &str) -> Option<Auth> {
+    pub fn new(
+        auth: Option<String>,
+        auth_type: Option<AuthType>,
+        host: &str,
+    ) -> Result<Option<Auth>> {
         let auth_type = auth_type.unwrap_or(AuthType::Basic);
         let auth = match auth {
             Some(auth) if !auth.is_empty() => auth,
-            _ => {
-                return None;
-            }
+            _ => return Ok(None),
         };
 
-        match auth_type {
+        Ok(match auth_type {
             AuthType::Basic => {
-                let re = Regex::new(r"^(.+?):(.*)$").unwrap();
-                if let Some(cap) = re.captures(&auth) {
+                lazy_static::lazy_static! {
+                    static ref RE: Regex = Regex::new(r"^(.+?):(.*)$").unwrap();
+                }
+                if let Some(cap) = RE.captures(&auth) {
                     let username = cap[1].to_string();
                     let password = if !cap[2].is_empty() {
                         Some(cap[2].to_string())
@@ -34,11 +39,11 @@ impl Auth {
                 } else {
                     let username = auth;
                     let prompt = format!("http: password for {}@{}: ", username, host);
-                    let password = rpassword::read_password_from_tty(Some(&prompt)).unwrap();
+                    let password = rpassword::read_password_from_tty(Some(&prompt))?;
                     Some(Auth::Basic(username, Some(password)))
                 }
             }
             AuthType::Bearer => Some(Auth::Bearer(auth)),
-        }
+        })
     }
 }

@@ -13,7 +13,7 @@ brew install ht-rust
 ```
 
 ### On Arch Linux via AUR
-[ht-bin AUR package](https://aur.archlinux.org/ht-bin)
+[ht-bin AUR package](https://aur.archlinux.org/packages/ht-bin)
 
 ```
 yay -S ht-bin
@@ -30,7 +30,7 @@ cargo install ht
 
 ## Usage
 ```
-ht 0.5.0
+ht 0.6.0
 USAGE:
     ht [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 

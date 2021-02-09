@@ -54,6 +54,10 @@ pub struct Cli {
     #[structopt(short = "d", long)]
     pub download: bool,
 
+    /// Print only the response body, Shortcut for --print=b.
+    #[structopt(short = "b", long)]
+    pub body: bool,
+
     /// Resume an interrupted download.
     #[structopt(short = "c", long = "continue")]
     pub resume: bool,
@@ -111,8 +115,8 @@ impl Cli {
         for arg in iter {
             if arg.parse::<Method>().is_ok() {
                 method = Some(arg)
-            } else if method.is_some() {
-                args.push(format!("{} {}", method.unwrap(), arg));
+            } else if let Some(method_value) = method {
+                args.push(format!("{} {}", method_value, arg));
                 method = None;
             } else {
                 args.push(arg);
@@ -131,6 +135,7 @@ pub enum Method {
     PUT,
     PATCH,
     DELETE,
+    OPTIONS,
 }
 
 impl FromStr for Method {
@@ -143,12 +148,11 @@ impl FromStr for Method {
             "PUT" => Ok(Method::PUT),
             "PATCH" => Ok(Method::PATCH),
             "DELETE" => Ok(Method::DELETE),
-            method => {
-                return Err(Error::with_description(
-                    &format!("unknown http method {}", method),
-                    ErrorKind::InvalidValue,
-                ))
-            }
+            "OPTIONS" => Ok(Method::OPTIONS),
+            method => Err(Error::with_description(
+                &format!("unknown http method {}", method),
+                ErrorKind::InvalidValue,
+            )),
         }
     }
 }
@@ -162,6 +166,7 @@ impl From<Method> for reqwest::Method {
             Method::PUT => reqwest::Method::PUT,
             Method::PATCH => reqwest::Method::PATCH,
             Method::DELETE => reqwest::Method::DELETE,
+            Method::OPTIONS => reqwest::Method::OPTIONS,
         }
     }
 }
@@ -236,7 +241,7 @@ pub struct Print {
 }
 
 impl Print {
-    pub fn new(verbose: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
+    pub fn new(verbose: bool, body: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
         if verbose {
             Print {
                 request_headers: true,
@@ -258,7 +263,7 @@ impl Print {
                 response_headers: false,
                 response_body: false,
             }
-        } else if matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
+        } else if body || matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
             Print {
                 request_headers: false,
                 request_body: false,
@@ -346,7 +351,12 @@ impl FromStr for RequestItem {
                 "=" => Ok(RequestItem::DataField(key, value)),
                 ":=" => Ok(RequestItem::JSONField(
                     key,
-                    serde_json::from_str(&value).unwrap(),
+                    serde_json::from_str(&value).map_err(|err| {
+                        Error::with_description(
+                            &format!("{:?}: {}", request_item, err),
+                            ErrorKind::InvalidValue,
+                        )
+                    })?,
                 )),
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),

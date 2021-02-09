@@ -1,12 +1,19 @@
 use assert_cmd::prelude::*;
 use blake2::{Blake2b, Digest};
 use indoc::indoc;
+use predicates::prelude::*;
 use std::fs;
 use std::process::Command;
 
+fn get_command() -> Command {
+    let mut cmd = Command::cargo_bin("ht").expect("binary should be present");
+    cmd.env("HT_TEST_MODE", "1");
+    cmd
+}
+
 #[test]
 fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -23,6 +30,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         content-length: 14
         content-type: application/json
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
         {
             "name": "ali"
@@ -35,7 +43,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -49,14 +57,16 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
         "#});
 
     Ok(())
 }
+
 #[test]
 fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -70,8 +80,26 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
             accept-encoding: gzip, deflate
             connection: keep-alive
             host: httpbin.org
+            user-agent: ht/0.0.0 (test mode)
     
         "#});
+
+    Ok(())
+}
+
+#[test]
+fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("options")
+        .arg("httpbin.org/json");
+
+    // Verify that the response is ok and contains an 'allow' header.
+    cmd.assert()
+        .stdout(predicate::str::contains("HTTP/1.1 200 OK"));
+    cmd.assert().stdout(predicate::str::contains("allow:"));
 
     Ok(())
 }
@@ -107,7 +135,7 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
         Ok(()) => (),
     }
 
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -127,10 +155,11 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
         connection: keep-alive
         foo: bar
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 
-    cmd = Command::cargo_bin("ht")?;
+    cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -149,6 +178,7 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
         foo: bar
         foooo: baroo
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 
@@ -162,7 +192,7 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         Ok(()) => (),
     }
 
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -182,10 +212,11 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         connection: keep-alive
         foo: bar
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 
-    cmd = Command::cargo_bin("ht")?;
+    cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
         .arg("--ignore-stdin")
@@ -204,6 +235,7 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         foo: bar
         foooo: baroo
         host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
 
     "#});
 

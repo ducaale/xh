@@ -1,6 +1,6 @@
 [package]
 name = "ht"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,6 +12,7 @@ readme = "README.md"
 
 [dependencies]
 ansi_term = "0.12"
+anyhow = "1.0.38"
 assert_matches = "1.4.0"
 atty = "0.2"
 blake2 = "0.9.1"
@@ -37,6 +38,7 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 [dev-dependencies]
 assert_cmd = "1.0"
 indoc = "1.0"
+predicates = "1.0.7"
 
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }

@@ -1,10 +1,9 @@
-use std::path::Path;
-
+use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::multipart;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::body_to_file;
+use crate::utils::file_to_part;
 use crate::RequestItem;
 use crate::Session;
 
@@ -29,28 +28,24 @@ impl RequestItems {
     }
 
     fn form_file_count(&self) -> usize {
-        let mut count = 0;
-        for item in &self.0 {
-            match item {
-                RequestItem::FormFile(_, _, _) => count += 1,
-                _ => {}
-            }
-        }
-        count
+        self.0
+            .iter()
+            .filter(|item| matches!(item, RequestItem::FormFile(..)))
+            .count()
     }
 
-    pub fn headers(&self, session: Option<&Session>) -> (HeaderMap<HeaderValue>, Vec<HeaderName>) {
+    pub fn headers(&self, session: Option<&Session>) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
         let mut headers = HeaderMap::new();
         let mut headers_to_unset = vec![];
         for item in &self.0 {
             match item {
                 RequestItem::HttpHeader(key, value) => {
-                    let key = HeaderName::from_bytes(&key.as_bytes()).unwrap();
-                    let value = HeaderValue::from_str(&value).unwrap();
+                    let key = HeaderName::from_bytes(&key.as_bytes())?;
+                    let value = HeaderValue::from_str(&value)?;
                     headers.insert(key, value);
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
-                    let key = HeaderName::from_bytes(&key.as_bytes()).unwrap();
+                    let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
                 _ => {}
@@ -68,7 +63,7 @@ impl RequestItems {
                 }
             }
         }
-        (headers, headers_to_unset)
+        Ok((headers, headers_to_unset))
     }
 
     pub fn export_headers(&self, session: Option<&Session>) -> Vec<Parameter> {
@@ -103,17 +98,14 @@ impl RequestItems {
     pub fn query(&self) -> Vec<(&String, &String)> {
         let mut query = vec![];
         for item in &self.0 {
-            match item {
-                RequestItem::UrlParam(key, value) => {
-                    query.push((key, value));
-                }
-                _ => {}
+            if let RequestItem::UrlParam(key, value) = item {
+                query.push((key, value));
             }
         }
         query
     }
 
-    fn body_as_json(&self) -> Result<Option<Body>, &str> {
+    fn body_as_json(&self) -> Result<Option<Body>> {
         let mut body = serde_json::Map::new();
         for item in &self.0 {
             match item.clone() {
@@ -124,9 +116,9 @@ impl RequestItems {
                     body.insert(key, serde_json::Value::String(value));
                 }
                 RequestItem::FormFile(_, _, _) => {
-                    return Err(
-                        "Sending Files is not supported when the request body is in JSON format",
-                    );
+                    return Err(anyhow!(
+                        "Sending Files is not supported when the request body is in JSON format"
+                    ));
                 }
                 _ => {}
             }
@@ -138,12 +130,12 @@ impl RequestItems {
         }
     }
 
-    fn body_as_form(&self) -> Result<Option<Body>, &str> {
+    fn body_as_form(&self) -> Result<Option<Body>> {
         let mut text_fields = Vec::<(String, String)>::new();
         for item in &self.0 {
             match item.clone() {
                 RequestItem::JSONField(_, _) => {
-                    return Err("JSON values are not supported in Form fields");
+                    return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
                 _ => {}
@@ -152,25 +144,21 @@ impl RequestItems {
         Ok(Some(Body::Form(text_fields)))
     }
 
-    async fn body_as_multipart(&self) -> Result<Option<Body>, &str> {
+    async fn body_as_multipart(&self) -> Result<Option<Body>> {
         let mut form = multipart::Form::new();
         for item in &self.0 {
             match item.clone() {
                 RequestItem::JSONField(_, _) => {
-                    return Err("JSON values are not supported in multipart fields");
+                    return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
                 }
                 RequestItem::FormFile(key, value, file_type) => {
-                    let path = Path::new(&value);
-                    let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-                    let part =
-                        multipart::Part::stream(body_to_file(&path).await).file_name(file_name);
-                    let part = match file_type {
-                        Some(file_type) => part.mime_str(&file_type).unwrap(),
-                        None => part,
-                    };
+                    let mut part = file_to_part(&value).await?;
+                    if let Some(file_type) = file_type {
+                        part = part.mime_str(&file_type)?;
+                    }
                     form = form.part(key, part);
                 }
                 _ => {}
@@ -179,7 +167,7 @@ impl RequestItems {
         Ok(Some(Body::Multipart(form)))
     }
 
-    pub async fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>, &str> {
+    pub async fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>> {
         match (form, multipart) {
             (_, true) => self.body_as_multipart().await,
             (true, _) if self.form_file_count() > 0 => self.body_as_multipart().await,
