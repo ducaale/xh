@@ -18,6 +18,8 @@ brew install ht-rust
 pacman -S ht
 ```
 
+(`ht` binary will be installed as `ht-rust`)
+
 ### From binaries
 The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
