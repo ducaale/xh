@@ -6,6 +6,7 @@ use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use anyhow::Result;
 use atty::Stream;
+use io::LineWriter;
 use reqwest::{
     blocking::multipart,
     header::{HeaderMap, CONTENT_TYPE},
@@ -16,8 +17,8 @@ use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
-use crate::Body;
 use crate::Theme;
+use crate::{buffer::Buffer, Body};
 
 pub fn test_mode() -> bool {
     cfg!(test) || std::env::var_os("XH_TEST_MODE").is_some()
@@ -84,32 +85,35 @@ pub fn get_json_formatter() -> jsonxf::Formatter {
     fmt
 }
 
-pub fn colorize<'a>(
-    text: &'a str,
-    syntax: &str,
-    theme: &Theme,
-    mut out: impl Write,
-) -> io::Result<()> {
-    lazy_static::lazy_static! {
-        static ref TS: ThemeSet = from_binary(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/themepack.themedump"
-        )));
-        static ref PS: SyntaxSet = from_binary(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/syntax.packdump"
-        )));
-    }
-    let syntax = PS
-        .find_syntax_by_extension(syntax)
-        .expect("syntax not found");
-    let mut h = match theme {
-        Theme::Auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
-        Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
-    };
+lazy_static::lazy_static! {
+    static ref TS: ThemeSet = from_binary(include_bytes!(concat!(
+        env!("OUT_DIR"),
+        "/themepack.themedump"
+    )));
+    static ref PS: SyntaxSet = from_binary(include_bytes!(concat!(
+        env!("OUT_DIR"),
+        "/syntax.packdump"
+    )));
+}
 
-    for line in LinesWithEndings::from(text) {
-        let highlights = h.highlight(line, &PS);
+pub struct Highlighter<'a> {
+    inner: HighlightLines<'static>,
+    out: &'a mut Buffer,
+}
+
+impl<'a> Highlighter<'a> {
+    pub fn new(syntax: &'static str, theme: Theme, out: &'a mut Buffer) -> Self {
+        let syntax = PS
+            .find_syntax_by_extension(syntax)
+            .expect("syntax not found");
+        Self {
+            inner: HighlightLines::new(syntax, &TS.themes[theme.as_str()]),
+            out,
+        }
+    }
+
+    pub fn highlight_line(&mut self, line: &str) -> io::Result<()> {
+        let highlights = self.inner.highlight(line, &PS);
         for (style, component) in highlights {
             let mut color = Style {
                 foreground: to_ansi_color(style.foreground),
@@ -118,11 +122,37 @@ pub fn colorize<'a>(
             if style.font_style.contains(FontStyle::UNDERLINE) {
                 color = color.underline();
             }
-            write!(out, "{}", color.paint(component))?;
+            write!(self.out, "{}", color.paint(component))?;
         }
+        Ok(())
     }
-    write!(out, "\x1b[0m")?;
-    Ok(())
+
+    pub fn finish(self) -> io::Result<()> {
+        write!(self.out, "\x1b[0m")?;
+        Ok(())
+    }
+
+    pub fn highlight(mut self, text: &str) -> io::Result<()> {
+        for line in LinesWithEndings::from(text) {
+            self.highlight_line(line)?;
+        }
+        self.finish()
+    }
+
+    pub fn linewise(&mut self) -> LineWriter<&mut Self> {
+        LineWriter::new(self)
+    }
+}
+
+impl<'a> Write for Highlighter<'a> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.highlight_line(&String::from_utf8_lossy(buf))?;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.out.flush()
+    }
 }
 
 // https://github.com/sharkdp/bat/blob/3a85fd767bd1f03debd0a60ac5bc08548f95bc9d/src/terminal.rs

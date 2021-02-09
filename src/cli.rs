@@ -246,9 +246,18 @@ impl From<&Buffer> for Pretty {
 }
 
 arg_enum! {
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Theme {
         Auto, Solarized
+    }
+}
+
+impl Theme {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Theme::Auto => "ansi",
+            Theme::Solarized => "solarized",
+        }
     }
 }
 

@@ -1,21 +1,23 @@
-use std::io::{self, Read};
+use std::io;
 
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 
-use crate::utils::{colorize, get_content_type, get_json_formatter, test_mode, ContentType};
+use crate::utils::{get_content_type, get_json_formatter, test_mode, ContentType, Highlighter};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+\n",
     "| NOTE: multipart data not shown in terminal |\n",
-    "+--------------------------------------------+"
+    "+--------------------------------------------+\n",
+    "\n"
 );
 
 pub(crate) const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "| NOTE: binary data not shown in terminal |\n",
-    "+-----------------------------------------+"
+    "+-----------------------------------------+\n",
+    "\n"
 );
 
 pub struct Printer {
@@ -42,48 +44,69 @@ impl Printer {
         }
     }
 
-    fn colorize(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
-        colorize(text, syntax, &self.theme, &mut self.buffer)
+    fn get_highlighter(&mut self, syntax: &'static str) -> Highlighter {
+        Highlighter::new(syntax, self.theme, &mut self.buffer)
     }
 
-    fn dump(&mut self, reader: &mut impl Read) -> io::Result<()> {
+    fn colorize_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+        self.get_highlighter(syntax).highlight(text)
+    }
+
+    fn dump(&mut self, reader: &mut Response) -> io::Result<()> {
         io::copy(reader, &mut self.buffer)?;
         Ok(())
     }
 
-    fn print_json(&mut self, body: &mut impl Read) -> io::Result<()> {
-        match (self.indent_json, self.color) {
-            (false, false) => self.dump(body),
-            (true, false) => get_json_formatter().format_stream(body, &mut self.buffer),
-            (false, true) => {
-                let mut buf = Vec::new();
-                body.read_to_end(&mut buf)?;
-                let text = String::from_utf8_lossy(&buf);
-                self.colorize(&text, "json")
-            }
-            (true, true) => {
-                let mut buf = Vec::new();
-                get_json_formatter().format_stream(body, &mut buf)?;
-                let text = String::from_utf8_lossy(&buf);
-                self.colorize(&text, "json")
-            }
+    fn print_json_text(&mut self, text: &str) -> io::Result<()> {
+        if !self.indent_json {
+            self.print_syntax_text(text, "json")
+        } else if self.color {
+            let mut buf = Vec::new();
+            get_json_formatter().format_stream(&mut text.as_bytes(), &mut buf)?;
+            let text = String::from_utf8_lossy(&buf);
+            self.colorize_text(&text, "json")
+        } else {
+            get_json_formatter().format_stream(&mut text.as_bytes(), &mut self.buffer)
         }
     }
 
-    fn print_syntax(&mut self, body: &mut impl Read, syntax: &'static str) -> io::Result<()> {
-        if self.color {
-            let mut buf = Vec::new();
-            body.read_to_end(&mut buf)?;
-            let text = String::from_utf8_lossy(&buf);
-            self.colorize(&text, syntax)
+    fn print_json_stream(&mut self, stream: &mut Response) -> io::Result<()> {
+        if !self.indent_json {
+            self.print_syntax_stream(stream, "json")
+        } else if self.color {
+            let mut highlighter = self.get_highlighter("json");
+            get_json_formatter().format_stream(stream, &mut highlighter.linewise())?;
+            highlighter.finish()
         } else {
-            self.dump(body)
+            get_json_formatter().format_stream(stream, &mut self.buffer)
+        }
+    }
+
+    fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+        if self.color {
+            self.colorize_text(text, syntax)
+        } else {
+            self.buffer.print(text)
+        }
+    }
+
+    fn print_syntax_stream(
+        &mut self,
+        stream: &mut Response,
+        syntax: &'static str,
+    ) -> io::Result<()> {
+        if self.color {
+            let mut highlighter = self.get_highlighter(syntax);
+            io::copy(stream, &mut highlighter.linewise())?;
+            highlighter.finish()
+        } else {
+            self.dump(stream)
         }
     }
 
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            self.colorize(text, "http")
+            self.colorize_text(text, "http")
         } else {
             self.buffer.print(text)
         }
@@ -163,15 +186,24 @@ impl Printer {
         Ok(())
     }
 
-    fn print_body(
+    fn print_body_text(&mut self, content_type: Option<ContentType>, body: &str) -> io::Result<()> {
+        match content_type {
+            Some(ContentType::Json) => self.print_json_text(body),
+            Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
+            Some(ContentType::Html) => self.print_syntax_text(body, "html"),
+            _ => self.buffer.print(body),
+        }
+    }
+
+    fn print_body_stream(
         &mut self,
         content_type: Option<ContentType>,
-        body: &mut impl Read,
+        body: &mut Response,
     ) -> io::Result<()> {
         match content_type {
-            Some(ContentType::Json) => self.print_json(body),
-            Some(ContentType::Xml) => self.print_syntax(body, "xml"),
-            Some(ContentType::Html) => self.print_syntax(body, "html"),
+            Some(ContentType::Json) => self.print_json_stream(body),
+            Some(ContentType::Xml) => self.print_syntax_stream(body, "xml"),
+            Some(ContentType::Html) => self.print_syntax_stream(body, "html"),
             _ => self.dump(body),
         }
     }
@@ -180,7 +212,6 @@ impl Printer {
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
-                self.buffer.print("\n\n")?;
             }
             // TODO: Should this print BINARY_SUPPRESSOR?
             content_type => {
@@ -190,7 +221,7 @@ impl Printer {
                     .filter(|b| !b.contains(&b'\0'))
                     .and_then(|b| String::from_utf8(b.into()).ok())
                 {
-                    self.print_body(content_type, &mut body.as_bytes())?;
+                    self.print_body_text(content_type, &body)?;
                     self.buffer.print("\n\n")?;
                 }
             }
@@ -200,24 +231,23 @@ impl Printer {
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
         if self.stream {
-            self.print_body(get_content_type(&response.headers()), &mut response)?;
+            self.print_body_stream(get_content_type(&response.headers()), &mut response)?;
+            self.buffer.print("\n")?;
         } else {
             let content_type = get_content_type(&response.headers());
             let text = match response.text() {
                 Ok(text) => text,
                 Err(err) if err.is_decode() => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
-                    self.buffer.print("\n\n")?;
                     return Ok(());
                 }
                 Err(err) => return Err(err.into()),
             };
             if text.contains('\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
-                self.buffer.print("\n\n")?;
                 return Ok(());
             }
-            self.print_body(content_type, &mut text.as_bytes())?;
+            self.print_body_text(content_type, &text)?;
             self.buffer.print("\n")?;
         }
         Ok(())

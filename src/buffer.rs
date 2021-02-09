@@ -50,8 +50,8 @@ impl Write for Buffer {
             return Ok(buf.len());
         }
         if self.is_terminal() && buf.contains(&b'\0') {
+            self.print("\x1b[0m")?;
             self.print(BINARY_SUPPRESSOR)?;
-            self.print("\n\n")?;
             self.dirty = true;
             return Ok(buf.len());
         }
