@@ -3,7 +3,10 @@ use std::io;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 
-use crate::utils::{get_content_type, get_json_formatter, test_mode, ContentType, Highlighter};
+use crate::{
+    formatting::{get_json_formatter, Highlighter},
+    utils::{get_content_type, test_mode, ContentType},
+};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(

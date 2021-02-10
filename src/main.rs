@@ -12,6 +12,7 @@ mod auth;
 mod buffer;
 mod cli;
 mod download;
+mod formatting;
 mod printer;
 mod request_items;
 mod url;
