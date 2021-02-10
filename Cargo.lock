@@ -1098,11 +1098,11 @@ dependencies = [
 
 [[package]]
 name = "jsonxf"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d87d3977b3d4ed43638d224a0146f04aed53f54c2076130658fdb96ee2ae239"
+version = "1.0.2"
+source = "git+https://github.com/blyxxyz/jsonxf?branch=tweaks#cbc16901b743c42709869c9b08e1e300372839e0"
 dependencies = [
  "getopts",
+ "memchr",
 ]
 
 [[package]]

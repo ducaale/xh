@@ -79,11 +79,11 @@ impl Printer {
             self.print_syntax_text(text, "json")
         } else if self.color {
             let mut buf = Vec::new();
-            get_json_formatter().format_stream(&mut text.as_bytes(), &mut buf)?;
+            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut buf)?;
             let text = String::from_utf8_lossy(&buf);
             self.colorize_text(&text, "json")
         } else {
-            get_json_formatter().format_stream(&mut text.as_bytes(), &mut self.buffer)
+            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut self.buffer)
         }
     }
 
@@ -92,10 +92,10 @@ impl Printer {
             self.print_syntax_stream(stream, "json")
         } else if self.color {
             self.with_highlighter("json", |highlighter| {
-                get_json_formatter().format_stream(stream, &mut highlighter.linewise())
+                get_json_formatter().format_stream_unbuffered(stream, &mut highlighter.linewise())
             })
         } else {
-            get_json_formatter().format_stream(stream, &mut self.buffer)
+            get_json_formatter().format_stream_unbuffered(stream, &mut self.buffer)
         }
     }
 
@@ -240,7 +240,7 @@ impl Printer {
                     .and_then(|b| String::from_utf8(b.into()).ok())
                 {
                     self.print_body_text(content_type, &body)?;
-                    self.buffer.print("\n\n")?;
+                    self.buffer.print("\n")?;
                 }
             }
         }
