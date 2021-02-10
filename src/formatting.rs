@@ -1,12 +1,10 @@
 use std::io::{self, LineWriter, Write};
 
 use ansi_term::Color::{self, Fixed, RGB};
-use ansi_term::{self, Style};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{FontStyle, ThemeSet};
+use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use syntect::util::LinesWithEndings;
 
 use crate::buffer::Buffer;
 use crate::cli::Theme;
@@ -31,8 +29,10 @@ lazy_static::lazy_static! {
 pub struct Highlighter<'a> {
     inner: HighlightLines<'static>,
     out: &'a mut Buffer,
+    buffer: Vec<u8>, // For use by HighlightWriter
 }
 
+/// A wrapper around a [`Buffer`] to add syntax highlighting when printing.
 impl<'a> Highlighter<'a> {
     pub fn new(syntax: &'static str, theme: Theme, out: &'a mut Buffer) -> Self {
         let syntax = PS
@@ -41,49 +41,97 @@ impl<'a> Highlighter<'a> {
         Self {
             inner: HighlightLines::new(syntax, &TS.themes[theme.as_str()]),
             out,
+            buffer: Vec::new(),
         }
     }
 
-    pub fn highlight_line(&mut self, line: &str) -> io::Result<()> {
-        let highlights = self.inner.highlight(line, &PS);
-        for (style, component) in highlights {
-            let mut color = Style {
-                foreground: to_ansi_color(style.foreground),
-                ..Style::default()
-            };
-            if style.font_style.contains(FontStyle::UNDERLINE) {
-                color = color.underline();
-            }
-            write!(self.out, "{}", color.paint(component))?;
+    /// Write a single piece of highlighted text.
+    pub fn highlight(&mut self, line: &str) -> io::Result<()> {
+        write_style(&mut self.inner, line, self.out)
+    }
+
+    fn highlight_buffer(&mut self) -> io::Result<()> {
+        if !self.buffer.is_empty() {
+            let text = String::from_utf8_lossy(&self.buffer);
+            // Can't call .highlight() because text references self.buffer
+            write_style(&mut self.inner, &text, self.out)?;
+            self.buffer.clear();
         }
         Ok(())
     }
 
-    pub fn finish(self) -> io::Result<()> {
+    /// Write out any remaining text, reset the color, and flush the buffer.
+    ///
+    /// This must be called when you're done, if no errors happened. Otherwise
+    /// data may be dropped.
+    ///
+    /// See [`with_highlighter`](`crate::printer::Printer::with_highlighter`).
+    pub fn finish(mut self) -> io::Result<()> {
+        self.highlight_buffer()?;
         write!(self.out, "\x1b[0m")?;
+        self.out.flush()?;
         Ok(())
     }
 
-    pub fn highlight(mut self, text: &str) -> io::Result<()> {
-        for line in LinesWithEndings::from(text) {
-            self.highlight_line(line)?;
-        }
-        self.finish()
-    }
-
-    pub fn linewise(&mut self) -> LineWriter<&mut Self> {
-        LineWriter::new(self)
+    /// Return an instance of [`Write`] to write highlighted text.
+    ///
+    /// This does some special handling to ensure lines aren't printed until
+    /// they're complete.
+    pub fn linewise<'b>(&'b mut self) -> LineWriter<HighlightWriter<'a, 'b>> {
+        LineWriter::new(HighlightWriter(self))
     }
 }
 
-impl<'a> Write for Highlighter<'a> {
+/// A [`Write`] implementation that accepts writes and turns them into
+/// full highlighted lines. Incomplete lines will be saved up, no matter how
+/// long they get, to ensure UTF-8 isn't mangled and highlighting isn't
+/// interrupted.
+///
+/// Must be used through a [`LineWriter`] or it won't work properly.
+/// See [`Highlighter::linewise`].
+pub struct HighlightWriter<'a, 'b>(&'b mut Highlighter<'a>);
+
+impl Write for HighlightWriter<'_, '_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.highlight_line(&String::from_utf8_lossy(buf))?;
+        if buf.last().copied() == Some(b'\n') {
+            if self.0.buffer.is_empty() {
+                self.0.highlight(&String::from_utf8_lossy(buf))?;
+            } else {
+                self.0.buffer.extend(buf);
+                self.0.highlight_buffer()?;
+            };
+        } else {
+            self.0.buffer.extend(buf);
+        }
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.out.flush()
+        self.0.highlight_buffer()?;
+        self.0.out.flush()
+    }
+}
+
+fn write_style(
+    highlighter: &mut HighlightLines,
+    text: &str,
+    out: &mut impl Write,
+) -> io::Result<()> {
+    // TODO: this text may contain multiple lines, is that ok?
+    // If not, try syntect::util::LinesWithEndings
+    for (style, component) in highlighter.highlight(text, &PS) {
+        write!(out, "{}", convert_style(style).paint(component))?;
+    }
+    Ok(())
+}
+
+fn convert_style(style: syntect::highlighting::Style) -> ansi_term::Style {
+    ansi_term::Style {
+        foreground: to_ansi_color(style.foreground),
+        is_underline: style
+            .font_style
+            .contains(syntect::highlighting::FontStyle::UNDERLINE),
+        ..Default::default()
     }
 }
 

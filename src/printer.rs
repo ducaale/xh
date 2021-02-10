@@ -1,7 +1,10 @@
-use std::io;
+use std::io::{self, Read};
 
+use encoding_rs::{Encoding, UTF_8};
+use encoding_rs_io::DecodeReaderBytesBuilder;
+use mime::Mime;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE, HOST};
 
 use crate::{
     formatting::{get_json_formatter, Highlighter},
@@ -47,15 +50,26 @@ impl Printer {
         }
     }
 
-    fn get_highlighter(&mut self, syntax: &'static str) -> Highlighter {
-        Highlighter::new(syntax, self.theme, &mut self.buffer)
+    /// Run a piece of code with a [`Highlighter`] instance. After the code runs
+    /// successfully, [`Highlighter::finish`] will be called to properly terminate.
+    ///
+    /// That way you don't have to remember to call it manually, and errors
+    /// can still be handled (unlike an implementation of [`Drop`]).
+    fn with_highlighter(
+        &mut self,
+        syntax: &'static str,
+        code: impl FnOnce(&mut Highlighter) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let mut highlighter = Highlighter::new(syntax, self.theme, &mut self.buffer);
+        code(&mut highlighter)?;
+        highlighter.finish()
     }
 
     fn colorize_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
-        self.get_highlighter(syntax).highlight(text)
+        self.with_highlighter(syntax, |highlighter| highlighter.highlight(text))
     }
 
-    fn dump(&mut self, reader: &mut Response) -> io::Result<()> {
+    fn dump(&mut self, reader: &mut impl Read) -> io::Result<()> {
         io::copy(reader, &mut self.buffer)?;
         Ok(())
     }
@@ -73,13 +87,13 @@ impl Printer {
         }
     }
 
-    fn print_json_stream(&mut self, stream: &mut Response) -> io::Result<()> {
+    fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<()> {
         if !self.indent_json {
             self.print_syntax_stream(stream, "json")
         } else if self.color {
-            let mut highlighter = self.get_highlighter("json");
-            get_json_formatter().format_stream(stream, &mut highlighter.linewise())?;
-            highlighter.finish()
+            self.with_highlighter("json", |highlighter| {
+                get_json_formatter().format_stream(stream, &mut highlighter.linewise())
+            })
         } else {
             get_json_formatter().format_stream(stream, &mut self.buffer)
         }
@@ -95,13 +109,14 @@ impl Printer {
 
     fn print_syntax_stream(
         &mut self,
-        stream: &mut Response,
+        stream: &mut impl Read,
         syntax: &'static str,
     ) -> io::Result<()> {
         if self.color {
-            let mut highlighter = self.get_highlighter(syntax);
-            io::copy(stream, &mut highlighter.linewise())?;
-            highlighter.finish()
+            self.with_highlighter(syntax, |highlighter| {
+                io::copy(stream, &mut highlighter.linewise())?;
+                Ok(())
+            })
         } else {
             self.dump(stream)
         }
@@ -201,7 +216,7 @@ impl Printer {
     fn print_body_stream(
         &mut self,
         content_type: Option<ContentType>,
-        body: &mut Response,
+        body: &mut impl Read,
     ) -> io::Result<()> {
         match content_type {
             Some(ContentType::Json) => self.print_json_stream(body),
@@ -234,18 +249,15 @@ impl Printer {
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
         if self.stream {
-            self.print_body_stream(get_content_type(&response.headers()), &mut response)?;
+            self.print_body_stream(
+                get_content_type(&response.headers()),
+                &mut decode_stream(&mut response),
+            )?;
             self.buffer.print("\n")?;
         } else {
             let content_type = get_content_type(&response.headers());
-            let text = match response.text() {
-                Ok(text) => text,
-                Err(err) if err.is_decode() => {
-                    self.buffer.print(BINARY_SUPPRESSOR)?;
-                    return Ok(());
-                }
-                Err(err) => return Err(err.into()),
-            };
+            // Note that .text() behaves like String::from_utf8_lossy()
+            let text = response.text()?;
             if text.contains('\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
                 return Ok(());
@@ -255,6 +267,30 @@ impl Printer {
         }
         Ok(())
     }
+}
+
+/// Decode a streaming response in a way that matches `.text()`.
+///
+/// `reqwest` doesn't provide an API for this, so we have to roll our own. It
+/// doesn't even provide an API to detect the response's encoding, so that
+/// logic is copied here.
+///
+/// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
+fn decode_stream(response: &mut Response) -> impl Read + '_ {
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<Mime>().ok());
+    let encoding_name = content_type
+        .as_ref()
+        .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
+        .unwrap_or("utf-8");
+    let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
+
+    DecodeReaderBytesBuilder::new()
+        .encoding(Some(encoding))
+        .build(response)
 }
 
 #[cfg(test)]
