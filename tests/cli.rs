@@ -101,3 +101,30 @@ fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn multiline_value() {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("--form")
+        .arg("post")
+        .arg("httpbin.org/post")
+        .arg("foo=bar\nbaz");
+
+    cmd.assert().stdout(indoc! {r#"
+        POST /post HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        content-length: 13
+        content-type: application/x-www-form-urlencoded
+        host: httpbin.org
+        user-agent: ht/0.0.0 (test mode)
+
+        foo=bar%0Abaz
+
+    "#});
+}

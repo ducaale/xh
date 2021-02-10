@@ -331,7 +331,7 @@ impl FromStr for RequestItem {
             static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
         }
         lazy_static::lazy_static! {
-            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)((?s).+)$").unwrap();
         }
         lazy_static::lazy_static! {
             static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();
