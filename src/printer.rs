@@ -8,7 +8,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTEN
 
 use crate::{
     formatting::{get_json_formatter, Highlighter},
-    utils::{get_content_type, test_mode, ContentType},
+    utils::{copy_largebuf, get_content_type, test_mode, ContentType},
 };
 use crate::{Buffer, Pretty, Theme};
 
@@ -70,7 +70,7 @@ impl Printer {
     }
 
     fn dump(&mut self, reader: &mut impl Read) -> io::Result<()> {
-        io::copy(reader, &mut self.buffer)?;
+        copy_largebuf(reader, &mut self.buffer)?;
         Ok(())
     }
 
@@ -80,6 +80,8 @@ impl Printer {
         } else if self.color {
             let mut buf = Vec::new();
             get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut buf)?;
+            // in principle, buf should already be valid UTF-8,
+            // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.colorize_text(&text, "json")
         } else {
@@ -248,7 +250,10 @@ impl Printer {
     }
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
-        if self.stream {
+        if !self.buffer.is_terminal() {
+            // No decoding, no formatting, nothing
+            copy_largebuf(&mut response, &mut self.buffer)?;
+        } else if self.stream {
             self.print_body_stream(
                 get_content_type(&response.headers()),
                 &mut decode_stream(&mut response),
@@ -270,6 +275,11 @@ impl Printer {
 }
 
 /// Decode a streaming response in a way that matches `.text()`.
+///
+/// Note that in practice this seems to behave like String::from_utf8_lossy(),
+/// but it makes no guarantees about outputting valid UTF-8 if the input is
+/// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
+/// that's going to the terminal, and don't trust its output.
 ///
 /// `reqwest` doesn't provide an API for this, so we have to roll our own. It
 /// doesn't even provide an API to detect the response's encoding, so that

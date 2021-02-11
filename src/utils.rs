@@ -1,6 +1,6 @@
-use std::fs::File;
 use std::io::{self, stdin, Read};
 use std::path::Path;
+use std::{fs::File, io::Write};
 
 use anyhow::Result;
 use atty::Stream;
@@ -91,4 +91,29 @@ macro_rules! regex {
         }
         &RE
     }};
+}
+
+const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
+
+/// io::copy, but with a larger buffer size.
+///
+/// io::copy's buffer is just 8 KiB. This noticeably slows down fast
+/// large downloads, especially with a progress bar.
+///
+/// This one's size of 64 KiB was chosen because that makes it competitive
+/// with the old implementation, which repeatedly called .chunk().await.
+///
+/// Tests were done by running `ht -o /dev/null [-d]` on a two-gigabyte file
+/// served locally by `python3 -m http.server`. Results may vary.
+pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io::Result<()> {
+    let mut buf = vec![0; DOWNLOAD_BUFFER_SIZE];
+    let mut buf = buf.as_mut_slice();
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => return Ok(()),
+            Ok(len) => writer.write_all(&buf[..len])?,
+            Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        }
+    }
 }
