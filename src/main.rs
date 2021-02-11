@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
     let method = method.unwrap_or_else(|| Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host)?;
-    let redirect = match args.follow {
+    let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
