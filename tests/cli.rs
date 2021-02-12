@@ -4,8 +4,8 @@ use predicates::prelude::*;
 use std::process::Command;
 
 fn get_command() -> Command {
-    let mut cmd = Command::cargo_bin("ht").expect("binary should be present");
-    cmd.env("HT_TEST_MODE", "1");
+    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    cmd.env("XH_TEST_MODE", "1");
     cmd
 }
 
@@ -28,7 +28,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         content-length: 14
         content-type: application/json
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
         {
             "name": "ali"
@@ -55,7 +55,7 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
     "#});
 
@@ -78,7 +78,7 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
     "#});
 
@@ -87,7 +87,7 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("ht")?;
+    let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--ignore-stdin")
         .arg("--pretty=format")

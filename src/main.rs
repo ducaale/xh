@@ -30,8 +30,8 @@ fn get_user_agent() -> &'static str {
     // Hard-coded user agent for the benefit of tests
     // In integration tests the binary isn't compiled with cfg(test), so we
     // use an environment variable
-    if cfg!(test) || env::var_os("HT_TEST_MODE").is_some() {
-        "ht/0.0.0 (test mode)"
+    if cfg!(test) || env::var_os("XH_TEST_MODE").is_some() {
+        "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
     }

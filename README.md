@@ -1,39 +1,19 @@
-# ht
-[![Version info](https://img.shields.io/crates/v/ht.svg)](https://crates.io/crates/ht)
+# xh
 
 Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
-[![asciicast](/assets/ht-demo.gif)](https://asciinema.org/a/382056)
+[![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
 ## Installation
 
-### On macOS via Homebrew
-```
-brew install ht-rust
-```
-
-### On Arch Linux via Pacman
-
-```
-pacman -S ht
-```
-
-(`ht` binary will be installed as `ht-rust`)
-
 ### From binaries
-The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
-
-### From source
-Make sure that you have Rust 1.46 or later installed.
-```sh
-cargo install ht
-```
+The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
 ## Usage
 ```
-ht 0.6.0
+xh 0.6.0
 USAGE:
-    ht [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
+    xh [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
@@ -67,7 +47,7 @@ ARGS:
 
 ## Request Items
 
-`ht` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
+`xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
 * `=`/`:=` for setting the request body's JSON fields (`=` for strings and `:=` for other JSON types).
 * `==` for adding query strings.
@@ -79,22 +59,22 @@ ARGS:
 
 ```sh
 # Send a GET request
-ht httpbin.org/json
+xh httpbin.org/json
 
 # Send a POST request with body {"name": "ahmed", "age": 24}
-ht httpbin.org/post name=ahmed age:=24
+xh httpbin.org/post name=ahmed age:=24
 
 # Send a GET request with querystring id=5&sort=true
-ht get httpbin.org/json id==5 sort==true
+xh get httpbin.org/json id==5 sort==true
 
 # Send a GET request and include a header named x-api-key with value 12345
-ht get httpbin.org/json x-api-key:12345
+xh get httpbin.org/json x-api-key:12345
 
 # Send a PUT request and pipe the result to less
-ht put httpbin.org/put id:=49 age:=25 | less
+xh put httpbin.org/put id:=49 age:=25 | less
 
 # Download and save to res.json
-ht -d httpbin.org/json -o res.json
+xh -d httpbin.org/json -o res.json
 ```
 
 ## Syntaxes and themes used
