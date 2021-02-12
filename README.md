@@ -11,7 +11,7 @@ The [release page](https://github.com/ducaale/xh/releases) contains prebuilt bin
 
 ## Usage
 ```
-xh 0.6.0
+xh 0.7.0
 USAGE:
     xh [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
