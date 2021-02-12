@@ -2,7 +2,7 @@
 
 Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
-[![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/382056)
+[![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
 ## Installation
 
