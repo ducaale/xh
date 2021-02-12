@@ -136,13 +136,14 @@ async fn main() -> Result<()> {
         printer.print_request_body(&request)?;
     }
     if !args.offline {
+        let orig_url = request.url().clone();
         let response = client.execute(request).await?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
         if args.download {
             let resume = response.status() == StatusCode::PARTIAL_CONTENT;
-            download_file(response, args.output, resume, args.quiet).await?;
+            download_file(response, args.output, &orig_url, resume, args.quiet).await?;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
