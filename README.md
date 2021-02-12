@@ -23,11 +23,13 @@ FLAGS:
     -I, --ignore-stdin    Do not attempt to read stdin
     -F, --follow          Do follow redirects
     -d, --download
+    -h, --headers         Print only the response headers, shortcut for --print=h
+    -b, --body            Print only the response body, Shortcut for --print=b
     -c, --continue        Resume an interrupted download
     -v, --verbose         Print the whole request as well as the response
     -q, --quiet           Do not print to stdout or stderr
     -S, --stream          Always stream the response body
-    -h, --help            Prints help information
+        --help            Prints help information
     -V, --version         Prints version information
 
 OPTIONS:
