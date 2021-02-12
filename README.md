@@ -7,27 +7,8 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ## Installation
 
-### On macOS via Homebrew
-```
-brew install ht-rust
-```
-
-### On Arch Linux via Pacman
-
-```
-pacman -S ht
-```
-
-(`ht` binary will be installed as `ht-rust`)
-
 ### From binaries
-The [release page](https://github.com/ducaale/ht/releases) contains prebuilt binaries for Linux, macOS and Windows.
-
-### From source
-Make sure that you have Rust 1.46 or later installed.
-```sh
-cargo install ht
-```
+The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
 ## Usage
 ```
