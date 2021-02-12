@@ -238,7 +238,7 @@ mod test {
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter(args);
+        let args = Cli::from_iter(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
         Printer::new(args.pretty, args.theme, false, buffer)
     }

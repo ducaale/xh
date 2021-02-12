@@ -39,7 +39,7 @@ fn get_user_agent() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Cli::from_args();
+    let args = Cli::from_args()?;
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
@@ -59,10 +59,9 @@ async fn main() -> Result<()> {
         (None, None) => None,
     };
 
-    let (method, url) = args.method_url;
-    let url = Url::new(url, args.default_scheme)?;
+    let url = Url::new(args.url, args.default_scheme)?;
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
-    let method = method.unwrap_or_else(|| Method::from(&body)).into();
+    let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host)?;
     let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
