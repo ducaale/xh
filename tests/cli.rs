@@ -122,7 +122,7 @@ fn multiline_value() {
         content-length: 13
         content-type: application/x-www-form-urlencoded
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
         foo=bar%0Abaz
 
