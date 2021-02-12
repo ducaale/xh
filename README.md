@@ -1,4 +1,5 @@
 # xh
+[![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
 
 Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
@@ -8,6 +9,13 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ### From binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
+
+### From source
+Make sure that you have Rust 1.46 or later installed.
+
+```
+cargo install xh
+```
 
 ## Usage
 ```

@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.7.0] - 2021-02-12
 ### Features
 - Follow redirects if downloading a file, see #51 (@blyxxyz)
 - Allow form value regex to match newlines, see #46 (@blyxxyz)
