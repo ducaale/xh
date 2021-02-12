@@ -7,6 +7,11 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ## Installation
 
+### On Arch Linux via Pacman
+```
+pacman -S xh
+```
+
 ### From binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
