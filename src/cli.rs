@@ -9,7 +9,7 @@ use crate::{Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
-#[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Cli {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]

@@ -426,32 +426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ht"
-version = "0.6.0"
-dependencies = [
- "ansi_term 0.12.1",
- "anyhow",
- "assert_cmd",
- "assert_matches",
- "atty",
- "indicatif",
- "indoc",
- "jsonxf",
- "lazy_static",
- "predicates",
- "regex",
- "reqwest",
- "rpassword",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "structopt",
- "syntect",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "http"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1665,6 +1639,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "xh"
+version = "0.6.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "anyhow",
+ "assert_cmd",
+ "assert_matches",
+ "atty",
+ "indicatif",
+ "indoc",
+ "jsonxf",
+ "lazy_static",
+ "predicates",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "structopt",
+ "syntect",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
