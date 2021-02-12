@@ -9,7 +9,7 @@ use crate::{Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
-#[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Cli {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
@@ -52,6 +52,10 @@ pub struct Cli {
 
     #[structopt(short = "d", long)]
     pub download: bool,
+
+    /// Print only the response headers, shortcut for --print=h.
+    #[structopt(short = "h", long)]
+    pub headers: bool,
 
     /// Print only the response body, Shortcut for --print=b.
     #[structopt(short = "b", long)]
@@ -223,7 +227,14 @@ pub struct Print {
 }
 
 impl Print {
-    pub fn new(verbose: bool, body: bool, quiet: bool, offline: bool, buffer: &Buffer) -> Self {
+    pub fn new(
+        verbose: bool,
+        headers: bool,
+        body: bool,
+        quiet: bool,
+        offline: bool,
+        buffer: &Buffer,
+    ) -> Self {
         if verbose {
             Print {
                 request_headers: true,
@@ -243,6 +254,13 @@ impl Print {
                 request_headers: true,
                 request_body: true,
                 response_headers: false,
+                response_body: false,
+            }
+        } else if headers {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: true,
                 response_body: false,
             }
         } else if body || matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
@@ -313,7 +331,7 @@ impl FromStr for RequestItem {
             static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
         }
         lazy_static::lazy_static! {
-            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)((?s).+)$").unwrap();
         }
         lazy_static::lazy_static! {
             static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();

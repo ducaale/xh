@@ -30,8 +30,8 @@ fn get_user_agent() -> &'static str {
     // Hard-coded user agent for the benefit of tests
     // In integration tests the binary isn't compiled with cfg(test), so we
     // use an environment variable
-    if cfg!(test) || env::var_os("HT_TEST_MODE").is_some() {
-        "ht/0.0.0 (test mode)"
+    if cfg!(test) || env::var_os("XH_TEST_MODE").is_some() {
+        "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
     }
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
     let method = method.unwrap_or_else(|| Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host)?;
-    let redirect = match args.follow {
+    let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
@@ -119,7 +119,14 @@ async fn main() -> Result<()> {
     let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
     let print = match args.print {
         Some(print) => print,
-        None => Print::new(args.verbose, args.body, args.quiet, args.offline, &buffer),
+        None => Print::new(
+            args.verbose,
+            args.headers,
+            args.body,
+            args.quiet,
+            args.offline,
+            &buffer,
+        ),
     };
     let mut printer = Printer::new(args.pretty, args.theme, args.stream, buffer);
 

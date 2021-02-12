@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, develop ]
   push:
-    branches: [ master ]
+    branches: [ master, develop ]
     tags: [ v*.*.* ]
 
 jobs:
@@ -43,16 +43,16 @@ jobs:
         run: |
           cd target/${{ matrix.job.target }}/release          
           if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
-            7z a ../../../ht-${{ matrix.job.target }}.zip ht.exe
+            7z a ../../../xh-${{ matrix.job.target }}.zip xh.exe
           elif [ "${{ matrix.job.os }}" = "macos-latest" ]; then
-            zip ../../../ht-${{ matrix.job.target }}.zip ht
+            zip ../../../xh-${{ matrix.job.target }}.zip xh
           else
-            tar czvf ../../../ht-${{ matrix.job.target }}.tar.gz ht
+            tar czvf ../../../xh-${{ matrix.job.target }}.tar.gz xh
           fi
           cd -
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
-            files: 'ht*'
+            files: 'xh*'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
