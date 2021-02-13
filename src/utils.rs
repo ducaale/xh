@@ -173,10 +173,10 @@ macro_rules! vec_of_strings {
 
 #[macro_export]
 macro_rules! regex {
-    ($re:expr) => ({
+    ($re:expr) => {{
         lazy_static::lazy_static! {
             static ref RE: regex::Regex = regex::Regex::new($re).unwrap();
         }
         &RE
-    })
+    }};
 }

@@ -5,7 +5,7 @@ use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{Body, Buffer, regex};
+use crate::{regex, Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]

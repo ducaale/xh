@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{AuthType, regex};
+use crate::{regex, AuthType};
 
 #[derive(Debug, Clone)]
 pub enum Auth {
