@@ -84,9 +84,6 @@ async fn inner_main() -> Result<i32> {
     client = client.danger_accept_invalid_certs(args.verify == VerifyHttps::No);
 
     if let VerifyHttps::PrivateCerts(_, pems) = args.verify {
-        // FIXME: Change the version of reqwest in Cargo.toml to an official released version (> 0.11.0) which should contain this function
-        // See: https://github.com/seanmonstar/reqwest/pull/1150
-        client = client.tls_built_in_root_certs(false);
         for pem in pems {
             let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())?;
             client = client.add_root_certificate(certificate);
