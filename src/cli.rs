@@ -1,12 +1,11 @@
 use std::mem;
 use std::str::FromStr;
 
-use regex::Regex;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{Body, Buffer};
+use crate::{regex, Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
@@ -334,22 +333,16 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        lazy_static::lazy_static! {
-            static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
-        }
-        lazy_static::lazy_static! {
-            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)((?s).+)$").unwrap();
-        }
-        lazy_static::lazy_static! {
-            static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();
-        }
+        let re1 = regex!(r"^(.+?)@(.+?);type=(.+?)$");
+        let re2 = regex!(r"^(.+?)(==|:=|=|@|:)((?s).+)$");
+        let re3 = regex!(r"^(.+?)(:|;)$");
 
-        if let Some(caps) = RE1.captures(request_item) {
+        if let Some(caps) = re1.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[2].to_string();
             let file_type = caps[3].to_string();
             Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = RE2.captures(request_item) {
+        } else if let Some(caps) = re2.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -368,7 +361,7 @@ impl FromStr for RequestItem {
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = RE3.captures(request_item) {
+        } else if let Some(caps) = re3.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),

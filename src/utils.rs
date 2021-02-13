@@ -170,3 +170,13 @@ macro_rules! vec_of_strings {
         vec![$(String::from($str),)*] as Vec<String>
     });
 }
+
+#[macro_export]
+macro_rules! regex {
+    ($re:expr) => {{
+        lazy_static::lazy_static! {
+            static ref RE: regex::Regex = regex::Regex::new($re).unwrap();
+        }
+        &RE
+    }};
+}

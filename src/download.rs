@@ -5,9 +5,10 @@ use anyhow::Result;
 use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
-use regex::Regex;
 use reqwest::header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
 use reqwest::Response;
+
+use crate::regex;
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -18,16 +19,14 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
-        lazy_static::lazy_static! {
-            static ref QUOTED: Regex = Regex::new("filename=\"([^\"]*)\"").unwrap();
-            // Against the spec, but used by e.g. Github's zip downloads
-            static ref UNQUOTED: Regex = Regex::new("filename=([^;=\"]*)").unwrap();
-        }
+        let quoted = regex!("filename=\"([^\"]*)\"");
+        // Against the spec, but used by e.g. Github's zip downloads
+        let unquoted = regex!("filename=([^;=\"]*)");
 
         let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
-        let caps = QUOTED
+        let caps = quoted
             .captures(header)
-            .or_else(|| UNQUOTED.captures(header))?;
+            .or_else(|| unquoted.captures(header))?;
         Some(caps[1].to_string())
     }
 
