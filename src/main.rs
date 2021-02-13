@@ -39,6 +39,17 @@ fn get_user_agent() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    std::process::exit(inner_main().await?);
+}
+
+/// [`main`] is wrapped around this function so it can safely exit with an
+/// exit code.
+///
+/// [`std::process::exit`] is a hard termination, that ends the process
+/// without doing any cleanup. So we need to return from this function first.
+///
+/// The outer main function could also be a good place for error handling.
+async fn inner_main() -> Result<i32> {
     let args = Cli::from_args()?;
 
     let request_items = RequestItems::new(args.request_items);
@@ -141,12 +152,23 @@ async fn main() -> Result<()> {
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
+        let status = response.status();
+        let exit_code: i32 = match status.as_u16() {
+            _ if !(args.check_status || args.download) => 0,
+            300..=399 if !args.follow => 3,
+            400..=499 => 4,
+            500..=599 => 5,
+            _ => 0,
+        };
         if args.download {
             let resume = response.status() == StatusCode::PARTIAL_CONTENT;
             download_file(response, args.output, &orig_url, resume, args.quiet).await?;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
+        // TODO: print warning if output is being redirected
+        Ok(exit_code)
+    } else {
+        Ok(0)
     }
-    Ok(())
 }

@@ -89,6 +89,10 @@ pub struct Cli {
     #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
     pub theme: Option<Theme>,
 
+    /// Exit with an error status code if the server replies with an error.
+    #[structopt(long)]
+    pub check_status: bool,
+
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
