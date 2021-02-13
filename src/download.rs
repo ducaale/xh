@@ -1,12 +1,13 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write as IoWrite;
-use std::path;
 
 use anyhow::Result;
 use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
+use mime2ext::mime2ext;
 use regex::Regex;
-use reqwest::header::{HeaderMap, CONTENT_LENGTH};
+use reqwest::header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
+use reqwest::Response;
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -15,32 +16,48 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
         .and_then(|s| s.parse::<u64>().ok())
 }
 
-// TODO: avoid name conflict unless `continue` flag is specified
-fn get_file_name(response: &reqwest::Response) -> String {
-    lazy_static::lazy_static! {
-        static ref RE: Regex = Regex::new("filename=\"([^\"]*)\"").unwrap();
+fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
+    fn from_header(response: &Response) -> Option<String> {
+        lazy_static::lazy_static! {
+            static ref QUOTED: Regex = Regex::new("filename=\"([^\"]*)\"").unwrap();
+            // Against the spec, but used by e.g. Github's zip downloads
+            static ref UNQUOTED: Regex = Regex::new("filename=([^;=\"]*)").unwrap();
+        }
+
+        let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
+        let caps = QUOTED
+            .captures(header)
+            .or_else(|| UNQUOTED.captures(header))?;
+        Some(caps[1].to_string())
     }
 
-    response
-        .headers()
-        .get(reqwest::header::CONTENT_DISPOSITION)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| RE.captures(value))
-        .and_then(|caps| {
-            caps[1]
-                .split(path::is_separator)
-                .last()
-                .map(ToString::to_string)
-        })
-        .or_else(|| {
-            response
-                .url()
-                .path_segments()
-                .and_then(|segments| segments.last().map(ToString::to_string))
-        })
-        .map(|name| name.trim().trim_start_matches('.').to_string())
-        .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| String::from("index.html"))
+    fn from_url(url: &reqwest::Url) -> Option<String> {
+        let last_seg = url
+            .path_segments()?
+            .rev()
+            .find(|segment| !segment.is_empty())?;
+        Some(last_seg.to_string())
+    }
+
+    fn guess_extension(response: &Response) -> Option<&'static str> {
+        let mimetype = response.headers().get(CONTENT_TYPE)?.to_str().ok()?;
+        mime2ext(mimetype)
+    }
+
+    let mut filename = from_header(response)
+        .or_else(|| from_url(orig_url))
+        .unwrap_or_else(|| "index".to_string());
+
+    filename = filename.trim().trim_start_matches('.').to_string();
+
+    if !filename.contains('.') {
+        if let Some(extension) = guess_extension(response) {
+            filename.push('.');
+            filename.push_str(extension);
+        }
+    }
+
+    filename
 }
 
 pub fn get_file_size(path: &Option<String>) -> Option<u64> {
@@ -72,6 +89,10 @@ fn generate_file_name(file_name: String) -> String {
 pub async fn download_file(
     mut response: reqwest::Response,
     file_name: Option<String>,
+    // If we fall back on taking the filename from the URL it has to be the
+    // original URL, before redirects. That's less surprising and matches
+    // HTTPie. Hence this argument.
+    orig_url: &reqwest::Url,
     resume: bool,
     quiet: bool,
 ) -> Result<()> {
@@ -87,7 +108,8 @@ pub async fn download_file(
             file_name,
         ),
         None if atty::is(Stream::Stdout) => {
-            let file_name = get_file_name(&response);
+            let file_name = get_file_name(&response, &orig_url);
+            // TODO: do not avoid name conflict if `continue` flag is specified
             let file_name = generate_file_name(file_name);
             (
                 Box::new(
