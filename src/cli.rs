@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::mem;
 use std::str::FromStr;
 
 use regex::Regex;
@@ -10,7 +11,7 @@ use crate::{Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
-#[structopt(name = "ht", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Cli {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
@@ -99,39 +100,54 @@ pub struct Cli {
     pub session: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
-    #[structopt(name = "[METHOD] URL", parse(try_from_str = parse_method_url))]
-    pub method_url: (Option<Method>, String),
+    #[structopt(name = "[METHOD] URL")]
+    raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(name = "REQUEST_ITEM")]
+    raw_rest_args: Vec<String>,
+
+    /// The HTTP method, if supplied.
+    #[structopt(skip)]
+    pub method: Option<Method>,
+
+    /// The request URL.
+    #[structopt(skip)]
+    pub url: String,
+
+    /// Optional key-value pairs to be included in the request.
+    #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
 }
 
 impl Cli {
-    pub fn from_args() -> Self {
+    pub fn from_args() -> Result<Self> {
         Cli::from_iter(std::env::args())
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Self {
-        let mut args = vec![];
-        let mut method = None;
-        // Merge `method` and `url` entries from std::env::args()
-        for arg in iter {
-            if arg.parse::<Method>().is_ok() {
-                method = Some(arg)
-            } else if let Some(method_value) = method {
-                args.push(format!("{} {}", method_value, arg));
-                method = None;
-            } else {
-                args.push(arg);
+    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Result<Self> {
+        let mut cli: Self = StructOpt::from_iter(iter);
+        let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
+        match cli.raw_method_or_url.parse::<Method>() {
+            Ok(method) => {
+                cli.method = Some(method);
+                cli.url = rest_args.next().ok_or_else(|| {
+                    Error::with_description("Missing URL", ErrorKind::MissingRequiredArgument)
+                })?;
+            }
+            Err(_) => {
+                cli.method = None;
+                cli.url = mem::take(&mut cli.raw_method_or_url);
             }
         }
-
-        StructOpt::from_iter(args)
+        for request_item in rest_args {
+            cli.request_items.push(request_item.parse()?);
+        }
+        Ok(cli)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Method {
     GET,
     HEAD,
@@ -332,7 +348,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RequestItem {
     HttpHeader(String, String),
     HttpHeaderToUnset(String),
@@ -349,7 +365,7 @@ impl FromStr for RequestItem {
             static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
         }
         lazy_static::lazy_static! {
-            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)(.+)$").unwrap();
+            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)((?s).+)$").unwrap();
         }
         lazy_static::lazy_static! {
             static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();
@@ -387,10 +403,92 @@ impl FromStr for RequestItem {
                 _ => unreachable!(),
             }
         } else {
+            // TODO: We can also end up here if the method couldn't be parsed
+            // and was interpreted as a URL, making the actual URL a request
+            // item
             Err(Error::with_description(
-                &format!("{:?} is not a valid value", request_item),
+                &format!("{:?} is not a valid request item", request_item),
                 ErrorKind::InvalidValue,
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Result<Cli> {
+        Cli::from_iter(
+            Some("xh".to_string())
+                .into_iter()
+                .chain(args.iter().map(|s| s.to_string())),
+        )
+    }
+
+    #[test]
+    fn implicit_method() {
+        let cli = parse(&["example.org"]).unwrap();
+        assert_eq!(cli.method, None);
+        assert_eq!(cli.url, "example.org");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn explicit_method() {
+        let cli = parse(&["get", "example.org"]).unwrap();
+        assert_eq!(cli.method, Some(Method::GET));
+        assert_eq!(cli.url, "example.org");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn missing_url() {
+        parse(&["get"]).unwrap_err();
+    }
+
+    #[test]
+    fn space_in_url() {
+        let cli = parse(&["post", "example.org/foo bar"]).unwrap();
+        assert_eq!(cli.method, Some(Method::POST));
+        assert_eq!(cli.url, "example.org/foo bar");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn request_items() {
+        let cli = parse(&["get", "example.org", "foo=bar"]).unwrap();
+        assert_eq!(cli.method, Some(Method::GET));
+        assert_eq!(cli.url, "example.org");
+        assert_eq!(
+            cli.request_items,
+            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+        );
+    }
+
+    #[test]
+    fn request_items_implicit_method() {
+        let cli = parse(&["example.org", "foo=bar"]).unwrap();
+        assert_eq!(cli.method, None);
+        assert_eq!(cli.url, "example.org");
+        assert_eq!(
+            cli.request_items,
+            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+        );
+    }
+
+    #[test]
+    fn superfluous_arg() {
+        parse(&["get", "example.org", "foobar"]).unwrap_err();
+    }
+
+    #[test]
+    fn superfluous_arg_implicit_method() {
+        parse(&["example.org", "foobar"]).unwrap_err();
+    }
+
+    #[test]
+    fn multiple_methods() {
+        parse(&["get", "post", "example.org"]).unwrap_err();
     }
 }

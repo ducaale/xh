@@ -1,4 +1,11 @@
-## [Unreleased]
+## [0.7.0] - 2021-02-12
+### Features
+- Follow redirects if downloading a file, see #51 (@blyxxyz)
+- Allow form value regex to match newlines, see #46 (@blyxxyz)
+- Adds --headers option, see #42 (@sanpii)
+
+### Other
+- Rename ht binary to xh
 
 ## [0.6.0] - 2021-02-08
 ### Features

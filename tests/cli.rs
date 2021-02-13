@@ -6,8 +6,8 @@ use std::fs;
 use std::process::Command;
 
 fn get_command() -> Command {
-    let mut cmd = Command::cargo_bin("ht").expect("binary should be present");
-    cmd.env("HT_TEST_MODE", "1");
+    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    cmd.env("XH_TEST_MODE", "1");
     cmd
 }
 
@@ -30,7 +30,7 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         content-length: 14
         content-type: application/json
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
         {
             "name": "ali"
@@ -57,7 +57,7 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         accept-encoding: gzip, deflate
         connection: keep-alive
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
         "#});
 
@@ -75,14 +75,14 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
         .arg("httpbin.org/get");
 
     cmd.assert().stdout(indoc! {r#"
-            GET /get HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate
-            connection: keep-alive
-            host: httpbin.org
-            user-agent: ht/0.0.0 (test mode)
-    
-        "#});
+        GET /get HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        host: httpbin.org
+        user-agent: xh/0.0.0 (test mode)
+
+    "#});
 
     Ok(())
 }
@@ -104,7 +104,7 @@ fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn clear_session_file(name: String) -> std::io::Result<()> {
+fn delete_session_file(identifier: String) -> std::io::Result<()> {
     // Clear session file
     let mut config_dir = match dirs::config_dir() {
         None => panic!("couldn't get config directory"),
@@ -113,7 +113,7 @@ fn clear_session_file(name: String) -> std::io::Result<()> {
     config_dir.push("ht");
     config_dir.push("sessions");
     config_dir.push("httpbin.org");
-    let hash = Blake2b::new().chain(name).finalize();
+    let hash = Blake2b::new().chain(identifier).finalize();
     config_dir.push(format!("{:x}", hash).get(0..10).unwrap().to_string());
     config_dir.set_extension("json");
     match fs::remove_file(config_dir) {
@@ -130,7 +130,7 @@ fn clear_session_file(name: String) -> std::io::Result<()> {
 
 #[test]
 fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
-    match clear_session_file("test_bearer".to_string()) {
+    match delete_session_file("test_bearer".to_string()) {
         Err(why) => panic!("failed to remove session file : {}", why),
         Ok(()) => (),
     }
@@ -155,7 +155,7 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
         connection: keep-alive
         foo: bar
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
     "#});
 
@@ -178,7 +178,7 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
         foo: bar
         foooo: baroo
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
     "#});
 
@@ -187,7 +187,7 @@ fn session_bearer() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
-    match clear_session_file("test_basic".to_string()) {
+    match delete_session_file("test_basic".to_string()) {
         Err(why) => panic!("failed to remove session file : {}", why),
         Ok(()) => (),
     }
@@ -212,7 +212,7 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         connection: keep-alive
         foo: bar
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
 
     "#});
 
@@ -235,7 +235,36 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         foo: bar
         foooo: baroo
         host: httpbin.org
-        user-agent: ht/0.0.0 (test mode)
+        user-agent: xh/0.0.0 (test mode)
+
+    "#});
+
+    Ok(())
+}
+
+#[test]
+fn multiline_value() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("--form")
+        .arg("post")
+        .arg("httpbin.org/post")
+        .arg("foo=bar\nbaz");
+
+    cmd.assert().stdout(indoc! {r#"
+        POST /post HTTP/1.1
+        accept: */*
+        accept-encoding: gzip, deflate
+        connection: keep-alive
+        content-length: 13
+        content-type: application/x-www-form-urlencoded
+        host: httpbin.org
+        user-agent: xh/0.0.0 (test mode)
+
+        foo=bar%0Abaz
 
     "#});
 

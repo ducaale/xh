@@ -537,34 +537,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ht"
-version = "0.6.0"
-dependencies = [
- "ansi_term 0.12.1",
- "anyhow",
- "assert_cmd",
- "assert_matches",
- "atty",
- "blake2",
- "dirs",
- "indicatif",
- "indoc",
- "jsonxf",
- "lazy_static",
- "predicates",
- "regex",
- "reqwest",
- "rpassword",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "structopt",
- "syntect",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "http"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -785,6 +757,16 @@ name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
+
+[[package]]
+name = "mime2ext"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f2ec500bafee2f3f91550a5a256bfca76451ad909f1a91fa5380275890f1c5"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "mime_guess"
@@ -1828,6 +1810,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "xh"
+version = "0.7.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "anyhow",
+ "assert_cmd",
+ "assert_matches",
+ "atty",
+ "blake2",
+ "dirs",
+ "indicatif",
+ "indoc",
+ "jsonxf",
+ "lazy_static",
+ "mime2ext",
+ "predicates",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "structopt",
+ "syntect",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

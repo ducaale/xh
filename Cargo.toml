@@ -1,6 +1,6 @@
 [package]
-name = "ht"
-version = "0.6.0"
+name = "xh"
+version = "0.7.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -20,6 +20,7 @@ dirs = "3.0.1"
 jsonxf = "1.0"
 indicatif = "0.15.0"
 lazy_static = "1.4.0"
+mime2ext = "0.1.0"
 regex = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli", "multipart"] }
 rpassword = "5.0.0"

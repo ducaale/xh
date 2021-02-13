@@ -32,8 +32,8 @@ fn get_user_agent() -> &'static str {
     // Hard-coded user agent for the benefit of tests
     // In integration tests the binary isn't compiled with cfg(test), so we
     // use an environment variable
-    if cfg!(test) || env::var_os("HT_TEST_MODE").is_some() {
-        "ht/0.0.0 (test mode)"
+    if cfg!(test) || env::var_os("XH_TEST_MODE").is_some() {
+        "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
     }
@@ -41,7 +41,7 @@ fn get_user_agent() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Cli::from_args();
+    let args = Cli::from_args()?;
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
@@ -60,10 +60,9 @@ async fn main() -> Result<()> {
         (None, None) => None,
     };
 
-    let (method, url) = args.method_url;
-    let url = Url::new(url, args.default_scheme)?;
+    let url = Url::new(args.url, args.default_scheme)?;
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
-    let method = method.unwrap_or_else(|| Method::from(&body)).into();
+    let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
     let mut auth = Auth::new(args.auth, args.auth_type, &host)?;
 
     // load previous session if present
@@ -86,17 +85,14 @@ async fn main() -> Result<()> {
     // Merge headers from parameters and previous session
     let (headers, headers_to_unset) = request_items.headers(session_for_merge.as_ref())?;
     // Save the current session if present
-    match arg_session {
-        None => (),
-        Some(identifier) => {
-            let new_session = Session::new(identifier, host, request_items.export_headers(session_for_merge.as_ref()), saved_auth);
-            if let Err(why) = new_session.save() {
-                panic!("couldn't save session {}: {}", new_session.identifier, why);
-            }
-        },
-    };    
-
-    let redirect = match args.follow {
+    if let Some(identifier) = arg_session {
+        let new_session = Session::new(identifier, host, request_items.export_headers(session_for_merge.as_ref()), saved_auth);
+        if let Err(why) = new_session.save() {
+            panic!("couldn't save session {}: {}", new_session.identifier, why);
+        }
+    }
+      
+    let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
@@ -169,13 +165,14 @@ async fn main() -> Result<()> {
         printer.print_request_body(&request)?;
     }
     if !args.offline {
+        let orig_url = request.url().clone();
         let response = client.execute(request).await?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
         if args.download {
             let resume = response.status() == StatusCode::PARTIAL_CONTENT;
-            download_file(response, args.output, resume, args.quiet).await?;
+            download_file(response, args.output, &orig_url, resume, args.quiet).await?;
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }

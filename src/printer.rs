@@ -238,7 +238,7 @@ mod test {
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter(args);
+        let args = Cli::from_iter(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
         Printer::new(args.pretty, args.theme, false, buffer)
     }
@@ -251,14 +251,14 @@ mod test {
 
     #[test]
     fn test_1() {
-        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get"], true);
+        let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stdout);
     }
 
     #[test]
     fn test_2() {
-        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get"], false);
+        let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::Redirect);
     }
@@ -266,7 +266,7 @@ mod test {
     #[test]
     fn test_3() {
         let output = temp_path("temp3");
-        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-o", output], true);
+        let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::File(_));
     }
@@ -275,7 +275,7 @@ mod test {
     fn test_4() {
         let output = temp_path("temp4");
         let p = run_cmd(
-            vec_of_strings!["ht", "httpbin.org/get", "-o", output],
+            vec_of_strings!["xh", "httpbin.org/get", "-o", output],
             false,
         );
         assert_eq!(p.color, false);
@@ -284,14 +284,14 @@ mod test {
 
     #[test]
     fn test_5() {
-        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d"], true);
+        let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr);
     }
 
     #[test]
     fn test_6() {
-        let p = run_cmd(vec_of_strings!["ht", "httpbin.org/get", "-d"], false);
+        let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr);
     }
@@ -300,7 +300,7 @@ mod test {
     fn test_7() {
         let output = temp_path("temp7");
         let p = run_cmd(
-            vec_of_strings!["ht", "httpbin.org/get", "-d", "-o", output],
+            vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             true,
         );
         assert_eq!(p.color, true);
@@ -311,7 +311,7 @@ mod test {
     fn test_8() {
         let output = temp_path("temp8");
         let p = run_cmd(
-            vec_of_strings!["ht", "httpbin.org/get", "-d", "-o", output],
+            vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             false,
         );
         assert_eq!(p.color, true);
