@@ -1,7 +1,6 @@
 use anyhow::Result;
-use regex::Regex;
 
-use crate::AuthType;
+use crate::{AuthType, regex};
 
 #[derive(Debug, Clone)]
 pub enum Auth {
@@ -23,10 +22,7 @@ impl Auth {
 
         Ok(match auth_type {
             AuthType::Basic => {
-                lazy_static::lazy_static! {
-                    static ref RE: Regex = Regex::new(r"^(.+?):(.*)$").unwrap();
-                }
-                if let Some(cap) = RE.captures(&auth) {
+                if let Some(cap) = regex!(r"^(.+?):(.*)$").captures(&auth) {
                     let username = cap[1].to_string();
                     let password = if !cap[2].is_empty() {
                         Some(cap[2].to_string())
