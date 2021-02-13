@@ -333,16 +333,16 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re1 = regex!(r"^(.+?)@(.+?);type=(.+?)$");
-        let re2 = regex!(r"^(.+?)(==|:=|=|@|:)((?s).+)$");
-        let re3 = regex!(r"^(.+?)(:|;)$");
+        regex!(FORM_FILE_TYPED = r"^(.+?)@(.+?);type=(.+?)$");
+        regex!(PARAM = r"^(.+?)(==|:=|=|@|:)((?s).+)$");
+        regex!(NO_HEADER = r"^(.+?)(:|;)$");
 
-        if let Some(caps) = re1.captures(request_item) {
+        if let Some(caps) = FORM_FILE_TYPED.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[2].to_string();
             let file_type = caps[3].to_string();
             Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = re2.captures(request_item) {
+        } else if let Some(caps) = PARAM.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -361,7 +361,7 @@ impl FromStr for RequestItem {
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = re3.captures(request_item) {
+        } else if let Some(caps) = NO_HEADER.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),

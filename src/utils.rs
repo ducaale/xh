@@ -173,9 +173,14 @@ macro_rules! vec_of_strings {
 
 #[macro_export]
 macro_rules! regex {
-    ($re:expr) => {{
+    ($name:ident = $($re:expr)+) => {
         lazy_static::lazy_static! {
-            static ref RE: regex::Regex = regex::Regex::new($re).unwrap();
+            static ref $name: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
+        }
+    };
+    ($($re:expr)+) => {{
+        lazy_static::lazy_static! {
+            static ref RE: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
         }
         &RE
     }};

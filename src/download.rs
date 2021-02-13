@@ -19,14 +19,14 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
-        let quoted = regex!("filename=\"([^\"]*)\"");
+        regex!(QUOTED = "filename=\"([^\"]*)\"");
         // Against the spec, but used by e.g. Github's zip downloads
-        let unquoted = regex!("filename=([^;=\"]*)");
+        regex!(UNQUOTED = "filename=([^;=\"]*)");
 
         let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
-        let caps = quoted
+        let caps = QUOTED
             .captures(header)
-            .or_else(|| unquoted.captures(header))?;
+            .or_else(|| UNQUOTED.captures(header))?;
         Some(caps[1].to_string())
     }
 
