@@ -23,8 +23,6 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use crate::Body;
 use crate::Theme;
 
-extern crate dirs;
-
 pub enum ContentType {
     Json,
     Html,
@@ -182,7 +180,7 @@ pub fn ensure_session_dir_exists(domain: &str) -> std::io::Result<PathBuf> {
         None => panic!("couldn't get config directory"),
         Some(dir) => dir,
     };
-    config_dir.push("ht");
+    config_dir.push("xh");
     config_dir.push("sessions");
     config_dir.push(domain);
     fs::create_dir_all(&config_dir)?;

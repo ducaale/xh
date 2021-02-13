@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::mem;
 use std::str::FromStr;
 
@@ -95,7 +94,7 @@ pub struct Cli {
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
 
-    /// Create, or reuse and update a session. By default, sessions are stored in ~/.config/ht/sessions/.
+    /// Create, or reuse and update a session. By default, sessions are stored in ~/.config/ht/sessions/. Explicit sessions filenames are not supported.
     #[structopt(long = "session", parse(try_from_str = validate_session_name))]
     pub session: Option<String>,
 
@@ -200,26 +199,15 @@ impl From<&Option<Body>> for Method {
     }
 }
 
-fn parse_method_url(s: &str) -> Result<(Option<Method>, String)> {
-    let parts = s.split_whitespace().collect::<Vec<_>>();
-    if parts.len() == 1 {
-        Ok((None, parts[0].to_string()))
-    } else {
-        Ok((Some(parts[0].parse()?), parts[1].to_string()))
-    }
-}
-
 fn validate_session_name(s: &str) -> Result<String> {
-    let path = Path::new(s);
-    match path.to_str() {
-        Some(identifier) => Ok(identifier.to_string()),
-        None => {
-            return Err(Error::with_description(
-                &format!("{:?} contains invalid characters", s),
-                ErrorKind::InvalidValue,
-            ))
-        }
+    if s.contains(std::path::is_separator) {
+        return Err(Error::with_description(
+            &format!("{:?} contains invalid character {:?} ", s, std::path::MAIN_SEPARATOR),
+            ErrorKind::InvalidValue,
+        ))
     }
+
+    Ok(s.to_string())
 }
 
 arg_enum! {

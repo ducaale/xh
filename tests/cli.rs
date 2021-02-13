@@ -110,7 +110,7 @@ fn delete_session_file(identifier: String) -> std::io::Result<()> {
         None => panic!("couldn't get config directory"),
         Some(dir) => dir,
     };
-    config_dir.push("ht");
+    config_dir.push("xh");
     config_dir.push("sessions");
     config_dir.push("httpbin.org");
     let hash = Blake2b::new().chain(identifier).finalize();
@@ -238,6 +238,22 @@ fn session_basic() -> Result<(), Box<dyn std::error::Error>> {
         user-agent: xh/0.0.0 (test mode)
 
     "#});
+
+    Ok(())
+}
+
+#[test]
+fn invalid_session_name() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = get_command();
+    cmd.arg("-v")
+        .arg("--offline")
+        .arg("--ignore-stdin")
+        .arg("--pretty=format")
+        .arg("--session=foo/bar")
+        .arg("get")
+        .arg("httpbin.org/bearer");
+    
+    cmd.assert().failure().stderr(predicate::str::contains("error: \"foo/bar\" contains invalid character '/'"));
 
     Ok(())
 }

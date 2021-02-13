@@ -1,5 +1,3 @@
-extern crate dirs;
-
 use crate::auth::Auth;
 use crate::request_items::Parameter;
 use crate::utils::ensure_session_dir_exists;

@@ -66,11 +66,10 @@ async fn main() -> Result<()> {
     let mut auth = Auth::new(args.auth, args.auth_type, &host)?;
 
     // load previous session if present
-    let arg_session = args.session.clone();
     let previous_session = match args.session {
         None => None,
-        Some(identifier) => {
-            match Session::load(&identifier, &host) {
+        Some(ref identifier) => {
+            match Session::load(identifier, &host) {
                 Err(why) => panic!("couldn't load session {}: {}", &identifier, why),
                 Ok(result) => result,
             }
@@ -85,7 +84,7 @@ async fn main() -> Result<()> {
     // Merge headers from parameters and previous session
     let (headers, headers_to_unset) = request_items.headers(session_for_merge.as_ref())?;
     // Save the current session if present
-    if let Some(identifier) = arg_session {
+    if let Some(identifier) = args.session {
         let new_session = Session::new(identifier, host, request_items.export_headers(session_for_merge.as_ref()), saved_auth);
         if let Err(why) = new_session.save() {
             panic!("couldn't save session {}: {}", new_session.identifier, why);

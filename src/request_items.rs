@@ -34,7 +34,10 @@ impl RequestItems {
             .count()
     }
 
-    pub fn headers(&self, session: Option<&Session>) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
+    pub fn headers(
+        &self,
+        session: Option<&Session>,
+    ) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
         let mut headers = HeaderMap::new();
         let mut headers_to_unset = vec![];
         for item in &self.0 {
@@ -52,15 +55,12 @@ impl RequestItems {
             }
         }
         // handle session additional headers
-        match session {
-            None => (),
-            Some(s) => {
-                for h in &*s.headers {
-                    let key = HeaderName::from_bytes(&h.name.as_bytes()).unwrap();
-                    headers
-                        .entry(key)
-                        .or_insert(HeaderValue::from_str(&h.value).unwrap());
-                }
+        if let Some(s) = session {
+            for h in &*s.headers {
+                let key = HeaderName::from_bytes(&h.name.as_bytes()).unwrap();
+                headers
+                    .entry(key)
+                    .or_insert(HeaderValue::from_str(&h.value).unwrap());
             }
         }
         Ok((headers, headers_to_unset))
@@ -68,27 +68,21 @@ impl RequestItems {
 
     pub fn export_headers(&self, session: Option<&Session>) -> Vec<Parameter> {
         let mut headers = vec![];
-        let mut headernames_present = vec![];
+        let mut header_names_present = vec![];
         for item in &self.0 {
-            match item {
-                RequestItem::HttpHeader(key, value) => {
-                    headers.push(Parameter {
-                        name: String::from(key),
-                        value: String::from(value),
-                    });
-                    headernames_present.push(String::from(key));
-                }
-                _ => {}
+            if let RequestItem::HttpHeader(key, value) = item {
+                headers.push(Parameter {
+                    name: String::from(key),
+                    value: String::from(value),
+                });
+                header_names_present.push(String::from(key));
             }
         }
         // handle session additional headers
-        match session {
-            None => (),
-            Some(s) => {
-                for h in &s.headers {
-                    if !headernames_present.contains(&h.name) {
-                        headers.push(h.clone());
-                    }
+        if let Some(s) = session {
+            for h in &s.headers {
+                if !header_names_present.contains(&h.name) {
+                    headers.push(h.clone());
                 }
             }
         }
