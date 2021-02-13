@@ -176,7 +176,7 @@ macro_rules! vec_of_strings {
     });
 }
 
-// Create the directory ~/.config/ht/sessions/{domain} if not present.
+// Create the directory which will contain sessions for `domain` if not present.
 pub fn ensure_session_dir_exists(domain: &str) -> std::io::Result<PathBuf> {
     let mut config_dir = match dirs::config_dir() {
         None => panic!("couldn't get config directory"),
