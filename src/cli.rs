@@ -125,7 +125,7 @@ pub struct Cli {
     /// Skip the host's SSL certificate verification, or use an alternative CA
     /// bundle. Disable = "no" or "false", enable = "yes" or "true".
     #[structopt(long, default_value)]
-    pub verify: VerifyHttps,
+    pub verify: Verify,
 
     /// Use a client side certificate for the SSL communication.
     #[structopt(long)]
@@ -407,18 +407,18 @@ impl FromStr for RequestItem {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VerifyHttps {
+pub enum Verify {
     Yes,
     No,
-    PrivateCerts(String, Vec<pem::Pem>),
+    CustomCABundle(String, Vec<pem::Pem>),
 }
 
-impl FromStr for VerifyHttps {
+impl FromStr for Verify {
     type Err = Error;
-    fn from_str(verify: &str) -> Result<VerifyHttps> {
+    fn from_str(verify: &str) -> Result<Verify> {
         match verify.to_lowercase().as_str() {
-            "no" | "false" => Ok(VerifyHttps::No),
-            "yes" | "true" => Ok(VerifyHttps::Yes),
+            "no" | "false" => Ok(Verify::No),
+            "yes" | "true" => Ok(Verify::Yes),
             "" => Err(Error::with_description(
                 &format!("{:?} is not a valid value", verify),
                 ErrorKind::InvalidValue,
@@ -428,24 +428,24 @@ impl FromStr for VerifyHttps {
                 let mut buffer = Vec::new();
                 file.read_to_end(&mut buffer)?;
                 let pems = pem::parse_many(buffer);
-                Ok(VerifyHttps::PrivateCerts(path.to_owned(), pems))
+                Ok(Verify::CustomCABundle(path.to_owned(), pems))
             }
         }
     }
 }
 
-impl Default for VerifyHttps {
+impl Default for Verify {
     fn default() -> Self {
-        VerifyHttps::Yes
+        Verify::Yes
     }
 }
 
-impl fmt::Display for VerifyHttps {
+impl fmt::Display for Verify {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VerifyHttps::No => write!(f, "no"),
-            VerifyHttps::Yes => write!(f, "yes"),
-            VerifyHttps::PrivateCerts(path, _pems) => write!(f, "path: {}", path),
+            Verify::No => write!(f, "no"),
+            Verify::Yes => write!(f, "yes"),
+            Verify::CustomCABundle(path, _pems) => write!(f, "path: {}", path),
         }
     }
 }

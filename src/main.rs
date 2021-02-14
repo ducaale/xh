@@ -16,7 +16,7 @@ mod utils;
 use anyhow::{anyhow, Result};
 use auth::Auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme, VerifyHttps};
+use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme, Verify};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -81,29 +81,31 @@ async fn inner_main() -> Result<i32> {
 
     let mut client = Client::builder().redirect(redirect);
 
-    client = client.danger_accept_invalid_certs(args.verify == VerifyHttps::No);
+    if url.0.scheme() == "https" {
+        client = client.danger_accept_invalid_certs(args.verify == Verify::No);
 
-    if let VerifyHttps::PrivateCerts(_, pems) = args.verify {
-        for pem in pems {
-            let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())?;
-            client = client.add_root_certificate(certificate);
-        }
-    };
+        if let Verify::CustomCABundle(_, pems) = args.verify {
+            for pem in pems {
+                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())?;
+                client = client.add_root_certificate(certificate);
+            }
+        };
 
-    if let Some(cert) = args.cert {
-        let mut f = File::open(cert)?;
-        let mut buffer = Vec::new();
-        f.read_to_end(&mut buffer)?;
-
-        if let Some(cert_key) = args.cert_key {
-            buffer.push(0x0Au8);
-            let mut f = File::open(cert_key)?;
+        if let Some(cert) = args.cert {
+            let mut f = File::open(cert)?;
+            let mut buffer = Vec::new();
             f.read_to_end(&mut buffer)?;
-        }
 
-        let identity = reqwest::Identity::from_pem(&buffer)?;
-        client = client.identity(identity);
-    };
+            if let Some(cert_key) = args.cert_key {
+                buffer.push(0x0Au8);
+                let mut f = File::open(cert_key)?;
+                f.read_to_end(&mut buffer)?;
+            }
+
+            let identity = reqwest::Identity::from_pem(&buffer)?;
+            client = client.identity(identity);
+        };
+    }
 
     let client = client.build()?;
     let mut resume: Option<u64> = None;
