@@ -1,6 +1,7 @@
 use std::mem;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -119,19 +120,17 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn from_args() -> Result<Self> {
+    pub fn from_args() -> anyhow::Result<Self> {
         Cli::from_iter(std::env::args())
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Result<Self> {
+    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> anyhow::Result<Self> {
         let mut cli: Self = StructOpt::from_iter(iter);
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
         match cli.raw_method_or_url.parse::<Method>() {
             Ok(method) => {
                 cli.method = Some(method);
-                cli.url = rest_args.next().ok_or_else(|| {
-                    Error::with_description("Missing URL", ErrorKind::MissingRequiredArgument)
-                })?;
+                cli.url = rest_args.next().ok_or_else(|| anyhow!("Missing URL"))?;
             }
             Err(_) => {
                 cli.method = None;
@@ -140,6 +139,12 @@ impl Cli {
         }
         for request_item in rest_args {
             cli.request_items.push(request_item.parse()?);
+        }
+        if cli.resume && !cli.download {
+            return Err(anyhow!("--continue only works with --download"));
+        }
+        if cli.resume && cli.output.is_none() {
+            return Err(anyhow!("--continue requires --output"));
         }
         Ok(cli)
     }
@@ -388,7 +393,7 @@ impl FromStr for RequestItem {
 mod test {
     use super::*;
 
-    fn parse(args: &[&str]) -> Result<Cli> {
+    fn parse(args: &[&str]) -> anyhow::Result<Cli> {
         Cli::from_iter(
             Some("xh".to_string())
                 .into_iter()

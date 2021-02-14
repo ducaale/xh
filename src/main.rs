@@ -4,7 +4,7 @@ use atty::Stream;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 
 mod auth;
 mod buffer;
@@ -80,6 +80,7 @@ async fn inner_main() -> Result<i32> {
     };
 
     let client = Client::builder().redirect(redirect).build()?;
+    let mut resume: Option<u64> = None;
     let request = {
         let mut request_builder = client
             .request(method, url.0)
@@ -104,12 +105,12 @@ async fn inner_main() -> Result<i32> {
             None => request_builder.header(ACCEPT, HeaderValue::from_static("*/*")),
         };
 
-        request_builder = match get_file_size(&args.output) {
-            Some(r) if args.download && args.resume => {
-                request_builder.header(RANGE, HeaderValue::from_str(&format!("bytes={}", r))?)
+        if args.resume {
+            if let Some(file_size) = get_file_size(args.output.as_deref()) {
+                request_builder = request_builder.header(RANGE, format!("bytes={}-", file_size));
+                resume = Some(file_size);
             }
-            _ => request_builder,
-        };
+        }
 
         request_builder = match auth {
             Some(Auth::Bearer(token)) => request_builder.bearer_auth(token),
@@ -161,8 +162,9 @@ async fn inner_main() -> Result<i32> {
             _ => 0,
         };
         if args.download {
-            let resume = response.status() == StatusCode::PARTIAL_CONTENT;
-            download_file(response, args.output, &orig_url, resume, args.quiet).await?;
+            if exit_code == 0 {
+                download_file(response, args.output, &orig_url, resume, args.quiet).await?;
+            }
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
