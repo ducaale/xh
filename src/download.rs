@@ -1,10 +1,9 @@
 use std::fs::{self, File, OpenOptions};
-use std::io;
+use std::io::{self, ErrorKind};
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
-use io::ErrorKind;
 use mime2ext::mime2ext;
 use reqwest::header::{
     HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE,
