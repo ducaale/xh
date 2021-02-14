@@ -48,7 +48,7 @@ FLAGS:
 
 OPTIONS:
     -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
-    -a, --auth <USER[:PASS]>                 Authenticate as USER. PASS will be prompted if missing
+    -a, --auth <USER[:PASS] | TOKEN>
     -o, --output <output>                    Save output to FILE instead of stdout
         --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
     -p, --print <print>                      String specifying what the output should contain

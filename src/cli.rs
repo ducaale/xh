@@ -36,8 +36,7 @@ pub struct Cli {
     #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
 
-    /// Authenticate as USER. PASS will be prompted if missing.
-    #[structopt(short = "a", long, name = "USER[:PASS]")]
+    #[structopt(short = "a", long, name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Save output to FILE instead of stdout.
