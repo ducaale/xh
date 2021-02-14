@@ -176,7 +176,6 @@ fn verbose() {
         host: http.mock
 
         {"x":"y"}
-
         HTTP/1.1 200 OK
         x-foo: Bar
         date: N/A

@@ -251,8 +251,8 @@ impl Printer {
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
         if !self.buffer.is_terminal() {
-            // No decoding, no formatting, nothing
-            copy_largebuf(&mut response, &mut self.buffer)?;
+            // No trailing newlines, no binary detection, direct streaming
+            self.print_body_stream(get_content_type(&response.headers()), &mut response)?;
         } else if self.stream {
             self.print_body_stream(
                 get_content_type(&response.headers()),
