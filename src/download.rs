@@ -92,7 +92,7 @@ fn open_new_file(file_name: String) -> io::Result<(String, File)> {
     panic!("Could not create file after unreasonable number of attempts");
 }
 
-// https://github.com/httpie/httpie/blob/e944dbd7fa/httpie/downloads.py#L44
+// https://github.com/httpie/httpie/blob/84c7327057/httpie/downloads.py#L44
 // https://tools.ietf.org/html/rfc7233#section-4.2
 fn total_for_content_range(header: &str, expected_start: u64) -> Result<u64> {
     regex!(RE_RANGE =
