@@ -35,19 +35,20 @@ FLAGS:
     -m, --multipart       Similar to --form, but always sends a multipart/form-data request (i.e., even without files)
     -I, --ignore-stdin    Do not attempt to read stdin
     -F, --follow          Do follow redirects
-    -d, --download
+    -d, --download        Download the body to a file instead of printing it
     -h, --headers         Print only the response headers, shortcut for --print=h
     -b, --body            Print only the response body, Shortcut for --print=b
     -c, --continue        Resume an interrupted download
     -v, --verbose         Print the whole request as well as the response
     -q, --quiet           Do not print to stdout or stderr
     -S, --stream          Always stream the response body
+        --check-status    Exit with an error status code if the server replies with an error
         --help            Prints help information
     -V, --version         Prints version information
 
 OPTIONS:
     -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
-    -a, --auth <auth>
+    -a, --auth <USER[:PASS] | TOKEN>
     -o, --output <output>                    Save output to FILE instead of stdout
         --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
     -p, --print <print>                      String specifying what the output should contain

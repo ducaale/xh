@@ -10,7 +10,7 @@ fn get_command() -> Command {
 }
 
 #[test]
-fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
+fn basic_post() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
@@ -35,12 +35,10 @@ fn basic_post() -> Result<(), Box<dyn std::error::Error>> {
         }
 
     "#});
-
-    Ok(())
 }
 
 #[test]
-fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
+fn basic_get() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
@@ -58,12 +56,10 @@ fn basic_get() -> Result<(), Box<dyn std::error::Error>> {
         user-agent: xh/0.0.0 (test mode)
 
     "#});
-
-    Ok(())
 }
 
 #[test]
-fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
+fn basic_head() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--offline")
@@ -81,12 +77,10 @@ fn basic_head() -> Result<(), Box<dyn std::error::Error>> {
         user-agent: xh/0.0.0 (test mode)
 
     "#});
-
-    Ok(())
 }
 
 #[test]
-fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
+fn basic_options() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--ignore-stdin")
@@ -98,8 +92,6 @@ fn basic_options() -> Result<(), Box<dyn std::error::Error>> {
     cmd.assert()
         .stdout(predicate::str::contains("HTTP/1.1 200 OK"));
     cmd.assert().stdout(predicate::str::contains("allow:"));
-
-    Ok(())
 }
 
 #[test]

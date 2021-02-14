@@ -149,12 +149,7 @@ impl Printer {
         let status = response.status();
         let headers = response.headers();
 
-        let status_line = format!(
-            "{:?} {} {}\n",
-            version,
-            status.as_str(),
-            status.canonical_reason().unwrap_or("Unknown Status Code")
-        );
+        let status_line = format!("{:?} {}\n", version, status);
         let headers = self.headers_to_string(headers, self.sort_headers);
 
         self.print_headers(&(status_line + &headers))?;

@@ -1,6 +1,7 @@
 use std::mem;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -35,7 +36,7 @@ pub struct Cli {
     #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
 
-    #[structopt(short = "a", long)]
+    #[structopt(short = "a", long, name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Save output to FILE instead of stdout.
@@ -50,6 +51,7 @@ pub struct Cli {
     #[structopt(long = "max-redirects")]
     pub max_redirects: Option<usize>,
 
+    /// Download the body to a file instead of printing it.
     #[structopt(short = "d", long)]
     pub download: bool,
 
@@ -89,6 +91,10 @@ pub struct Cli {
     #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
     pub theme: Option<Theme>,
 
+    /// Exit with an error status code if the server replies with an error.
+    #[structopt(long)]
+    pub check_status: bool,
+
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
     pub default_scheme: Option<String>,
@@ -115,19 +121,17 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn from_args() -> Result<Self> {
+    pub fn from_args() -> anyhow::Result<Self> {
         Cli::from_iter(std::env::args())
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Result<Self> {
+    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> anyhow::Result<Self> {
         let mut cli: Self = StructOpt::from_iter(iter);
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
         match cli.raw_method_or_url.parse::<Method>() {
             Ok(method) => {
                 cli.method = Some(method);
-                cli.url = rest_args.next().ok_or_else(|| {
-                    Error::with_description("Missing URL", ErrorKind::MissingRequiredArgument)
-                })?;
+                cli.url = rest_args.next().ok_or_else(|| anyhow!("Missing URL"))?;
             }
             Err(_) => {
                 cli.method = None;
@@ -136,6 +140,12 @@ impl Cli {
         }
         for request_item in rest_args {
             cli.request_items.push(request_item.parse()?);
+        }
+        if cli.resume && !cli.download {
+            return Err(anyhow!("--continue only works with --download"));
+        }
+        if cli.resume && cli.output.is_none() {
+            return Err(anyhow!("--continue requires --output"));
         }
         Ok(cli)
     }
@@ -333,16 +343,16 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        let re1 = regex!(r"^(.+?)@(.+?);type=(.+?)$");
-        let re2 = regex!(r"^(.+?)(==|:=|=|@|:)((?s).+)$");
-        let re3 = regex!(r"^(.+?)(:|;)$");
+        regex!(FORM_FILE_TYPED = r"^(.+?)@(.+?);type=(.+?)$");
+        regex!(PARAM = r"^(.+?)(==|:=|=|@|:)((?s).+)$");
+        regex!(NO_HEADER = r"^(.+?)(:|;)$");
 
-        if let Some(caps) = re1.captures(request_item) {
+        if let Some(caps) = FORM_FILE_TYPED.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[2].to_string();
             let file_type = caps[3].to_string();
             Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = re2.captures(request_item) {
+        } else if let Some(caps) = PARAM.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -361,7 +371,7 @@ impl FromStr for RequestItem {
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = re3.captures(request_item) {
+        } else if let Some(caps) = NO_HEADER.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),
@@ -384,7 +394,7 @@ impl FromStr for RequestItem {
 mod test {
     use super::*;
 
-    fn parse(args: &[&str]) -> Result<Cli> {
+    fn parse(args: &[&str]) -> anyhow::Result<Cli> {
         Cli::from_iter(
             Some("xh".to_string())
                 .into_iter()
