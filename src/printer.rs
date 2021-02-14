@@ -4,7 +4,7 @@ use anyhow::Result;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 use reqwest::{Request, Response};
 
-use crate::utils::{colorize, get_content_type, indent_json, ContentType};
+use crate::utils::{colorize, get_content_type, indent_json, test_mode, ContentType};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
@@ -127,7 +127,9 @@ impl Printer {
             // HTTP/1.1 anyway
             headers.entry(HOST).or_insert_with(|| {
                 // Added at https://github.com/hyperium/hyper/blob/dfa1bb291d/src/client/client.rs#L237
-                if let Some(port) = request.url().port() {
+                if test_mode() {
+                    HeaderValue::from_str("http.mock")
+                } else if let Some(port) = request.url().port() {
                     HeaderValue::from_str(&format!("{}:{}", host, port))
                 } else {
                     HeaderValue::from_str(host)

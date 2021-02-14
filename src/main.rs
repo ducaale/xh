@@ -1,5 +1,3 @@
-use std::env;
-
 use atty::Stream;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
@@ -24,13 +22,13 @@ use printer::Printer;
 use request_items::{Body, RequestItems};
 use reqwest::redirect::Policy;
 use url::Url;
-use utils::body_from_stdin;
+use utils::{body_from_stdin, test_mode};
 
 fn get_user_agent() -> &'static str {
     // Hard-coded user agent for the benefit of tests
     // In integration tests the binary isn't compiled with cfg(test), so we
     // use an environment variable
-    if cfg!(test) || env::var_os("XH_TEST_MODE").is_some() {
+    if test_mode() {
         "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
