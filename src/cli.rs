@@ -36,7 +36,8 @@ pub struct Cli {
     #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
 
-    #[structopt(short = "a", long)]
+    /// Authenticate as USER. PASS will be prompted if missing.
+    #[structopt(short = "a", long, name = "USER[:PASS]")]
     pub auth: Option<String>,
 
     /// Save output to FILE instead of stdout.
@@ -51,6 +52,7 @@ pub struct Cli {
     #[structopt(long = "max-redirects")]
     pub max_redirects: Option<usize>,
 
+    /// Download the body to a file instead of printing it.
     #[structopt(short = "d", long)]
     pub download: bool,
 
