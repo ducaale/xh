@@ -7,7 +7,17 @@ Yet another [HTTPie](https://httpie.io/) clone in Rust.
 
 ## Installation
 
-### On Arch Linux via Pacman
+### On macOS via Homebrew
+```
+brew install xh
+```
+
+### On windows via Scoop
+```
+scoop install xh
+```
+
+### On Arch linux via Pacman
 ```
 pacman -S xh
 ```
