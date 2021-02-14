@@ -20,6 +20,10 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use crate::Body;
 use crate::Theme;
 
+pub fn test_mode() -> bool {
+    cfg!(test) || std::env::var_os("XH_TEST_MODE").is_some()
+}
+
 pub enum ContentType {
     Json,
     Html,
