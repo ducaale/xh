@@ -13,7 +13,7 @@ mod request_items;
 mod url;
 mod utils;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use auth::Auth;
 use buffer::Buffer;
 use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme, Verify};
@@ -84,29 +84,51 @@ async fn inner_main() -> Result<i32> {
     if url.0.scheme() == "https" {
         client = client.danger_accept_invalid_certs(args.verify == Verify::No);
 
-        if let Verify::CustomCABundle(_, pems) = args.verify {
+        if let Verify::CustomCABundle(path) = args.verify {
             // FIXME: Change the version of reqwest in Cargo.toml to an official released version (> 0.11.0) which should contain this function
             // See: https://github.com/seanmonstar/reqwest/pull/1150
             client = client.tls_built_in_root_certs(false);
 
-            for pem in pems {
-                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())?;
+            let mut buffer = Vec::new();
+            let mut file = File::open(&path).with_context(|| {
+                format!("Failed to open the custom CA bundle: {}", path.display())
+            })?;
+            file.read_to_end(&mut buffer).with_context(|| {
+                format!(
+                    "Failed to read the custom CA bundle file: {}",
+                    path.display()
+                )
+            })?;
+
+            for pem in pem::parse_many(buffer) {
+                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
+                    .with_context(|| {
+                        format!("Failed to load the custom CA bundle: {}", path.display())
+                    })?;
                 client = client.add_root_certificate(certificate);
             }
         };
 
         if let Some(cert) = args.cert {
-            let mut f = File::open(cert)?;
             let mut buffer = Vec::new();
-            f.read_to_end(&mut buffer)?;
+            let mut file = File::open(&cert)
+                .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
+            file.read_to_end(&mut buffer)
+                .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
 
             if let Some(cert_key) = args.cert_key {
                 buffer.push(0x0Au8);
-                let mut f = File::open(cert_key)?;
-                f.read_to_end(&mut buffer)?;
+
+                let mut file = File::open(&cert_key).with_context(|| {
+                    format!("Failed to open the cert key file: {}", cert_key.display())
+                })?;
+                file.read_to_end(&mut buffer).with_context(|| {
+                    format!("Failed to read the cert key file: {}", cert_key.display())
+                })?;
             }
 
-            let identity = reqwest::Identity::from_pem(&buffer)?;
+            let identity = reqwest::Identity::from_pem(&buffer)
+                .context("Failed to parse the cert/cert key files")?;
             client = client.identity(identity);
         };
     }

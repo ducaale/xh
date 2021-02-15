@@ -1,7 +1,6 @@
 use std::fmt;
-use std::fs::File;
-use std::io::Read;
 use std::mem;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -129,11 +128,11 @@ pub struct Cli {
 
     /// Use a client side certificate for the SSL communication.
     #[structopt(long)]
-    pub cert: Option<String>,
+    pub cert: Option<PathBuf>,
 
     /// Pass the path of the private key file if the private key is not contained in the cert file.
     #[structopt(long = "cert-key")]
-    pub cert_key: Option<String>,
+    pub cert_key: Option<PathBuf>,
 }
 
 impl Cli {
@@ -410,7 +409,7 @@ impl FromStr for RequestItem {
 pub enum Verify {
     Yes,
     No,
-    CustomCABundle(String, Vec<pem::Pem>),
+    CustomCABundle(PathBuf),
 }
 
 impl FromStr for Verify {
@@ -423,13 +422,7 @@ impl FromStr for Verify {
                 &format!("{:?} is not a valid value", verify),
                 ErrorKind::InvalidValue,
             )),
-            path => {
-                let mut file = File::open(path)?;
-                let mut buffer = Vec::new();
-                file.read_to_end(&mut buffer)?;
-                let pems = pem::parse_many(buffer);
-                Ok(Verify::CustomCABundle(path.to_owned(), pems))
-            }
+            path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
         }
     }
 }
@@ -445,7 +438,7 @@ impl fmt::Display for Verify {
         match self {
             Verify::No => write!(f, "no"),
             Verify::Yes => write!(f, "yes"),
-            Verify::CustomCABundle(path, _pems) => write!(f, "path: {}", path),
+            Verify::CustomCABundle(path) => write!(f, "custom ca bundle: {}", path.display()),
         }
     }
 }
