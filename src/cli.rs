@@ -1,11 +1,9 @@
-use std::mem;
 use std::str::FromStr;
+use std::{ffi::OsString, mem};
 
-use anyhow::anyhow;
 use reqwest::Url;
 use std::convert::TryFrom;
-use structopt::clap::AppSettings;
-use structopt::clap::{arg_enum, Error, ErrorKind, Result};
+use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
 use crate::{regex, Body, Buffer};
@@ -18,15 +16,15 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
-    /// (default) Data items from the command line are serialized as a JSON object.
+    /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long)]
     pub json: bool,
 
-    /// Data items from the command line are serialized as form fields.
+    /// Serialize data items from the command line as form fields.
     #[structopt(short = "f", long)]
     pub form: bool,
 
-    /// Similar to --form, but always sends a multipart/form-data request (i.e., even without files).
+    /// Like --form, but force a multipart/form-data request even without files.
     #[structopt(short, long)]
     pub multipart: bool,
 
@@ -34,12 +32,13 @@ pub struct Cli {
     #[structopt(short = "I", long = "ignore-stdin")]
     pub ignore_stdin: bool,
 
-    /// Specify the auth mechanism.
-    #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
-    pub auth_type: Option<AuthType>,
-
-    #[structopt(short = "a", long, name = "USER[:PASS] | TOKEN")]
+    /// Authenticate as USER with PASS. PASS will be prompted if missing.
+    #[structopt(short = "a", long, name = "USER[:PASS]")]
     pub auth: Option<String>,
+
+    /// Authenticate with a bearer token.
+    #[structopt(long, name = "TOKEN")]
+    pub bearer: Option<String>,
 
     /// Save output to FILE instead of stdout.
     #[structopt(short, long)]
@@ -50,7 +49,7 @@ pub struct Cli {
     pub follow: bool,
 
     /// Number of redirects to follow, only respected if `follow` is set.
-    #[structopt(long = "max-redirects")]
+    #[structopt(long = "max-redirects", name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Download the body to a file instead of printing it.
@@ -70,6 +69,11 @@ pub struct Cli {
     pub resume: bool,
 
     /// String specifying what the output should contain.
+    ///
+    /// Use `H` and `B` for request header and body respectively,
+    /// and `h` and `b` for response hader and body.
+    ///
+    /// Example: `--print=Hb`
     #[structopt(short = "p", long)]
     pub print: Option<Print>,
 
@@ -81,7 +85,7 @@ pub struct Cli {
     #[structopt(short = "q", long)]
     pub quiet: bool,
 
-    /// Always stream the response body
+    /// Always stream the response body.
     #[structopt(short = "S", long)]
     pub stream: bool,
 
@@ -94,26 +98,29 @@ pub struct Cli {
     pub theme: Option<Theme>,
 
     /// Exit with an error status code if the server replies with an error.
+    ///
+    /// The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error),
+    /// or 3 on 3xx (Redirect) if --follow isn't set.
+    ///
+    /// If stdout is redirected then a warning is written to stderr.
     #[structopt(long)]
     pub check_status: bool,
 
-    /// Proxy to use for a specific protocol. The value passed to this option should take the form
-    /// of <PROTOCOL>:<PROXY_URL>. For example: `--proxy https:http://proxy.host:8080`.
+    /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
     ///
     /// PROTOCOL can be `http`, `https` or `all`.
     ///
-    /// If your proxy requires credentials, put them in the URL, like so: `--proxy
-    /// http:socks5://user:password@proxy.host:8000`.
+    /// If your proxy requires credentials, put them in the URL, like so:
+    /// `--proxy http:socks5://user:password@proxy.host:8000`.
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// When omitting this option, the environment variables `http_proxy` and `https_proxy` can
-    /// also be used.
-    #[structopt(long, value_name = "PROTOCOL:PROXY_URL", number_of_values = 1)]
+    /// The environment variables `$http_proxy` and `$https_proxy` can also be used.
+    #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "default-scheme")]
+    #[structopt(long = "default-scheme", name = "SCHEME")]
     pub default_scheme: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -138,17 +145,62 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn from_args() -> anyhow::Result<Self> {
+    pub fn from_args() -> Self {
         Cli::from_iter(std::env::args())
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> anyhow::Result<Self> {
-        let mut cli: Self = StructOpt::from_iter(iter);
+    pub fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<OsString> + Clone,
+    {
+        match Self::from_iter_safe(iter) {
+            Ok(cli) => cli,
+            Err(err) if err.kind == ErrorKind::HelpDisplayed => {
+                // The logic here is a little tricky.
+                //
+                // Normally with structopt/clap, -h prints short help while --help
+                // prints long help.
+                //
+                // But -h is short for --header, so we want --help to print short help
+                // and `help` (pseudo-subcommand) to print long help.
+                //
+                // --help is baked into clap. So we intercept its special error that
+                // would print long help and print short help instead. And if we do
+                // want to print long help, then we insert our own error in from_iter_safe
+                // with a special tag.
+                if err.message == "XH_PRINT_LONG_HELP" {
+                    Cli::clap().print_long_help().unwrap();
+                } else {
+                    Cli::clap().print_help().unwrap();
+                }
+                println!();
+                safe_exit();
+            }
+            Err(err) => err.exit(),
+        }
+    }
+
+    pub fn from_iter_safe<I>(iter: I) -> clap::Result<Self>
+    where
+        I: IntoIterator,
+        I::Item: Into<OsString> + Clone,
+    {
+        let mut cli: Self = StructOpt::from_iter_safe(iter)?;
+        if cli.raw_method_or_url == "help" {
+            return Err(Error {
+                message: "XH_PRINT_LONG_HELP".to_string(),
+                kind: ErrorKind::HelpDisplayed,
+                info: Some(vec!["XH_PRINT_LONG_HELP".to_string()]),
+            });
+        }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
         match cli.raw_method_or_url.parse::<Method>() {
             Ok(method) => {
                 cli.method = Some(method);
-                cli.url = rest_args.next().ok_or_else(|| anyhow!("Missing URL"))?;
+                cli.url = rest_args.next().ok_or_else(|| {
+                    Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
+                })?;
             }
             Err(_) => {
                 cli.method = None;
@@ -159,10 +211,16 @@ impl Cli {
             cli.request_items.push(request_item.parse()?);
         }
         if cli.resume && !cli.download {
-            return Err(anyhow!("--continue only works with --download"));
+            return Err(Error::with_description(
+                "--continue only works with --download",
+                ErrorKind::MissingArgumentOrSubcommand,
+            ));
         }
         if cli.resume && cli.output.is_none() {
-            return Err(anyhow!("--continue requires --output"));
+            return Err(Error::with_description(
+                "--continue requires --output",
+                ErrorKind::MissingArgumentOrSubcommand,
+            ));
         }
         Ok(cli)
     }
@@ -358,7 +416,7 @@ impl FromStr for Proxy {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let split_arg: Vec<&str> = s.splitn(2, ":").collect();
+        let split_arg: Vec<&str> = s.splitn(2, ':').collect();
         match split_arg[..] {
             [protocol, url] => {
                 let url = reqwest::Url::try_from(url).map_err(|e| {
@@ -449,12 +507,22 @@ impl FromStr for RequestItem {
     }
 }
 
+/// Based on the function used by clap to abort
+fn safe_exit() -> ! {
+    use std::io::Write;
+
+    let _ = std::io::stdout().lock().flush();
+    let _ = std::io::stderr().lock().flush();
+
+    std::process::exit(0);
+}
+
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
-    fn parse(args: &[&str]) -> anyhow::Result<Cli> {
-        Cli::from_iter(
+    fn parse(args: &[&str]) -> Result<Cli> {
+        Cli::from_iter_safe(
             Some("xh".to_string())
                 .into_iter()
                 .chain(args.iter().map(|s| s.to_string())),

@@ -1,43 +1,37 @@
-use anyhow::Result;
+use std::io;
 
-use crate::{regex, AuthType};
+use crate::regex;
 
-#[derive(Debug, Clone)]
-pub enum Auth {
-    Bearer(String),
-    Basic(String, Option<String>),
+pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
+    if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
+        Ok((cap[1].to_string(), None))
+    } else if let Some(cap) = regex!(r"^(.+?):(.+)$").captures(&auth) {
+        let username = cap[1].to_string();
+        let password = cap[2].to_string();
+        Ok((username, Some(password)))
+    } else {
+        let username = auth;
+        let prompt = format!("http: password for {}@{}: ", username, host);
+        let password = rpassword::read_password_from_tty(Some(&prompt))?;
+        Ok((username, Some(password)))
+    }
 }
 
-impl Auth {
-    pub fn new(
-        auth: Option<String>,
-        auth_type: Option<AuthType>,
-        host: &str,
-    ) -> Result<Option<Auth>> {
-        let auth_type = auth_type.unwrap_or(AuthType::Basic);
-        let auth = match auth {
-            Some(auth) if !auth.is_empty() => auth,
-            _ => return Ok(None),
-        };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        Ok(match auth_type {
-            AuthType::Basic => {
-                if let Some(cap) = regex!(r"^(.+?):(.*)$").captures(&auth) {
-                    let username = cap[1].to_string();
-                    let password = if !cap[2].is_empty() {
-                        Some(cap[2].to_string())
-                    } else {
-                        None
-                    };
-                    Some(Auth::Basic(username, password))
-                } else {
-                    let username = auth;
-                    let prompt = format!("http: password for {}@{}: ", username, host);
-                    let password = rpassword::read_password_from_tty(Some(&prompt))?;
-                    Some(Auth::Basic(username, Some(password)))
-                }
-            }
-            AuthType::Bearer => Some(Auth::Bearer(auth)),
-        })
+    #[test]
+    fn parsing() {
+        let expected = vec![
+            ("user:", ("user", None)),
+            ("user:password", ("user", Some("password"))),
+            ("user:pass:with:colons", ("user", Some("pass:with:colons"))),
+            (":", ("", None)),
+        ];
+        for (input, output) in expected {
+            let (user, pass) = parse_auth(input.to_string(), "").unwrap();
+            assert_eq!(output, (user.as_str(), pass.as_deref()));
+        }
     }
 }

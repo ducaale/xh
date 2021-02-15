@@ -314,6 +314,48 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
+#[test]
+fn user_password_auth() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    get_command()
+        .arg("--auth=user:pass")
+        .arg(server.base_url())
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn user_auth() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("Authorization", "Basic dXNlcjo=");
+    });
+
+    get_command()
+        .arg("--auth=user:")
+        .arg(server.base_url())
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn bearer_auth() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("Authorization", "Bearer SomeToken");
+    });
+
+    get_command()
+        .arg("--bearer=SomeToken")
+        .arg(server.base_url())
+        .assert();
+    mock.assert();
+}
+
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59
