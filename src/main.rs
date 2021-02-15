@@ -25,13 +25,11 @@ use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use url::Url;
-use utils::{body_from_stdin, test_mode};
+use utils::{body_from_stdin, test_mode, test_pretend_term};
 
 fn get_user_agent() -> &'static str {
-    // Hard-coded user agent for the benefit of tests
-    // In integration tests the binary isn't compiled with cfg(test), so we
-    // use an environment variable
     if test_mode() {
+        // Hard-coded user agent for the benefit of tests
         "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
@@ -138,7 +136,11 @@ fn inner_main() -> Result<i32> {
         request
     };
 
-    let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
+    let buffer = Buffer::new(
+        args.download,
+        &args.output,
+        atty::is(Stream::Stdout) || test_pretend_term(),
+    )?;
     let print = match args.print {
         Some(print) => print,
         None => Print::new(

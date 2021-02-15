@@ -41,10 +41,10 @@ impl Printer {
         let theme = theme.unwrap_or(Theme::Auto);
 
         Printer {
-            indent_json: matches!(pretty, Pretty::All | Pretty::Format),
-            sort_headers: matches!(pretty, Pretty::All | Pretty::Format),
-            color: matches!(pretty, Pretty::All | Pretty::Colors),
-            stream: matches!(pretty, Pretty::None) || stream,
+            indent_json: pretty.format(),
+            sort_headers: pretty.format(),
+            color: pretty.color(),
+            stream,
             theme,
             buffer,
         }
@@ -251,7 +251,7 @@ impl Printer {
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
         if !self.buffer.is_terminal() {
-            // No trailing newlines, no binary detection, direct streaming
+            // No trailing newlines, no binary detection, no decoding, direct streaming
             self.print_body_stream(get_content_type(&response.headers()), &mut response)?;
         } else if self.stream {
             self.print_body_stream(

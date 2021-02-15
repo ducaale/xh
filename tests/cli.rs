@@ -17,7 +17,7 @@ fn get_base_command() -> Command {
 fn get_command() -> Command {
     let mut cmd = get_base_command();
     cmd.env("XH_TEST_MODE", "1");
-    cmd.arg("--ignore-stdin");
+    cmd.env("XH_TEST_MODE_TERM", "1");
     cmd
 }
 
@@ -33,6 +33,7 @@ fn basic_json_post() {
     });
 
     get_command()
+        .arg("--print=b")
         .arg("--pretty=format")
         .arg("post")
         .arg(server.base_url())
@@ -43,6 +44,7 @@ fn basic_json_post() {
             "got": "name",
             "status": "ok"
         }
+
         "#});
     mock.assert();
 }
@@ -56,10 +58,11 @@ fn basic_get() {
     });
 
     get_command()
+        .arg("--print=b")
         .arg("get")
         .arg(server.base_url())
         .assert()
-        .stdout("foobar\n");
+        .stdout("foobar\n\n");
     mock.assert();
 }
 
@@ -167,21 +170,25 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
+        accept: application/json, */*
         accept-encoding: gzip, deflate
         connection: keep-alive
-        user-agent: xh/0.0.0 (test mode)
-        accept: application/json, */*
-        content-type: application/json
         content-length: 9
+        content-type: application/json
         host: http.mock
+        user-agent: xh/0.0.0 (test mode)
 
-        {"x":"y"}
+        {
+            "x": "y"
+        }
+
         HTTP/1.1 200 OK
-        x-foo: Bar
-        date: N/A
         content-length: 6
+        date: N/A
+        x-foo: Bar
 
-        a body"#});
+        a body
+        "#});
     mock.assert();
 }
 

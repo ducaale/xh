@@ -8,7 +8,7 @@ use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{regex, Body, Buffer};
+use crate::{regex, utils::test_pretend_term, Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
@@ -229,15 +229,27 @@ arg_enum! {
 }
 
 arg_enum! {
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Pretty {
         All, Colors, Format, None
     }
 }
 
+impl Pretty {
+    pub fn color(self) -> bool {
+        matches!(self, Pretty::Colors | Pretty::All)
+    }
+
+    pub fn format(self) -> bool {
+        matches!(self, Pretty::Format | Pretty::All)
+    }
+}
+
 impl From<&Buffer> for Pretty {
     fn from(b: &Buffer) -> Self {
-        if b.is_terminal() {
+        if test_pretend_term() {
+            Pretty::Format
+        } else if b.is_terminal() {
             Pretty::All
         } else {
             Pretty::None
