@@ -105,7 +105,7 @@ pub struct Cli {
     /// Note that when this option is absent, the environment variables `http_proxy` and
     /// `https_proxy` can be used to set proxies to use.
     #[structopt(long, value_name = "PROTOCOL:PROXY_URL", number_of_values = 1)]
-    pub proxy: Option<Vec<Proxy>>,
+    pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
