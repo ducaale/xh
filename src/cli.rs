@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
 use regex::Regex;
+use reqwest::Url;
+use std::convert::TryFrom;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -88,6 +90,13 @@ pub struct Cli {
     /// Output coloring style.
     #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
     pub theme: Option<Theme>,
+
+    /// Proxy to use for a specific protocol. The value passed to this option should take the form of
+    /// <PROTOCOL>:<PROXY_URL>. You can specify proxies for multiple protocols by repeating this option.
+    /// Note that when this option is absent, the environment variables `http_proxy` and
+    /// `https_proxy` can be used to set proxies to use.
+    #[structopt(long, value_name = "<PROTOCOL>:<PROXY_URL>", number_of_values = 1)]
+    pub proxy: Option<Vec<Proxy>>,
 
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
@@ -311,6 +320,47 @@ impl FromStr for Print {
             response_body,
         };
         Ok(p)
+    }
+}
+
+#[derive(Debug)]
+pub enum Proxy {
+    Http(Url),
+    Https(Url),
+    All(Url),
+}
+
+impl FromStr for Proxy {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let split_arg: Vec<&str> = s.splitn(2, ":").collect();
+        match split_arg[..] {
+            [protocol, url] => {
+                let url = reqwest::Url::try_from(url).map_err(|e| {
+                    Error::with_description(
+                        &format!(
+                            "Invalid proxy URL '{}' for protocol {}: {}",
+                            url, protocol, e
+                        ),
+                        ErrorKind::InvalidValue,
+                    )
+                })?;
+                match protocol.to_lowercase().as_str() {
+                    "http" => Ok(Proxy::Http(url)),
+                    "https" => Ok(Proxy::Https(url)),
+                    "all" => Ok(Proxy::All(url)),
+                    _ => Err(Error::with_description(
+                        &format!("Unknown protocol to set a proxy for: {}", protocol),
+                        ErrorKind::InvalidValue,
+                    )),
+                }
+            }
+            _ => Err(Error::with_description(
+                "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>",
+                ErrorKind::InvalidValue,
+            )),
+        }
     }
 }
 

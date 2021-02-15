@@ -18,7 +18,7 @@ mod utils;
 use anyhow::{anyhow, Result};
 use auth::Auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme};
+use cli::{AuthType, Cli, Method, Pretty, Print, Proxy, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -69,7 +69,20 @@ async fn main() -> Result<()> {
         false => Policy::none(),
     };
 
-    let client = Client::builder().redirect(redirect).build()?;
+    let mut client = Client::builder().redirect(redirect);
+
+    if let Some(proxies) = args.proxy {
+        for proxy in proxies {
+            client = client.proxy(match proxy {
+                Proxy::Http(url) => reqwest::Proxy::http(url),
+                Proxy::Https(url) => reqwest::Proxy::https(url),
+                Proxy::All(url) => reqwest::Proxy::all(url),
+            }?);
+        }
+    }
+
+    let client = client.build()?;
+
     let request = {
         let mut request_builder = client
             .request(method, url.0)
