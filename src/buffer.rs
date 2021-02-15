@@ -39,6 +39,10 @@ impl Buffer {
         matches!(self.kind, BufferKind::Stdout | BufferKind::Stderr)
     }
 
+    pub fn is_redirect(&self) -> bool {
+        matches!(self.kind, BufferKind::Redirect)
+    }
+
     pub fn print(&mut self, s: &str) -> std::io::Result<()> {
         write!(self, "{}", s)
     }

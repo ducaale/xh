@@ -12,7 +12,7 @@ use reqwest::{
 };
 
 use crate::regex;
-use crate::utils::copy_largebuf;
+use crate::utils::{copy_largebuf, test_pretend_term};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -174,7 +174,7 @@ pub fn download_file(
 
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
-    } else if atty::is(Stream::Stdout) {
+    } else if test_pretend_term() || atty::is(Stream::Stdout) {
         let (new_name, handle) = open_new_file(get_file_name(&response, &orig_url))?;
         dest_name = new_name;
         buffer = Box::new(handle);

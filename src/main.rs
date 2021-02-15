@@ -141,6 +141,7 @@ fn inner_main() -> Result<i32> {
         &args.output,
         atty::is(Stream::Stdout) || test_pretend_term(),
     )?;
+    let is_redirect = buffer.is_redirect();
     let print = match args.print {
         Some(print) => print,
         None => Print::new(
@@ -174,6 +175,9 @@ fn inner_main() -> Result<i32> {
             500..=599 => 5,
             _ => 0,
         };
+        if is_redirect && exit_code != 0 {
+            eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
+        }
         if args.download {
             if exit_code == 0 {
                 download_file(response, args.output, &orig_url, resume, args.quiet)?;
@@ -181,7 +185,6 @@ fn inner_main() -> Result<i32> {
         } else if print.response_body {
             printer.print_response_body(response)?;
         }
-        // TODO: print warning if output is being redirected
         Ok(exit_code)
     } else {
         Ok(0)

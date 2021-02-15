@@ -21,6 +21,13 @@ fn get_command() -> Command {
     cmd
 }
 
+/// Do not pretend the output goes to a terminal.
+fn redirecting_command() -> Command {
+    let mut cmd = get_base_command();
+    cmd.env("XH_TEST_MODE", "1");
+    cmd
+}
+
 #[test]
 fn basic_json_post() {
     let server = MockServer::start();
@@ -254,7 +261,78 @@ fn proxy_https_proxy() {
         .assert()
         .stderr(predicate::str::contains("unsuccessful tunnel"))
         .failure();
+    mock.assert();
+}
 
+#[test]
+fn download_generated_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "application/json").body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.url("/foo/bar/"))
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
+}
+
+#[test]
+fn download_supplied_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Disposition", r#"attachment; filename="foo.bar""#)
+            .body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.base_url())
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(read_to_string(dir.path().join("foo.bar")).unwrap(), "file");
+}
+
+#[test]
+fn download_supplied_unquoted_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Disposition", r#"attachment; filename=foo bar baz"#)
+            .body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.base_url())
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(
+        read_to_string(dir.path().join("foo bar baz")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
+fn decode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
     mock.assert();
 }
 
@@ -276,7 +354,61 @@ fn proxy_all_proxy() {
     get_proxy_command("http", "all", &server.base_url())
         .assert()
         .failure();
+    mock.assert();
+}
 
+#[test]
+fn streaming_decode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--stream")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
+    mock.assert();
+}
+
+#[test]
+fn only_decode_for_terminal() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    let output = redirecting_command()
+        .arg(server.base_url())
+        .assert()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(&output, b"\xe9"); // .stdout() doesn't support byte slices
+    mock.assert();
+}
+
+#[test]
+fn binary_detection() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.body(b"foo\0bar");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+        "#});
     mock.assert();
 }
 
@@ -321,6 +453,34 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
-// TODO: test implicit download filenames
-// For this we have to pretend the output is a tty
-// This intersects with both #41 and #59
+#[test]
+fn check_status() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .arg("--check-status")
+        .arg(server.base_url())
+        .assert()
+        .code(4)
+        .stderr("");
+    mock.assert();
+}
+
+#[test]
+fn check_status_warning() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(501);
+    });
+
+    redirecting_command()
+        .arg("--check-status")
+        .arg(server.base_url())
+        .assert()
+        .code(5)
+        .stderr("\nxh: warning: HTTP 501 Not Implemented\n\n");
+    mock.assert();
+}
