@@ -204,34 +204,100 @@ fn download() {
     assert_eq!(read_to_string(&outfile).unwrap(), "file contents\n");
 }
 
-#[test]
-fn proxy_invalid_protocol() {
+fn get_proxy_command(
+    protocol_to_request: &str,
+    protocol_to_proxy: &str,
+    proxy_url: &str,
+) -> Command {
     let mut cmd = get_command();
-    cmd.arg("--offline")
-        .arg("--pretty=format")
-        .arg("--proxy=invalid:http://127.0.0.1:8000")
+    cmd.arg("--pretty=format")
+        .arg("--check-status")
+        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
         .arg("GET")
-        .arg("http://httpbin.org/get");
-
-    cmd.assert().stderr(indoc! {r#"
-        error: Invalid value for '--proxy <PROTOCOL:PROXY_URL>...': error: Unknown protocol to set a proxy for: invalid
-
-    "#});
+        .arg(format!("{}://example.test/get", protocol_to_request));
+    cmd
 }
 
 #[test]
-fn proxy_invalid_proxy_url() {
+fn proxy_http_proxy() {
+    let server = MockServer::start();
+
+    let mock = server.mock(|when, then| {
+        when.method(GET).header("host", "example.test");
+        then.status(200);
+    });
+
+    get_proxy_command("http", "http", &server.base_url())
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn proxy_https_proxy() {
+    let server = MockServer::start();
+
+    let mock = server.mock(|when, then| {
+        when.method(CONNECT);
+        then.status(502);
+    });
+
+    get_proxy_command("https", "https", &server.base_url())
+        .assert()
+        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .failure();
+
+    mock.assert();
+}
+
+#[test]
+fn proxy_all_proxy() {
+    let server = MockServer::start();
+
+    let mock = server.mock(|when, then| {
+        when.method(CONNECT);
+        then.status(502);
+    });
+
+    get_proxy_command("https", "all", &server.base_url())
+        .assert()
+        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .failure();
+    mock.assert();
+
+    get_proxy_command("http", "all", &server.base_url())
+        .assert()
+        .failure();
+
+    mock.assert();
+}
+
+#[test]
+fn last_supplied_proxy_wins() {
+    let first_server = MockServer::start();
+    let first_mock = first_server.mock(|when, then| {
+        when.method(GET).header("host", "example.test");
+        then.status(500);
+    });
+    let second_server = MockServer::start();
+    let second_mock = second_server.mock(|when, then| {
+        when.method(GET).header("host", "example.test");
+        then.status(200);
+    });
+
     let mut cmd = get_command();
-    cmd.arg("--offline")
-        .arg("--pretty=format")
-        .arg("--proxy=invalid:127.0.0.1:8000")
-        .arg("GET")
-        .arg("http://httpbin.org/get");
+    cmd.args(&[
+        format!("--proxy=http:{}", first_server.base_url()).as_str(),
+        format!("--proxy=http:{}", second_server.base_url()).as_str(),
+        "GET",
+        "http://example.test",
+    ])
+    .assert()
+    .success();
 
-    cmd.assert().stderr(indoc! {r#"
-        error: Invalid value for '--proxy <PROTOCOL:PROXY_URL>...': error: Invalid proxy URL '127.0.0.1:8000' for protocol 'invalid': relative URL without a base
-
-    "#});
+    first_mock.assert_hits(0);
+    second_mock.assert();
 }
 
 #[test]

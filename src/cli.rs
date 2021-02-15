@@ -347,7 +347,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Proxy {
     Http(Url),
     Https(Url),
@@ -370,6 +370,7 @@ impl FromStr for Proxy {
                         ErrorKind::InvalidValue,
                     )
                 })?;
+
                 match protocol.to_lowercase().as_str() {
                     "http" => Ok(Proxy::Http(url)),
                     "https" => Ok(Proxy::Https(url)),
@@ -524,5 +525,58 @@ mod test {
     #[test]
     fn multiple_methods() {
         parse(&["get", "post", "example.org"]).unwrap_err();
+    }
+
+    #[test]
+    fn proxy_invalid_protocol() {
+        Cli::from_iter_safe(&[
+            "xh",
+            "--proxy=invalid:http://127.0.0.1:8000",
+            "get",
+            "example.org",
+        ])
+        .unwrap_err();
+    }
+
+    #[test]
+    fn proxy_invalid_proxy_url() {
+        Cli::from_iter_safe(&["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
+            .unwrap_err();
+    }
+
+    #[test]
+    fn proxy_http() {
+        let proxy = parse(&["--proxy=http:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::Http(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
+    }
+
+    #[test]
+    fn proxy_https() {
+        let proxy = parse(&["--proxy=https:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::Https(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
+    }
+
+    #[test]
+    fn proxy_all() {
+        let proxy = parse(&["--proxy=all:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::All(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
     }
 }
