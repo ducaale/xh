@@ -4,7 +4,7 @@ use anyhow::Result;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
 use reqwest::{Request, Response};
 
-use crate::utils::{colorize, get_content_type, indent_json, ContentType};
+use crate::utils::{colorize, get_content_type, indent_json, test_mode, ContentType};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
@@ -127,7 +127,9 @@ impl Printer {
             // HTTP/1.1 anyway
             headers.entry(HOST).or_insert_with(|| {
                 // Added at https://github.com/hyperium/hyper/blob/dfa1bb291d/src/client/client.rs#L237
-                if let Some(port) = request.url().port() {
+                if test_mode() {
+                    HeaderValue::from_str("http.mock")
+                } else if let Some(port) = request.url().port() {
                     HeaderValue::from_str(&format!("{}:{}", host, port))
                 } else {
                     HeaderValue::from_str(host)
@@ -149,12 +151,7 @@ impl Printer {
         let status = response.status();
         let headers = response.headers();
 
-        let status_line = format!(
-            "{:?} {} {}\n",
-            version,
-            status.as_str(),
-            status.canonical_reason().unwrap_or("Unknown Status Code")
-        );
+        let status_line = format!("{:?} {}\n", version, status);
         let headers = self.headers_to_string(headers, self.sort_headers);
 
         self.print_headers(&(status_line + &headers))?;
@@ -238,7 +235,7 @@ mod test {
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter(args);
+        let args = Cli::from_iter(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
         Printer::new(args.pretty, args.theme, false, buffer)
     }

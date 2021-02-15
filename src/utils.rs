@@ -20,6 +20,10 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use crate::Body;
 use crate::Theme;
 
+pub fn test_mode() -> bool {
+    cfg!(test) || std::env::var_os("XH_TEST_MODE").is_some()
+}
+
 pub enum ContentType {
     Json,
     Html,
@@ -169,4 +173,19 @@ macro_rules! vec_of_strings {
     ($($str:expr),*) => ({
         vec![$(String::from($str),)*] as Vec<String>
     });
+}
+
+#[macro_export]
+macro_rules! regex {
+    ($name:ident = $($re:expr)+) => {
+        lazy_static::lazy_static! {
+            static ref $name: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
+        }
+    };
+    ($($re:expr)+) => {{
+        lazy_static::lazy_static! {
+            static ref RE: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
+        }
+        &RE
+    }};
 }

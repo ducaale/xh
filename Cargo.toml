@@ -18,6 +18,7 @@ atty = "0.2"
 jsonxf = "1.0"
 indicatif = "0.15.0"
 lazy_static = "1.4.0"
+mime2ext = "0.1.0"
 regex = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli", "multipart", "socks"] }
 rpassword = "5.0.0"
@@ -37,6 +38,8 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 assert_cmd = "1.0"
 indoc = "1.0"
 predicates = "1.0.7"
+httpmock = "0.5.5"
+tempfile = "3.2.0"
 
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }

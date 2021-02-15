@@ -1,10 +1,8 @@
-use std::env;
-
 use atty::Stream;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 
 mod auth;
 mod buffer;
@@ -24,13 +22,13 @@ use printer::Printer;
 use request_items::{Body, RequestItems};
 use reqwest::redirect::Policy;
 use url::Url;
-use utils::body_from_stdin;
+use utils::{body_from_stdin, test_mode};
 
 fn get_user_agent() -> &'static str {
     // Hard-coded user agent for the benefit of tests
     // In integration tests the binary isn't compiled with cfg(test), so we
     // use an environment variable
-    if cfg!(test) || env::var_os("XH_TEST_MODE").is_some() {
+    if test_mode() {
         "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
@@ -39,7 +37,18 @@ fn get_user_agent() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Cli::from_args();
+    std::process::exit(inner_main().await?);
+}
+
+/// [`main`] is wrapped around this function so it can safely exit with an
+/// exit code.
+///
+/// [`std::process::exit`] is a hard termination, that ends the process
+/// without doing any cleanup. So we need to return from this function first.
+///
+/// The outer main function could also be a good place for error handling.
+async fn inner_main() -> Result<i32> {
+    let args = Cli::from_args()?;
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
@@ -59,10 +68,9 @@ async fn main() -> Result<()> {
         (None, None) => None,
     };
 
-    let (method, url) = args.method_url;
-    let url = Url::new(url, args.default_scheme)?;
+    let url = Url::new(args.url, args.default_scheme)?;
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
-    let method = method.unwrap_or_else(|| Method::from(&body)).into();
+    let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
     let auth = Auth::new(args.auth, args.auth_type, &host)?;
     let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
@@ -70,6 +78,7 @@ async fn main() -> Result<()> {
     };
 
     let mut client = Client::builder().redirect(redirect);
+    let mut resume: Option<u64> = None;
 
     if let Some(proxies) = args.proxy {
         for proxy in proxies {
@@ -107,12 +116,12 @@ async fn main() -> Result<()> {
             None => request_builder.header(ACCEPT, HeaderValue::from_static("*/*")),
         };
 
-        request_builder = match get_file_size(&args.output) {
-            Some(r) if args.download && args.resume => {
-                request_builder.header(RANGE, HeaderValue::from_str(&format!("bytes={}", r))?)
+        if args.resume {
+            if let Some(file_size) = get_file_size(args.output.as_deref()) {
+                request_builder = request_builder.header(RANGE, format!("bytes={}-", file_size));
+                resume = Some(file_size);
             }
-            _ => request_builder,
-        };
+        }
 
         request_builder = match auth {
             Some(Auth::Bearer(token)) => request_builder.bearer_auth(token),
@@ -150,16 +159,29 @@ async fn main() -> Result<()> {
         printer.print_request_body(&request)?;
     }
     if !args.offline {
+        let orig_url = request.url().clone();
         let response = client.execute(request).await?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
+        let status = response.status();
+        let exit_code: i32 = match status.as_u16() {
+            _ if !(args.check_status || args.download) => 0,
+            300..=399 if !args.follow => 3,
+            400..=499 => 4,
+            500..=599 => 5,
+            _ => 0,
+        };
         if args.download {
-            let resume = response.status() == StatusCode::PARTIAL_CONTENT;
-            download_file(response, args.output, resume, args.quiet).await?;
+            if exit_code == 0 {
+                download_file(response, args.output, &orig_url, resume, args.quiet).await?;
+            }
         } else if print.response_body {
             printer.print_response_body(response).await?;
         }
+        // TODO: print warning if output is being redirected
+        Ok(exit_code)
+    } else {
+        Ok(0)
     }
-    Ok(())
 }

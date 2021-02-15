@@ -1,13 +1,14 @@
+use std::mem;
 use std::str::FromStr;
 
-use regex::Regex;
+use anyhow::anyhow;
 use reqwest::Url;
 use std::convert::TryFrom;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{Body, Buffer};
+use crate::{regex, Body, Buffer};
 
 // Following doc comments were copy-pasted from HTTPie
 #[derive(StructOpt, Debug)]
@@ -37,7 +38,7 @@ pub struct Cli {
     #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
 
-    #[structopt(short = "a", long)]
+    #[structopt(short = "a", long, name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Save output to FILE instead of stdout.
@@ -52,6 +53,7 @@ pub struct Cli {
     #[structopt(long = "max-redirects")]
     pub max_redirects: Option<usize>,
 
+    /// Download the body to a file instead of printing it.
     #[structopt(short = "d", long)]
     pub download: bool,
 
@@ -91,6 +93,10 @@ pub struct Cli {
     #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
     pub theme: Option<Theme>,
 
+    /// Exit with an error status code if the server replies with an error.
+    #[structopt(long)]
+    pub check_status: bool,
+
     /// Proxy to use for a specific protocol. The value passed to this option should take the form of
     /// <PROTOCOL>:<PROXY_URL>. You can specify proxies for multiple protocols by repeating this option.
     /// For example, if you want to use a HTTP proxy for HTTPS URLs: `--proxy
@@ -106,39 +112,58 @@ pub struct Cli {
     pub default_scheme: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
-    #[structopt(name = "[METHOD] URL", parse(try_from_str = parse_method_url))]
-    pub method_url: (Option<Method>, String),
+    #[structopt(name = "[METHOD] URL")]
+    raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(name = "REQUEST_ITEM")]
+    raw_rest_args: Vec<String>,
+
+    /// The HTTP method, if supplied.
+    #[structopt(skip)]
+    pub method: Option<Method>,
+
+    /// The request URL.
+    #[structopt(skip)]
+    pub url: String,
+
+    /// Optional key-value pairs to be included in the request.
+    #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
 }
 
 impl Cli {
-    pub fn from_args() -> Self {
+    pub fn from_args() -> anyhow::Result<Self> {
         Cli::from_iter(std::env::args())
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> Self {
-        let mut args = vec![];
-        let mut method = None;
-        // Merge `method` and `url` entries from std::env::args()
-        for arg in iter {
-            if arg.parse::<Method>().is_ok() {
-                method = Some(arg)
-            } else if let Some(method_value) = method {
-                args.push(format!("{} {}", method_value, arg));
-                method = None;
-            } else {
-                args.push(arg);
+    pub fn from_iter(iter: impl IntoIterator<Item = String>) -> anyhow::Result<Self> {
+        let mut cli: Self = StructOpt::from_iter(iter);
+        let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
+        match cli.raw_method_or_url.parse::<Method>() {
+            Ok(method) => {
+                cli.method = Some(method);
+                cli.url = rest_args.next().ok_or_else(|| anyhow!("Missing URL"))?;
+            }
+            Err(_) => {
+                cli.method = None;
+                cli.url = mem::take(&mut cli.raw_method_or_url);
             }
         }
-
-        StructOpt::from_iter(args)
+        for request_item in rest_args {
+            cli.request_items.push(request_item.parse()?);
+        }
+        if cli.resume && !cli.download {
+            return Err(anyhow!("--continue only works with --download"));
+        }
+        if cli.resume && cli.output.is_none() {
+            return Err(anyhow!("--continue requires --output"));
+        }
+        Ok(cli)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Method {
     GET,
     HEAD,
@@ -188,15 +213,6 @@ impl From<&Option<Body>> for Method {
             Some(_) => Method::POST,
             None => Method::GET,
         }
-    }
-}
-
-fn parse_method_url(s: &str) -> Result<(Option<Method>, String)> {
-    let parts = s.split_whitespace().collect::<Vec<_>>();
-    if parts.len() == 1 {
-        Ok((None, parts[0].to_string()))
-    } else {
-        Ok((Some(parts[0].parse()?), parts[1].to_string()))
     }
 }
 
@@ -367,7 +383,7 @@ impl FromStr for Proxy {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RequestItem {
     HttpHeader(String, String),
     HttpHeaderToUnset(String),
@@ -380,22 +396,16 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = Error;
     fn from_str(request_item: &str) -> Result<RequestItem> {
-        lazy_static::lazy_static! {
-            static ref RE1: Regex = Regex::new(r"^(.+?)@(.+?);type=(.+?)$").unwrap();
-        }
-        lazy_static::lazy_static! {
-            static ref RE2: Regex = Regex::new(r"^(.+?)(==|:=|=|@|:)((?s).+)$").unwrap();
-        }
-        lazy_static::lazy_static! {
-            static ref RE3: Regex = Regex::new(r"^(.+?)(:|;)$").unwrap();
-        }
+        regex!(FORM_FILE_TYPED = r"^(.+?)@(.+?);type=(.+?)$");
+        regex!(PARAM = r"^(.+?)(==|:=|=|@|:)((?s).+)$");
+        regex!(NO_HEADER = r"^(.+?)(:|;)$");
 
-        if let Some(caps) = RE1.captures(request_item) {
+        if let Some(caps) = FORM_FILE_TYPED.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[2].to_string();
             let file_type = caps[3].to_string();
             Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = RE2.captures(request_item) {
+        } else if let Some(caps) = PARAM.captures(request_item) {
             let key = caps[1].to_string();
             let value = caps[3].to_string();
             match &caps[2] {
@@ -414,7 +424,7 @@ impl FromStr for RequestItem {
                 "@" => Ok(RequestItem::FormFile(key, value, None)),
                 _ => unreachable!(),
             }
-        } else if let Some(caps) = RE3.captures(request_item) {
+        } else if let Some(caps) = NO_HEADER.captures(request_item) {
             let key = caps[1].to_string();
             match &caps[2] {
                 ":" => Ok(RequestItem::HttpHeaderToUnset(key)),
@@ -422,10 +432,92 @@ impl FromStr for RequestItem {
                 _ => unreachable!(),
             }
         } else {
+            // TODO: We can also end up here if the method couldn't be parsed
+            // and was interpreted as a URL, making the actual URL a request
+            // item
             Err(Error::with_description(
-                &format!("{:?} is not a valid value", request_item),
+                &format!("{:?} is not a valid request item", request_item),
                 ErrorKind::InvalidValue,
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn parse(args: &[&str]) -> anyhow::Result<Cli> {
+        Cli::from_iter(
+            Some("xh".to_string())
+                .into_iter()
+                .chain(args.iter().map(|s| s.to_string())),
+        )
+    }
+
+    #[test]
+    fn implicit_method() {
+        let cli = parse(&["example.org"]).unwrap();
+        assert_eq!(cli.method, None);
+        assert_eq!(cli.url, "example.org");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn explicit_method() {
+        let cli = parse(&["get", "example.org"]).unwrap();
+        assert_eq!(cli.method, Some(Method::GET));
+        assert_eq!(cli.url, "example.org");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn missing_url() {
+        parse(&["get"]).unwrap_err();
+    }
+
+    #[test]
+    fn space_in_url() {
+        let cli = parse(&["post", "example.org/foo bar"]).unwrap();
+        assert_eq!(cli.method, Some(Method::POST));
+        assert_eq!(cli.url, "example.org/foo bar");
+        assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn request_items() {
+        let cli = parse(&["get", "example.org", "foo=bar"]).unwrap();
+        assert_eq!(cli.method, Some(Method::GET));
+        assert_eq!(cli.url, "example.org");
+        assert_eq!(
+            cli.request_items,
+            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+        );
+    }
+
+    #[test]
+    fn request_items_implicit_method() {
+        let cli = parse(&["example.org", "foo=bar"]).unwrap();
+        assert_eq!(cli.method, None);
+        assert_eq!(cli.url, "example.org");
+        assert_eq!(
+            cli.request_items,
+            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+        );
+    }
+
+    #[test]
+    fn superfluous_arg() {
+        parse(&["get", "example.org", "foobar"]).unwrap_err();
+    }
+
+    #[test]
+    fn superfluous_arg_implicit_method() {
+        parse(&["example.org", "foobar"]).unwrap_err();
+    }
+
+    #[test]
+    fn multiple_methods() {
+        parse(&["get", "post", "example.org"]).unwrap_err();
     }
 }
