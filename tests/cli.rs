@@ -139,7 +139,7 @@ fn proxy_invalid_protocol() {
         .arg("http://httpbin.org/get");
 
     cmd.assert().stderr(indoc! {r#"
-        error: Invalid value for '--proxy <<PROTOCOL>:<PROXY_URL>>...': error: Unknown protocol to set a proxy for: invalid
+        error: Invalid value for '--proxy <PROTOCOL:PROXY_URL>...': error: Unknown protocol to set a proxy for: invalid
 
     "#});
 }
@@ -154,7 +154,7 @@ fn proxy_invalid_proxy_url() {
         .arg("http://httpbin.org/get");
 
     cmd.assert().stderr(indoc! {r#"
-        error: Invalid value for '--proxy <<PROTOCOL>:<PROXY_URL>>...': error: Invalid proxy URL '127.0.0.1:8000' for protocol 'invalid': relative URL without a base
+        error: Invalid value for '--proxy <PROTOCOL:PROXY_URL>...': error: Invalid proxy URL '127.0.0.1:8000' for protocol 'invalid': relative URL without a base
 
     "#});
 }
