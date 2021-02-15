@@ -80,7 +80,7 @@ async fn inner_main() -> Result<i32> {
     let mut client = Client::builder().redirect(redirect);
     let mut resume: Option<u64> = None;
 
-    for proxy in args.proxy {
+    for proxy in args.proxy.into_iter().rev() {
         client = client.proxy(match proxy {
             Proxy::Http(url) => reqwest::Proxy::http(url),
             Proxy::Https(url) => reqwest::Proxy::https(url),
