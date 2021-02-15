@@ -97,13 +97,18 @@ pub struct Cli {
     #[structopt(long)]
     pub check_status: bool,
 
-    /// Proxy to use for a specific protocol. The value passed to this option should take the form of
-    /// <PROTOCOL>:<PROXY_URL>. You can specify proxies for multiple protocols by repeating this option.
-    /// For example, if you want to use a HTTP proxy for HTTPS URLs: `--proxy
-    /// https:http://proxy.host:8080`. If your proxy requires credentials, put them in the URL,
-    /// like so: `--proxy http:socks5://user:password@proxy.host:8000`.
-    /// Note that when this option is absent, the environment variables `http_proxy` and
-    /// `https_proxy` can be used to set proxies to use.
+    /// Proxy to use for a specific protocol. The value passed to this option should take the form
+    /// of <PROTOCOL>:<PROXY_URL>. For example: `--proxy https:http://proxy.host:8080`.
+    ///
+    /// PROTOCOL can be `http`, `https` or `all`.
+    ///
+    /// If your proxy requires credentials, put them in the URL, like so: `--proxy
+    /// http:socks5://user:password@proxy.host:8000`.
+    ///
+    /// You can specify proxies for multiple protocols by repeating this option.
+    ///
+    /// When omitting this option, the environment variables `http_proxy` and `https_proxy` can
+    /// also be used.
     #[structopt(long, value_name = "PROTOCOL:PROXY_URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
