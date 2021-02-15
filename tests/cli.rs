@@ -207,6 +207,7 @@ fn download() {
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59
+
 #[test]
 fn verify_default_yes() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = get_command();
@@ -215,19 +216,8 @@ fn verify_default_yes() -> Result<(), Box<dyn std::error::Error>> {
         .arg("get")
         .arg("https://self-signed.badssl.com");
 
-    cmd.assert().stdout(indoc! {r#"
-        GET / HTTP/1.1
-        accept: application/json, */*
-        accept-encoding: gzip, deflate
-        connection: keep-alive
-        content-length: 0
-        content-type: application/json
-        host: self-signed.badssl.com
-        user-agent: xh/0.0.0 (test mode)
-
-
-
-    "#});
+    cmd.assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"));
 
     cmd.assert().stderr(indoc! {r#"
     Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
@@ -249,19 +239,8 @@ fn verify_explicit_yes() -> Result<(), Box<dyn std::error::Error>> {
         .arg("get")
         .arg("https://self-signed.badssl.com");
 
-    cmd.assert().stdout(indoc! {r#"
-        GET / HTTP/1.1
-        accept: application/json, */*
-        accept-encoding: gzip, deflate
-        connection: keep-alive
-        content-length: 0
-        content-type: application/json
-        host: self-signed.badssl.com
-        user-agent: xh/0.0.0 (test mode)
-
-
-
-    "#});
+    cmd.assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"));
 
     cmd.assert().stderr(indoc! {r#"
     Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
