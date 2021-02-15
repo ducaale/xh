@@ -128,3 +128,47 @@ fn multiline_value() {
 
     "#});
 }
+
+#[test]
+fn proxy_invalid_protocol() {
+    let mut cmd = get_command();
+    cmd.arg("--offline")
+        .arg("--pretty=format")
+        .arg("--proxy=invalid:http://127.0.0.1:8000")
+        .arg("GET")
+        .arg("http://httpbin.org/get");
+
+    cmd.assert().stderr(indoc! {r#"
+        error: Invalid value for '--proxy <<PROTOCOL>:<PROXY_URL>>...': error: Unknown protocol to set a proxy for: invalid
+
+    "#});
+}
+
+#[test]
+fn proxy_invalid_proxy_url() {
+    let mut cmd = get_command();
+    cmd.arg("--offline")
+        .arg("--pretty=format")
+        .arg("--proxy=invalid:127.0.0.1:8000")
+        .arg("GET")
+        .arg("http://httpbin.org/get");
+
+    cmd.assert().stderr(indoc! {r#"
+        error: Invalid value for '--proxy <<PROTOCOL>:<PROXY_URL>>...': error: Invalid proxy URL '127.0.0.1:8000' for protocol 'invalid': relative URL without a base
+
+    "#});
+}
+
+#[test]
+fn proxy_multiple_valid_proxies() {
+    let mut cmd = get_command();
+    cmd.arg("--offline")
+        .arg("--pretty=format")
+        .arg("--proxy=http:https://127.0.0.1:8000")
+        .arg("--proxy=https:socks5://127.0.0.1:8000")
+        .arg("--proxy=all:http://127.0.0.1:8000")
+        .arg("GET")
+        .arg("http://httpbin.org/get");
+
+    cmd.assert().success();
+}

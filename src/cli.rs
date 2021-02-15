@@ -340,7 +340,7 @@ impl FromStr for Proxy {
                 let url = reqwest::Url::try_from(url).map_err(|e| {
                     Error::with_description(
                         &format!(
-                            "Invalid proxy URL '{}' for protocol {}: {}",
+                            "Invalid proxy URL '{}' for protocol '{}': {}",
                             url, protocol, e
                         ),
                         ErrorKind::InvalidValue,
