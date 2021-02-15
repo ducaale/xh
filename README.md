@@ -35,8 +35,9 @@ cargo install xh
 ## Usage
 ```
 xh 0.7.0
+
 USAGE:
-    xh [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
+    xh [FLAGS] [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
@@ -45,7 +46,7 @@ FLAGS:
     -m, --multipart       Similar to --form, but always sends a multipart/form-data request (i.e., even without files)
     -I, --ignore-stdin    Do not attempt to read stdin
     -F, --follow          Do follow redirects
-    -d, --download
+    -d, --download        
     -h, --headers         Print only the response headers, shortcut for --print=h
     -b, --body            Print only the response body, Shortcut for --print=b
     -c, --continue        Resume an interrupted download
@@ -56,14 +57,19 @@ FLAGS:
     -V, --version         Prints version information
 
 OPTIONS:
-    -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
-    -a, --auth <auth>
-    -o, --output <output>                    Save output to FILE instead of stdout
-        --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
-    -p, --print <print>                      String specifying what the output should contain
-        --pretty <pretty>                    Controls output processing [possible values: All, Colors, Format, None]
-    -s, --style <theme>                      Output coloring style [possible values: Auto, Solarized]
-        --default-scheme <default-scheme>    The default scheme to use if not specified in the URL
+    -A, --auth-type <auth-type>                Specify the auth mechanism [possible values: Basic, Bearer]
+    -a, --auth <auth>                          
+    -o, --output <output>                      Save output to FILE instead of stdout
+        --max-redirects <max-redirects>        Number of redirects to follow, only respected if `follow` is set
+    -p, --print <print>                        String specifying what the output should contain
+        --pretty <pretty>                      Controls output processing [possible values: All, Colors, Format, None]
+    -s, --style <theme>                        Output coloring style [possible values: Auto, Solarized]
+        --proxy <<PROTOCOL>:<PROXY_URL>>...    Proxy to use for a specific protocol. The value passed to this option
+                                               should take the form of <PROTOCOL>:<PROXY_URL>. You can specify proxies
+                                               for multiple protocols by repeating this option. Note that when this
+                                               option is absent, the environment variables `http_proxy` and
+                                               `https_proxy` can be used to set proxies to use
+        --default-scheme <default-scheme>      The default scheme to use if not specified in the URL
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
