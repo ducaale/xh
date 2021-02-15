@@ -2,6 +2,8 @@ use std::mem;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use reqwest::Url;
+use std::convert::TryFrom;
 use structopt::clap::AppSettings;
 use structopt::clap::{arg_enum, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -94,6 +96,21 @@ pub struct Cli {
     /// Exit with an error status code if the server replies with an error.
     #[structopt(long)]
     pub check_status: bool,
+
+    /// Proxy to use for a specific protocol. The value passed to this option should take the form
+    /// of <PROTOCOL>:<PROXY_URL>. For example: `--proxy https:http://proxy.host:8080`.
+    ///
+    /// PROTOCOL can be `http`, `https` or `all`.
+    ///
+    /// If your proxy requires credentials, put them in the URL, like so: `--proxy
+    /// http:socks5://user:password@proxy.host:8000`.
+    ///
+    /// You can specify proxies for multiple protocols by repeating this option.
+    ///
+    /// When omitting this option, the environment variables `http_proxy` and `https_proxy` can
+    /// also be used.
+    #[structopt(long, value_name = "PROTOCOL:PROXY_URL", number_of_values = 1)]
+    pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
     #[structopt(long = "default-scheme")]
@@ -330,6 +347,48 @@ impl FromStr for Print {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Proxy {
+    Http(Url),
+    Https(Url),
+    All(Url),
+}
+
+impl FromStr for Proxy {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let split_arg: Vec<&str> = s.splitn(2, ":").collect();
+        match split_arg[..] {
+            [protocol, url] => {
+                let url = reqwest::Url::try_from(url).map_err(|e| {
+                    Error::with_description(
+                        &format!(
+                            "Invalid proxy URL '{}' for protocol '{}': {}",
+                            url, protocol, e
+                        ),
+                        ErrorKind::InvalidValue,
+                    )
+                })?;
+
+                match protocol.to_lowercase().as_str() {
+                    "http" => Ok(Proxy::Http(url)),
+                    "https" => Ok(Proxy::Https(url)),
+                    "all" => Ok(Proxy::All(url)),
+                    _ => Err(Error::with_description(
+                        &format!("Unknown protocol to set a proxy for: {}", protocol),
+                        ErrorKind::InvalidValue,
+                    )),
+                }
+            }
+            _ => Err(Error::with_description(
+                "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>",
+                ErrorKind::InvalidValue,
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RequestItem {
     HttpHeader(String, String),
@@ -466,5 +525,58 @@ mod test {
     #[test]
     fn multiple_methods() {
         parse(&["get", "post", "example.org"]).unwrap_err();
+    }
+
+    #[test]
+    fn proxy_invalid_protocol() {
+        Cli::from_iter_safe(&[
+            "xh",
+            "--proxy=invalid:http://127.0.0.1:8000",
+            "get",
+            "example.org",
+        ])
+        .unwrap_err();
+    }
+
+    #[test]
+    fn proxy_invalid_proxy_url() {
+        Cli::from_iter_safe(&["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
+            .unwrap_err();
+    }
+
+    #[test]
+    fn proxy_http() {
+        let proxy = parse(&["--proxy=http:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::Http(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
+    }
+
+    #[test]
+    fn proxy_https() {
+        let proxy = parse(&["--proxy=https:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::Https(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
+    }
+
+    #[test]
+    fn proxy_all() {
+        let proxy = parse(&["--proxy=all:http://127.0.0.1:8000", "get", "example.org"])
+            .unwrap()
+            .proxy;
+
+        assert_eq!(
+            proxy,
+            vec!(Proxy::All(Url::parse("http://127.0.0.1:8000").unwrap()))
+        );
     }
 }
