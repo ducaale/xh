@@ -190,10 +190,14 @@ impl Cli {
                 // with a special tag.
                 if err.message == "XH_PRINT_LONG_HELP" {
                     Cli::clap().print_long_help().unwrap();
+                    println!();
                 } else {
                     Cli::clap().print_help().unwrap();
+                    println!(
+                        "\n\nRun `{} help` for more complete documentation.",
+                        env!("CARGO_PKG_NAME")
+                    );
                 }
-                println!();
                 safe_exit();
             }
             Err(err) => err.exit(),
