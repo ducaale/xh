@@ -115,7 +115,8 @@ pub struct Cli {
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// The environment variables `$http_proxy` and `$https_proxy` can also be used.
+    /// The environment variables `http_proxy` and `https_proxy` can also be used, but
+    /// are completely ignored if --proxy is passed.
     #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
