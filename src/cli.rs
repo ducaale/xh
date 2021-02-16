@@ -33,6 +33,8 @@ pub struct Cli {
     pub ignore_stdin: bool,
 
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
+    ///
+    /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
     #[structopt(short = "a", long, name = "USER[:PASS]")]
     pub auth: Option<String>,
 
@@ -64,7 +66,7 @@ pub struct Cli {
     #[structopt(short = "b", long)]
     pub body: bool,
 
-    /// Resume an interrupted download.
+    /// Resume an interrupted download. Requires --download and --output.
     #[structopt(short = "c", long = "continue")]
     pub resume: bool,
 
@@ -125,11 +127,27 @@ pub struct Cli {
     pub default_scheme: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
+    ///
+    /// METHOD can be `get`, `head`, `post`, `put`, `patch`, `delete` or `options`.
+    /// If omitted, either a GET or a POST will be done depending on whether the
+    /// request sends data.
     #[structopt(name = "[METHOD] URL")]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
-    #[structopt(name = "REQUEST_ITEM")]
+    #[structopt(
+        name = "REQUEST_ITEM",
+        long_help = "Optional key-value pairs to be included in the request.
+
+- key==value to add a parameter to the URL
+- key=value to add a JSON field (--json) or form field (--form)
+- key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
+- key@filename to upload a file from filename (with --form)
+- header:value to add a header
+- header: to unset a header
+- header; to add a header with an empty value
+"
+    )]
     raw_rest_args: Vec<String>,
 
     /// The HTTP method, if supplied.
