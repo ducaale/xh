@@ -108,8 +108,8 @@ pub fn colorize<'a>(
         .find_syntax_by_extension(syntax)
         .expect("syntax not found");
     let mut h = match theme {
-        Theme::Auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
-        Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
+        Theme::auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
+        Theme::solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
     };
 
     for line in LinesWithEndings::from(text) {

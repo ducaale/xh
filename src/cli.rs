@@ -303,32 +303,28 @@ impl From<&Option<Body>> for Method {
 }
 
 arg_enum! {
-    #[derive(Debug)]
-    pub enum AuthType {
-        Basic, Bearer
-    }
-}
-
-arg_enum! {
+    // Uppercase variant names would show up as such in the help text
+    #[allow(non_camel_case_types)]
     #[derive(Debug, PartialEq, Clone)]
     pub enum Pretty {
-        All, Colors, Format, None
+        all, colors, format, none
     }
 }
 
 impl From<&Buffer> for Pretty {
     fn from(b: &Buffer) -> Self {
         match b {
-            Buffer::File(_) | Buffer::Redirect => Pretty::None,
-            Buffer::Stdout | Buffer::Stderr => Pretty::All,
+            Buffer::File(_) | Buffer::Redirect => Pretty::none,
+            Buffer::Stdout | Buffer::Stderr => Pretty::all,
         }
     }
 }
 
 arg_enum! {
+    #[allow(non_camel_case_types)]
     #[derive(Debug, PartialEq, Clone)]
     pub enum Theme {
-        Auto, Solarized
+        auto, solarized
     }
 }
 
