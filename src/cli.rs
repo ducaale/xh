@@ -1,14 +1,21 @@
+use std::convert::TryFrom;
+use std::env;
+use std::ffi::OsString;
+use std::io::Write;
+use std::mem;
 use std::str::FromStr;
-use std::{ffi::OsString, mem};
 
 use reqwest::Url;
-use std::convert::TryFrom;
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
 use crate::{regex, Body, Buffer};
 
-// Following doc comments were copy-pasted from HTTPie
+// Some doc comments were copy-pasted from HTTPie
+
+/// xh is a friendly and fast tool for sending HTTP requests.
+///
+/// It reimplements as much as possible of HTTPie's excellent design.
 #[derive(StructOpt, Debug)]
 #[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
 pub struct Cli {
@@ -43,7 +50,7 @@ pub struct Cli {
     pub bearer: Option<String>,
 
     /// Save output to FILE instead of stdout.
-    #[structopt(short, long)]
+    #[structopt(short, long, name = "FILE")]
     pub output: Option<String>,
 
     /// Do follow redirects.
@@ -76,7 +83,7 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
-    #[structopt(short = "p", long)]
+    #[structopt(short = "p", long, name = "FORMAT")]
     pub print: Option<Print>,
 
     /// Print the whole request as well as the response.
@@ -92,11 +99,11 @@ pub struct Cli {
     pub stream: bool,
 
     /// Controls output processing.
-    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true)]
+    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, name = "STYLE")]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true)]
+    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true, name = "THEME")]
     pub theme: Option<Theme>,
 
     /// Exit with an error status code if the server replies with an error.
@@ -128,7 +135,7 @@ pub struct Cli {
 
     /// The request URL, preceded by an optional HTTP method.
     ///
-    /// METHOD can be `get`, `head`, `post`, `put`, `patch`, `delete` or `options`.
+    /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
     /// If omitted, either a GET or a POST will be done depending on whether the
     /// request sends data.
     #[structopt(name = "[METHOD] URL")]
@@ -188,7 +195,22 @@ impl Cli {
                 // would print long help and print short help instead. And if we do
                 // want to print long help, then we insert our own error in from_iter_safe
                 // with a special tag.
-                if err.message == "XH_PRINT_LONG_HELP" {
+                if env::var_os("XH_HELP2MAN").is_some() {
+                    Cli::clap()
+                        .template(
+                            "\
+                                Usage: {usage}\n\
+                                \n\
+                                {long-about}\n\
+                                \n\
+                                Options:\n\
+                                {flags}\n\
+                                {options}\
+                            ",
+                        )
+                        .print_long_help()
+                        .unwrap();
+                } else if err.message == "XH_PRINT_LONG_HELP" {
                     Cli::clap().print_long_help().unwrap();
                     println!();
                 } else {
@@ -528,11 +550,8 @@ impl FromStr for RequestItem {
 
 /// Based on the function used by clap to abort
 fn safe_exit() -> ! {
-    use std::io::Write;
-
     let _ = std::io::stdout().lock().flush();
     let _ = std::io::stderr().lock().flush();
-
     std::process::exit(0);
 }
 
