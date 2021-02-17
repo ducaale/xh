@@ -83,7 +83,9 @@ async fn inner_main() -> Result<i32> {
     let mut resume: Option<u64> = None;
 
     if url.0.scheme() == "https" {
-        client = client.danger_accept_invalid_certs(args.verify == Verify::No);
+        if args.verify == Verify::No {
+            client = client.danger_accept_invalid_certs(true);
+        }
 
         if let Verify::CustomCABundle(path) = args.verify {
             // FIXME: Change the version of reqwest in Cargo.toml to an official released version (> 0.11.0) which should contain this function
