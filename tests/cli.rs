@@ -319,7 +319,7 @@ fn proxy_multiple_valid_proxies() {
 // This intersects with both #41 and #59
 
 #[test]
-fn verify_default_yes() -> Result<(), Box<dyn std::error::Error>> {
+fn verify_default_yes() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -336,12 +336,10 @@ fn verify_default_yes() -> Result<(), Box<dyn std::error::Error>> {
         0: error trying to connect: invalid certificate: UnknownIssuer
         1: invalid certificate: UnknownIssuer
     "#});
-
-    Ok(())
 }
 
 #[test]
-fn verify_explicit_yes() -> Result<(), Box<dyn std::error::Error>> {
+fn verify_explicit_yes() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -359,12 +357,10 @@ fn verify_explicit_yes() -> Result<(), Box<dyn std::error::Error>> {
         0: error trying to connect: invalid certificate: UnknownIssuer
         1: invalid certificate: UnknownIssuer
     "#});
-
-    Ok(())
 }
 
 #[test]
-fn verify_no() -> Result<(), Box<dyn std::error::Error>> {
+fn verify_no() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -379,12 +375,10 @@ fn verify_no() -> Result<(), Box<dyn std::error::Error>> {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
 
     cmd.assert().stderr(predicates::str::is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn verify_valid_file() -> Result<(), Box<dyn std::error::Error>> {
+fn verify_valid_file() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -399,12 +393,10 @@ fn verify_valid_file() -> Result<(), Box<dyn std::error::Error>> {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
 
     cmd.assert().stderr(predicates::str::is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn cert_without_key() -> Result<(), Box<dyn std::error::Error>> {
+fn cert_without_key() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -416,12 +408,10 @@ fn cert_without_key() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     cmd.assert().stderr(predicates::str::is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn cert_with_key() -> Result<(), Box<dyn std::error::Error>> {
+fn cert_with_key() {
     let mut cmd = get_command();
     cmd.arg("-v")
         .arg("--pretty=format")
@@ -438,6 +428,4 @@ fn cert_with_key() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     cmd.assert().stderr(predicates::str::is_empty());
-
-    Ok(())
 }
