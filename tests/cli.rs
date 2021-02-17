@@ -324,101 +324,80 @@ fn verify_default_yes() {
         .arg("-v")
         .arg("--pretty=format")
         .arg("get")
-        .arg("https://self-signed.badssl.com");
+        .arg("https://self-signed.badssl.com")
         .assert()
         .failure()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"));
-        .stderr(predicates::str::contains("UnknownIssuer));
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stderr(predicates::str::contains("UnknownIssuer"));
 }
 
 #[test]
 fn verify_explicit_yes() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("--verify=yes")
         .arg("get")
-        .arg("https://self-signed.badssl.com");
-
-    cmd.assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"));
-
-    cmd.assert().stderr(indoc! {r#"
-    Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
-
-    Caused by:
-        0: error trying to connect: invalid certificate: UnknownIssuer
-        1: invalid certificate: UnknownIssuer
-    "#});
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .failure()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stderr(predicates::str::contains("UnknownIssuer"));
 }
 
 #[test]
 fn verify_no() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("--verify=no")
         .arg("get")
-        .arg("https://self-signed.badssl.com");
-
-    cmd.assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"));
-
-    cmd.assert()
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
-
-    cmd.assert().stderr(predicates::str::is_empty());
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stderr(predicates::str::is_empty());
 }
 
 #[test]
 fn verify_valid_file() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
         .arg("get")
-        .arg("https://self-signed.badssl.com");
-
-    cmd.assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"));
-
-    cmd.assert()
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
-
-    cmd.assert().stderr(predicates::str::is_empty());
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stderr(predicates::str::is_empty());
 }
 
 #[test]
 fn cert_without_key() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("get")
-        .arg("https://client.badssl.com");
-
-    cmd.assert().stdout(predicates::str::contains(
-        "<head><title>400 No required SSL certificate was sent</title></head>",
-    ));
-
-    cmd.assert().stderr(predicates::str::is_empty());
+        .arg("https://client.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains(
+            "400 No required SSL certificate was sent",
+        ))
+        .stderr(predicates::str::is_empty());
 }
 
 #[test]
 fn cert_with_key() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
         .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
         .arg("get")
-        .arg("https://client.badssl.com");
-
-    cmd.assert()
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
-
-    cmd.assert().stdout(predicates::str::contains(
-            r#"This site requires a <a href="https://en.wikipedia.org/wiki/Transport_Layer_Security#Client-authenticated_TLS_handshake">client-authenticated</a> TLS handshak"#
-    ));
-
-    cmd.assert().stderr(predicates::str::is_empty());
+        .arg("https://client.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(predicates::str::contains("client-authenticated"))
+        .stderr(predicates::str::is_empty());
 }
