@@ -135,6 +135,15 @@ async fn inner_main() -> Result<i32> {
 
     let client = client.build()?;
     let mut resume: Option<u64> = None;
+    
+    for proxy in args.proxy.into_iter().rev() {
+        client = client.proxy(match proxy {
+            Proxy::Http(url) => reqwest::Proxy::http(url),
+            Proxy::Https(url) => reqwest::Proxy::https(url),
+            Proxy::All(url) => reqwest::Proxy::all(url),
+        }?);
+    }
+    
     let request = {
         let mut request_builder = client
             .request(method, url.0)

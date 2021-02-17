@@ -35,8 +35,9 @@ cargo install xh
 ## Usage
 ```
 xh 0.7.0
+
 USAGE:
-    xh [FLAGS] [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
+    xh [FLAGS] [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
@@ -58,12 +59,20 @@ FLAGS:
 
 OPTIONS:
     -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
-    -a, --auth <USER[:PASS] | TOKEN>
+    -a, --auth <USER[:PASS] | TOKEN>         
     -o, --output <output>                    Save output to FILE instead of stdout
         --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
     -p, --print <print>                      String specifying what the output should contain
         --pretty <pretty>                    Controls output processing [possible values: All, Colors, Format, None]
     -s, --style <theme>                      Output coloring style [possible values: Auto, Solarized]
+        --proxy <PROTOCOL:PROXY_URL>...      Proxy to use for a specific protocol. The value passed to this option
+                                             should take the form of <PROTOCOL>:<PROXY_URL>. You can specify proxies for
+                                             multiple protocols by repeating this option. For example, if you want to
+                                             use a HTTP proxy for HTTPS URLs: `--proxy https:http://proxy.host:8080`. If
+                                             your proxy requires credentials, put them in the URL, like so: `--proxy
+                                             http:socks5://user:password@proxy.host:8000`. Note that when this option is
+                                             absent, the environment variables `http_proxy` and `https_proxy` can be
+                                             used to set proxies to use
         --default-scheme <default-scheme>    The default scheme to use if not specified in the URL
 
 ARGS:
