@@ -1,5 +1,3 @@
-use std::env;
-
 mod auth;
 mod buffer;
 mod cli;
