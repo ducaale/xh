@@ -118,7 +118,7 @@ async fn inner_main() -> Result<i32> {
                 .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
 
             if let Some(cert_key) = args.cert_key {
-                buffer.push(0x0Au8);
+                buffer.push(b'\n');
 
                 let mut file = File::open(&cert_key).with_context(|| {
                     format!("Failed to open the cert key file: {}", cert_key.display())
