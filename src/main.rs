@@ -14,9 +14,9 @@ mod url;
 mod utils;
 
 use anyhow::{anyhow, Result};
-use auth::Auth;
+use auth::parse_auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, Proxy, RequestItem, Theme};
+use cli::{Cli, Method, Pretty, Print, Proxy, RequestItem, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
 ///
 /// The outer main function could also be a good place for error handling.
 async fn inner_main() -> Result<i32> {
-    let args = Cli::from_args()?;
+    let args = Cli::from_args();
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
@@ -71,7 +71,6 @@ async fn inner_main() -> Result<i32> {
     let url = Url::new(args.url, args.default_scheme)?;
     let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
     let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
-    let auth = Auth::new(args.auth, args.auth_type, &host)?;
     let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
@@ -121,11 +120,13 @@ async fn inner_main() -> Result<i32> {
             }
         }
 
-        request_builder = match auth {
-            Some(Auth::Bearer(token)) => request_builder.bearer_auth(token),
-            Some(Auth::Basic(username, password)) => request_builder.basic_auth(username, password),
-            None => request_builder,
-        };
+        if let Some(auth) = args.auth {
+            let (username, password) = parse_auth(auth, &host)?;
+            request_builder = request_builder.basic_auth(username, password);
+        }
+        if let Some(token) = args.bearer {
+            request_builder = request_builder.bearer_auth(token);
+        }
 
         let mut request = request_builder.query(&query).headers(headers).build()?;
 

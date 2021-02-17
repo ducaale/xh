@@ -41,9 +41,9 @@ USAGE:
 
 FLAGS:
         --offline         Construct HTTP requests without sending them anywhere
-    -j, --json            (default) Data items from the command line are serialized as a JSON object
-    -f, --form            Data items from the command line are serialized as form fields
-    -m, --multipart       Similar to --form, but always sends a multipart/form-data request (i.e., even without files)
+    -j, --json            (default) Serialize data items from the command line as a JSON object
+    -f, --form            Serialize data items from the command line as form fields
+    -m, --multipart       Like --form, but force a multipart/form-data request even without files
     -I, --ignore-stdin    Do not attempt to read stdin
     -F, --follow          Do follow redirects
     -d, --download        Download the body to a file instead of printing it
@@ -58,27 +58,22 @@ FLAGS:
     -V, --version         Prints version information
 
 OPTIONS:
-    -A, --auth-type <auth-type>              Specify the auth mechanism [possible values: Basic, Bearer]
-    -a, --auth <USER[:PASS] | TOKEN>         
-    -o, --output <output>                    Save output to FILE instead of stdout
-        --max-redirects <max-redirects>      Number of redirects to follow, only respected if `follow` is set
-    -p, --print <print>                      String specifying what the output should contain
-        --pretty <pretty>                    Controls output processing [possible values: All, Colors, Format, None]
-    -s, --style <theme>                      Output coloring style [possible values: Auto, Solarized]
-        --proxy <PROTOCOL:PROXY_URL>...      Proxy to use for a specific protocol. The value passed to this option
-                                             should take the form of <PROTOCOL>:<PROXY_URL>. You can specify proxies for
-                                             multiple protocols by repeating this option. For example, if you want to
-                                             use a HTTP proxy for HTTPS URLs: `--proxy https:http://proxy.host:8080`. If
-                                             your proxy requires credentials, put them in the URL, like so: `--proxy
-                                             http:socks5://user:password@proxy.host:8000`. Note that when this option is
-                                             absent, the environment variables `http_proxy` and `https_proxy` can be
-                                             used to set proxies to use
-        --default-scheme <default-scheme>    The default scheme to use if not specified in the URL
+    -a, --auth <USER[:PASS]>         Authenticate as USER with PASS. PASS will be prompted if missing
+        --bearer <TOKEN>             Authenticate with a bearer token
+    -o, --output <output>            Save output to FILE instead of stdout
+        --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
+    -p, --print <print>              String specifying what the output should contain
+        --pretty <pretty>            Controls output processing [possible values: All, Colors, Format, None]
+    -s, --style <theme>              Output coloring style [possible values: Auto, Solarized]
+        --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
+        --default-scheme <SCHEME>    The default scheme to use if not specified in the URL
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
     <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
 ```
+
+Run `xh help` for more detailed information.
 
 ## Request Items
 
