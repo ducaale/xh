@@ -477,10 +477,6 @@ impl FromStr for Verify {
         match verify.to_lowercase().as_str() {
             "no" | "false" => Ok(Verify::No),
             "yes" | "true" => Ok(Verify::Yes),
-            "" => Err(Error::with_description(
-                &format!("{:?} is not a valid value", verify),
-                ErrorKind::InvalidValue,
-            )),
             path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
         }
     }
