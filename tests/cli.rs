@@ -320,22 +320,15 @@ fn proxy_multiple_valid_proxies() {
 
 #[test]
 fn verify_default_yes() {
-    let mut cmd = get_command();
-    cmd.arg("-v")
+    get_command()
+        .arg("-v")
         .arg("--pretty=format")
         .arg("get")
         .arg("https://self-signed.badssl.com");
-
-    cmd.assert()
+        .assert()
+        .failure()
         .stdout(predicates::str::contains("GET / HTTP/1.1"));
-
-    cmd.assert().stderr(indoc! {r#"
-    Error: error sending request for url (https://self-signed.badssl.com/): error trying to connect: invalid certificate: UnknownIssuer
-
-    Caused by:
-        0: error trying to connect: invalid certificate: UnknownIssuer
-        1: invalid certificate: UnknownIssuer
-    "#});
+        .stderr(predicates::str::contains("UnknownIssuer));
 }
 
 #[test]
