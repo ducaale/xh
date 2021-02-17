@@ -16,7 +16,7 @@ mod utils;
 use anyhow::{anyhow, Context, Result};
 use auth::Auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, RequestItem, Theme, Verify};
+use cli::{AuthType, Cli, Method, Pretty, Print, Proxy, RequestItem, Theme, Verify};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -134,8 +134,6 @@ async fn inner_main() -> Result<i32> {
         };
     }
 
-    let client = client.build()?;
-
     for proxy in args.proxy.into_iter().rev() {
         client = client.proxy(match proxy {
             Proxy::Http(url) => reqwest::Proxy::http(url),
@@ -143,6 +141,9 @@ async fn inner_main() -> Result<i32> {
             Proxy::All(url) => reqwest::Proxy::all(url),
         }?);
     }
+
+    let client = client.build()?;
+
     let request = {
         let mut request_builder = client
             .request(method, url.0)
