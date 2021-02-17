@@ -38,7 +38,7 @@ pub struct Printer {
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let pretty = pretty.unwrap_or_else(|| Pretty::from(&buffer));
-        let theme = theme.unwrap_or(Theme::Auto);
+        let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
             indent_json: pretty.format(),
@@ -304,13 +304,13 @@ fn decode_stream(response: &mut Response) -> impl Read + '_ {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::{buffer::BufferKind, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter(args).unwrap();
+        let args = Cli::from_iter_safe(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
         Printer::new(args.pretty, args.theme, false, buffer)
     }
