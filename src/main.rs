@@ -80,6 +80,7 @@ async fn inner_main() -> Result<i32> {
     };
 
     let mut client = Client::builder().redirect(redirect);
+    let mut resume: Option<u64> = None;
 
     if url.0.scheme() == "https" {
         client = client.danger_accept_invalid_certs(args.verify == Verify::No);
@@ -134,8 +135,7 @@ async fn inner_main() -> Result<i32> {
     }
 
     let client = client.build()?;
-    let mut resume: Option<u64> = None;
-    
+
     for proxy in args.proxy.into_iter().rev() {
         client = client.proxy(match proxy {
             Proxy::Http(url) => reqwest::Proxy::http(url),
@@ -143,7 +143,6 @@ async fn inner_main() -> Result<i32> {
             Proxy::All(url) => reqwest::Proxy::all(url),
         }?);
     }
-    
     let request = {
         let mut request_builder = client
             .request(method, url.0)
