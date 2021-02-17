@@ -802,15 +802,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "getopts"
-version = "0.2.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1094,15 +1085,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cfb73131c35423a367daf8cbd24100af0d077668c8c2943f0e7dd775fef0f65"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "jsonxf"
-version = "1.0.2"
-source = "git+https://github.com/blyxxyz/jsonxf?branch=tweaks#cbc16901b743c42709869c9b08e1e300372839e0"
-dependencies = [
- "getopts",
- "memchr",
 ]
 
 [[package]]
@@ -2607,8 +2589,8 @@ dependencies = [
  "httpmock",
  "indicatif",
  "indoc",
- "jsonxf",
  "lazy_static",
+ "memchr",
  "mime",
  "mime2ext",
  "predicates",

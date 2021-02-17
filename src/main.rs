@@ -17,6 +17,7 @@ mod printer;
 mod request_items;
 mod url;
 mod utils;
+mod vendored;
 
 use auth::Auth;
 use buffer::Buffer;

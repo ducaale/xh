@@ -8,6 +8,7 @@ use syntect::parsing::SyntaxSet;
 
 use crate::buffer::Buffer;
 use crate::cli::Theme;
+use crate::vendored::jsonxf;
 
 pub fn get_json_formatter() -> jsonxf::Formatter {
     let mut fmt = jsonxf::Formatter::pretty_printer();
