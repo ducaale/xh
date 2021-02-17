@@ -380,7 +380,7 @@ impl FromStr for Proxy {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let split_arg: Vec<&str> = s.splitn(2, ":").collect();
+        let split_arg: Vec<&str> = s.splitn(2, ':').collect();
         match split_arg[..] {
             [protocol, url] => {
                 let url = reqwest::Url::try_from(url).map_err(|e| {
