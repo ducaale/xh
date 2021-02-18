@@ -1,16 +1,11 @@
 use std::{
     env::var_os,
-    fs::File,
     io::{self, stdin, Read, Write},
-    path::Path,
 };
 
 use anyhow::Result;
 use atty::Stream;
-use reqwest::{
-    blocking::multipart,
-    header::{HeaderMap, CONTENT_TYPE},
-};
+use reqwest::header::{HeaderMap, CONTENT_TYPE};
 
 use crate::Body;
 
@@ -54,21 +49,6 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 None
             }
         })
-}
-
-// https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-pub fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
-    let path = path.as_ref();
-    let file_name = path
-        .file_name()
-        .map(|file_name| file_name.to_string_lossy().to_string());
-    let file = File::open(path)?;
-    let file_length = file.metadata()?.len();
-    let mut part = multipart::Part::reader_with_length(file, file_length);
-    if let Some(file_name) = file_name {
-        part = part.file_name(file_name);
-    }
-    Ok(part)
 }
 
 pub fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {

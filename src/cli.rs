@@ -9,7 +9,11 @@ use reqwest::Url;
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{regex, utils::test_pretend_term, Body, Buffer};
+use crate::{
+    buffer::Buffer,
+    request_items::{Body, RequestItem},
+    utils::test_pretend_term,
+};
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -144,7 +148,7 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request.
     #[structopt(
         name = "REQUEST_ITEM",
-        long_help = "Optional key-value pairs to be included in the request.
+        long_help = r"Optional key-value pairs to be included in the request.
 
 - key==value to add a parameter to the URL
 - key=value to add a JSON field (--json) or form field (--form)
@@ -153,6 +157,8 @@ pub struct Cli {
 - header:value to add a header
 - header: to unset a header
 - header; to add a header with an empty value
+
+A backslash can be used to escape special characters (e.g. weird\:key=value).
 "
     )]
     raw_rest_args: Vec<String>,
@@ -506,66 +512,6 @@ impl FromStr for Proxy {
                 "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>",
                 ErrorKind::InvalidValue,
             )),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RequestItem {
-    HttpHeader(String, String),
-    HttpHeaderToUnset(String),
-    UrlParam(String, String),
-    DataField(String, String),
-    JSONField(String, serde_json::Value),
-    FormFile(String, String, Option<String>),
-}
-
-impl FromStr for RequestItem {
-    type Err = Error;
-    fn from_str(request_item: &str) -> Result<RequestItem> {
-        regex!(FORM_FILE_TYPED = r"^(.+?)@(.+?);type=(.+?)$");
-        regex!(PARAM = r"^(.+?)(==|:=|=|@|:)((?s).+)$");
-        regex!(NO_HEADER = r"^(.+?)(:|;)$");
-
-        if let Some(caps) = FORM_FILE_TYPED.captures(request_item) {
-            let key = caps[1].to_string();
-            let value = caps[2].to_string();
-            let file_type = caps[3].to_string();
-            Ok(RequestItem::FormFile(key, value, Some(file_type)))
-        } else if let Some(caps) = PARAM.captures(request_item) {
-            let key = caps[1].to_string();
-            let value = caps[3].to_string();
-            match &caps[2] {
-                ":" => Ok(RequestItem::HttpHeader(key, value)),
-                "==" => Ok(RequestItem::UrlParam(key, value)),
-                "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JSONField(
-                    key,
-                    serde_json::from_str(&value).map_err(|err| {
-                        Error::with_description(
-                            &format!("{:?}: {}", request_item, err),
-                            ErrorKind::InvalidValue,
-                        )
-                    })?,
-                )),
-                "@" => Ok(RequestItem::FormFile(key, value, None)),
-                _ => unreachable!(),
-            }
-        } else if let Some(caps) = NO_HEADER.captures(request_item) {
-            let key = caps[1].to_string();
-            match &caps[2] {
-                ":" => Ok(RequestItem::HttpHeaderToUnset(key)),
-                ";" => Ok(RequestItem::HttpHeader(key, "".into())),
-                _ => unreachable!(),
-            }
-        } else {
-            // TODO: We can also end up here if the method couldn't be parsed
-            // and was interpreted as a URL, making the actual URL a request
-            // item
-            Err(Error::with_description(
-                &format!("{:?} is not a valid request item", request_item),
-                ErrorKind::InvalidValue,
-            ))
         }
     }
 }
