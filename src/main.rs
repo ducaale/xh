@@ -16,7 +16,7 @@ mod utils;
 use anyhow::{anyhow, Result};
 use auth::parse_auth;
 use buffer::Buffer;
-use cli::{Cli, Method, Pretty, Print, Proxy, RequestItem, Theme};
+use cli::{Cli, Method, Pretty, Print, Proxy, Theme};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
