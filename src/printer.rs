@@ -76,6 +76,7 @@ impl Printer {
 
     fn print_json_text(&mut self, text: &str) -> io::Result<()> {
         if !self.indent_json {
+            // We don't have to do anything specialized, so fall back to the generic version
             self.print_syntax_text(text, "json")
         } else if self.color {
             let mut buf = Vec::new();
@@ -91,6 +92,7 @@ impl Printer {
 
     fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<()> {
         if !self.indent_json {
+            // We don't have to do anything specialized, so fall back to the generic version
             self.print_syntax_stream(stream, "json")
         } else if self.color {
             self.with_highlighter("json", |highlighter| {
