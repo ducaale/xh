@@ -176,10 +176,12 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
 
-    /// Set to "no" (or "false") to skip checking the host's SSL certificate.
-    /// Defaults to "yes" ("true"). You can also pass the path to a CA bundle
-    /// file for private certs.
-    #[structopt(long, default_value, name = "VERIFY")]
+    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
+    ///
+    /// Specifying a CA bundle will disable the system's built-in root certificates.
+    ///
+    /// "false" instead of "no" also works. The default is "yes" ("true").
+    #[structopt(long, default_value, hide_default_value = true, name = "VERIFY")]
     pub verify: Verify,
 
     /// Use a client side certificate for SSL.
