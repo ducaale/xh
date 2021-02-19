@@ -94,10 +94,7 @@ async fn inner_main() -> Result<i32> {
                 format!("Failed to open the custom CA bundle: {}", path.display())
             })?;
             file.read_to_end(&mut buffer).with_context(|| {
-                format!(
-                    "Failed to read the custom CA bundle file: {}",
-                    path.display()
-                )
+                format!("Failed to read the custom CA bundle: {}", path.display())
             })?;
 
             for pem in pem::parse_many(buffer) {
