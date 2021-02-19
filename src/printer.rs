@@ -31,13 +31,13 @@ pub struct Printer {
 impl Printer {
     pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let pretty = pretty.unwrap_or_else(|| Pretty::from(&buffer));
-        let theme = theme.unwrap_or(Theme::Auto);
+        let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
-            indent_json: matches!(pretty, Pretty::All | Pretty::Format),
-            sort_headers: matches!(pretty, Pretty::All | Pretty::Format),
-            color: matches!(pretty, Pretty::All | Pretty::Colors),
-            stream: matches!(pretty, Pretty::None) || stream,
+            indent_json: matches!(pretty, Pretty::all | Pretty::format),
+            sort_headers: matches!(pretty, Pretty::all | Pretty::format),
+            color: matches!(pretty, Pretty::all | Pretty::colors),
+            stream: matches!(pretty, Pretty::none) || stream,
             theme,
             buffer,
         }
@@ -229,13 +229,13 @@ impl Printer {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::{cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter(args).unwrap();
+        let args = Cli::from_iter_safe(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
         Printer::new(args.pretty, args.theme, false, buffer)
     }

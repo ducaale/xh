@@ -1,21 +1,16 @@
 use std::io::{self, Write};
-use std::path::Path;
 
 use ansi_term::Color::{self, Fixed, RGB};
 use ansi_term::{self, Style};
 use anyhow::{anyhow, Result};
 use atty::Stream;
-use reqwest::{
-    header::{HeaderMap, CONTENT_TYPE},
-    multipart,
-};
+use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use tokio::{fs::File, io::AsyncReadExt};
-use tokio_util::codec::{BytesCodec, FramedRead};
+use tokio::io::AsyncReadExt;
 
 use crate::Body;
 use crate::Theme;
@@ -54,24 +49,6 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
         })
 }
 
-// https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
-pub async fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
-    let path = path.as_ref();
-    let file_name = path
-        .file_name()
-        .map(|file_name| file_name.to_string_lossy().to_string());
-    let file = File::open(path).await?;
-    let file_length = file.metadata().await?.len();
-    let mut part = multipart::Part::stream_with_length(
-        reqwest::Body::wrap_stream(FramedRead::new(file, BytesCodec::new())),
-        file_length,
-    );
-    if let Some(file_name) = file_name {
-        part = part.file_name(file_name);
-    }
-    Ok(part)
-}
-
 pub async fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {
     if atty::is(Stream::Stdin) || ignore_stdin {
         Ok(None)
@@ -108,8 +85,8 @@ pub fn colorize<'a>(
         .find_syntax_by_extension(syntax)
         .expect("syntax not found");
     let mut h = match theme {
-        Theme::Auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
-        Theme::Solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
+        Theme::auto => HighlightLines::new(syntax, &TS.themes["ansi"]),
+        Theme::solarized => HighlightLines::new(syntax, &TS.themes["solarized"]),
     };
 
     for line in LinesWithEndings::from(text) {
