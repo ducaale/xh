@@ -241,7 +241,6 @@ impl RequestItems {
     }
 }
 
-// https://github.com/seanmonstar/reqwest/issues/646#issuecomment-616985015
 pub fn file_to_part(path: impl AsRef<Path>) -> io::Result<multipart::Part> {
     let path = path.as_ref();
     let file_name = path

@@ -65,11 +65,11 @@ impl Printer {
         highlighter.finish()
     }
 
-    fn colorize_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+    fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
         self.with_highlighter(syntax, |highlighter| highlighter.highlight(text))
     }
 
-    fn dump(&mut self, reader: &mut impl Read) -> io::Result<()> {
+    fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
         copy_largebuf(reader, &mut self.buffer)?;
         Ok(())
     }
@@ -83,7 +83,7 @@ impl Printer {
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
-            self.colorize_text(&text, "json")
+            self.print_colorized_text(&text, "json")
         } else {
             get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut self.buffer)
         }
@@ -103,7 +103,7 @@ impl Printer {
 
     fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
         if self.color {
-            self.colorize_text(text, syntax)
+            self.print_colorized_text(text, syntax)
         } else {
             self.buffer.print(text)
         }
@@ -120,13 +120,13 @@ impl Printer {
                 Ok(())
             })
         } else {
-            self.dump(stream)
+            self.print_stream(stream)
         }
     }
 
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            self.colorize_text(text, "http")
+            self.print_colorized_text(text, "http")
         } else {
             self.buffer.print(text)
         }
@@ -224,7 +224,7 @@ impl Printer {
             Some(ContentType::Json) => self.print_json_stream(body),
             Some(ContentType::Xml) => self.print_syntax_stream(body, "xml"),
             Some(ContentType::Html) => self.print_syntax_stream(body, "html"),
-            _ => self.dump(body),
+            _ => self.print_stream(body),
         }
     }
 

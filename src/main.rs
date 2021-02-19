@@ -51,7 +51,6 @@ fn inner_main() -> Result<i32> {
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers()?;
-    #[allow(clippy::eval_order_dependence)]
     let body = match (
         request_items.body(args.form, args.multipart)?,
         // TODO: can we give an error before reading all of stdin?
