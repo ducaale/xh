@@ -530,3 +530,87 @@ fn bearer_auth() {
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59
+
+#[test]
+fn verify_default_yes() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .failure()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stderr(predicates::str::contains("UnknownIssuer"));
+}
+
+#[test]
+fn verify_explicit_yes() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=yes")
+        .arg("get")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .failure()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stderr(predicates::str::contains("UnknownIssuer"));
+}
+
+#[test]
+fn verify_no() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=no")
+        .arg("get")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stderr(predicates::str::is_empty());
+}
+
+#[test]
+fn verify_valid_file() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
+        .arg("get")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stderr(predicates::str::is_empty());
+}
+
+#[test]
+fn cert_without_key() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("get")
+        .arg("https://client.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains(
+            "400 No required SSL certificate was sent",
+        ))
+        .stderr(predicates::str::is_empty());
+}
+
+#[test]
+fn cert_with_key() {
+    get_command()
+        .arg("-v")
+        .arg("--pretty=format")
+        .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
+        .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
+        .arg("get")
+        .arg("https://client.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(predicates::str::contains("client-authenticated"))
+        .stderr(predicates::str::is_empty());
+}
