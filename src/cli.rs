@@ -181,15 +181,15 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[structopt(long, default_value, hide_default_value = true, name = "VERIFY")]
+    #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
     pub verify: Verify,
 
     /// Use a client side certificate for SSL.
-    #[structopt(long, name = "FILE")]
+    #[structopt(long, value_name = "FILE")]
     pub cert: Option<PathBuf>,
 
     /// Pass the path to a private key file if the private key is not contained in the cert file.
-    #[structopt(long = "cert-key", name = "FILE")]
+    #[structopt(long = "cert-key", value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }
 
