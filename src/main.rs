@@ -16,7 +16,7 @@ mod utils;
 use anyhow::{anyhow, Context, Result};
 use auth::parse_auth;
 use buffer::Buffer;
-use cli::{AuthType, Cli, Method, Pretty, Print, Proxy, RequestItem, Theme, Verify};
+use cli::{Cli, Method, Pretty, Print, Proxy, Theme, Verify};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
@@ -80,8 +80,7 @@ async fn inner_main() -> Result<i32> {
 
     let mut client = Client::builder().redirect(redirect);
     let mut resume: Option<u64> = None;
-    
-    
+
     if url.0.scheme() == "https" {
         if args.verify == Verify::No {
             client = client.danger_accept_invalid_certs(true);
