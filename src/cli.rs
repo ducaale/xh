@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 use std::env;
 use std::ffi::OsString;
-use std::io::Write;
 use std::fmt;
+use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -175,18 +175,19 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
-    
-    /// Skip the host's SSL certificate verification, or use an alternative CA
-    /// bundle. Disable = "no" or "false", enable = "yes" or "true".
-    #[structopt(long, default_value)]
+
+    /// Set to "no" (or "false") to skip checking the host's SSL certificate.
+    /// Defaults to "yes" ("true"). You can also pass the path to a CA bundle
+    /// file for private certs.
+    #[structopt(long, default_value, name = "VERIFY")]
     pub verify: Verify,
 
-    /// Use a client side certificate for the SSL communication.
-    #[structopt(long)]
+    /// Use a client side certificate for SSL.
+    #[structopt(long, name = "CERT")]
     pub cert: Option<PathBuf>,
 
-    /// Pass the path of the private key file if the private key is not contained in the cert file.
-    #[structopt(long = "cert-key")]
+    /// Pass the path to a private key file if the private key is not contained in the cert file.
+    #[structopt(long = "cert-key", name = "CERT_KEY")]
     pub cert_key: Option<PathBuf>,
 }
 

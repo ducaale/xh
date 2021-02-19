@@ -87,10 +87,7 @@ async fn inner_main() -> Result<i32> {
         }
 
         if let Verify::CustomCABundle(path) = args.verify {
-            // FIXME: Uncomment following line (skip the links) when newer version of reqwest (> 0.11.0) is released. see:
-            // https://github.com/ducaale/xh/commit/9437a0e65dad3da947b1f53edada097458af5a6e#commitcomment-47091986,
-            // https://github.com/seanmonstar/reqwest/pull/1150
-            // client = client.tls_built_in_root_certs(false);
+            client = client.tls_built_in_root_certs(false);
 
             let mut buffer = Vec::new();
             let mut file = File::open(&path).with_context(|| {
