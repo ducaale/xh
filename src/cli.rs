@@ -37,33 +37,33 @@ pub struct Cli {
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[structopt(short, long)]
+    #[structopt(short = "m", long)]
     pub multipart: bool,
 
     /// Do not attempt to read stdin.
-    #[structopt(short = "I", long = "ignore-stdin")]
+    #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
 
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
     ///
     /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
-    #[structopt(short = "a", long, name = "USER[:PASS]")]
+    #[structopt(short = "a", long, value_name = "USER[:PASS]")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
-    #[structopt(long, name = "TOKEN")]
+    #[structopt(long, value_name = "TOKEN")]
     pub bearer: Option<String>,
 
     /// Save output to FILE instead of stdout.
-    #[structopt(short, long, name = "FILE")]
+    #[structopt(short = "o", long, value_name = "FILE")]
     pub output: Option<String>,
 
     /// Do follow redirects.
-    #[structopt(short = "F", long = "follow")]
+    #[structopt(short = "F", long)]
     pub follow: bool,
 
     /// Number of redirects to follow, only respected if `follow` is set.
-    #[structopt(long = "max-redirects", name = "NUM")]
+    #[structopt(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Download the body to a file instead of printing it.
@@ -88,7 +88,7 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
-    #[structopt(short = "p", long, name = "FORMAT")]
+    #[structopt(short = "p", long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
     /// Print the whole request as well as the response.
@@ -104,11 +104,11 @@ pub struct Cli {
     pub stream: bool,
 
     /// Controls output processing.
-    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, name = "STYLE")]
+    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true, name = "THEME")]
+    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true, value_name = "THEME")]
     pub theme: Option<Theme>,
 
     /// Exit with an error status code if the server replies with an error.
@@ -135,7 +135,7 @@ pub struct Cli {
     pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "default-scheme", name = "SCHEME")]
+    #[structopt(long = "default-scheme", value_name = "SCHEME")]
     pub default_scheme: Option<String>,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -143,12 +143,12 @@ pub struct Cli {
     /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
     /// If omitted, either a GET or a POST will be done depending on whether the
     /// request sends data.
-    #[structopt(name = "[METHOD] URL")]
+    #[structopt(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(
-        name = "REQUEST_ITEM",
+        value_name = "REQUEST_ITEM",
         long_help = r"Optional key-value pairs to be included in the request.
 
 - key==value to add a parameter to the URL
@@ -188,7 +188,9 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     #[structopt(long, value_name = "FILE")]
     pub cert: Option<PathBuf>,
 
-    /// Pass the path to a private key file if the private key is not contained in the cert file.
+    /// A private key file to use with --cert.
+    ///
+    /// Only necessary if the private key is not contained in the cert file.
     #[structopt(long = "cert-key", value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }

@@ -34,8 +34,6 @@ cargo install xh
 
 ## Usage
 ```
-xh 0.7.0
-
 USAGE:
     xh [FLAGS] [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
@@ -49,7 +47,7 @@ FLAGS:
     -d, --download        Download the body to a file instead of printing it
     -h, --headers         Print only the response headers, shortcut for --print=h
     -b, --body            Print only the response body, Shortcut for --print=b
-    -c, --continue        Resume an interrupted download
+    -c, --continue        Resume an interrupted download. Requires --download and --output
     -v, --verbose         Print the whole request as well as the response
     -q, --quiet           Do not print to stdout or stderr
     -S, --stream          Always stream the response body
@@ -60,13 +58,16 @@ FLAGS:
 OPTIONS:
     -a, --auth <USER[:PASS]>         Authenticate as USER with PASS. PASS will be prompted if missing
         --bearer <TOKEN>             Authenticate with a bearer token
-    -o, --output <output>            Save output to FILE instead of stdout
+    -o, --output <FILE>              Save output to FILE instead of stdout
         --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
-    -p, --print <print>              String specifying what the output should contain
-        --pretty <pretty>            Controls output processing [possible values: All, Colors, Format, None]
-    -s, --style <theme>              Output coloring style [possible values: Auto, Solarized]
+    -p, --print <FORMAT>             String specifying what the output should contain
+        --pretty <STYLE>             Controls output processing [possible values: all, colors, format, none]
+    -s, --style <THEME>              Output coloring style [possible values: auto, solarized]
         --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
         --default-scheme <SCHEME>    The default scheme to use if not specified in the URL
+        --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
+        --cert <FILE>                Use a client side certificate for SSL
+        --cert-key <FILE>            A private key file to use with --cert
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
