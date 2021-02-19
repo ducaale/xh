@@ -183,11 +183,11 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     pub verify: Verify,
 
     /// Use a client side certificate for SSL.
-    #[structopt(long, name = "CERT")]
+    #[structopt(long, name = "FILE")]
     pub cert: Option<PathBuf>,
 
     /// Pass the path to a private key file if the private key is not contained in the cert file.
-    #[structopt(long = "cert-key", name = "CERT_KEY")]
+    #[structopt(long = "cert-key", name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }
 
