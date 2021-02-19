@@ -1,8 +1,10 @@
 use std::convert::TryFrom;
 use std::env;
 use std::ffi::OsString;
+use std::fmt;
 use std::io::Write;
 use std::mem;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use reqwest::Url;
@@ -173,6 +175,22 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
+
+    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
+    ///
+    /// Specifying a CA bundle will disable the system's built-in root certificates.
+    ///
+    /// "false" instead of "no" also works. The default is "yes" ("true").
+    #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
+    pub verify: Verify,
+
+    /// Use a client side certificate for SSL.
+    #[structopt(long, value_name = "FILE")]
+    pub cert: Option<PathBuf>,
+
+    /// Pass the path to a private key file if the private key is not contained in the cert file.
+    #[structopt(long = "cert-key", value_name = "FILE")]
+    pub cert_key: Option<PathBuf>,
 }
 
 impl Cli {
@@ -489,6 +507,40 @@ impl FromStr for Proxy {
                 "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>",
                 ErrorKind::InvalidValue,
             )),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Verify {
+    Yes,
+    No,
+    CustomCABundle(PathBuf),
+}
+
+impl FromStr for Verify {
+    type Err = Error;
+    fn from_str(verify: &str) -> Result<Verify> {
+        match verify.to_lowercase().as_str() {
+            "no" | "false" => Ok(Verify::No),
+            "yes" | "true" => Ok(Verify::Yes),
+            path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
+        }
+    }
+}
+
+impl Default for Verify {
+    fn default() -> Self {
+        Verify::Yes
+    }
+}
+
+impl fmt::Display for Verify {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Verify::No => write!(f, "no"),
+            Verify::Yes => write!(f, "yes"),
+            Verify::CustomCABundle(path) => write!(f, "custom ca bundle: {}", path.display()),
         }
     }
 }

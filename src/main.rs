@@ -13,14 +13,16 @@ mod request_items;
 mod url;
 mod utils;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use auth::parse_auth;
 use buffer::Buffer;
-use cli::{Cli, Method, Pretty, Print, Proxy, Theme};
+use cli::{Cli, Method, Pretty, Print, Proxy, Theme, Verify};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
 use reqwest::redirect::Policy;
+use std::fs::File;
+use std::io::Read;
 use url::Url;
 use utils::{body_from_stdin, test_mode};
 
@@ -78,6 +80,55 @@ async fn inner_main() -> Result<i32> {
 
     let mut client = Client::builder().redirect(redirect);
     let mut resume: Option<u64> = None;
+
+    if url.0.scheme() == "https" {
+        if args.verify == Verify::No {
+            client = client.danger_accept_invalid_certs(true);
+        }
+
+        if let Verify::CustomCABundle(path) = args.verify {
+            client = client.tls_built_in_root_certs(false);
+
+            let mut buffer = Vec::new();
+            let mut file = File::open(&path).with_context(|| {
+                format!("Failed to open the custom CA bundle: {}", path.display())
+            })?;
+            file.read_to_end(&mut buffer).with_context(|| {
+                format!("Failed to read the custom CA bundle: {}", path.display())
+            })?;
+
+            for pem in pem::parse_many(buffer) {
+                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
+                    .with_context(|| {
+                        format!("Failed to load the custom CA bundle: {}", path.display())
+                    })?;
+                client = client.add_root_certificate(certificate);
+            }
+        };
+
+        if let Some(cert) = args.cert {
+            let mut buffer = Vec::new();
+            let mut file = File::open(&cert)
+                .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
+            file.read_to_end(&mut buffer)
+                .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
+
+            if let Some(cert_key) = args.cert_key {
+                buffer.push(b'\n');
+
+                let mut file = File::open(&cert_key).with_context(|| {
+                    format!("Failed to open the cert key file: {}", cert_key.display())
+                })?;
+                file.read_to_end(&mut buffer).with_context(|| {
+                    format!("Failed to read the cert key file: {}", cert_key.display())
+                })?;
+            }
+
+            let identity = reqwest::Identity::from_pem(&buffer)
+                .context("Failed to parse the cert/cert key files")?;
+            client = client.identity(identity);
+        };
+    }
 
     for proxy in args.proxy.into_iter().rev() {
         client = client.proxy(match proxy {
