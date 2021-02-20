@@ -1,76 +1,110 @@
-use std::io::{stderr, stdout, Write};
+use std::io::{self, stderr, stdout, LineWriter, Stderr, Stdout, Write};
 
-use crate::printer::BINARY_SUPPRESSOR;
-
-#[derive(Debug)]
-pub struct Buffer {
-    pub kind: BufferKind,
-    dirty: bool,
-}
+use crate::utils::test_pretend_term;
 
 #[derive(Debug)]
-pub enum BufferKind {
+pub enum Buffer {
     File(std::fs::File),
-    Redirect,
-    Stdout,
-    Stderr,
+    Redirect(Stdout),
+    Stdout(Stdout),
+    Stderr(Stderr),
 }
 
 impl Buffer {
-    pub fn new(
-        download: bool,
-        output: &Option<String>,
-        is_stdout_tty: bool,
-    ) -> std::io::Result<Self> {
-        let kind = if download {
-            BufferKind::Stderr
+    pub fn new(download: bool, output: &Option<String>, is_stdout_tty: bool) -> io::Result<Self> {
+        Ok(if download {
+            Buffer::Stderr(stderr())
         } else if let Some(output) = output {
             let file = std::fs::File::create(&output)?;
-            BufferKind::File(file)
+            Buffer::File(file)
         } else if is_stdout_tty {
-            BufferKind::Stdout
+            Buffer::Stdout(stdout())
         } else {
-            BufferKind::Redirect
-        };
-        Ok(Buffer { kind, dirty: false })
+            Buffer::Redirect(stdout())
+        })
     }
 
     pub fn is_terminal(&self) -> bool {
-        matches!(self.kind, BufferKind::Stdout | BufferKind::Stderr)
+        matches!(self, Buffer::Stdout(..) | Buffer::Stderr(..))
+            || (matches!(self, Buffer::Redirect(..)) && test_pretend_term())
     }
 
     pub fn is_redirect(&self) -> bool {
-        matches!(self.kind, BufferKind::Redirect)
+        matches!(self, Buffer::Redirect(..))
     }
 
-    pub fn print(&mut self, s: &str) -> std::io::Result<()> {
-        write!(self, "{}", s)
+    pub fn print(&mut self, s: &str) -> io::Result<()> {
+        write!(self.inner(), "{}", s)
+    }
+
+    fn inner(&mut self) -> &mut dyn Write {
+        match self {
+            Buffer::File(file) => file,
+            Buffer::Redirect(stdout) | Buffer::Stdout(stdout) => stdout,
+            Buffer::Stderr(stderr) => stderr,
+        }
+    }
+
+    /// Use a [`Write`] handle that ensures no binary data is written to the
+    /// terminal.
+    ///
+    /// This takes a closure in order to perform cleanup at the end.
+    pub fn with_guard(
+        &mut self,
+        code: impl FnOnce(&mut dyn Write) -> io::Result<()>,
+    ) -> io::Result<()> {
+        if self.is_terminal() {
+            // Wrapping a LineWriter around the guard means binary data
+            // usually won't slip through even with very short writes. It also
+            // means the supression message starts on a new line. HTTPie works
+            // similarly.
+            // If the LineWriter receives a very long line that doesn't fit in
+            // its buffer it'll do a premature write. That's acceptable.
+            // It's avoided by `HighlightWriter` because it breaks the
+            // formatting, but there's no major concern here.
+            let mut guard = LineWriter::new(BinaryGuard(self));
+            code(&mut guard)?;
+            // If the written text did not end in a newline we need to flush
+            guard.flush()
+        } else {
+            code(self.inner())
+        }
+    }
+
+    /// Get a [`Write`] handle to write data directly. This should be used
+    /// after checking for binary content.
+    pub fn unguarded(&mut self) -> &mut dyn Write {
+        self.inner()
     }
 }
 
-impl Write for Buffer {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if self.dirty {
-            return Ok(buf.len());
-        }
-        if self.is_terminal() && buf.contains(&b'\0') {
-            self.print("\x1b[0m")?;
-            self.print(BINARY_SUPPRESSOR)?;
-            self.dirty = true;
-            return Ok(buf.len());
-        }
-        match &mut self.kind {
-            BufferKind::File(file) => file.write(buf),
-            BufferKind::Redirect | BufferKind::Stdout => stdout().write(buf),
-            BufferKind::Stderr => stderr().write(buf),
+struct BinaryGuard<'a>(&'a mut Buffer);
+
+impl BinaryGuard<'_> {
+    fn check_dirty(&mut self, buf: &[u8]) -> io::Result<()> {
+        if buf.contains(&b'\0') {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Found binary data",
+            ))
+        } else {
+            Ok(())
         }
     }
+}
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        match &mut self.kind {
-            BufferKind::File(file) => file.flush(),
-            BufferKind::Redirect | BufferKind::Stdout => stdout().flush(),
-            BufferKind::Stderr => stderr().flush(),
-        }
+impl Write for BinaryGuard<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.check_dirty(buf)?;
+        self.0.inner().write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.inner().flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.check_dirty(buf)?;
+        self.0.inner().write_all(buf)
     }
 }

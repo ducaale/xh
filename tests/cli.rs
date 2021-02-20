@@ -413,6 +413,27 @@ fn binary_detection() {
 }
 
 #[test]
+fn streaming_binary_detection() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.body(b"foo\0bar");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--stream")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+        "#});
+    mock.assert();
+}
+
+#[test]
 fn last_supplied_proxy_wins() {
     let first_server = MockServer::start();
     let first_mock = first_server.mock(|when, then| {

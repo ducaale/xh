@@ -6,7 +6,6 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 
-use crate::buffer::Buffer;
 use crate::cli::Theme;
 use crate::vendored::jsonxf;
 
@@ -30,13 +29,13 @@ lazy_static::lazy_static! {
 
 pub struct Highlighter<'a> {
     inner: HighlightLines<'static>,
-    out: &'a mut Buffer,
+    out: Box<dyn Write + 'a>,
     buffer: Vec<u8>, // For use by HighlightWriter
 }
 
 /// A wrapper around a [`Buffer`] to add syntax highlighting when printing.
 impl<'a> Highlighter<'a> {
-    pub fn new(syntax: &'static str, theme: Theme, out: &'a mut Buffer) -> Self {
+    pub fn new(syntax: &'static str, theme: Theme, out: Box<dyn Write + 'a>) -> Self {
         let syntax = PS
             .find_syntax_by_extension(syntax)
             .expect("syntax not found");
@@ -49,14 +48,14 @@ impl<'a> Highlighter<'a> {
 
     /// Write a single piece of highlighted text.
     pub fn highlight(&mut self, line: &str) -> io::Result<()> {
-        write_style(&mut self.inner, line, self.out)
+        write_style(&mut self.inner, line, &mut self.out)
     }
 
     fn highlight_buffer(&mut self) -> io::Result<()> {
         if !self.buffer.is_empty() {
             let text = String::from_utf8_lossy(&self.buffer);
             // Can't call .highlight() because text references self.buffer
-            write_style(&mut self.inner, &text, self.out)?;
+            write_style(&mut self.inner, &text, &mut self.out)?;
             self.buffer.clear();
         }
         Ok(())
@@ -91,6 +90,10 @@ impl<'a> Highlighter<'a> {
 ///
 /// Must be used through a [`LineWriter`] or it won't work properly.
 /// See [`Highlighter::linewise`].
+///
+/// Ideally this type would be private to `linewise` and returned as an
+/// anonymous `impl` type, but there's no easy way to do that with the
+/// multiple lifetime parameters.
 pub struct HighlightWriter<'a, 'b>(&'b mut Highlighter<'a>);
 
 impl Write for HighlightWriter<'_, '_> {
