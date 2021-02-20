@@ -268,15 +268,15 @@ impl Printer {
             Some(ContentType::Multipart) => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
             }
-            // TODO: Should this print BINARY_SUPPRESSOR?
             content_type => {
-                if let Some(body) = request
-                    .body()
-                    .and_then(|b| b.as_bytes())
-                    .filter(|b| !b.contains(&b'\0'))
-                    .and_then(|b| String::from_utf8(b.into()).ok())
-                {
-                    self.print_body_text(content_type, &body)?;
+                if let Some(body) = request.body().and_then(|b| b.as_bytes()) {
+                    if body.contains(&b'\0') {
+                        self.buffer.print(BINARY_SUPPRESSOR)?;
+                    } else {
+                        self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
+                        self.buffer.print("\n")?;
+                    }
+                    // Breathing room between request and response
                     self.buffer.print("\n")?;
                 }
             }

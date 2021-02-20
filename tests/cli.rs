@@ -1,4 +1,8 @@
-use std::{fs::read_to_string, process::Command};
+use std::{
+    fs::read_to_string,
+    io::{Seek, SeekFrom, Write},
+    process::Command,
+};
 
 use assert_cmd::prelude::*;
 use httpmock::{Method::*, MockServer};
@@ -6,7 +10,7 @@ use indoc::indoc;
 use predicate::str::contains;
 use predicates::prelude::*;
 use serde_json::json;
-use tempfile::tempdir;
+use tempfile::{tempdir, tempfile};
 
 fn get_base_command() -> Command {
     Command::cargo_bin("xh").expect("binary should be present")
@@ -188,6 +192,7 @@ fn verbose() {
         {
             "x": "y"
         }
+
 
         HTTP/1.1 200 OK
         content-length: 6
@@ -431,6 +436,26 @@ fn streaming_binary_detection() {
 
         "#});
     mock.assert();
+}
+
+#[test]
+fn request_binary_detection() {
+    let mut binary_file = tempfile().unwrap();
+    binary_file.write_all(b"foo\0bar").unwrap();
+    binary_file.seek(SeekFrom::Start(0)).unwrap();
+    redirecting_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .stdin(binary_file)
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+
+        "#});
 }
 
 #[test]

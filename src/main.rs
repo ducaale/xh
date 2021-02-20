@@ -9,6 +9,9 @@ mod url;
 mod utils;
 mod vendored;
 
+use std::fs::File;
+use std::io::{stdin, Read};
+
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use auth::parse_auth;
@@ -22,10 +25,9 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
 use reqwest::redirect::Policy;
-use std::fs::File;
-use std::io::Read;
-use url::Url;
-use utils::{body_from_stdin, test_mode, test_pretend_term};
+
+use crate::url::construct_url;
+use crate::utils::{test_mode, test_pretend_term};
 
 fn get_user_agent() -> &'static str {
     if test_mode() {
@@ -53,22 +55,24 @@ fn inner_main() -> Result<i32> {
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers()?;
-    let body = match (
-        request_items.body(args.form, args.multipart)?,
-        // TODO: can we give an error before reading all of stdin?
-        body_from_stdin(args.ignore_stdin)?,
-    ) {
-        (Some(_), Some(_)) => {
+    let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
+
+    let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
+    let body = if let Some(body) = request_items.body(args.form, args.multipart)? {
+        if !ignore_stdin {
             return Err(anyhow!(
                 "Request body (from stdin) and Request data (key=value) cannot be mixed"
-            ))
+            ));
         }
-        (Some(body), None) | (None, Some(body)) => Some(body),
-        (None, None) => None,
+        Some(body)
+    } else if !ignore_stdin {
+        let mut buffer = Vec::new();
+        stdin().read_to_end(&mut buffer)?;
+        Some(Body::Raw(buffer))
+    } else {
+        None
     };
 
-    let url = Url::new(args.url, args.default_scheme)?;
-    let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
     let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
     let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
@@ -78,7 +82,7 @@ fn inner_main() -> Result<i32> {
     let mut client = Client::builder().redirect(redirect);
     let mut resume: Option<u64> = None;
 
-    if url.0.scheme() == "https" {
+    if url.scheme() == "https" {
         if args.verify == Verify::No {
             client = client.danger_accept_invalid_certs(true);
         }
@@ -139,7 +143,7 @@ fn inner_main() -> Result<i32> {
 
     let request = {
         let mut request_builder = client
-            .request(method, url.0)
+            .request(method, url.clone())
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
@@ -169,14 +173,14 @@ fn inner_main() -> Result<i32> {
         }
 
         if let Some(auth) = args.auth {
-            let (username, password) = parse_auth(auth, &host)?;
+            let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
             request_builder = request_builder.basic_auth(username, password);
         }
         if let Some(token) = args.bearer {
             request_builder = request_builder.bearer_auth(token);
         }
 
-        let mut request = request_builder.query(&query).headers(headers).build()?;
+        let mut request = request_builder.headers(headers).build()?;
 
         headers_to_unset.iter().for_each(|h| {
             request.headers_mut().remove(h);

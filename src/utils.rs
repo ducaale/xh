@@ -1,13 +1,9 @@
 use std::{
     env::var_os,
-    io::{self, stdin, Read, Write},
+    io::{self, Write},
 };
 
-use anyhow::Result;
-use atty::Stream;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
-
-use crate::Body;
 
 /// Whether to make some things more deterministic for the benefit of tests
 pub fn test_mode() -> bool {
@@ -49,16 +45,6 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 None
             }
         })
-}
-
-pub fn body_from_stdin(ignore_stdin: bool) -> Result<Option<Body>> {
-    if atty::is(Stream::Stdin) || ignore_stdin || test_pretend_term() {
-        Ok(None)
-    } else {
-        let mut buffer = String::new();
-        stdin().read_to_string(&mut buffer)?;
-        Ok(Some(Body::Raw(buffer)))
-    }
 }
 
 // https://stackoverflow.com/a/45145246/5915221

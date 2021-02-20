@@ -121,10 +121,10 @@ impl FromStr for RequestItem {
 pub struct RequestItems(Vec<RequestItem>);
 
 pub enum Body {
-    Json(serde_json::Value),
+    Json(serde_json::Map<String, serde_json::Value>),
     Form(Vec<(String, String)>),
     Multipart(multipart::Form),
-    Raw(String),
+    Raw(Vec<u8>),
 }
 
 impl RequestItems {
@@ -159,20 +159,20 @@ impl RequestItems {
         Ok((headers, headers_to_unset))
     }
 
-    pub fn query(&self) -> Vec<(&String, &String)> {
+    pub fn query(&self) -> Vec<(&str, &str)> {
         let mut query = vec![];
         for item in &self.0 {
             if let RequestItem::UrlParam(key, value) = item {
-                query.push((key, value));
+                query.push((key.as_str(), value.as_str()));
             }
         }
         query
     }
 
-    fn body_as_json(&self) -> Result<Option<Body>> {
+    fn body_as_json(self) -> Result<Option<Body>> {
         let mut body = serde_json::Map::new();
-        for item in &self.0 {
-            match item.clone() {
+        for item in self.0 {
+            match item {
                 RequestItem::JSONField(key, value) => {
                     body.insert(key, value);
                 }
@@ -187,36 +187,43 @@ impl RequestItems {
                 _ => {}
             }
         }
-        if !body.is_empty() {
-            Ok(Some(Body::Json(body.into())))
-        } else {
+        if body.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(Body::Json(body)))
         }
     }
 
-    fn body_as_form(&self) -> Result<Option<Body>> {
+    fn body_as_form(self) -> Result<Option<Body>> {
         let mut text_fields = Vec::<(String, String)>::new();
-        for item in &self.0 {
-            match item.clone() {
+        for item in self.0 {
+            match item {
                 RequestItem::JSONField(_, _) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
+                RequestItem::FormFile(..) => unreachable!(),
                 _ => {}
             }
         }
-        Ok(Some(Body::Form(text_fields)))
+        if text_fields.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(Body::Form(text_fields)))
+        }
     }
 
-    fn body_as_multipart(&self) -> Result<Option<Body>> {
+    fn body_as_multipart(self) -> Result<Option<Body>> {
         let mut form = multipart::Form::new();
-        for item in &self.0 {
-            match item.clone() {
+        let mut empty = true;
+        for item in self.0 {
+            match item {
                 RequestItem::JSONField(_, _) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
+                    empty = false;
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     let mut part = file_to_part(&value)?;
@@ -224,14 +231,19 @@ impl RequestItems {
                         part = part.mime_str(&file_type)?;
                     }
                     form = form.part(key, part);
+                    empty = false;
                 }
                 _ => {}
             }
         }
-        Ok(Some(Body::Multipart(form)))
+        if empty {
+            Ok(None)
+        } else {
+            Ok(Some(Body::Multipart(form)))
+        }
     }
 
-    pub fn body(&self, form: bool, multipart: bool) -> Result<Option<Body>> {
+    pub fn body(self, form: bool, multipart: bool) -> Result<Option<Body>> {
         match (form, multipart) {
             (_, true) => self.body_as_multipart(),
             (true, _) if self.form_file_count() > 0 => self.body_as_multipart(),
