@@ -5,6 +5,7 @@ mod download;
 mod formatting;
 mod printer;
 mod request_items;
+mod to_curl;
 mod url;
 mod utils;
 mod vendored;
@@ -14,18 +15,19 @@ use std::io::{stdin, Read};
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
-use auth::parse_auth;
-use buffer::Buffer;
-use cli::{Cli, Method, Pretty, Print, Proxy, Theme, Verify};
-use download::{download_file, get_file_size};
-use printer::Printer;
-use request_items::{Body, RequestItems};
 use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
 use reqwest::redirect::Policy;
+use reqwest::Method;
 
+use crate::auth::parse_auth;
+use crate::buffer::Buffer;
+use crate::cli::{Cli, Pretty, Print, Proxy, Theme, Verify};
+use crate::download::{download_file, get_file_size};
+use crate::printer::Printer;
+use crate::request_items::{Body, RequestItems};
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -52,6 +54,11 @@ fn main() -> Result<()> {
 fn inner_main() -> Result<i32> {
     let args = Cli::from_args();
 
+    if args.curl {
+        to_curl::print_curl_translation(args)?;
+        return Ok(0);
+    }
+
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers()?;
@@ -72,8 +79,14 @@ fn inner_main() -> Result<i32> {
         body => body,
     };
 
-    let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
-    let redirect = match args.follow || args.download {
+    let method = args.method.unwrap_or_else(|| {
+        if body.is_some() {
+            Method::POST
+        } else {
+            Method::GET
+        }
+    });
+    let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };

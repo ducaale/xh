@@ -1,8 +1,8 @@
 use std::{fs::File, io, path::Path, str::FromStr};
 
 use anyhow::{anyhow, Result};
-use reqwest::blocking::multipart;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::{blocking::multipart, Method};
 use structopt::clap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,7 +118,7 @@ impl FromStr for RequestItem {
     }
 }
 
-pub struct RequestItems(Vec<RequestItem>);
+pub struct RequestItems(pub Vec<RequestItem>);
 
 pub enum Body {
     Json(serde_json::Map<String, serde_json::Value>),
@@ -132,11 +132,10 @@ impl RequestItems {
         RequestItems(request_items)
     }
 
-    fn form_file_count(&self) -> usize {
+    pub fn has_form_files(&self) -> bool {
         self.0
             .iter()
-            .filter(|item| matches!(item, RequestItem::FormFile(..)))
-            .count()
+            .any(|item| matches!(item, RequestItem::FormFile(..)))
     }
 
     pub fn headers(&self) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
@@ -246,10 +245,25 @@ impl RequestItems {
     pub fn body(self, form: bool, multipart: bool) -> Result<Option<Body>> {
         match (form, multipart) {
             (_, true) => self.body_as_multipart(),
-            (true, _) if self.form_file_count() > 0 => self.body_as_multipart(),
+            (true, _) if self.has_form_files() => self.body_as_multipart(),
             (true, _) => self.body_as_form(),
             (_, _) => self.body_as_json(),
         }
+    }
+
+    /// Guess which would be appropriate for the return value of `body`.
+    pub fn pick_method(&self) -> Method {
+        for item in &self.0 {
+            match item {
+                RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderToUnset(..)
+                | RequestItem::UrlParam(..) => continue,
+                RequestItem::DataField(..)
+                | RequestItem::JSONField(..)
+                | RequestItem::FormFile(..) => return Method::POST,
+            }
+        }
+        Method::GET
     }
 }
 
