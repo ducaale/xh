@@ -5,13 +5,14 @@ use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
-use reqwest::header::{
-    HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE,
+use reqwest::{
+    blocking::Response,
+    header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE},
+    StatusCode,
 };
-use reqwest::Response;
-use reqwest::StatusCode;
 
 use crate::regex;
+use crate::utils::{copy_largebuf, test_pretend_term};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -145,8 +146,8 @@ const BAR_TEMPLATE: &str =
     "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
 const SPINNER_TEMPLATE: &str = "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}";
 
-pub async fn download_file(
-    mut response: reqwest::Response,
+pub fn download_file(
+    mut response: Response,
     file_name: Option<String>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
@@ -173,7 +174,7 @@ pub async fn download_file(
 
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
-    } else if atty::is(Stream::Stdout) {
+    } else if test_pretend_term() || atty::is(Stream::Stdout) {
         let (new_name, handle) = open_new_file(get_file_name(&response, &orig_url))?;
         dest_name = new_name;
         buffer = Box::new(handle);
@@ -219,17 +220,14 @@ pub async fn download_file(
         pb.set_position(starting_length);
     }
 
-    let mut downloaded = starting_length;
-    while let Some(chunk) = response.chunk().await? {
-        buffer.write_all(&chunk)?;
-        downloaded += chunk.len() as u64;
-        if let Some(pb) = &pb {
-            pb.set_position(downloaded);
+    match pb {
+        Some(ref pb) => {
+            copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
+            pb.finish_with_message("Done");
         }
-    }
-
-    if let Some(pb) = &pb {
-        pb.finish_with_message("Done");
+        None => {
+            copy_largebuf(&mut response, &mut buffer)?;
+        }
     }
 
     Ok(())

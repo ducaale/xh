@@ -14,6 +14,7 @@ use structopt::StructOpt;
 use crate::{
     buffer::Buffer,
     request_items::{Body, RequestItem},
+    utils::test_pretend_term,
 };
 
 // Some doc comments were copy-pasted from HTTPie
@@ -352,26 +353,48 @@ impl From<&Option<Body>> for Method {
 arg_enum! {
     // Uppercase variant names would show up as such in the help text
     #[allow(non_camel_case_types)]
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Pretty {
         all, colors, format, none
     }
 }
 
+impl Pretty {
+    pub fn color(self) -> bool {
+        matches!(self, Pretty::colors | Pretty::all)
+    }
+
+    pub fn format(self) -> bool {
+        matches!(self, Pretty::format | Pretty::all)
+    }
+}
+
 impl From<&Buffer> for Pretty {
     fn from(b: &Buffer) -> Self {
-        match b {
-            Buffer::File(_) | Buffer::Redirect => Pretty::none,
-            Buffer::Stdout | Buffer::Stderr => Pretty::all,
+        if test_pretend_term() {
+            Pretty::format
+        } else if b.is_terminal() {
+            Pretty::all
+        } else {
+            Pretty::none
         }
     }
 }
 
 arg_enum! {
     #[allow(non_camel_case_types)]
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Theme {
         auto, solarized
+    }
+}
+
+impl Theme {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Theme::auto => "ansi",
+            Theme::solarized => "solarized",
+        }
     }
 }
 
@@ -420,7 +443,7 @@ impl Print {
                 response_headers: true,
                 response_body: false,
             }
-        } else if body || matches!(buffer, Buffer::Redirect | Buffer::File(_)) {
+        } else if body || !buffer.is_terminal() {
             Print {
                 request_headers: false,
                 request_body: false,

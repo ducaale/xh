@@ -1,45 +1,45 @@
-use atty::Stream;
-use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
-};
-use reqwest::Client;
-
 mod auth;
 mod buffer;
 mod cli;
 mod download;
+mod formatting;
 mod printer;
 mod request_items;
 mod url;
 mod utils;
+mod vendored;
+
+use std::fs::File;
+use std::io::{stdin, Read};
 
 use anyhow::{anyhow, Context, Result};
+use atty::Stream;
 use auth::parse_auth;
 use buffer::Buffer;
 use cli::{Cli, Method, Pretty, Print, Proxy, Theme, Verify};
 use download::{download_file, get_file_size};
 use printer::Printer;
 use request_items::{Body, RequestItems};
+use reqwest::blocking::Client;
+use reqwest::header::{
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
+};
 use reqwest::redirect::Policy;
-use std::fs::File;
-use std::io::Read;
-use url::Url;
-use utils::{body_from_stdin, test_mode};
+
+use crate::url::construct_url;
+use crate::utils::{test_mode, test_pretend_term};
 
 fn get_user_agent() -> &'static str {
-    // Hard-coded user agent for the benefit of tests
-    // In integration tests the binary isn't compiled with cfg(test), so we
-    // use an environment variable
     if test_mode() {
+        // Hard-coded user agent for the benefit of tests
         "xh/0.0.0 (test mode)"
     } else {
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    std::process::exit(inner_main().await?);
+fn main() -> Result<()> {
+    std::process::exit(inner_main()?);
 }
 
 /// [`main`] is wrapped around this function so it can safely exit with an
@@ -49,29 +49,29 @@ async fn main() -> Result<()> {
 /// without doing any cleanup. So we need to return from this function first.
 ///
 /// The outer main function could also be a good place for error handling.
-async fn inner_main() -> Result<i32> {
+fn inner_main() -> Result<i32> {
     let args = Cli::from_args();
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
     let (headers, headers_to_unset) = request_items.headers()?;
-    #[allow(clippy::eval_order_dependence)]
-    let body = match (
-        request_items.body(args.form, args.multipart).await?,
-        // TODO: can we give an error before reading all of stdin?
-        body_from_stdin(args.ignore_stdin).await?,
-    ) {
-        (Some(_), Some(_)) => {
+    let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
+
+    let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
+    let body = match request_items.body(args.form, args.multipart)? {
+        Some(_) if !ignore_stdin => {
             return Err(anyhow!(
                 "Request body (from stdin) and Request data (key=value) cannot be mixed"
-            ))
+            ));
         }
-        (Some(body), None) | (None, Some(body)) => Some(body),
-        (None, None) => None,
+        None if !ignore_stdin => {
+            let mut buffer = Vec::new();
+            stdin().read_to_end(&mut buffer)?;
+            Some(Body::Raw(buffer))
+        }
+        body => body,
     };
 
-    let url = Url::new(args.url, args.default_scheme)?;
-    let host = url.host().ok_or_else(|| anyhow!("Missing hostname"))?;
     let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
     let redirect = match args.follow || args.download {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
@@ -81,7 +81,7 @@ async fn inner_main() -> Result<i32> {
     let mut client = Client::builder().redirect(redirect);
     let mut resume: Option<u64> = None;
 
-    if url.0.scheme() == "https" {
+    if url.scheme() == "https" {
         if args.verify == Verify::No {
             client = client.danger_accept_invalid_certs(true);
         }
@@ -142,7 +142,7 @@ async fn inner_main() -> Result<i32> {
 
     let request = {
         let mut request_builder = client
-            .request(method, url.0)
+            .request(method, url.clone())
             .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
@@ -172,14 +172,14 @@ async fn inner_main() -> Result<i32> {
         }
 
         if let Some(auth) = args.auth {
-            let (username, password) = parse_auth(auth, &host)?;
+            let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
             request_builder = request_builder.basic_auth(username, password);
         }
         if let Some(token) = args.bearer {
             request_builder = request_builder.bearer_auth(token);
         }
 
-        let mut request = request_builder.query(&query).headers(headers).build()?;
+        let mut request = request_builder.headers(headers).build()?;
 
         headers_to_unset.iter().for_each(|h| {
             request.headers_mut().remove(h);
@@ -188,7 +188,12 @@ async fn inner_main() -> Result<i32> {
         request
     };
 
-    let buffer = Buffer::new(args.download, &args.output, atty::is(Stream::Stdout))?;
+    let buffer = Buffer::new(
+        args.download,
+        &args.output,
+        atty::is(Stream::Stdout) || test_pretend_term(),
+    )?;
+    let is_redirect = buffer.is_redirect();
     let print = match args.print {
         Some(print) => print,
         None => Print::new(
@@ -210,7 +215,7 @@ async fn inner_main() -> Result<i32> {
     }
     if !args.offline {
         let orig_url = request.url().clone();
-        let response = client.execute(request).await?;
+        let response = client.execute(request)?;
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
@@ -222,14 +227,16 @@ async fn inner_main() -> Result<i32> {
             500..=599 => 5,
             _ => 0,
         };
+        if is_redirect && exit_code != 0 {
+            eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
+        }
         if args.download {
             if exit_code == 0 {
-                download_file(response, args.output, &orig_url, resume, args.quiet).await?;
+                download_file(response, args.output, &orig_url, resume, args.quiet)?;
             }
         } else if print.response_body {
-            printer.print_response_body(response).await?;
+            printer.print_response_body(response)?;
         }
-        // TODO: print warning if output is being redirected
         Ok(exit_code)
     } else {
         Ok(0)

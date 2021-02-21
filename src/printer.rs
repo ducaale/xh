@@ -1,22 +1,29 @@
-use std::io::{self, Write};
+use std::io::{self, Read};
 
-use anyhow::Result;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, HOST};
-use reqwest::{Request, Response};
+use encoding_rs::{Encoding, UTF_8};
+use encoding_rs_io::DecodeReaderBytesBuilder;
+use mime::Mime;
+use reqwest::blocking::{Request, Response};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE, HOST};
 
-use crate::utils::{colorize, get_content_type, indent_json, test_mode, ContentType};
+use crate::{
+    formatting::{get_json_formatter, Highlighter},
+    utils::{copy_largebuf, get_content_type, test_mode, ContentType},
+};
 use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+\n",
     "| NOTE: multipart data not shown in terminal |\n",
-    "+--------------------------------------------+"
+    "+--------------------------------------------+\n",
+    "\n"
 );
 
 const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "| NOTE: binary data not shown in terminal |\n",
-    "+-----------------------------------------+"
+    "+-----------------------------------------+\n",
+    "\n"
 );
 
 pub struct Printer {
@@ -34,52 +41,149 @@ impl Printer {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
-            indent_json: matches!(pretty, Pretty::all | Pretty::format),
-            sort_headers: matches!(pretty, Pretty::all | Pretty::format),
-            color: matches!(pretty, Pretty::all | Pretty::colors),
-            stream: matches!(pretty, Pretty::none) || stream,
+            indent_json: pretty.format(),
+            sort_headers: pretty.format(),
+            color: pretty.color(),
+            stream,
             theme,
             buffer,
         }
     }
 
-    fn print_json(&mut self, text: &str) -> io::Result<()> {
-        // This code is a little thorny because of ownership issues.
-        // We have to keep the indented text alive until the end of the function.
-        let indent_result = match self.indent_json {
-            true => Some(indent_json(text)),
-            false => None,
-        };
-        let text = match &indent_result {
-            Some(Ok(result)) => result.as_str(),
-            _ => text,
-        };
+    /// Run a piece of code with a [`Highlighter`] instance. After the code runs
+    /// successfully, [`Highlighter::finish`] will be called to properly terminate.
+    ///
+    /// That way you don't have to remember to call it manually, and errors
+    /// can still be handled (unlike an implementation of [`Drop`]).
+    ///
+    /// This version of the method does not check for null bytes.
+    fn with_unguarded_highlighter(
+        &mut self,
+        syntax: &'static str,
+        code: impl FnOnce(&mut Highlighter) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let mut highlighter =
+            Highlighter::new(syntax, self.theme, Box::new(self.buffer.unguarded()));
+        code(&mut highlighter)?;
+        highlighter.finish()
+    }
+
+    fn print_text(&mut self, text: &str) -> io::Result<()> {
+        self.buffer.unguarded().write_all(text.as_bytes())
+    }
+
+    fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+        self.with_unguarded_highlighter(syntax, |highlighter| highlighter.highlight(text))
+    }
+
+    fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
         if self.color {
-            colorize(text, "json", &self.theme, &mut self.buffer)
+            self.print_colorized_text(text, syntax)
         } else {
-            self.buffer.print(text)
+            self.print_text(text)
         }
     }
 
-    fn print_xml(&mut self, text: &str) -> io::Result<()> {
-        if self.color {
-            colorize(text, "xml", &self.theme, &mut self.buffer)
+    fn print_json_text(&mut self, text: &str) -> io::Result<()> {
+        if !self.indent_json {
+            // We don't have to do anything specialized, so fall back to the generic version
+            self.print_syntax_text(text, "json")
+        } else if self.color {
+            let mut buf = Vec::new();
+            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut buf)?;
+            // in principle, buf should already be valid UTF-8,
+            // because JSONXF doesn't mangle it
+            let text = String::from_utf8_lossy(&buf);
+            self.print_colorized_text(&text, "json")
         } else {
-            self.buffer.print(text)
+            get_json_formatter()
+                .format_stream_unbuffered(&mut text.as_bytes(), &mut self.buffer.unguarded())
         }
     }
 
-    fn print_html(&mut self, text: &str) -> io::Result<()> {
+    fn print_body_text(&mut self, content_type: Option<ContentType>, body: &str) -> io::Result<()> {
+        match content_type {
+            Some(ContentType::Json) => self.print_json_text(body),
+            Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
+            Some(ContentType::Html) => self.print_syntax_text(body, "html"),
+            _ => self.buffer.print(body),
+        }
+    }
+
+    /// Variant of `with_unguarded_highlighter` to use for text that has not
+    /// yet been checked for null bytes.
+    fn with_guarded_highlighter(
+        &mut self,
+        syntax: &'static str,
+        code: impl FnOnce(&mut Highlighter) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let theme = self.theme; // To avoid borrowing self
+        self.buffer.with_guard(|guard| {
+            let mut highlighter = Highlighter::new(syntax, theme, Box::new(guard));
+            code(&mut highlighter)?;
+            highlighter.finish()
+        })
+    }
+
+    fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
+        self.buffer
+            .with_guard(|mut guard| copy_largebuf(reader, &mut guard))
+    }
+
+    fn print_colorized_stream(
+        &mut self,
+        stream: &mut impl Read,
+        syntax: &'static str,
+    ) -> io::Result<()> {
+        self.with_guarded_highlighter(syntax, |highlighter| {
+            copy_largebuf(stream, &mut highlighter.linewise())?;
+            Ok(())
+        })
+    }
+
+    fn print_syntax_stream(
+        &mut self,
+        stream: &mut impl Read,
+        syntax: &'static str,
+    ) -> io::Result<()> {
         if self.color {
-            colorize(text, "html", &self.theme, &mut self.buffer)
+            self.print_colorized_stream(stream, syntax)
         } else {
-            self.buffer.print(text)
+            self.print_stream(stream)
+        }
+    }
+
+    fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<()> {
+        if !self.indent_json {
+            // We don't have to do anything specialized, so fall back to the generic version
+            self.print_syntax_stream(stream, "json")
+        } else if self.color {
+            self.with_guarded_highlighter("json", |highlighter| {
+                get_json_formatter().format_stream_unbuffered(stream, &mut highlighter.linewise())
+            })
+        } else {
+            self.buffer.with_guard(|mut guard| {
+                get_json_formatter().format_stream_unbuffered(stream, &mut guard)
+            })
+        }
+    }
+
+    fn print_body_stream(
+        &mut self,
+        content_type: Option<ContentType>,
+        body: &mut impl Read,
+    ) -> io::Result<()> {
+        match content_type {
+            Some(ContentType::Json) => self.print_json_stream(body),
+            Some(ContentType::Xml) => self.print_syntax_stream(body, "xml"),
+            Some(ContentType::Html) => self.print_syntax_stream(body, "html"),
+            _ => self.print_stream(body),
         }
     }
 
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            colorize(text, "http", &self.theme, &mut self.buffer)
+            self.print_colorized_text(text, "http")
         } else {
             self.buffer.print(text)
         }
@@ -160,78 +264,91 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
-        let get_body = || {
-            request
-                .body()
-                .and_then(|b| b.as_bytes())
-                .and_then(|b| String::from_utf8(b.into()).ok())
-        };
-
         match get_content_type(&request.headers()) {
             Some(ContentType::Multipart) => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
-                self.buffer.print("\n\n")?;
             }
-            Some(ContentType::Json) => {
-                if let Some(body) = get_body() {
-                    self.print_json(&body)?;
-                    self.buffer.print("\n\n")?;
-                }
-            }
-            _ => {
-                if let Some(body) = get_body() {
-                    self.buffer.print(&body)?;
-                    self.buffer.print("\n\n")?;
-                }
-            }
-        };
-        Ok(())
-    }
-
-    pub async fn print_response_body(&mut self, mut response: Response) -> Result<()> {
-        match get_content_type(&response.headers()) {
-            Some(ContentType::Json) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_json(&String::from_utf8_lossy(&bytes))?;
-                }
-            }
-            Some(ContentType::Xml) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_xml(&String::from_utf8_lossy(&bytes))?;
-                }
-            }
-            Some(ContentType::Html) if self.stream => {
-                while let Some(bytes) = response.chunk().await? {
-                    self.print_html(&String::from_utf8_lossy(&bytes))?;
-                }
-            }
-            Some(ContentType::Json) => self.print_json(&response.text().await?)?,
-            Some(ContentType::Xml) => self.print_xml(&response.text().await?)?,
-            Some(ContentType::Html) => self.print_html(&response.text().await?)?,
-            _ => {
-                let mut is_first_chunk = true;
-                while let Some(bytes) = response.chunk().await? {
-                    if is_first_chunk
-                        && matches!(self.buffer, Buffer::Stdout | Buffer::Stderr)
-                        && bytes.contains(&b'\0')
-                    {
+            content_type => {
+                if let Some(body) = request.body().and_then(|b| b.as_bytes()) {
+                    if body.contains(&b'\0') {
                         self.buffer.print(BINARY_SUPPRESSOR)?;
-                        break;
+                    } else {
+                        self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
+                        self.buffer.print("\n")?;
                     }
-                    is_first_chunk = false;
-
-                    self.buffer.write_all(&bytes)?;
+                    // Breathing room between request and response
+                    self.buffer.print("\n")?;
                 }
             }
-        };
+        }
         Ok(())
     }
+
+    pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
+        let content_type = get_content_type(&response.headers());
+        if !self.buffer.is_terminal() {
+            // No trailing newlines, no decoding, direct streaming
+            self.print_body_stream(content_type, &mut response)?;
+        } else if self.stream {
+            match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
+                Ok(_) => {
+                    self.buffer.print("\n")?;
+                }
+                Err(err) if err.kind() == io::ErrorKind::InvalidData => {
+                    if self.color {
+                        self.buffer.print("\x1b[0m")?;
+                    }
+                    self.buffer.print(BINARY_SUPPRESSOR)?;
+                }
+                Err(err) => return Err(err.into()),
+            }
+        } else {
+            // Note that .text() behaves like String::from_utf8_lossy()
+            let text = response.text()?;
+            if text.contains('\0') {
+                self.buffer.print(BINARY_SUPPRESSOR)?;
+                return Ok(());
+            }
+            self.print_body_text(content_type, &text)?;
+            self.buffer.print("\n")?;
+        }
+        Ok(())
+    }
+}
+
+/// Decode a streaming response in a way that matches `.text()`.
+///
+/// Note that in practice this seems to behave like String::from_utf8_lossy(),
+/// but it makes no guarantees about outputting valid UTF-8 if the input is
+/// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
+/// that's going to the terminal, and don't trust its output.
+///
+/// `reqwest` doesn't provide an API for this, so we have to roll our own. It
+/// doesn't even provide an API to detect the response's encoding, so that
+/// logic is copied here.
+///
+/// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
+fn decode_stream(response: &mut Response) -> impl Read + '_ {
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<Mime>().ok());
+    let encoding_name = content_type
+        .as_ref()
+        .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
+        .unwrap_or("utf-8");
+    let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
+
+    DecodeReaderBytesBuilder::new()
+        .encoding(Some(encoding))
+        .build(response)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cli::Cli, vec_of_strings};
+    use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
@@ -250,14 +367,14 @@ mod tests {
     fn test_1() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stdout);
+        assert_matches!(p.buffer, Buffer::Stdout(..));
     }
 
     #[test]
     fn test_2() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::Redirect);
+        assert_matches!(p.buffer, Buffer::Redirect(..));
     }
 
     #[test]
@@ -283,14 +400,14 @@ mod tests {
     fn test_5() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
     fn test_6() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
@@ -301,7 +418,7 @@ mod tests {
             true,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
@@ -312,6 +429,6 @@ mod tests {
             false,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr);
+        assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 }

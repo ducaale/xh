@@ -1,4 +1,8 @@
-use std::{fs::read_to_string, process::Command};
+use std::{
+    fs::read_to_string,
+    io::{Seek, SeekFrom, Write},
+    process::Command,
+};
 
 use assert_cmd::prelude::*;
 use httpmock::{Method::*, MockServer};
@@ -6,7 +10,7 @@ use indoc::indoc;
 use predicate::str::contains;
 use predicates::prelude::*;
 use serde_json::json;
-use tempfile::tempdir;
+use tempfile::{tempdir, tempfile};
 
 fn get_base_command() -> Command {
     Command::cargo_bin("xh").expect("binary should be present")
@@ -17,7 +21,14 @@ fn get_base_command() -> Command {
 fn get_command() -> Command {
     let mut cmd = get_base_command();
     cmd.env("XH_TEST_MODE", "1");
-    cmd.arg("--ignore-stdin");
+    cmd.env("XH_TEST_MODE_TERM", "1");
+    cmd
+}
+
+/// Do not pretend the output goes to a terminal.
+fn redirecting_command() -> Command {
+    let mut cmd = get_base_command();
+    cmd.env("XH_TEST_MODE", "1");
     cmd
 }
 
@@ -33,6 +44,7 @@ fn basic_json_post() {
     });
 
     get_command()
+        .arg("--print=b")
         .arg("--pretty=format")
         .arg("post")
         .arg(server.base_url())
@@ -42,7 +54,9 @@ fn basic_json_post() {
         {
             "got": "name",
             "status": "ok"
-        }"#});
+        }
+
+        "#});
     mock.assert();
 }
 
@@ -55,10 +69,11 @@ fn basic_get() {
     });
 
     get_command()
+        .arg("--print=b")
         .arg("get")
         .arg(server.base_url())
         .assert()
-        .stdout("foobar\n");
+        .stdout("foobar\n\n");
     mock.assert();
 }
 
@@ -166,22 +181,26 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
+        accept: application/json, */*
         accept-encoding: gzip, deflate
         connection: keep-alive
-        user-agent: xh/0.0.0 (test mode)
-        accept: application/json, */*
-        content-type: application/json
         content-length: 9
+        content-type: application/json
         host: http.mock
+        user-agent: xh/0.0.0 (test mode)
 
-        {"x":"y"}
+        {
+            "x": "y"
+        }
+
 
         HTTP/1.1 200 OK
-        x-foo: Bar
-        date: N/A
         content-length: 6
+        date: N/A
+        x-foo: Bar
 
-        a body"#});
+        a body
+        "#});
     mock.assert();
 }
 
@@ -247,7 +266,78 @@ fn proxy_https_proxy() {
         .assert()
         .stderr(predicate::str::contains("unsuccessful tunnel"))
         .failure();
+    mock.assert();
+}
 
+#[test]
+fn download_generated_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "application/json").body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.url("/foo/bar/"))
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
+}
+
+#[test]
+fn download_supplied_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Disposition", r#"attachment; filename="foo.bar""#)
+            .body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.base_url())
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(read_to_string(dir.path().join("foo.bar")).unwrap(), "file");
+}
+
+#[test]
+fn download_supplied_unquoted_filename() {
+    let dir = tempdir().unwrap();
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Disposition", r#"attachment; filename=foo bar baz"#)
+            .body("file");
+    });
+
+    get_command()
+        .arg("--download")
+        .arg(server.base_url())
+        .current_dir(&dir)
+        .assert();
+    mock.assert();
+    assert_eq!(
+        read_to_string(dir.path().join("foo bar baz")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
+fn decode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
     mock.assert();
 }
 
@@ -269,8 +359,103 @@ fn proxy_all_proxy() {
     get_proxy_command("http", "all", &server.base_url())
         .assert()
         .failure();
-
     mock.assert();
+}
+
+#[test]
+fn streaming_decode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--stream")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
+    mock.assert();
+}
+
+#[test]
+fn only_decode_for_terminal() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    let output = redirecting_command()
+        .arg(server.base_url())
+        .assert()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(&output, b"\xe9"); // .stdout() doesn't support byte slices
+    mock.assert();
+}
+
+#[test]
+fn binary_detection() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.body(b"foo\0bar");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn streaming_binary_detection() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.body(b"foo\0bar");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--stream")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn request_binary_detection() {
+    let mut binary_file = tempfile().unwrap();
+    binary_file.write_all(b"foo\0bar").unwrap();
+    binary_file.seek(SeekFrom::Start(0)).unwrap();
+    redirecting_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .stdin(binary_file)
+        .assert()
+        .stdout(indoc! {r#"
+        +-----------------------------------------+
+        | NOTE: binary data not shown in terminal |
+        +-----------------------------------------+
+
+
+        "#});
 }
 
 #[test]
@@ -315,6 +500,22 @@ fn proxy_multiple_valid_proxies() {
 }
 
 #[test]
+fn check_status() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .arg("--check-status")
+        .arg(server.base_url())
+        .assert()
+        .code(4)
+        .stderr("");
+    mock.assert();
+}
+
+#[test]
 fn user_password_auth() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
@@ -325,6 +526,22 @@ fn user_password_auth() {
         .arg("--auth=user:pass")
         .arg(server.base_url())
         .assert();
+    mock.assert();
+}
+
+#[test]
+fn check_status_warning() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(501);
+    });
+
+    redirecting_command()
+        .arg("--check-status")
+        .arg(server.base_url())
+        .assert()
+        .code(5)
+        .stderr("\nxh: warning: HTTP 501 Not Implemented\n\n");
     mock.assert();
 }
 
