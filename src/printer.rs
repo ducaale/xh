@@ -285,14 +285,12 @@ impl Printer {
     }
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
+        let content_type = get_content_type(&response.headers());
         if !self.buffer.is_terminal() {
             // No trailing newlines, no decoding, direct streaming
-            self.print_body_stream(get_content_type(&response.headers()), &mut response)?;
+            self.print_body_stream(content_type, &mut response)?;
         } else if self.stream {
-            match self.print_body_stream(
-                get_content_type(&response.headers()),
-                &mut decode_stream(&mut response),
-            ) {
+            match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -305,7 +303,6 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let content_type = get_content_type(&response.headers());
             // Note that .text() behaves like String::from_utf8_lossy()
             let text = response.text()?;
             if text.contains('\0') {

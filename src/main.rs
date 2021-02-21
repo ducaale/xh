@@ -58,19 +58,18 @@ fn inner_main() -> Result<i32> {
     let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
-    let body = if let Some(body) = request_items.body(args.form, args.multipart)? {
-        if !ignore_stdin {
+    let body = match request_items.body(args.form, args.multipart)? {
+        Some(_) if !ignore_stdin => {
             return Err(anyhow!(
                 "Request body (from stdin) and Request data (key=value) cannot be mixed"
             ));
         }
-        Some(body)
-    } else if !ignore_stdin {
-        let mut buffer = Vec::new();
-        stdin().read_to_end(&mut buffer)?;
-        Some(Body::Raw(buffer))
-    } else {
-        None
+        None if !ignore_stdin => {
+            let mut buffer = Vec::new();
+            stdin().read_to_end(&mut buffer)?;
+            Some(Body::Raw(buffer))
+        }
+        body => body,
     };
 
     let method = args.method.unwrap_or_else(|| Method::from(&body)).into();
