@@ -78,6 +78,13 @@ impl Buffer {
     }
 }
 
+/// A wrapper around a [`Buffer`] that aborts with `InvalidData` if it receives binary data.
+///
+/// `InvalidData` is then caught up the stack to print a binary suppressor
+/// if the data is being streamed. This is a replacement for checking for a
+/// null byte in the entire response, as we do if the response isn't streamed.
+///
+/// Typically used through a [`LineWriter`].
 struct BinaryGuard<'a>(&'a mut Buffer);
 
 impl BinaryGuard<'_> {
