@@ -1,3 +1,22 @@
+## [Unreleased]
+### Features
+- More robust detection of the method and URL arguments, see #55 (@blyxxyz)
+- Improvements to the generation downloaded filenames, see #56 (@blyxxyz)
+- _--continue_ now works for resuming downloads. It was incomplete before, see #59 (@blyxxyz)
+- _--check-status_ is supported, and is automatically active for downloads
+  (so you don't download error pages), see #59 (@blyxxyz)
+- Add the _--proxy_ option, see #62 (@otaconix)
+- Add _--bearer_ flag for Bearer Authentication and remove _--auth-type_, see #64 (@blyxxyz)
+- Add support for manpages, see #64 (@blyxxyz)
+- Add _help_ subcommand for printing long help and update _--help_ to print short help, see #64 (@blyxxyz)
+- Support escaping characters in request items with backslash, see #66 (@blyxxyz)
+- Add support for _--verify_ to skip the host’s SSL certificate verification, see #44 (@jihchi, @otaconix)
+- Add support for _--cert/cert-key_ for using client side certificate for the SSL communication, see #44 (@jihchi, @otaconix)
+
+### Other
+- Make structopt usage more consistent, see #67 (@blyxxyz)
+- Remove use of async, make --stream work consistently, see #41 (@blyxxyz)
+
 ## [0.7.0] - 2021-02-12
 ### Features
 - Follow redirects if downloading a file, see #51 (@blyxxyz)
