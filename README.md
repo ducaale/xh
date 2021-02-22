@@ -1,7 +1,8 @@
 # xh
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
 
-Yet another [HTTPie](https://httpie.io/) clone in Rust.
+xh is a friendly and fast tool for sending HTTP requests. It reimplements as much
+as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
