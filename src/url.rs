@@ -10,10 +10,13 @@ pub fn construct_url(
     default_scheme: Option<&str>,
     query: Vec<(&str, &str)>,
 ) -> Result<Url> {
-    let default_scheme = default_scheme.unwrap_or("http://");
+    let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
+    if !default_scheme.ends_with("://") {
+        default_scheme.push_str("://");
+    }
     let mut url: Url = if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
-    } else if !regex!("[a-zA-Z]://.+").is_match(&url) {
+    } else if !regex!("[a-zA-Z0-9]://.+").is_match(&url) {
         format!("{}{}", default_scheme, url).parse()?
     } else {
         url.parse()?

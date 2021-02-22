@@ -7,15 +7,11 @@ use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use reqwest::Url;
+use reqwest::{Method, Url};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{
-    buffer::Buffer,
-    request_items::{Body, RequestItem},
-    utils::test_pretend_term,
-};
+use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term};
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -29,6 +25,8 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
+    // TODO: this flag is entirely ignored
+    // Shouldn't it do something? It's a bit unclear what it does in HTTPie
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long)]
     pub json: bool,
@@ -120,6 +118,16 @@ pub struct Cli {
     /// If stdout is redirected then a warning is written to stderr.
     #[structopt(long)]
     pub check_status: bool,
+
+    /// Print a translation to a `curl` command.
+    ///
+    /// For translating the other way, try https://curl2httpie.online/.
+    #[structopt(long)]
+    pub curl: bool,
+
+    /// Use the long versions of curl's flags.
+    #[structopt(long)]
+    pub curl_long: bool,
 
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
     ///
@@ -266,14 +274,14 @@ impl Cli {
             });
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
-        match cli.raw_method_or_url.parse::<Method>() {
-            Ok(method) => {
+        match parse_method(&cli.raw_method_or_url) {
+            Some(method) => {
                 cli.method = Some(method);
                 cli.url = rest_args.next().ok_or_else(|| {
                     Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
                 })?;
             }
-            Err(_) => {
+            None => {
                 cli.method = None;
                 cli.url = mem::take(&mut cli.raw_method_or_url);
             }
@@ -281,72 +289,44 @@ impl Cli {
         for request_item in rest_args {
             cli.request_items.push(request_item.parse()?);
         }
-        if cli.resume && !cli.download {
+        cli.process_relations()?;
+        Ok(cli)
+    }
+
+    /// Set flags that are implied by other flags and report conflicting flags.
+    fn process_relations(&mut self) -> clap::Result<()> {
+        if self.resume && !self.download {
             return Err(Error::with_description(
                 "--continue only works with --download",
                 ErrorKind::MissingArgumentOrSubcommand,
             ));
         }
-        if cli.resume && cli.output.is_none() {
+        if self.resume && self.output.is_none() {
             return Err(Error::with_description(
                 "--continue requires --output",
                 ErrorKind::MissingArgumentOrSubcommand,
             ));
         }
-        Ok(cli)
+        if self.download {
+            self.follow = true;
+        }
+        if self.curl_long {
+            self.curl = true;
+        }
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Method {
-    GET,
-    HEAD,
-    POST,
-    PUT,
-    PATCH,
-    DELETE,
-    OPTIONS,
-}
-
-impl FromStr for Method {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Method> {
-        match s.to_ascii_uppercase().as_str() {
-            "GET" => Ok(Method::GET),
-            "HEAD" => Ok(Method::HEAD),
-            "POST" => Ok(Method::POST),
-            "PUT" => Ok(Method::PUT),
-            "PATCH" => Ok(Method::PATCH),
-            "DELETE" => Ok(Method::DELETE),
-            "OPTIONS" => Ok(Method::OPTIONS),
-            method => Err(Error::with_description(
-                &format!("unknown http method {}", method),
-                ErrorKind::InvalidValue,
-            )),
-        }
-    }
-}
-
-impl From<Method> for reqwest::Method {
-    fn from(method: Method) -> Self {
-        match method {
-            Method::GET => reqwest::Method::GET,
-            Method::HEAD => reqwest::Method::HEAD,
-            Method::POST => reqwest::Method::POST,
-            Method::PUT => reqwest::Method::PUT,
-            Method::PATCH => reqwest::Method::PATCH,
-            Method::DELETE => reqwest::Method::DELETE,
-            Method::OPTIONS => reqwest::Method::OPTIONS,
-        }
-    }
-}
-
-impl From<&Option<Body>> for Method {
-    fn from(body: &Option<Body>) -> Self {
-        match body {
-            Some(_) => Method::POST,
-            None => Method::GET,
-        }
+fn parse_method(method: &str) -> Option<Method> {
+    // These are defined as constants on Method
+    const METHODS: &[&str] = &[
+        "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "CONNECT", "PATCH", "TRACE",
+    ];
+    let method = method.to_ascii_uppercase();
+    if METHODS.contains(&method.as_str()) {
+        Some(method.parse().unwrap())
+    } else {
+        None
     }
 }
 

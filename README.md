@@ -52,6 +52,8 @@ FLAGS:
     -q, --quiet           Do not print to stdout or stderr
     -S, --stream          Always stream the response body
         --check-status    Exit with an error status code if the server replies with an error
+        --curl            Print a translation to a `curl` command
+        --curl-long       Use the long versions of curl's flags
         --help            Prints help information
     -V, --version         Prints version information
 
