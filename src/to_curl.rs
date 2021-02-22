@@ -302,7 +302,7 @@ mod tests {
                 "curl -X PUT 'http://httpbin.org/put'",
             ),
             (
-                "xh --default-scheme https httpbin.org/get x==3",
+                "xh --https httpbin.org/get x==3",
                 "curl 'https://httpbin.org/get?x=3'",
             ),
             (

@@ -55,6 +55,7 @@ FLAGS:
         --check-status    Exit with an error status code if the server replies with an error
         --curl            Print a translation to a `curl` command
         --curl-long       Use the long versions of curl's flags
+        --https           Make HTTPS requests if not specified in the URL
         --help            Prints help information
     -V, --version         Prints version information
 
@@ -67,7 +68,6 @@ OPTIONS:
         --pretty <STYLE>             Controls output processing [possible values: all, colors, format, none]
     -s, --style <THEME>              Output coloring style [possible values: auto, solarized]
         --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
-        --default-scheme <SCHEME>    The default scheme to use if not specified in the URL
         --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                Use a client side certificate for SSL
         --cert-key <FILE>            A private key file to use with --cert

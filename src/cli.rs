@@ -144,8 +144,12 @@ pub struct Cli {
     pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "default-scheme", value_name = "SCHEME")]
+    #[structopt(long = "default-scheme", value_name = "SCHEME", hidden = true)]
     pub default_scheme: Option<String>,
+
+    /// Make HTTPS requests if not specified in the URL.
+    #[structopt(long = "https")]
+    pub https: bool,
 
     /// The request URL, preceded by an optional HTTP method.
     ///
@@ -312,6 +316,9 @@ impl Cli {
         }
         if self.curl_long {
             self.curl = true;
+        }
+        if self.https {
+            self.default_scheme = Some("https".to_string());
         }
         Ok(())
     }
