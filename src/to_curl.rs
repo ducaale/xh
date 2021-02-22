@@ -306,6 +306,10 @@ mod tests {
                 "curl 'https://httpbin.org/get?x=3'",
             ),
             (
+                "xhs httpbin.org/get x==3",
+                "curl 'https://httpbin.org/get?x=3'",
+            ),
+            (
                 "xh -h httpbin.org/get",
                 "curl -I -X GET 'http://httpbin.org/get'",
             ),

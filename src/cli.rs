@@ -269,7 +269,10 @@ impl Cli {
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
     {
-        let mut cli: Self = StructOpt::from_iter_safe(iter)?;
+        let mut app = Self::clap();
+        let matches = app.get_matches_from_safe_borrow(iter)?;
+        let mut cli = Self::from_clap(&matches);
+
         if cli.raw_method_or_url == "help" {
             return Err(Error {
                 message: "XH_PRINT_LONG_HELP".to_string(),
@@ -293,6 +296,14 @@ impl Cli {
         for request_item in rest_args {
             cli.request_items.push(request_item.parse()?);
         }
+
+        if matches!(
+            app.get_bin_name(),
+            Some("https") | Some("xhs") | Some("xhttps")
+        ) {
+            cli.https = true;
+        }
+
         cli.process_relations()?;
         Ok(cli)
     }
@@ -693,5 +704,11 @@ mod tests {
             proxy,
             vec!(Proxy::All(Url::parse("http://127.0.0.1:8000").unwrap()))
         );
+    }
+
+    #[test]
+    fn executable_name() {
+        let args = Cli::from_iter_safe(&["xhs", "example.org"]).unwrap();
+        assert_eq!(args.https, true);
     }
 }
