@@ -43,6 +43,12 @@ pub struct Cli {
     #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
 
+    // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
+    /// Specify the auth mechanism.
+    #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(),
+                default_value = "basic", case_insensitive = true, hidden = true)]
+    pub auth_type: AuthType,
+
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
     ///
     /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
@@ -331,6 +337,9 @@ impl Cli {
         if self.https {
             self.default_scheme = Some("https".to_string());
         }
+        if self.auth_type == AuthType::bearer && self.auth.is_some() {
+            self.bearer = self.auth.take();
+        }
         Ok(())
     }
 }
@@ -345,6 +354,14 @@ fn parse_method(method: &str) -> Option<Method> {
         Some(method.parse().unwrap())
     } else {
         None
+    }
+}
+
+arg_enum! {
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, PartialEq)]
+    pub enum AuthType {
+        basic, bearer
     }
 }
 
@@ -636,6 +653,29 @@ mod tests {
             cli.request_items,
             vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
         );
+    }
+
+    #[test]
+    fn auth() {
+        let cli = parse(&["--auth=user:pass", ":"]).unwrap();
+        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--auth=user:pass", "--auth-type=basic", ":"]).unwrap();
+        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--auth=token", "--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer.as_deref(), Some("token"));
+
+        let cli = parse(&["--bearer=token", "--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer.as_deref(), Some("token"));
+
+        let cli = parse(&["--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer, None);
     }
 
     #[test]
