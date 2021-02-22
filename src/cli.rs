@@ -389,7 +389,12 @@ impl From<&Buffer> for Pretty {
         if test_pretend_term() {
             Pretty::format
         } else if b.is_terminal() {
-            Pretty::all
+            if env::var_os("NO_COLOR").is_some() {
+                // https://no-color.org/
+                Pretty::format
+            } else {
+                Pretty::all
+            }
         } else {
             Pretty::none
         }
