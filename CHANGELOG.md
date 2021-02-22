@@ -12,6 +12,7 @@
 - Support escaping characters in request items with backslash, see #66 (@blyxxyz)
 - Add support for _--verify_ to skip the host’s SSL certificate verification, see #44 (@jihchi, @otaconix)
 - Add support for _--cert/cert-key_ for using client side certificate for the SSL communication, see #44 (@jihchi, @otaconix)
+- Add --curl flag to print equivalent curl command, see #69 (@blyxxyz)
 
 ### Other
 - Make structopt usage more consistent, see #67 (@blyxxyz)
