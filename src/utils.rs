@@ -23,6 +23,7 @@ pub enum ContentType {
     Xml,
     UrlencodedForm,
     Multipart,
+    PotentialJson,
 }
 
 pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
@@ -41,6 +42,10 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 Some(ContentType::Multipart)
             } else if content_type.contains("x-www-form-urlencoded") {
                 Some(ContentType::UrlencodedForm)
+            } else if content_type.contains("javascript") || content_type.contains("text") {
+                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
+                // HTTPie additionally checks for "json", but we already bucket that into ContentType::Json
+                Some(ContentType::PotentialJson)
             } else {
                 None
             }
@@ -93,4 +98,8 @@ pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io:
             Err(e) => return Err(e),
         }
     }
+}
+
+pub fn valid_json(text: &str) -> bool {
+    serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }

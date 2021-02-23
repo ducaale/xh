@@ -10,7 +10,7 @@ use reqwest::header::{
 
 use crate::{
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, get_content_type, test_mode, ContentType},
+    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType},
 };
 use crate::{Buffer, Pretty, Theme};
 
@@ -108,6 +108,10 @@ impl Printer {
             Some(ContentType::Json) => self.print_json_text(body),
             Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
             Some(ContentType::Html) => self.print_syntax_text(body, "html"),
+            // In HTTPie part of this behavior is gated behind the --json flag
+            // But it does JSON formatting even without that flag, so doing
+            // this check unconditionally is fine
+            Some(ContentType::PotentialJson) if valid_json(body) => self.print_json_text(body),
             _ => self.buffer.print(body),
         }
     }

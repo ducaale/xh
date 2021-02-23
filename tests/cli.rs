@@ -705,3 +705,77 @@ fn forced_multipart() {
         .success();
     mock.assert();
 }
+
+#[test]
+fn formatted_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "application/json")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn inferred_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "text/plain").body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn inferred_nonjson_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        // Trailing comma makes it invalid JSON, though formatting would still work
+        then.header("content-type", "text/plain").body(r#"{"":0,}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {"":0,}
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn noninferred_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        // Trailing comma makes it invalid JSON, though formatting would still work
+        then.header("content-type", "application/octet-stream")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {"":0}
+        "#});
+    mock.assert();
+}

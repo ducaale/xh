@@ -25,6 +25,7 @@ pem = "0.8.2"
 regex = "1"
 reqwest = { version = "0.11.1", default-features = false, features = ["rustls-tls", "json", "gzip", "brotli", "multipart", "blocking", "socks"] }
 rpassword = "5.0.0"
+serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
