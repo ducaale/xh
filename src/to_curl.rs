@@ -5,7 +5,9 @@ use reqwest::Method;
 
 use crate::{
     cli::{Cli, Verify},
-    request_items::{Body, RequestItem, RequestItems},
+    request_items::{
+        Body, RequestItem, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE,
+    },
     url::construct_url,
 };
 
@@ -51,6 +53,11 @@ impl Command {
         self.args.push(arg.into());
     }
 
+    fn header(&mut self, name: &str, value: &str) {
+        self.flag("-H", "--header");
+        self.push(format!("{}: {}", name, value));
+    }
+
     fn env(&mut self, var: &'static str, value: String) {
         self.env.push((var, value));
     }
@@ -83,7 +90,6 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     let ignored = &[
         (args.offline, "--offline"),          // No equivalent
-        (args.json, "-j/--json"),             // Doesn't do anything in the first place
         (args.body, "-b/--body"),             // Already the default
         (args.print.is_some(), "-p/--print"), // No straightforward equivalent
         (args.quiet, "-q/--quiet"),           // No equivalent, -s/--silent suppresses other stuff
@@ -184,7 +190,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         // but with an explicit method as an override.
         // But this is a hack that actually fails if data is sent.
         // See discussion on https://lornajane.net/posts/2014/view-only-headers-with-curl
-        let method = args.method.unwrap_or_else(|| request_items.pick_method());
+
+        let request_type = args.request_type; // For the borrow checker
+        let method = args
+            .method
+            .unwrap_or_else(|| request_items.pick_method(request_type));
         cmd.flag("-I", "--head");
         cmd.flag("-X", "--request");
         cmd.push(method.to_string());
@@ -250,8 +260,12 @@ pub fn translate(args: Cli) -> Result<Command> {
             }
         }
     } else {
-        match request_items.body(args.form, false)? {
-            Some(Body::Form(items)) => {
+        match request_items.body(args.request_type)? {
+            Body::Form(items) => {
+                if items.is_empty() {
+                    // Force the header
+                    cmd.header("content-type", FORM_CONTENT_TYPE);
+                }
                 for (key, value) in items {
                     // More faithful than -F, but doesn't have a short version
                     // New in curl 7.18.0 (January 28 2008), *probably* old enough
@@ -264,17 +278,21 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.push(encoded);
                 }
             }
-            Some(Body::Json(map)) => {
-                cmd.flag("-H", "--header");
-                cmd.push("content-type: application/json");
+            Body::Json(map) if !map.is_empty() => {
+                cmd.header("content-type", JSON_CONTENT_TYPE);
+                cmd.header("accept", JSON_ACCEPT);
 
                 let json_string = serde_json::Value::from(map).to_string();
                 cmd.flag("-d", "--data");
                 cmd.push(json_string);
             }
-            Some(Body::Multipart(..)) => unreachable!(),
-            Some(Body::Raw(..)) => unreachable!(),
-            None => {}
+            Body::Json(..) if args.json => {
+                cmd.header("content-type", JSON_CONTENT_TYPE);
+                cmd.header("accept", JSON_ACCEPT);
+            }
+            Body::Json(..) => {}
+            Body::Multipart { .. } => unreachable!(),
+            Body::Raw(..) => unreachable!(),
         }
     }
 
@@ -291,7 +309,7 @@ mod tests {
             ("xh httpbin.org/get", "curl 'http://httpbin.org/get'"),
             (
                 "xh httpbin.org/post x=3",
-                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -d '{"x":"3"}'"#,
+                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":"3"}'"#,
             ),
             (
                 "xh --form httpbin.org/post x\\=y=z=w",
@@ -327,11 +345,19 @@ mod tests {
             ),
             (
                 "xh httpbin.org/post x:=[3]",
-                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -d '{"x":[3]}'"#,
+                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":[3]}'"#,
+            ),
+            (
+                "xh --json httpbin.org/post",
+                "curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5'",
             ),
             (
                 "xh --form httpbin.org/post x@/dev/null",
                 "curl 'http://httpbin.org/post' -F 'x=@/dev/null'",
+            ),
+            (
+                "xh --form httpbin.org/post",
+                "curl 'http://httpbin.org/post' -H 'content-type: application/x-www-form-urlencoded'",
             ),
             (
                 "xh --bearer foobar post httpbin.org/post",

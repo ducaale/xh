@@ -4,7 +4,9 @@ use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE, HOST};
+use reqwest::header::{
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
+};
 
 use crate::{
     formatting::{get_json_formatter, Highlighter},
@@ -216,6 +218,10 @@ impl Printer {
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
         let version = reqwest::Version::HTTP_11;
         let mut headers = request.headers().clone();
+
+        headers
+            .entry(ACCEPT)
+            .or_insert_with(|| HeaderValue::from_static("*/*"));
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of

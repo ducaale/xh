@@ -181,7 +181,7 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
-        accept: application/json, */*
+        accept: application/json, */*;q=0.5
         accept-encoding: gzip, deflate
         connection: keep-alive
         content-length: 9
@@ -659,4 +659,49 @@ fn cert_with_key() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
         .stdout(predicates::str::contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
+}
+
+#[test]
+fn forced_json() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(GET)
+            .header("content-type", "application/json")
+            .header("accept", "application/json, */*;q=0.5");
+    });
+    get_command()
+        .arg("--json")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
+}
+
+#[test]
+fn forced_form() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(GET)
+            .header("content-type", "application/x-www-form-urlencoded");
+    });
+    get_command()
+        .arg("--form")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
+}
+
+#[test]
+fn forced_multipart() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(POST).header_exists("content-type").body("");
+    });
+    get_command()
+        .arg("--multipart")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
 }

@@ -5,6 +5,12 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
 use structopt::clap;
 
+use crate::cli::RequestType;
+
+pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
+pub const JSON_CONTENT_TYPE: &str = "application/json";
+pub const JSON_ACCEPT: &str = "application/json, */*;q=0.5";
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RequestItem {
     HttpHeader(String, String),
@@ -127,6 +133,31 @@ pub enum Body {
     Raw(Vec<u8>),
 }
 
+impl Body {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Body::Json(map) => map.is_empty(),
+            Body::Form(items) => items.is_empty(),
+            Body::Raw(data) => data.is_empty(),
+            // A multipart form without items isn't empty, and we can't read
+            // a body from stdin because it has to match the header, so we
+            // should never consider this "empty"
+            // This is a slight divergence from HTTPie, which will simply
+            // discard stdin if it receives --multipart without request items,
+            // but that behavior is useless so there's no need to match it
+            Body::Multipart(_) => false,
+        }
+    }
+
+    pub fn pick_method(&self) -> Method {
+        if self.is_empty() {
+            Method::GET
+        } else {
+            Method::POST
+        }
+    }
+}
+
 impl RequestItems {
     pub fn new(request_items: Vec<RequestItem>) -> RequestItems {
         RequestItems(request_items)
@@ -168,7 +199,7 @@ impl RequestItems {
         query
     }
 
-    fn body_as_json(self) -> Result<Option<Body>> {
+    fn body_as_json(self) -> Result<Body> {
         let mut body = serde_json::Map::new();
         for item in self.0 {
             match item {
@@ -186,14 +217,10 @@ impl RequestItems {
                 _ => {}
             }
         }
-        if body.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(Body::Json(body)))
-        }
+        Ok(Body::Json(body))
     }
 
-    fn body_as_form(self) -> Result<Option<Body>> {
+    fn body_as_form(self) -> Result<Body> {
         let mut text_fields = Vec::<(String, String)>::new();
         for item in self.0 {
             match item {
@@ -205,16 +232,11 @@ impl RequestItems {
                 _ => {}
             }
         }
-        if text_fields.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(Body::Form(text_fields)))
-        }
+        Ok(Body::Form(text_fields))
     }
 
-    fn body_as_multipart(self) -> Result<Option<Body>> {
+    fn body_as_multipart(self) -> Result<Body> {
         let mut form = multipart::Form::new();
-        let mut empty = true;
         for item in self.0 {
             match item {
                 RequestItem::JSONField(_, _) => {
@@ -222,7 +244,6 @@ impl RequestItems {
                 }
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
-                    empty = false;
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     let mut part = file_to_part(&value)?;
@@ -230,29 +251,31 @@ impl RequestItems {
                         part = part.mime_str(&file_type)?;
                     }
                     form = form.part(key, part);
-                    empty = false;
                 }
                 _ => {}
             }
         }
-        if empty {
-            Ok(None)
-        } else {
-            Ok(Some(Body::Multipart(form)))
-        }
+        Ok(Body::Multipart(form))
     }
 
-    pub fn body(self, form: bool, multipart: bool) -> Result<Option<Body>> {
-        match (form, multipart) {
-            (_, true) => self.body_as_multipart(),
-            (true, _) if self.has_form_files() => self.body_as_multipart(),
-            (true, _) => self.body_as_form(),
-            (_, _) => self.body_as_json(),
+    pub fn body(self, request_type: Option<RequestType>) -> Result<Body> {
+        match request_type {
+            Some(RequestType::Multipart) => self.body_as_multipart(),
+            Some(RequestType::Form) if self.has_form_files() => self.body_as_multipart(),
+            Some(RequestType::Form) => self.body_as_form(),
+            Some(RequestType::Json) | None => self.body_as_json(),
         }
     }
 
     /// Guess which would be appropriate for the return value of `body`.
-    pub fn pick_method(&self) -> Method {
+    ///
+    /// It's better to use `Body::pick_method`, if possible. This method is
+    /// for the benefit of `to_curl`, which sometimes has to process the
+    /// request items itself.
+    pub fn pick_method(&self, request_type: Option<RequestType>) -> Method {
+        if request_type == Some(RequestType::Multipart) {
+            return Method::POST;
+        }
         for item in &self.0 {
             match item {
                 RequestItem::HttpHeader(..)

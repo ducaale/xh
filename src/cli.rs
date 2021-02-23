@@ -25,19 +25,20 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
-    // TODO: this flag is entirely ignored
-    // Shouldn't it do something? It's a bit unclear what it does in HTTPie
     /// (default) Serialize data items from the command line as a JSON object.
-    #[structopt(short = "j", long)]
+    #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
-    #[structopt(short = "f", long)]
+    #[structopt(short = "f", long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[structopt(short = "m", long)]
+    #[structopt(short = "m", long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
+
+    #[structopt(skip)]
+    pub request_type: Option<RequestType>,
 
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
@@ -340,6 +341,14 @@ impl Cli {
         if self.auth_type == AuthType::bearer && self.auth.is_some() {
             self.bearer = self.auth.take();
         }
+        // `overrides_with_all` ensures that only one of these is true
+        if self.json {
+            self.request_type = Some(RequestType::Json);
+        } else if self.form {
+            self.request_type = Some(RequestType::Form);
+        } else if self.multipart {
+            self.request_type = Some(RequestType::Multipart);
+        }
         Ok(())
     }
 }
@@ -590,6 +599,13 @@ impl fmt::Display for Verify {
     }
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum RequestType {
+    Json,
+    Form,
+    Multipart,
+}
+
 /// Based on the function used by clap to abort
 fn safe_exit() -> ! {
     let _ = std::io::stdout().lock().flush();
@@ -681,6 +697,19 @@ mod tests {
         let cli = parse(&["--auth-type=bearer", ":"]).unwrap();
         assert_eq!(cli.auth, None);
         assert_eq!(cli.bearer, None);
+    }
+
+    #[test]
+    fn request_type_overrides() {
+        let cli = parse(&["--form", "--json", ":"]).unwrap();
+        assert_eq!(cli.request_type, Some(RequestType::Json));
+        assert_eq!(cli.json, true);
+        assert_eq!(cli.form, false);
+
+        let cli = parse(&["--json", "--form", ":"]).unwrap();
+        assert_eq!(cli.request_type, Some(RequestType::Form));
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, true);
     }
 
     #[test]
