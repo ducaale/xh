@@ -40,18 +40,8 @@ fn get_user_agent() -> &'static str {
     }
 }
 
-fn main() -> Result<()> {
-    std::process::exit(inner_main()?);
-}
-
-/// [`main`] is wrapped around this function so it can safely exit with an
-/// exit code.
-///
-/// [`std::process::exit`] is a hard termination, that ends the process
-/// without doing any cleanup. So we need to return from this function first.
-///
-/// The outer main function could also be a good place for error handling.
-fn inner_main() -> Result<i32> {
+#[exit_status::main]
+fn main() -> Result<i32> {
     let args = Cli::from_args();
 
     if args.curl {
