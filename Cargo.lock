@@ -645,6 +645,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
+name = "exit_status"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fa463ddbe23626539eb8513e7fcf0780cbafdcb3c7b5f98a028d59d96e857fd"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "extend"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2603,6 +2613,7 @@ dependencies = [
  "atty",
  "encoding_rs",
  "encoding_rs_io",
+ "exit_status",
  "httpmock",
  "indicatif",
  "indoc",
