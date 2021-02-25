@@ -305,7 +305,7 @@ impl Cli {
         }
 
         if matches!(
-            app.get_bin_name(),
+            app.get_bin_name().and_then(|name| name.split('.').next()),
             Some("https") | Some("xhs") | Some("xhttps")
         ) {
             cli.https = true;
@@ -783,6 +783,12 @@ mod tests {
     #[test]
     fn executable_name() {
         let args = Cli::from_iter_safe(&["xhs", "example.org"]).unwrap();
+        assert_eq!(args.https, true);
+    }
+
+    #[test]
+    fn executable_name_extension() {
+        let args = Cli::from_iter_safe(&["xhs.exe", "example.org"]).unwrap();
         assert_eq!(args.https, true);
     }
 }
