@@ -6,36 +6,31 @@ on:
     branches: [ master, develop ]
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.45.0
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-
   test:
     name: Test Suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.job.os }}
+    strategy: 
+      matrix:
+        job:
+          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: macos-latest   , target: x86_64-apple-darwin }
+          - { os: windows-latest , target: x86_64-pc-windows-msvc }
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.45.0
+          toolchain: 1.45.0 # minimum supported rust version
           override: true
       - uses: actions-rs/cargo@v1
         with:
+          use-cross: ${{ matrix.job.use-cross }}
           command: test
+          args: --target ${{ matrix.job.target }}
 
-  fmt:
-    name: Rustfmt
+  fmt-and-clippy:
+    name: Rustfmt and clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -44,23 +39,13 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: rustup component add rustfmt
+          components: rustfmt, clippy
+
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
