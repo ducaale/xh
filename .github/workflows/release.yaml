@@ -5,6 +5,20 @@ on:
     tags: [ v*.*.* ]
 
 jobs:
+  # We can't run tests using musl due to httpmock's dependency on OpenSSL
+  # Let's check if it at least able to build.
+  build-on-musl:
+    name: Build using musl as target
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build target
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target x86_64-unknown-linux-musl
+
   test:
     name: Test
     runs-on: ${{ matrix.job.os }}
@@ -13,7 +27,9 @@ jobs:
       matrix:
         job:
           - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
-          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          # uncomment this once isahc, one of httpmock dependencies, adds support for rustls
+          # as a tls engine, see https://github.com/sagebind/isahc/issues/199
+          # - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
           - { os: macos-latest   , target: x86_64-apple-darwin }
           - { os: windows-latest , target: x86_64-pc-windows-msvc }
     steps:
@@ -27,7 +43,7 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: [ test ]
+    needs: [ build-on-musl, test ]
     runs-on: ${{ matrix.job.os }}
     strategy: 
       matrix:

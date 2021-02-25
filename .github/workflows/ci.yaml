@@ -7,13 +7,13 @@ on:
 
 jobs:
   test:
-    name: Test Suite
+    name: Test
     runs-on: ${{ matrix.job.os }}
     strategy: 
       matrix:
         job:
-          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
-          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl }
           - { os: macos-latest   , target: x86_64-apple-darwin }
           - { os: windows-latest , target: x86_64-pc-windows-msvc }
     steps:
@@ -25,7 +25,6 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          use-cross: ${{ matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }}
 
