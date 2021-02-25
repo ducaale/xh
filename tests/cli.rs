@@ -766,7 +766,7 @@ fn inferred_nonjson_output() {
 fn noninferred_json_output() {
     let server = MockServer::start();
     let mock = server.mock(|_when, then| {
-        // Trailing comma makes it invalid JSON, though formatting would still work
+        // Valid JSON, but not declared as text
         then.header("content-type", "application/octet-stream")
             .body(r#"{"":0}"#);
     });
