@@ -67,9 +67,13 @@ fn inner_main() -> Result<i32> {
     let mut body = request_items.body(args.request_type)?;
     if !ignore_stdin {
         if !body.is_empty() {
-            return Err(anyhow!(
-                "Request body (from stdin) and Request data (key=value) cannot be mixed"
-            ));
+            if body.is_multipart() {
+                return Err(anyhow!("Cannot build a multipart request body from stdin"));
+            } else {
+                return Err(anyhow!(
+                    "Request body (from stdin) and Request data (key=value) cannot be mixed"
+                ));
+            }
         }
         let mut buffer = Vec::new();
         stdin().read_to_end(&mut buffer)?;

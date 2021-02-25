@@ -779,3 +779,33 @@ fn noninferred_json_output() {
         "#});
     mock.assert();
 }
+
+#[test]
+fn mixed_stdin_request_items() {
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg("--offline")
+        .arg(":")
+        .arg("x=3")
+        .stdin(input_file)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Request body (from stdin) and Request data (key=value) cannot be mixed",
+        ));
+}
+
+#[test]
+fn multipart_stdin() {
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg("--offline")
+        .arg("--multipart")
+        .arg(":")
+        .stdin(input_file)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Cannot build a multipart request body from stdin",
+        ));
+}
