@@ -20,7 +20,7 @@ Optional. If omitted, a GET or a POST will be done depending on whether the requ
 .HP
 URL
 .IP
-The URL to request. The scheme defaults to 'http://' unless \fB\-\-default\-scheme\fR is used.
+The URL to request. The scheme defaults to 'http://' unless \fB\-\-https\fR is used.
 .IP
 A leading colon works as shorthand for localhost. :8000 is equivalent to localhost:8000, and :/path is equivalent to localhost/path.
 .HP
@@ -116,6 +116,10 @@ For translating the other way, try https://curl2httpie.online/.
 .IP
 Use the long versions of curl's flags
 .HP
+\fB\-\-https\fR
+.IP
+Make HTTPS requests if not specified in the URL
+.HP
 \fB\-\-help\fR
 .IP
 Prints help information
@@ -171,10 +175,6 @@ You can specify proxies for multiple protocols by repeating this option.
 .IP
 The environment variables `http_proxy` and `https_proxy` can also be used, but are completely ignored if
 \fB\-\-proxy\fR is passed.
-.HP
-\fB\-\-default\-scheme\fR <SCHEME>
-.IP
-The default scheme to use if not specified in the URL
 .HP
 \fB\-\-verify\fR <VERIFY>
 .IP

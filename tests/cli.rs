@@ -181,7 +181,7 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
-        accept: application/json, */*
+        accept: application/json, */*;q=0.5
         accept-encoding: gzip, deflate
         connection: keep-alive
         content-length: 9
@@ -659,4 +659,153 @@ fn cert_with_key() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
         .stdout(predicates::str::contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
+}
+
+#[test]
+fn forced_json() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(GET)
+            .header("content-type", "application/json")
+            .header("accept", "application/json, */*;q=0.5");
+    });
+    get_command()
+        .arg("--json")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
+}
+
+#[test]
+fn forced_form() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(GET)
+            .header("content-type", "application/x-www-form-urlencoded");
+    });
+    get_command()
+        .arg("--form")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
+}
+
+#[test]
+fn forced_multipart() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(POST).header_exists("content-type").body("");
+    });
+    get_command()
+        .arg("--multipart")
+        .arg(server.base_url())
+        .assert()
+        .success();
+    mock.assert();
+}
+
+#[test]
+fn formatted_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "application/json")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn inferred_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "text/plain").body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn inferred_nonjson_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        // Trailing comma makes it invalid JSON, though formatting would still work
+        then.header("content-type", "text/plain").body(r#"{"":0,}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {"":0,}
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn noninferred_json_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        // Valid JSON, but not declared as text
+        then.header("content-type", "application/octet-stream")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {"":0}
+        "#});
+    mock.assert();
+}
+
+#[test]
+fn mixed_stdin_request_items() {
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg("--offline")
+        .arg(":")
+        .arg("x=3")
+        .stdin(input_file)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Request body (from stdin) and Request data (key=value) cannot be mixed",
+        ));
+}
+
+#[test]
+fn multipart_stdin() {
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg("--offline")
+        .arg("--multipart")
+        .arg(":")
+        .stdin(input_file)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Cannot build a multipart request body from stdin",
+        ));
 }

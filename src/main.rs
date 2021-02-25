@@ -20,14 +20,13 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
 };
 use reqwest::redirect::Policy;
-use reqwest::Method;
 
 use crate::auth::parse_auth;
 use crate::buffer::Buffer;
-use crate::cli::{Cli, Pretty, Print, Proxy, Theme, Verify};
+use crate::cli::{Cli, Pretty, Print, Proxy, RequestType, Theme, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
-use crate::request_items::{Body, RequestItems};
+use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -55,27 +54,23 @@ fn main() -> Result<i32> {
     let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
-    let body = match request_items.body(args.form, args.multipart)? {
-        Some(_) if !ignore_stdin => {
-            return Err(anyhow!(
-                "Request body (from stdin) and Request data (key=value) cannot be mixed"
-            ));
+    let mut body = request_items.body(args.request_type)?;
+    if !ignore_stdin {
+        if !body.is_empty() {
+            if body.is_multipart() {
+                return Err(anyhow!("Cannot build a multipart request body from stdin"));
+            } else {
+                return Err(anyhow!(
+                    "Request body (from stdin) and Request data (key=value) cannot be mixed"
+                ));
+            }
         }
-        None if !ignore_stdin => {
-            let mut buffer = Vec::new();
-            stdin().read_to_end(&mut buffer)?;
-            Some(Body::Raw(buffer))
-        }
-        body => body,
-    };
+        let mut buffer = Vec::new();
+        stdin().read_to_end(&mut buffer)?;
+        body = Body::Raw(buffer);
+    }
 
-    let method = args.method.unwrap_or_else(|| {
-        if body.is_some() {
-            Method::POST
-        } else {
-            Method::GET
-        }
-    });
+    let method = args.method.unwrap_or_else(|| body.pick_method());
     let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
@@ -151,20 +146,35 @@ fn main() -> Result<i32> {
             .header(USER_AGENT, get_user_agent());
 
         request_builder = match body {
-            Some(Body::Form(body)) => request_builder
-                .header(ACCEPT, HeaderValue::from_static("*/*"))
-                .form(&body),
-            Some(Body::Multipart(body)) => request_builder
-                .header(ACCEPT, HeaderValue::from_static("*/*"))
-                .multipart(body),
-            Some(Body::Json(body)) => request_builder
-                .header(ACCEPT, HeaderValue::from_static("application/json, */*"))
-                .json(&body),
-            Some(Body::Raw(body)) => request_builder
-                .header(ACCEPT, HeaderValue::from_static("application/json, */*"))
-                .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
-                .body(body),
-            None => request_builder.header(ACCEPT, HeaderValue::from_static("*/*")),
+            Body::Form(body) => request_builder.form(&body),
+            Body::Multipart(body) => request_builder.multipart(body),
+            Body::Json(body) => {
+                // An empty JSON body would produce "{}" instead of "", so
+                // this is the one kind of body that needs an is_empty() check
+                if !body.is_empty() {
+                    request_builder
+                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
+                        .json(&body)
+                } else if args.json {
+                    request_builder
+                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
+                        .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE))
+                } else {
+                    // We're here because this is the default request type
+                    // There's nothing to do
+                    request_builder
+                }
+            }
+            Body::Raw(body) => match args.request_type {
+                Some(RequestType::Json) => request_builder
+                    .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
+                    .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
+                Some(RequestType::Form) => request_builder
+                    .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE)),
+                Some(RequestType::Multipart) => unreachable!(),
+                None => request_builder,
+            }
+            .body(body),
         };
 
         if args.resume {

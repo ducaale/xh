@@ -25,23 +25,30 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
-    // TODO: this flag is entirely ignored
-    // Shouldn't it do something? It's a bit unclear what it does in HTTPie
     /// (default) Serialize data items from the command line as a JSON object.
-    #[structopt(short = "j", long)]
+    #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
-    #[structopt(short = "f", long)]
+    #[structopt(short = "f", long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[structopt(short = "m", long)]
+    #[structopt(short = "m", long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
+
+    #[structopt(skip)]
+    pub request_type: Option<RequestType>,
 
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
+
+    // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
+    /// Specify the auth mechanism.
+    #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(),
+                default_value = "basic", case_insensitive = true, hidden = true)]
+    pub auth_type: AuthType,
 
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
     ///
@@ -144,8 +151,12 @@ pub struct Cli {
     pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "default-scheme", value_name = "SCHEME")]
+    #[structopt(long = "default-scheme", value_name = "SCHEME", hidden = true)]
     pub default_scheme: Option<String>,
+
+    /// Make HTTPS requests if not specified in the URL.
+    #[structopt(long = "https")]
+    pub https: bool,
 
     /// The request URL, preceded by an optional HTTP method.
     ///
@@ -265,7 +276,10 @@ impl Cli {
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
     {
-        let mut cli: Self = StructOpt::from_iter_safe(iter)?;
+        let mut app = Self::clap();
+        let matches = app.get_matches_from_safe_borrow(iter)?;
+        let mut cli = Self::from_clap(&matches);
+
         if cli.raw_method_or_url == "help" {
             return Err(Error {
                 message: "XH_PRINT_LONG_HELP".to_string(),
@@ -289,6 +303,14 @@ impl Cli {
         for request_item in rest_args {
             cli.request_items.push(request_item.parse()?);
         }
+
+        if matches!(
+            app.get_bin_name().and_then(|name| name.split('.').next()),
+            Some("https") | Some("xhs") | Some("xhttps")
+        ) {
+            cli.https = true;
+        }
+
         cli.process_relations()?;
         Ok(cli)
     }
@@ -313,6 +335,20 @@ impl Cli {
         if self.curl_long {
             self.curl = true;
         }
+        if self.https {
+            self.default_scheme = Some("https".to_string());
+        }
+        if self.auth_type == AuthType::bearer && self.auth.is_some() {
+            self.bearer = self.auth.take();
+        }
+        // `overrides_with_all` ensures that only one of these is true
+        if self.json {
+            self.request_type = Some(RequestType::Json);
+        } else if self.form {
+            self.request_type = Some(RequestType::Form);
+        } else if self.multipart {
+            self.request_type = Some(RequestType::Multipart);
+        }
         Ok(())
     }
 }
@@ -327,6 +363,14 @@ fn parse_method(method: &str) -> Option<Method> {
         Some(method.parse().unwrap())
     } else {
         None
+    }
+}
+
+arg_enum! {
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, PartialEq)]
+    pub enum AuthType {
+        basic, bearer
     }
 }
 
@@ -354,7 +398,12 @@ impl From<&Buffer> for Pretty {
         if test_pretend_term() {
             Pretty::format
         } else if b.is_terminal() {
-            Pretty::all
+            if env::var_os("NO_COLOR").is_some() {
+                // https://no-color.org/
+                Pretty::format
+            } else {
+                Pretty::all
+            }
         } else {
             Pretty::none
         }
@@ -550,6 +599,13 @@ impl fmt::Display for Verify {
     }
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum RequestType {
+    Json,
+    Form,
+    Multipart,
+}
+
 /// Based on the function used by clap to abort
 fn safe_exit() -> ! {
     let _ = std::io::stdout().lock().flush();
@@ -621,6 +677,42 @@ mod tests {
     }
 
     #[test]
+    fn auth() {
+        let cli = parse(&["--auth=user:pass", ":"]).unwrap();
+        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--auth=user:pass", "--auth-type=basic", ":"]).unwrap();
+        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--auth=token", "--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer.as_deref(), Some("token"));
+
+        let cli = parse(&["--bearer=token", "--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer.as_deref(), Some("token"));
+
+        let cli = parse(&["--auth-type=bearer", ":"]).unwrap();
+        assert_eq!(cli.auth, None);
+        assert_eq!(cli.bearer, None);
+    }
+
+    #[test]
+    fn request_type_overrides() {
+        let cli = parse(&["--form", "--json", ":"]).unwrap();
+        assert_eq!(cli.request_type, Some(RequestType::Json));
+        assert_eq!(cli.json, true);
+        assert_eq!(cli.form, false);
+
+        let cli = parse(&["--json", "--form", ":"]).unwrap();
+        assert_eq!(cli.request_type, Some(RequestType::Form));
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, true);
+    }
+
+    #[test]
     fn superfluous_arg() {
         parse(&["get", "example.org", "foobar"]).unwrap_err();
     }
@@ -686,5 +778,17 @@ mod tests {
             proxy,
             vec!(Proxy::All(Url::parse("http://127.0.0.1:8000").unwrap()))
         );
+    }
+
+    #[test]
+    fn executable_name() {
+        let args = Cli::from_iter_safe(&["xhs", "example.org"]).unwrap();
+        assert_eq!(args.https, true);
+    }
+
+    #[test]
+    fn executable_name_extension() {
+        let args = Cli::from_iter_safe(&["xhs.exe", "example.org"]).unwrap();
+        assert_eq!(args.https, true);
     }
 }

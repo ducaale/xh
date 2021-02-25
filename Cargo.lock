@@ -2626,6 +2626,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rpassword",
+ "serde",
  "serde_json",
  "serde_urlencoded",
  "shell-escape",

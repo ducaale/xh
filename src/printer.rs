@@ -4,11 +4,13 @@ use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE, HOST};
+use reqwest::header::{
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
+};
 
 use crate::{
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, get_content_type, test_mode, ContentType},
+    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType},
 };
 use crate::{Buffer, Pretty, Theme};
 
@@ -106,6 +108,10 @@ impl Printer {
             Some(ContentType::Json) => self.print_json_text(body),
             Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
             Some(ContentType::Html) => self.print_syntax_text(body, "html"),
+            // In HTTPie part of this behavior is gated behind the --json flag
+            // But it does JSON formatting even without that flag, so doing
+            // this check unconditionally is fine
+            Some(ContentType::PotentialJson) if valid_json(body) => self.print_json_text(body),
             _ => self.buffer.print(body),
         }
     }
@@ -216,6 +222,10 @@ impl Printer {
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
         let version = reqwest::Version::HTTP_11;
         let mut headers = request.headers().clone();
+
+        headers
+            .entry(ACCEPT)
+            .or_insert_with(|| HeaderValue::from_static("*/*"));
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
