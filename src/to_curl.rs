@@ -69,12 +69,24 @@ impl Command {
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let escape = if f.alternate() {
+            // If formatted with `{:#}`, force Windows (cmd.exe) formatting (for testing)
+            shell_escape::windows::escape
+        } else if cfg!(test) {
+            // When testing, default to Unix for consistency
+            shell_escape::unix::escape
+        } else {
+            // Otherwise use the platform default
+            shell_escape::escape
+        };
         for (key, value) in &self.env {
-            write!(f, "{}={} ", key, shell_escape::escape(value.into()))?;
+            // This is wrong for Windows, but there doesn't seem to be a
+            // right way
+            write!(f, "{}={} ", key, escape(value.into()))?;
         }
         write!(f, "curl")?;
         for arg in &self.args {
-            write!(f, " {}", shell_escape::escape(arg.into()))?;
+            write!(f, " {}", escape(arg.into()))?;
         }
         Ok(())
     }
@@ -299,7 +311,6 @@ pub fn translate(args: Cli) -> Result<Command> {
     Ok(cmd)
 }
 
-#[cfg(not(windows))]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,84 +318,113 @@ mod tests {
     #[test]
     fn examples() {
         let expected = vec![
-            ("xh httpbin.org/get", "curl 'http://httpbin.org/get'"),
+            ("xh httpbin.org/get", "curl 'http://httpbin.org/get'", "curl http://httpbin.org/get"),
             (
                 "xh httpbin.org/post x=3",
                 r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":"3"}'"#,
+                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5" -d "{\"x\":\"3\"}""#,
             ),
             (
                 "xh --form httpbin.org/post x\\=y=z=w",
                 "curl 'http://httpbin.org/post' --data-urlencode 'x%3Dy=z=w'",
+                "curl http://httpbin.org/post --data-urlencode x%3Dy=z=w",
             ),
             (
                 "xh put httpbin.org/put",
                 "curl -X PUT 'http://httpbin.org/put'",
+                "curl -X PUT http://httpbin.org/put",
             ),
             (
                 "xh --https httpbin.org/get x==3",
                 "curl 'https://httpbin.org/get?x=3'",
+                "curl https://httpbin.org/get?x=3",
             ),
             (
                 "xhs httpbin.org/get x==3",
                 "curl 'https://httpbin.org/get?x=3'",
+                "curl https://httpbin.org/get?x=3",
             ),
             (
                 "xh -h httpbin.org/get",
                 "curl -I -X GET 'http://httpbin.org/get'",
+                "curl -I -X GET http://httpbin.org/get",
             ),
             (
                 "xh options httpbin.org/get",
                 "curl -i -X OPTIONS 'http://httpbin.org/get'",
+                "curl -i -X OPTIONS http://httpbin.org/get",
             ),
             (
                 "xh --proxy http:localhost:1080 httpbin.org/get",
                 "http_proxy='localhost:1080' curl 'http://httpbin.org/get'",
+                "http_proxy=localhost:1080 curl http://httpbin.org/get",
             ),
             (
                 "xh --proxy all:localhost:1080 httpbin.org/get",
                 "curl -x 'localhost:1080' 'http://httpbin.org/get'",
+                "curl -x localhost:1080 http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post x:=[3]",
                 r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":[3]}'"#,
+                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5" -d "{\"x\":[3]}""#,
             ),
             (
                 "xh --json httpbin.org/post",
                 "curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5'",
+                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5""#,
             ),
             (
                 "xh --form httpbin.org/post x@/dev/null",
                 "curl 'http://httpbin.org/post' -F 'x=@/dev/null'",
+                "curl http://httpbin.org/post -F x=@/dev/null",
             ),
             (
                 "xh --form httpbin.org/post",
                 "curl 'http://httpbin.org/post' -H 'content-type: application/x-www-form-urlencoded'",
+                r#"curl http://httpbin.org/post -H "content-type: application/x-www-form-urlencoded""#,
             ),
             (
                 "xh --bearer foobar post httpbin.org/post",
                 "curl -X POST 'http://httpbin.org/post' --oauth2-bearer foobar",
+                "curl -X POST http://httpbin.org/post --oauth2-bearer foobar",
             ),
             (
                 "xh httpbin.org/get foo:Bar baz; user-agent:",
                 "curl 'http://httpbin.org/get' -H 'foo: Bar' -H 'baz;' -H 'user-agent:'",
+                r#"curl http://httpbin.org/get -H "foo: Bar" -H baz; -H user-agent:"#,
             ),
             (
                 "xh -d httpbin.org/get",
                 "curl -L -O 'http://httpbin.org/get'",
+                "curl -L -O http://httpbin.org/get",
             ),
             (
                 "xh -d -o foobar --continue httpbin.org/get",
                 "curl -L -o foobar -C - 'http://httpbin.org/get'",
+                "curl -L -o foobar -C - http://httpbin.org/get",
             ),
             (
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
                 "curl --location --output foobar --continue-at - 'http://httpbin.org/get'",
+                "curl --location --output foobar --continue-at - http://httpbin.org/get",
             ),
         ];
-        for (input, output) in expected {
+        for (input, output_unix, output_windows) in expected {
             let cli = Cli::from_iter_safe(input.split_whitespace()).unwrap();
             let cmd = translate(cli).unwrap();
-            assert_eq!(cmd.to_string(), output, "Wrong output for {:?}", input);
+            assert_eq!(
+                cmd.to_string(),
+                output_unix,
+                "Wrong Unix output for {:?}",
+                input
+            );
+            assert_eq!(
+                format!("{:#}", cmd),
+                output_windows,
+                "Wrong Windows output for {:?}",
+                input
+            );
         }
     }
 }
