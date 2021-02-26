@@ -5,45 +5,52 @@ on:
     tags: [ v*.*.* ]
 
 jobs:
-  # We can't run tests using musl due to httpmock's dependency on OpenSSL
-  # Let's check if it at least able to build.
-  build-on-musl:
-    name: Build using musl as target
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Build target
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target x86_64-unknown-linux-musl
-
   test:
     name: Test
     runs-on: ${{ matrix.job.os }}
     strategy: 
-      fail-fast: false
       matrix:
         job:
-          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
-          # uncomment this once isahc, one of httpmock dependencies, adds support for rustls
-          # as a tls engine, see https://github.com/sagebind/isahc/issues/199
-          # - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-gnu }
           - { os: macos-latest   , target: x86_64-apple-darwin }
           - { os: windows-latest , target: x86_64-pc-windows-msvc }
     steps:
       - uses: actions/checkout@v2
-      - name: Run tests
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          profile: minimal
+          toolchain: 1.45.0 # minimum supported rust version
+          target: ${{ matrix.job.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
           command: test
           args: --target ${{ matrix.job.target }}
+  
+  build-on-arm-and-musl:
+    name: Build on ARM and MUSL
+    runs-on: ${{ matrix.job.os }}
+    strategy: 
+      matrix:
+        job:
+          - { os: ubuntu-latest , target: arm-unknown-linux-gnueabihf }
+          - { os: ubuntu-latest , target: x86_64-unknown-linux-musl }
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.45.0 # minimum supported rust version
+          target: ${{ matrix.job.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
 
   deploy:
     name: Deploy
-    needs: [ build-on-musl, test ]
+    needs: [ build-on-arm-and-musl, test ]
     runs-on: ${{ matrix.job.os }}
     strategy: 
       matrix:
