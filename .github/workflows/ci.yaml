@@ -10,11 +10,8 @@ jobs:
     name: Test
     runs-on: ${{ matrix.job.os }}
     strategy: 
-      fail-fast: false
       matrix:
         job:
-          # - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf }
-          # - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl }
           - { os: ubuntu-latest  , target: x86_64-unknown-linux-gnu }
           - { os: macos-latest   , target: x86_64-apple-darwin }
           - { os: windows-latest , target: x86_64-pc-windows-msvc }
@@ -30,6 +27,27 @@ jobs:
         with:
           command: test
           args: --target ${{ matrix.job.target }}
+  
+  build-on-arm-and-musl:
+    name: Test
+    runs-on: ${{ matrix.job.os }}
+    strategy: 
+      matrix:
+        job:
+          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf }
+          - { os: ubuntu-latest   , target: x86_64-unknown-linux-musl }
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.45.0 # minimum supported rust version
+          target: ${{ matrix.job.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
 
   fmt-and-clippy:
     name: Rustfmt and clippy
