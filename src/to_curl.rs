@@ -281,6 +281,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     Ok(cmd)
 }
 
+#[cfg(not(windows))]
 #[cfg(test)]
 mod tests {
     use super::*;
