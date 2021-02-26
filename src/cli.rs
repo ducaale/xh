@@ -280,12 +280,17 @@ impl Cli {
         let matches = app.get_matches_from_safe_borrow(iter)?;
         let mut cli = Self::from_clap(&matches);
 
-        if cli.raw_method_or_url == "help" {
-            return Err(Error {
-                message: "XH_PRINT_LONG_HELP".to_string(),
-                kind: ErrorKind::HelpDisplayed,
-                info: Some(vec!["XH_PRINT_LONG_HELP".to_string()]),
-            });
+        match cli.raw_method_or_url.as_str() {
+            "help" => {
+                return Err(Error {
+                    message: "XH_PRINT_LONG_HELP".to_string(),
+                    kind: ErrorKind::HelpDisplayed,
+                    info: Some(vec!["XH_PRINT_LONG_HELP".to_string()]),
+                })
+            }
+            "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
+            "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
         match parse_method(&cli.raw_method_or_url) {
@@ -364,6 +369,59 @@ fn parse_method(method: &str) -> Option<Method> {
     } else {
         None
     }
+}
+
+// This signature is a little weird: we either return an error or don't
+// return at all
+fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
+    let bin_name = match app.get_bin_name() {
+        // This name is borrowed from `app`, and `gen_completions_to()` mutably
+        // borrows `app`, so we need to do a clone
+        Some(name) => name.to_owned(),
+        None => return Error::with_description("Missing binary name", ErrorKind::EmptyValue),
+    };
+    if rest_args.len() != 1 {
+        return Error::with_description(
+            "Usage: xh print_completions <SHELL>",
+            ErrorKind::WrongNumberOfValues,
+        );
+    }
+    let shell = match rest_args[0].parse() {
+        Ok(shell) => shell,
+        Err(_) => return Error::with_description("Unknown shell name", ErrorKind::InvalidValue),
+    };
+    let mut buf = Vec::new();
+    app.gen_completions_to(bin_name, shell, &mut buf);
+    let mut completions = String::from_utf8(buf).unwrap();
+    if matches!(shell, clap::Shell::Fish) {
+        // We don't have (proper) subcommands, so this check is unnecessary and
+        // slightly harmful
+        // See https://github.com/clap-rs/clap/pull/2359, currently unreleased
+        completions = completions.replace(r#" -n "__fish_use_subcommand""#, "");
+    }
+    print!("{}", completions);
+    safe_exit();
+}
+
+fn generate_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
+    let bin_name = match app.get_bin_name() {
+        Some(name) => name.to_owned(),
+        None => return Error::with_description("Missing binary name", ErrorKind::EmptyValue),
+    };
+    if rest_args.len() != 1 {
+        return Error::with_description(
+            "Usage: xh generate_completions <DIRECTORY>",
+            ErrorKind::WrongNumberOfValues,
+        );
+    }
+    for &shell in &clap::Shell::variants() {
+        // Elvish complains about multiple deprecations and these don't seem to work
+        // If you must use them, generate them manually with xh print_completions elvish
+        if shell != "elvish" {
+            app.gen_completions(&bin_name, shell.parse().unwrap(), &rest_args[0]);
+        }
+    }
+    safe_exit();
 }
 
 arg_enum! {
