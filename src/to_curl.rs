@@ -70,14 +70,13 @@ impl Command {
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let escape = if f.alternate() {
-            // If formatted with `{:#}`, force Windows (cmd.exe) formatting (for testing)
+            // If formatted with `{:#}`, use cmd.exe-style formatting
+            // This is currently not exposed
             shell_escape::windows::escape
-        } else if cfg!(test) {
-            // When testing, default to Unix for consistency
-            shell_escape::unix::escape
         } else {
-            // Otherwise use the platform default
-            shell_escape::escape
+            // By default, use Unix-style formatting regardless of platform
+            // This is also more suitable for Powershell
+            shell_escape::unix::escape
         };
         for (key, value) in &self.env {
             // This is wrong for Windows, but there doesn't seem to be a
