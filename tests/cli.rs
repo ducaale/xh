@@ -1,3 +1,4 @@
+#![cfg(feature = "integration-tests")]
 use std::{
     fs::read_to_string,
     io::{Seek, SeekFrom, Write},

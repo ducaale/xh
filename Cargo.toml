@@ -38,12 +38,19 @@ default-features = false
 features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
 
 [dev-dependencies]
+# Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
 assert_cmd = "1.0"
 assert_matches = "1.4.0"
 indoc = "1.0"
 predicates = "1.0.7"
 httpmock = "0.5.5"
+curl = { version = "0.4.34", features = ["static-ssl"] }
 tempfile = "3.2.0"
+
+[features]
+default = ["integration-tests"]
+
+integration-tests = []
 
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }
