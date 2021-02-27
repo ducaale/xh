@@ -68,6 +68,16 @@ jobs:
           command: build
           args: --release --target ${{ matrix.job.target }}
 
+      - name: Strip release binary (linux and macOS)
+        if: matrix.job.os != 'windows-latest'
+        run: |
+          if [ "${{ matrix.job.target }}" = "arm-unknown-linux-gnueabihf" ]; then
+            sudo apt-get -y install gcc-arm-linux-gnueabihf
+            arm-linux-gnueabihf-strip "target/${{ matrix.job.target }}/release/xh"
+          else
+            strip "target/${{ matrix.job.target }}/release/xh"
+          fi
+
       - id: get_version
         uses: battila7/get-version-action@v2
       - name: Package
