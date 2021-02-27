@@ -57,18 +57,42 @@ jobs:
           use-cross: ${{ matrix.job.use-cross }}
           command: build
           args: --release --target ${{ matrix.job.target }}
+
+      - name: Strip release binary (linux and macOS)
+        if: matrix.job.os != 'windows-latest'
+        run: |
+          if [ "${{ matrix.job.target }}" = "arm-unknown-linux-gnueabihf" ]; then
+            sudo apt-get -y install gcc-arm-linux-gnueabihf
+            arm-linux-gnueabihf-strip "target/${{ matrix.job.target }}/release/xh"
+          else
+            strip "target/${{ matrix.job.target }}/release/xh"
+          fi
+
+      - id: get_version
+        uses: battila7/get-version-action@v2
       - name: Package
         shell: bash
         run: |
-          cd target/${{ matrix.job.target }}/release
           if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
-            7z a ../../../xh-${{ matrix.job.target }}.zip xh.exe
-          elif [ "${{ matrix.job.os }}" = "macos-latest" ]; then
-            zip ../../../xh-${{ matrix.job.target }}.zip xh
+            bin="target/${{ matrix.job.target }}/release/xh.exe"
           else
-            tar czvf ../../../xh-${{ matrix.job.target }}.tar.gz xh
+            bin="target/${{ matrix.job.target }}/release/xh"
           fi
-          cd -
+          staging="xh-${{ steps.get_version.outputs.version }}-${{ matrix.job.target }}"
+
+          mkdir -p "$staging"/{doc,completions}
+          cp LICENSE README.md $bin $staging
+          cp CHANGELOG.md doc/xh.1 "$staging"/doc
+          cp completions/* "$staging"/completions
+
+          if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
+            7z a "$staging.zip" $staging
+          elif [ "${{ matrix.job.os }}" = "macos-latest" ]; then
+            gtar czvf "$staging.tar.gz" $staging
+          else
+            tar czvf "$staging.tar.gz" $staging
+          fi
+
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
