@@ -2614,7 +2614,7 @@ dependencies = [
 
 [[package]]
 name = "xh"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ansi_term 0.12.1",
  "anyhow",
