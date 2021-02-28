@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.8.0] - 2021-02-28
 ### Features
 - More robust detection of the method and URL arguments, see #55 (@blyxxyz)
 - Improvements to the generation downloaded filenames, see #56 (@blyxxyz)
