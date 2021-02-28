@@ -5,9 +5,9 @@ authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
 description = "Yet another HTTPie clone"
-documentation = "https://github.com/ducaale/ht"
-homepage = "https://github.com/ducaale/ht"
-repository = "https://github.com/ducaale/ht"
+documentation = "https://github.com/ducaale/xh"
+homepage = "https://github.com/ducaale/xh"
+repository = "https://github.com/ducaale/xh"
 readme = "README.md"
 
 [dependencies]
