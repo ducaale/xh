@@ -21,9 +21,11 @@ pub enum ContentType {
     Json,
     Html,
     Xml,
+    JavaScript,
+    Css,
+    Text,
     UrlencodedForm,
     Multipart,
-    PotentialJson,
 }
 
 pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
@@ -42,10 +44,16 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 Some(ContentType::Multipart)
             } else if content_type.contains("x-www-form-urlencoded") {
                 Some(ContentType::UrlencodedForm)
-            } else if content_type.contains("javascript") || content_type.contains("text") {
+            } else if content_type.contains("javascript") {
+                Some(ContentType::JavaScript)
+            } else if content_type.contains("css") {
+                Some(ContentType::Css)
+            } else if content_type.contains("text") {
+                // We later check if this one's JSON
+                // HTTPie checks for "json", "javascript" and "text" in one place:
                 // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
-                // HTTPie additionally checks for "json", but we already bucket that into ContentType::Json
-                Some(ContentType::PotentialJson)
+                // We have it more spread out but it behaves more or less the same
+                Some(ContentType::Text)
             } else {
                 None
             }

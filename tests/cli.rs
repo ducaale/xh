@@ -747,6 +747,26 @@ fn inferred_json_output() {
 }
 
 #[test]
+fn inferred_json_javascript_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "application/javascript")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
 fn inferred_nonjson_output() {
     let server = MockServer::start();
     let mock = server.mock(|_when, then| {
