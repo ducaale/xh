@@ -166,12 +166,12 @@ fn main() -> Result<i32> {
                 }
             }
             Body::Raw(body) => match args.request_type {
-                Some(RequestType::Json) | None => request_builder
+                RequestType::Json => request_builder
                     .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                     .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
-                Some(RequestType::Form) => request_builder
+                RequestType::Form => request_builder
                     .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE)),
-                Some(RequestType::Multipart) => unreachable!(),
+                RequestType::Multipart => unreachable!(),
             }
             .body(body),
         };
