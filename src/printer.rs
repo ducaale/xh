@@ -198,7 +198,7 @@ impl Printer {
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
         let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
         if sort {
-            headers.sort_by(|(a, _), (b, _)| a.to_string().cmp(&b.to_string()))
+            headers.sort_by_key(|(name, _)| name.as_str());
         }
 
         let mut header_string = String::new();
