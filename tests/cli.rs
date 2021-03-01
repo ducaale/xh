@@ -747,6 +747,26 @@ fn inferred_json_output() {
 }
 
 #[test]
+fn inferred_json_javascript_output() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("content-type", "application/javascript")
+            .body(r#"{"":0}"#);
+    });
+    get_command()
+        .arg("--print=b")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "": 0
+        }
+
+        "#});
+    mock.assert();
+}
+
+#[test]
 fn inferred_nonjson_output() {
     let server = MockServer::start();
     let mock = server.mock(|_when, then| {
@@ -809,4 +829,19 @@ fn multipart_stdin() {
         .stderr(predicate::str::contains(
             "Cannot build a multipart request body from stdin",
         ));
+}
+
+#[test]
+fn default_json_for_raw_body() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("content-type", "application/json");
+    });
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg(server.base_url())
+        .stdin(input_file)
+        .assert()
+        .success();
+    mock.assert();
 }

@@ -262,12 +262,12 @@ impl RequestItems {
         Ok(Body::Multipart(form))
     }
 
-    pub fn body(self, request_type: Option<RequestType>) -> Result<Body> {
+    pub fn body(self, request_type: RequestType) -> Result<Body> {
         match request_type {
-            Some(RequestType::Multipart) => self.body_as_multipart(),
-            Some(RequestType::Form) if self.has_form_files() => self.body_as_multipart(),
-            Some(RequestType::Form) => self.body_as_form(),
-            Some(RequestType::Json) | None => self.body_as_json(),
+            RequestType::Multipart => self.body_as_multipart(),
+            RequestType::Form if self.has_form_files() => self.body_as_multipart(),
+            RequestType::Form => self.body_as_form(),
+            RequestType::Json => self.body_as_json(),
         }
     }
 
@@ -276,8 +276,8 @@ impl RequestItems {
     /// It's better to use `Body::pick_method`, if possible. This method is
     /// for the benefit of `to_curl`, which sometimes has to process the
     /// request items itself.
-    pub fn pick_method(&self, request_type: Option<RequestType>) -> Method {
-        if request_type == Some(RequestType::Multipart) {
+    pub fn pick_method(&self, request_type: RequestType) -> Method {
+        if request_type == RequestType::Multipart {
             return Method::POST;
         }
         for item in &self.0 {

@@ -38,7 +38,7 @@ pub struct Cli {
     pub multipart: bool,
 
     #[structopt(skip)]
-    pub request_type: Option<RequestType>,
+    pub request_type: RequestType,
 
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
@@ -348,11 +348,12 @@ impl Cli {
         }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
-            self.request_type = Some(RequestType::Json);
+            // Also the default, so this shouldn't do anything
+            self.request_type = RequestType::Json;
         } else if self.form {
-            self.request_type = Some(RequestType::Form);
+            self.request_type = RequestType::Form;
         } else if self.multipart {
-            self.request_type = Some(RequestType::Multipart);
+            self.request_type = RequestType::Multipart;
         }
         Ok(())
     }
@@ -664,6 +665,12 @@ pub enum RequestType {
     Multipart,
 }
 
+impl Default for RequestType {
+    fn default() -> Self {
+        RequestType::Json
+    }
+}
+
 /// Based on the function used by clap to abort
 fn safe_exit() -> ! {
     let _ = std::io::stdout().lock().flush();
@@ -760,14 +767,22 @@ mod tests {
     #[test]
     fn request_type_overrides() {
         let cli = parse(&["--form", "--json", ":"]).unwrap();
-        assert_eq!(cli.request_type, Some(RequestType::Json));
+        assert_eq!(cli.request_type, RequestType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, false);
 
         let cli = parse(&["--json", "--form", ":"]).unwrap();
-        assert_eq!(cli.request_type, Some(RequestType::Form));
+        assert_eq!(cli.request_type, RequestType::Form);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, true);
+        assert_eq!(cli.multipart, false);
+
+        let cli = parse(&[":"]).unwrap();
+        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, false);
     }
 
     #[test]
