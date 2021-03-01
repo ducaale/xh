@@ -1,3 +1,9 @@
+## [Unreleased]
+### Features
+- Highlight Javascript and CSS, see #82 (@blyxxyz)
+- Check if text is actually JSON before formatting it, see #82 (@blyxxyz)
+- Default to a content-type of application/json when reading a body from stdin, see #82 (@blyxxyz)
+
 ## [0.8.0] - 2021-02-28
 ### Features
 - More robust detection of the method and URL arguments, see #55 (@blyxxyz)
