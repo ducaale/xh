@@ -112,25 +112,19 @@ impl Printer {
         }
     }
 
-    fn print_javascript_text(&mut self, text: &str) -> io::Result<()> {
-        if valid_json(text) {
-            self.print_json_text(text, false)
-        } else {
-            self.print_syntax_text(text, "js")
-        }
-    }
-
     fn print_body_text(&mut self, content_type: Option<ContentType>, body: &str) -> io::Result<()> {
         match content_type {
             Some(ContentType::Json) => self.print_json_text(body, true),
             Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
             Some(ContentType::Html) => self.print_syntax_text(body, "html"),
             Some(ContentType::Css) => self.print_syntax_text(body, "css"),
-            Some(ContentType::JavaScript) => self.print_javascript_text(body),
             // In HTTPie part of this behavior is gated behind the --json flag
             // But it does JSON formatting even without that flag, so doing
             // this check unconditionally is fine
-            Some(ContentType::Text) if valid_json(body) => self.print_json_text(body, false),
+            Some(ContentType::Text) | Some(ContentType::JavaScript) if valid_json(body) => {
+                self.print_json_text(body, false)
+            }
+            Some(ContentType::JavaScript) => self.print_syntax_text(body, "js"),
             _ => self.buffer.print(body),
         }
     }
