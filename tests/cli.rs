@@ -810,3 +810,18 @@ fn multipart_stdin() {
             "Cannot build a multipart request body from stdin",
         ));
 }
+
+#[test]
+fn default_json_for_raw_body() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("content-type", "application/json");
+    });
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .arg(server.base_url())
+        .stdin(input_file)
+        .assert()
+        .success();
+    mock.assert();
+}
