@@ -89,6 +89,19 @@ Run `xh help` for more detailed information.
 * `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 * `;` for including headers with empty values e.g `header-without-value;`.
 
+## xh and xhs
+
+`xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
+via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:
+
+```sh
+$ cd /path/to/xh
+$ ln -s ./xh ./xhs
+
+xh httpbin.org/get | jq .url  # "http://httpbin.org/get"
+xhs httpbin.org/get | jq .url # "https://httpbin.org/get"
+```
+
 ## Examples
 
 ```sh
