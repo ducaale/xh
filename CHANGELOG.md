@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.8.1] - 2021-03-01
 ### Features
 - Highlight Javascript and CSS, see #82 (@blyxxyz)
 - Check if text is actually JSON before formatting it, see #82 (@blyxxyz)
