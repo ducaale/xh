@@ -8,7 +8,7 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 ## Installation
 
-### On macOS via Homebrew
+### On macOS and Linux via Homebrew
 ```
 brew install xh
 ```
