@@ -28,5 +28,22 @@ complete -c xh -l check-status -d 'Exit with an error status code if the server 
 complete -c xh -l curl -d 'Print a translation to a `curl` command'
 complete -c xh -l curl-long -d 'Use the long versions of curl\'s flags'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
+complete -c xh -l no-offline
+complete -c xh -l no-json
+complete -c xh -l no-form
+complete -c xh -l no-multipart
+complete -c xh -l no-ignore-stdin
+complete -c xh -l no-follow
+complete -c xh -l no-download
+complete -c xh -l no-headers
+complete -c xh -l no-body
+complete -c xh -l no-continue
+complete -c xh -l no-verbose
+complete -c xh -l no-quiet
+complete -c xh -l no-stream
+complete -c xh -l no-check-status
+complete -c xh -l no-curl
+complete -c xh -l no-curl-long
+complete -c xh -l no-https
 complete -c xh -l help -d 'Prints help information'
 complete -c xh -s V -l version -d 'Prints version information'
