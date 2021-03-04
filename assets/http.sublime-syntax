@@ -44,7 +44,7 @@ contexts:
         2: storage.type.class.metadata
         3: punctuation.definition.block.tag.metadata
         4: entity.name.type.instance.metadata
-    - match: ^(?:((?i)get|post|put|delete|patch|head|options|connect|trace(-?))\s+)?\s*(\S+)(?:\s+(((?i)HTTP(-?))\/(\S+)))?$
+    - match: ^(?:([a-zA-Z]+(-?))\s+)?\s*(\S+)(?:\s+(((?i)HTTP(-?))\/(\S+)))?$
       scope: http.requestline
       captures:
         1: keyword.control.http

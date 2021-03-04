@@ -421,13 +421,11 @@ impl Cli {
 }
 
 fn parse_method(method: &str) -> Option<Method> {
-    // These are defined as constants on Method
-    const METHODS: &[&str] = &[
-        "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "CONNECT", "PATCH", "TRACE",
-    ];
-    let method = method.to_ascii_uppercase();
-    if METHODS.contains(&method.as_str()) {
-        Some(method.parse().unwrap())
+    // This unfortunately matches "localhost"
+    if !method.is_empty() && method.chars().all(|c| c.is_ascii_alphabetic()) {
+        // Method parsing seems to fail if the length is 0 or if there's a null byte
+        // Our checks rule those both out, so .unwrap() is safe
+        Some(method.to_ascii_uppercase().parse().unwrap())
     } else {
         None
     }
@@ -765,6 +763,22 @@ mod tests {
         assert_eq!(cli.method, Some(Method::GET));
         assert_eq!(cli.url, "example.org");
         assert!(cli.request_items.is_empty());
+    }
+
+    #[test]
+    fn method_edge_cases() {
+        // "localhost" is interpreted as method; this is undesirable, but expected
+        parse(&["localhost"]).unwrap_err();
+
+        // Non-standard method used by varnish
+        let cli = parse(&["purge", ":"]).unwrap();
+        assert_eq!(cli.method, Some("PURGE".parse().unwrap()));
+        assert_eq!(cli.url, ":");
+
+        // Zero-length arg should not be interpreted as method
+        let cli = parse(&[""]).unwrap();
+        assert_eq!(cli.method, None);
+        assert_eq!(cli.url, "");
     }
 
     #[test]
