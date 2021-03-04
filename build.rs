@@ -1,4 +1,5 @@
 use std::env;
+use std::fs::read_dir;
 use std::path::Path;
 
 use syntect::dumps::*;
@@ -7,6 +8,12 @@ use syntect::parsing::SyntaxSetBuilder;
 
 fn main() {
     println!("cargo:rerun-if-changed=assets");
+    for entry in read_dir("assets").unwrap() {
+        println!(
+            "cargo:rerun-if-changed={}",
+            entry.unwrap().path().to_str().unwrap()
+        );
+    }
     let out_dir = env::var_os("OUT_DIR").unwrap();
 
     let mut builder = SyntaxSetBuilder::new();
