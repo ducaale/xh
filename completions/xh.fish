@@ -45,5 +45,16 @@ complete -c xh -l no-check-status
 complete -c xh -l no-curl
 complete -c xh -l no-curl-long
 complete -c xh -l no-https
+complete -c xh -l no-auth
+complete -c xh -l no-bearer
+complete -c xh -l no-output
+complete -c xh -l no-max-redirects
+complete -c xh -l no-print
+complete -c xh -l no-pretty
+complete -c xh -l no-style
+complete -c xh -l no-proxy
+complete -c xh -l no-verify
+complete -c xh -l no-cert
+complete -c xh -l no-cert-key
 complete -c xh -l help -d 'Prints help information'
 complete -c xh -s V -l version -d 'Prints version information'

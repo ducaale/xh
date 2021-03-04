@@ -79,6 +79,17 @@ _xh() {
 '--no-curl[]' \
 '--no-curl-long[]' \
 '--no-https[]' \
+'--no-auth[]' \
+'--no-bearer[]' \
+'--no-output[]' \
+'--no-max-redirects[]' \
+'--no-print[]' \
+'--no-pretty[]' \
+'--no-style[]' \
+'--no-proxy[]' \
+'--no-verify[]' \
+'--no-cert[]' \
+'--no-cert-key[]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \

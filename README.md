@@ -76,7 +76,7 @@ ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
     <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
 
-Each FLAG can be negated by a --no-FLAG flag.
+Each option can be reset with a --no-OPTION argument.
 ```
 
 Run `xh help` for more detailed information.

@@ -114,8 +114,8 @@ pub struct Cli {
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true, value_name = "THEME")]
-    pub theme: Option<Theme>,
+    #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
+    pub style: Option<Theme>,
 
     /// Exit with an error status code if the server replies with an error.
     ///
@@ -215,12 +215,13 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     pub cert_key: Option<PathBuf>,
 }
 
-// Names of flags that negate other flags.
-// This should in principle contain all boolean flags. It's easiest to line it
-// up with the output of --help, which lists those separately.
+// Names of flags that negate other flags
+// This should in principle contain all options. It's easiest to line it
+// up with the output of --help.
 // Warning: Nothing in clap or in our code checks that these match up with
 // other arguments. If in doubt, add a test.
 const NEGATION_FLAGS: &[&str] = &[
+    // FLAGS
     "--no-offline",
     "--no-json",
     "--no-form",
@@ -238,6 +239,18 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-curl",
     "--no-curl-long",
     "--no-https",
+    // OPTIONS
+    "--no-auth",
+    "--no-bearer",
+    "--no-output",
+    "--no-max-redirects",
+    "--no-print",
+    "--no-pretty",
+    "--no-style",
+    "--no-proxy",
+    "--no-verify", // A little misleading, but HTTPie has it like this
+    "--no-cert",
+    "--no-cert-key",
 ];
 
 impl Cli {
@@ -275,7 +288,8 @@ impl Cli {
                                 \n\
                                 Options:\n\
                                 {flags}\n\
-                                {options}\
+                                {options}\n\
+                                {after-help}\
                             ",
                         )
                         .print_long_help()
@@ -402,7 +416,7 @@ impl Cli {
                     .overrides_with(orig),
             );
         }
-        app.after_help("Each FLAG can be negated by a --no-FLAG flag.")
+        app.after_help("Each option can be reset with a --no-OPTION argument.")
     }
 }
 
@@ -963,5 +977,44 @@ mod tests {
         assert_eq!(cli.ignore_stdin, false);
         let cli = parse(&["--no-ignore-stdin", "-I", ":"]).unwrap();
         assert_eq!(cli.ignore_stdin, true);
+
+        let cli = parse(&[
+            "--proxy=http:http://foo",
+            "--proxy=http:http://bar",
+            "--no-proxy",
+            ":",
+        ])
+        .unwrap();
+        assert!(cli.proxy.is_empty());
+
+        let cli = parse(&[
+            "--no-proxy",
+            "--proxy=http:http://foo",
+            "--proxy=https:http://bar",
+            ":",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.proxy,
+            vec![
+                Proxy::Http("http://foo".parse().unwrap()),
+                Proxy::Https("http://bar".parse().unwrap())
+            ]
+        );
+
+        let cli = parse(&[
+            "--proxy=http:http://foo",
+            "--no-proxy",
+            "--proxy=https:http://bar",
+            ":",
+        ])
+        .unwrap();
+        assert_eq!(cli.proxy, vec![Proxy::Https("http://bar".parse().unwrap())]);
+
+        let cli = parse(&["--bearer=baz", "--no-bearer", ":"]).unwrap();
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--style=solarized", "--no-style", ":"]).unwrap();
+        assert_eq!(cli.style, None);
     }
 }
