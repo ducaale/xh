@@ -155,3 +155,4 @@ xh -d httpbin.org/json -o res.json
 
 - https://github.com/rs/curlie
 - https://github.com/saghm/rural
+- https://github.com/mark-burnett/ht
