@@ -1,11 +1,10 @@
 use std::io;
 
 use crate::regex;
-use std::fs::File;
-use std::io::Read;
 use dirs::home_dir;
 use netrc_rs::Netrc;
-
+use std::fs::File;
+use std::io::Read;
 
 pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
@@ -23,7 +22,6 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
 }
 
 pub fn read_netrc() -> Option<String> {
-
     let mut netrc_buf = String::new();
     if let Some(mut hd_path) = home_dir() {
         hd_path.push(".netrc");
@@ -38,29 +36,33 @@ pub fn read_netrc() -> Option<String> {
 }
 
 pub fn auth_from_netrc(machine: &str, netrc: String) -> Option<(String, Option<String>)> {
-
     if let Ok(netrc) = Netrc::parse_borrow(&netrc, false) {
-        let mut auths: Vec<(String, Option<String>)> = netrc.machines.iter()
-            .filter_map(|mach| if let Some(name) = &mach.name {
-                if name.ends_with(machine) {
-                    let user = match mach.login {
-                        Some(ref user) => user.clone(),
-                        None => "".to_string()
-                    };
-                    let password = match mach.password {
-                        Some(ref pwd) => Some(pwd.clone()),
-                        None => None
-                    };
-                    Some((user, password))
+        let mut auths: Vec<(String, Option<String>)> = netrc
+            .machines
+            .iter()
+            .filter_map(|mach| {
+                if let Some(name) = &mach.name {
+                    if name.ends_with(machine) {
+                        let user = match mach.login {
+                            Some(ref user) => user.clone(),
+                            None => "".to_string(),
+                        };
+                        let password = match mach.password {
+                            Some(ref pwd) => Some(pwd.clone()),
+                            None => None,
+                        };
+                        Some((user, password))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }).collect();
+            })
+            .collect();
 
         if auths.len() == 0 {
-            return None
+            return None;
         } else {
             return auths.pop();
         }
