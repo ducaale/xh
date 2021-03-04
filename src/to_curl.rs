@@ -105,7 +105,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         (args.print.is_some(), "-p/--print"), // No straightforward equivalent
         (args.quiet, "-q/--quiet"),           // No equivalent, -s/--silent suppresses other stuff
         (args.pretty.is_some(), "--pretty"),  // No equivalent
-        (args.theme.is_some(), "-s/--style"), // No equivalent
+        (args.style.is_some(), "-s/--style"), // No equivalent
     ];
 
     for (present, flag) in ignored {

@@ -20,7 +20,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts=" -j -f -m -I -F -d -h -b -c -v -q -S -V -A -a -o -p -s  --offline --json --form --multipart --ignore-stdin --follow --download --headers --body --continue --verbose --quiet --stream --check-status --curl --curl-long --https --help --version --auth-type --auth --bearer --output --max-redirects --print --pretty --style --proxy --default-scheme --verify --cert --cert-key  <[METHOD] URL> <REQUEST_ITEM>... "
+            opts=" -j -f -m -I -F -d -h -b -c -v -q -S -V -A -a -o -p -s  --offline --json --form --multipart --ignore-stdin --follow --download --headers --body --continue --verbose --quiet --stream --check-status --curl --curl-long --https --no-offline --no-json --no-form --no-multipart --no-ignore-stdin --no-follow --no-download --no-headers --no-body --no-continue --no-verbose --no-quiet --no-stream --no-check-status --no-curl --no-curl-long --no-https --no-auth --no-bearer --no-output --no-max-redirects --no-print --no-pretty --no-style --no-proxy --no-verify --no-cert --no-cert-key --help --version --auth-type --auth --bearer --output --max-redirects --print --pretty --style --proxy --default-scheme --verify --cert --cert-key  <[METHOD] URL> <REQUEST_ITEM>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -380,7 +380,7 @@ mod tests {
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter_safe(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
-        Printer::new(args.pretty, args.theme, false, buffer)
+        Printer::new(args.pretty, args.style, false, buffer)
     }
 
     fn temp_path(filename: &str) -> String {

@@ -217,7 +217,7 @@ fn main() -> Result<i32> {
             &buffer,
         ),
     };
-    let mut printer = Printer::new(args.pretty, args.theme, args.stream, buffer);
+    let mut printer = Printer::new(args.pretty, args.style, args.stream, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request)?;

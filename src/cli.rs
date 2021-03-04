@@ -46,7 +46,7 @@ pub struct Cli {
 
     // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
-    #[structopt(short = "A", long = "auth-type", possible_values = &AuthType::variants(),
+    #[structopt(short = "A", long, possible_values = &AuthType::variants(),
                 default_value = "basic", case_insensitive = true, hidden = true)]
     pub auth_type: AuthType,
 
@@ -85,7 +85,7 @@ pub struct Cli {
     pub body: bool,
 
     /// Resume an interrupted download. Requires --download and --output.
-    #[structopt(short = "c", long = "continue")]
+    #[structopt(short = "c", long = "continue", name = "continue")]
     pub resume: bool,
 
     /// String specifying what the output should contain.
@@ -114,8 +114,8 @@ pub struct Cli {
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short = "s", long = "style", possible_values = &Theme::variants(), case_insensitive = true, value_name = "THEME")]
-    pub theme: Option<Theme>,
+    #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
+    pub style: Option<Theme>,
 
     /// Exit with an error status code if the server replies with an error.
     ///
@@ -151,11 +151,11 @@ pub struct Cli {
     pub proxy: Vec<Proxy>,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long = "default-scheme", value_name = "SCHEME", hidden = true)]
+    #[structopt(long, value_name = "SCHEME", hidden = true)]
     pub default_scheme: Option<String>,
 
     /// Make HTTPS requests if not specified in the URL.
-    #[structopt(long = "https")]
+    #[structopt(long)]
     pub https: bool,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -211,9 +211,47 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[structopt(long = "cert-key", value_name = "FILE")]
+    #[structopt(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }
+
+// Names of flags that negate other flags
+// This should in principle contain all options. It's easiest to line it
+// up with the output of --help.
+// Warning: Nothing in clap or in our code checks that these match up with
+// other arguments. If in doubt, add a test.
+const NEGATION_FLAGS: &[&str] = &[
+    // FLAGS
+    "--no-offline",
+    "--no-json",
+    "--no-form",
+    "--no-multipart",
+    "--no-ignore-stdin",
+    "--no-follow",
+    "--no-download",
+    "--no-headers",
+    "--no-body",
+    "--no-continue",
+    "--no-verbose",
+    "--no-quiet",
+    "--no-stream",
+    "--no-check-status",
+    "--no-curl",
+    "--no-curl-long",
+    "--no-https",
+    // OPTIONS
+    "--no-auth",
+    "--no-bearer",
+    "--no-output",
+    "--no-max-redirects",
+    "--no-print",
+    "--no-pretty",
+    "--no-style",
+    "--no-proxy",
+    "--no-verify", // A little misleading, but HTTPie has it like this
+    "--no-cert",
+    "--no-cert-key",
+];
 
 impl Cli {
     pub fn from_args() -> Self {
@@ -250,7 +288,8 @@ impl Cli {
                                 \n\
                                 Options:\n\
                                 {flags}\n\
-                                {options}\
+                                {options}\n\
+                                {after-help}\
                             ",
                         )
                         .print_long_help()
@@ -356,6 +395,28 @@ impl Cli {
             self.request_type = RequestType::Multipart;
         }
         Ok(())
+    }
+
+    pub fn clap() -> clap::App<'static, 'static> {
+        let mut app = <Self as StructOpt>::clap();
+        for &flag in NEGATION_FLAGS {
+            // `orig` and `flag` both need a static lifetime, so we
+            // build `orig` by trimming `flag` instead of building `flag`
+            // by extending `orig`
+            let orig = flag.strip_prefix("--no-").unwrap();
+            app = app.arg(
+                // The name is inconsequential, but it has to be unique and it
+                // needs a static lifetime, and `flag` satisfies that
+                clap::Arg::with_name(flag)
+                    .long(flag)
+                    .hidden(true)
+                    // overrides_with is enough to make the flags take effect
+                    // We never have to check their values, they'll simply
+                    // unset previous occurrences of the original flag
+                    .overrides_with(orig),
+            );
+        }
+        app.after_help("Each option can be reset with a --no-OPTION argument.")
     }
 }
 
@@ -863,5 +924,97 @@ mod tests {
     fn executable_name_extension() {
         let args = Cli::from_iter_safe(&["xhs.exe", "example.org"]).unwrap();
         assert_eq!(args.https, true);
+    }
+
+    #[test]
+    fn negated_flags() {
+        let cli = parse(&["--no-offline", ":"]).unwrap();
+        assert_eq!(cli.offline, false);
+
+        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, false);
+
+        // In HTTPie, the order doesn't matter, so this would be false
+        let cli = parse(&["--no-offline", "--offline", ":"]).unwrap();
+        assert_eq!(cli.offline, true);
+
+        // In HTTPie, this resolves to json, but that seems wrong
+        let cli = parse(&["--no-form", "--multipart", ":"]).unwrap();
+        assert_eq!(cli.request_type, RequestType::Multipart);
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, true);
+
+        let cli = parse(&["--multipart", "--no-form", ":"]).unwrap();
+        assert_eq!(cli.request_type, RequestType::Multipart);
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, true);
+
+        let cli = parse(&["--form", "--no-form", ":"]).unwrap();
+        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.json, false);
+        assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, false);
+
+        let cli = parse(&["--form", "--json", "--no-form", ":"]).unwrap();
+        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.json, true);
+        assert_eq!(cli.form, false);
+        assert_eq!(cli.multipart, false);
+
+        let cli = parse(&["--curl-long", "--no-curl-long", ":"]).unwrap();
+        assert_eq!(cli.curl_long, false);
+        let cli = parse(&["--no-curl-long", "--curl-long", ":"]).unwrap();
+        assert_eq!(cli.curl_long, true);
+
+        let cli = parse(&["-do=fname", "--continue", "--no-continue", ":"]).unwrap();
+        assert_eq!(cli.resume, false);
+        let cli = parse(&["-do=fname", "--no-continue", "--continue", ":"]).unwrap();
+        assert_eq!(cli.resume, true);
+
+        let cli = parse(&["-I", "--no-ignore-stdin", ":"]).unwrap();
+        assert_eq!(cli.ignore_stdin, false);
+        let cli = parse(&["--no-ignore-stdin", "-I", ":"]).unwrap();
+        assert_eq!(cli.ignore_stdin, true);
+
+        let cli = parse(&[
+            "--proxy=http:http://foo",
+            "--proxy=http:http://bar",
+            "--no-proxy",
+            ":",
+        ])
+        .unwrap();
+        assert!(cli.proxy.is_empty());
+
+        let cli = parse(&[
+            "--no-proxy",
+            "--proxy=http:http://foo",
+            "--proxy=https:http://bar",
+            ":",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.proxy,
+            vec![
+                Proxy::Http("http://foo".parse().unwrap()),
+                Proxy::Https("http://bar".parse().unwrap())
+            ]
+        );
+
+        let cli = parse(&[
+            "--proxy=http:http://foo",
+            "--no-proxy",
+            "--proxy=https:http://bar",
+            ":",
+        ])
+        .unwrap();
+        assert_eq!(cli.proxy, vec![Proxy::Https("http://bar".parse().unwrap())]);
+
+        let cli = parse(&["--bearer=baz", "--no-bearer", ":"]).unwrap();
+        assert_eq!(cli.bearer, None);
+
+        let cli = parse(&["--style=solarized", "--no-style", ":"]).unwrap();
+        assert_eq!(cli.style, None);
     }
 }
