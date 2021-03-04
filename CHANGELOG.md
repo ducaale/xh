@@ -1,3 +1,8 @@
+## [Unreleased]
+- Add _--no-FLAG_ variants of flags. This is useful for disabling any flags you might have in your
+  alias, see #86 (@blyxxyz)
+- Support non-standard HTTP methods, see #89 (@blyxxyz)
+
 ## [0.8.1] - 2021-03-01
 ### Features
 - Highlight Javascript and CSS, see #82 (@blyxxyz)
