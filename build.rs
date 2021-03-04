@@ -6,6 +6,7 @@ use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSetBuilder;
 
 fn main() {
+    println!("cargo:rerun-if-changed=assets");
     let out_dir = env::var_os("OUT_DIR").unwrap();
 
     let mut builder = SyntaxSetBuilder::new();
