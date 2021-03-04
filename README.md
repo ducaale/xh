@@ -125,3 +125,33 @@ xh put httpbin.org/put id:=49 age:=25 | less
 # Download and save to res.json
 xh -d httpbin.org/json -o res.json
 ```
+
+## xh vs HTTPie
+
+### Why should I use xh over HTTPie
+
+- xh can be 10+ times as fast on requests to localhost, or even 50+ times if you disable coloring.
+- It releases as a single statically linked binary, so it's easier to install and carry around.
+- It supports HTTP/2 (without a plugin).
+- It doesn't use the system's installed TLS library.
+- It has a builtin translator to curl like https://curl2httpie.online/.
+- _--help's_ output fits on your screen. (help gives longer output, like HTTPie's.)
+
+### Why shouldn't I use xh over HTTPie
+
+- It doesn't have all of HTTPie's features.
+- You can't disable HTTP/2 (https://github.com/ducaale/xh/issues/68), and large downloads over HTTP/2
+  perform badly (https://github.com/ducaale/xh/issues/49).
+- It may never have anything like HTTPie's plugin system.
+- General immaturity. HTTPie has seen a lot of real-world usage, that's hard to beat.
+- Worse documentation. HTTPie's docs are very impressive, and you can even try out commands right on the
+  webpage using termible.
+
+### Differences:
+
+- Headers are sent and printed in lowercase (because of the libraries used).
+
+## Similar Projects
+
+- https://github.com/rs/curlie
+- https://github.com/saghm/rural
