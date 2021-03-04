@@ -1,6 +1,11 @@
 use std::io;
 
 use crate::regex;
+use std::fs::File;
+use std::io::Read;
+use dirs::home_dir;
+use netrc_rs::Netrc;
+
 
 pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
@@ -15,6 +20,52 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
         let password = rpassword::read_password_from_tty(Some(&prompt))?;
         Ok((username, Some(password)))
     }
+}
+
+pub fn read_netrc() -> Option<String> {
+
+    let mut netrc_buf = String::new();
+    if let Some(mut hd_path) = home_dir() {
+        hd_path.push(".netrc");
+        if let Ok(mut netrc_file) = File::open(hd_path) {
+            if let Ok(_) = netrc_file.read_to_string(&mut netrc_buf) {
+                return Some(netrc_buf);
+            };
+        };
+    };
+
+    None
+}
+
+pub fn auth_from_netrc(machine: &str, netrc: String) -> Option<(String, Option<String>)> {
+
+    if let Ok(netrc) = Netrc::parse_borrow(&netrc, false) {
+        let mut auths: Vec<(String, Option<String>)> = netrc.machines.iter()
+            .filter_map(|mach| if let Some(name) = &mach.name {
+                if name.ends_with(machine) {
+                    let user = match mach.login {
+                        Some(ref user) => user.clone(),
+                        None => "".to_string()
+                    };
+                    let password = match mach.password {
+                        Some(ref pwd) => Some(pwd.clone()),
+                        None => None
+                    };
+                    Some((user, password))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }).collect();
+
+        if auths.len() == 0 {
+            return None
+        } else {
+            return auths.pop();
+        }
+    }
+    None
 }
 
 #[cfg(test)]

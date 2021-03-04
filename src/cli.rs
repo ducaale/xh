@@ -60,6 +60,10 @@ pub struct Cli {
     #[structopt(long, value_name = "TOKEN")]
     pub bearer: Option<String>,
 
+    /// Do not use credentials from .netrc
+    #[structopt(long = "ignore-netrc")]
+    pub ignore_netrc: bool,
+
     /// Save output to FILE instead of stdout.
     #[structopt(short = "o", long, value_name = "FILE")]
     pub output: Option<String>,

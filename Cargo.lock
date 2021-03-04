@@ -594,6 +594,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "142995ed02755914747cc6ca76fc7e4583cd18578746716d0508ea6ed558b9ff"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e93d7f5705de3e49895a2b5e0b8855a1c27f080192ae9c32a6432d50741a57a"
+dependencies = [
+ "libc",
+ "redox_users",
+ "winapi",
+]
+
+[[package]]
 name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,6 +1318,12 @@ dependencies = [
  "libc",
  "socket2",
 ]
+
+[[package]]
+name = "netrc-rs"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea2970fbbc8c785e8246234a7bd004ed66cd1ed1a35ec73669a92545e419b836"
 
 [[package]]
 name = "new_debug_unreachable"
@@ -2102,7 +2128,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 dependencies = [
  "byteorder",
- "dirs",
+ "dirs 1.0.5",
  "winapi",
 ]
 
@@ -2622,6 +2648,7 @@ dependencies = [
  "assert_matches",
  "atty",
  "curl",
+ "dirs 3.0.1",
  "encoding_rs",
  "encoding_rs_io",
  "exit_status",
@@ -2632,6 +2659,7 @@ dependencies = [
  "memchr",
  "mime",
  "mime2ext",
+ "netrc-rs",
  "pem",
  "predicates",
  "regex",
