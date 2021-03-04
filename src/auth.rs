@@ -26,7 +26,7 @@ pub fn read_netrc() -> Option<String> {
     if let Some(mut hd_path) = home_dir() {
         hd_path.push(".netrc");
         if let Ok(mut netrc_file) = File::open(hd_path) {
-            if let Ok(_) = netrc_file.read_to_string(&mut netrc_buf) {
+            if netrc_file.read_to_string(&mut netrc_buf).is_ok() {
                 return Some(netrc_buf);
             };
         };
@@ -61,9 +61,7 @@ pub fn auth_from_netrc(machine: &str, netrc: String) -> Option<(String, Option<S
             })
             .collect();
 
-        if auths.len() == 0 {
-            return None;
-        } else {
+        if !auths.is_empty() {
             return auths.pop();
         }
     }
