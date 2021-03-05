@@ -128,28 +128,27 @@ xh -d httpbin.org/json -o res.json
 
 ## xh vs HTTPie
 
-### Why should I use xh over HTTPie
+### Advantages over HTTPie
 
-- xh can be 10+ times as fast on requests to localhost, or even 50+ times if you disable coloring.
-- It releases as a single statically linked binary, so it's easier to install and carry around.
-- It supports HTTP/2 (without a plugin).
-- It doesn't use the system's installed TLS library.
-- It has a builtin translator to curl like https://curl2httpie.online/.
-- _--help's_ output fits on your screen. (help gives longer output, like HTTPie's.)
+- Improved startup speed. `xh` may run short requests many times as fast.
+- Available as a single statically linked binary that's easy to install and carry around.
+- HTTP/2 support.
+- Builtin translation to curl commands with the `--curl` flag (similar to https://curl2httpie.online/).
+- Short, cheatsheet-style output from `--help`. (For longer output, pass `help`.)
 
-### Why shouldn't I use xh over HTTPie
+### Disadvantages
 
-- It doesn't have all of HTTPie's features.
-- You can't disable HTTP/2 (https://github.com/ducaale/xh/issues/68), and large downloads over HTTP/2
-  perform badly (https://github.com/ducaale/xh/issues/49).
-- It may never have anything like HTTPie's plugin system.
-- General immaturity. HTTPie has seen a lot of real-world usage, that's hard to beat.
-- Worse documentation. HTTPie's docs are very impressive, and you can even try out commands right on the
-  webpage using termible.
+- Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
+- HTTP/2 cannot be disabled. ([#68](https://github.com/ducaale/xh/issues/68))
+- Large downloads over HTTP/2 are currently slow. ([#49](https://github.com/ducaale/xh/issues/49))
+- No plugin system.
+- General immaturity. HTTPie is old and well-tested.
+- Worse documentation.
 
-### Differences:
+### Other differences
 
-- Headers are sent and printed in lowercase (because of the libraries used).
+- `rustls` is used instead of the system's TLS library.
+- Headers are sent and printed in lowercase.
 
 ## Similar Projects
 
