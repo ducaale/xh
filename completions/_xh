@@ -62,34 +62,36 @@ _xh() {
 '--curl[Print a translation to a `curl` command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
-'--no-offline[]' \
-'--no-json[]' \
-'--no-form[]' \
-'--no-multipart[]' \
-'--no-ignore-stdin[]' \
-'--no-follow[]' \
-'--no-download[]' \
-'--no-headers[]' \
-'--no-body[]' \
-'--no-continue[]' \
-'--no-verbose[]' \
-'--no-quiet[]' \
-'--no-stream[]' \
-'--no-check-status[]' \
-'--no-curl[]' \
-'--no-curl-long[]' \
-'--no-https[]' \
 '--no-auth[]' \
+'--no-auth-type[]' \
 '--no-bearer[]' \
-'--no-output[]' \
-'--no-max-redirects[]' \
-'--no-print[]' \
-'--no-pretty[]' \
-'--no-style[]' \
-'--no-proxy[]' \
-'--no-verify[]' \
+'--no-body[]' \
 '--no-cert[]' \
 '--no-cert-key[]' \
+'--no-check-status[]' \
+'--no-continue[]' \
+'--no-curl[]' \
+'--no-curl-long[]' \
+'--no-default-scheme[]' \
+'--no-download[]' \
+'--no-follow[]' \
+'--no-form[]' \
+'--no-headers[]' \
+'--no-https[]' \
+'--no-ignore-stdin[]' \
+'--no-json[]' \
+'--no-max-redirects[]' \
+'--no-multipart[]' \
+'--no-offline[]' \
+'--no-output[]' \
+'--no-pretty[]' \
+'--no-print[]' \
+'--no-proxy[]' \
+'--no-quiet[]' \
+'--no-stream[]' \
+'--no-style[]' \
+'--no-verbose[]' \
+'--no-verify[]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
