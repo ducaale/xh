@@ -14,10 +14,12 @@ readme = "README.md"
 ansi_term = "0.12"
 anyhow = "1.0.38"
 atty = "0.2"
+clap = { version = "3.0.0-beta.2" }
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
 exit_status = "0.1.0"
 indicatif = "0.15.0"
+indoc = "1.0"
 lazy_static = "1.4.0"
 memchr = "2.3.4"
 mime = "0.3.16"
@@ -30,7 +32,6 @@ serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
-structopt = "0.3"
 
 [dependencies.syntect]
 version = "4.4"
@@ -41,7 +42,6 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 # Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
 assert_cmd = "1.0"
 assert_matches = "1.4.0"
-indoc = "1.0"
 predicates = "1.0.7"
 httpmock = "0.5.5"
 curl = { version = "0.4.34", features = ["static-ssl"] }

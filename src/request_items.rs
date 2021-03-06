@@ -3,7 +3,6 @@ use std::{fs::File, io, path::Path, str::FromStr};
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
-use structopt::clap;
 
 use crate::cli::RequestType;
 
@@ -83,7 +82,7 @@ impl FromStr for RequestItem {
                     key,
                     serde_json::from_str(&value).map_err(|err| {
                         clap::Error::with_description(
-                            &format!("{:?}: {}", request_item, err),
+                            format!("{:?}: {}", request_item, err),
                             clap::ErrorKind::InvalidValue,
                         )
                     })?,
@@ -117,7 +116,7 @@ impl FromStr for RequestItem {
             // and was interpreted as a URL, making the actual URL a request
             // item
             Err(clap::Error::with_description(
-                &format!("{:?} is not a valid request item", request_item),
+                format!("{:?} is not a valid request item", request_item),
                 clap::ErrorKind::InvalidValue,
             ))
         }
