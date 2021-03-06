@@ -126,8 +126,33 @@ xh put httpbin.org/put id:=49 age:=25 | less
 xh -d httpbin.org/json -o res.json
 ```
 
-## Syntaxes and themes used
-- [Sublime-HTTP](https://github.com/samsalisbury/Sublime-HTTP)
-- [json-kv](https://github.com/aurule/json-kv)
-- [Sublime Packages](https://github.com/sublimehq/Packages/tree/fa6b8629c95041bf262d4c1dab95c456a0530122)
-- [ansi-dark theme](https://github.com/sharkdp/bat/blob/master/assets/themes/ansi-dark.tmTheme)
+## xh vs HTTPie
+
+### Advantages over HTTPie
+
+- Improved startup speed. `xh` may run short requests many times as fast.
+- Available as a single statically linked binary that's easy to install and carry around.
+- HTTP/2 support.
+- Builtin translation to curl commands with the `--curl` flag (similar to https://curl2httpie.online/).
+- Short, cheatsheet-style output from `--help`. (For longer output, pass `help`.)
+
+### Disadvantages
+
+- Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
+- HTTP/2 cannot be disabled. ([#68](https://github.com/ducaale/xh/issues/68))
+- Large downloads over HTTP/2 are currently slow. ([#49](https://github.com/ducaale/xh/issues/49))
+- No plugin system.
+- General immaturity. HTTPie is old and well-tested.
+- Worse documentation.
+
+### Other differences
+
+- `rustls` is used instead of the system's TLS library.
+- Headers are sent and printed in lowercase.
+- JSON keys are not sorted.
+
+## Similar Projects
+
+- https://github.com/rs/curlie
+- https://github.com/saghm/rural
+- https://github.com/mark-burnett/ht
