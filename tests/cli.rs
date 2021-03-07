@@ -14,7 +14,9 @@ use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
 fn get_base_command() -> Command {
-    Command::cargo_bin("xh").expect("binary should be present")
+    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    cmd.env("HOME", "");
+    cmd
 }
 
 /// Sensible default command to test with. use [`get_base_command`] if this

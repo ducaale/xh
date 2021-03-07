@@ -1,10 +1,11 @@
+use std::env;
 use std::io;
+use std::path::PathBuf;
 
 use crate::regex;
 use dirs::home_dir;
 use netrc_rs::Netrc;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 
 pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
@@ -21,50 +22,54 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
     }
 }
 
+fn netrc_path() -> Option<PathBuf> {
+    match env::var("NETRC") {
+        Ok(path) => {
+            let pth = PathBuf::from(path);
+            if pth.exists() {
+                Some(pth)
+            } else {
+                None
+            }
+        }
+        Err(_) => {
+            if let Some(hd_path) = home_dir() {
+                [".netrc", "_netrc"]
+                    .iter()
+                    .map(|f| hd_path.join(f))
+                    .find(|p| p.exists())
+            } else {
+                None
+            }
+        }
+    }
+}
+
 pub fn read_netrc() -> Option<String> {
-    let mut netrc_buf = String::new();
-    if let Some(mut hd_path) = home_dir() {
-        hd_path.push(".netrc");
-        if let Ok(mut netrc_file) = File::open(hd_path) {
-            if netrc_file.read_to_string(&mut netrc_buf).is_ok() {
-                return Some(netrc_buf);
-            };
-        };
+    if let Some(netrc_path) = netrc_path() {
+        if let Ok(result) = fs::read_to_string(netrc_path) {
+            return Some(result);
+        }
     };
 
     None
 }
 
-pub fn auth_from_netrc(machine: &str, netrc: String) -> Option<(String, Option<String>)> {
+pub fn auth_from_netrc(machine: &str, netrc: &str) -> Option<(String, Option<String>)> {
     if let Ok(netrc) = Netrc::parse_borrow(&netrc, false) {
-        let mut auths: Vec<(String, Option<String>)> = netrc
+        return netrc
             .machines
-            .iter()
-            .filter_map(|mach| {
-                if let Some(name) = &mach.name {
-                    if name.ends_with(machine) {
-                        let user = match mach.login {
-                            Some(ref user) => user.clone(),
-                            None => "".to_string(),
-                        };
-                        let password = match mach.password {
-                            Some(ref pwd) => Some(pwd.clone()),
-                            None => None,
-                        };
-                        Some((user, password))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+            .into_iter()
+            .filter_map(|mach| match mach.name {
+                Some(name) if name == machine => {
+                    let user = mach.login.unwrap_or_else(|| "".to_string());
+                    Some((user, mach.password))
                 }
+                _ => None,
             })
-            .collect();
-
-        if !auths.is_empty() {
-            return auths.pop();
-        }
+            .last();
     }
+
     None
 }
 
@@ -83,6 +88,23 @@ mod tests {
         for (input, output) in expected {
             let (user, pass) = parse_auth(input.to_string(), "").unwrap();
             assert_eq!(output, (user.as_str(), pass.as_deref()));
+        }
+    }
+
+    #[test]
+    fn netrc() {
+        let netrc = "machine example.com\nlogin user\npassword pass";
+
+        let expected = vec![
+            (
+                "example.com",
+                Some(("user".to_string(), Some("pass".to_string()))),
+            ),
+            ("example.org", None),
+        ];
+
+        for (machine, output) in expected {
+            assert_eq!(output, auth_from_netrc(machine, netrc));
         }
     }
 }

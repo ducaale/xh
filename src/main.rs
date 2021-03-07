@@ -187,11 +187,11 @@ fn main() -> Result<i32> {
             let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
             request_builder = request_builder.basic_auth(username, password);
         } else if !args.ignore_netrc {
-            if let Some(netrc) = read_netrc() {
-                if let Some((username, password)) =
-                    auth_from_netrc(url.host_str().unwrap_or("<host>"), netrc)
-                {
-                    request_builder = request_builder.basic_auth(username, password);
+            if let Some(host) = url.host_str() {
+                if let Some(netrc) = read_netrc() {
+                    if let Some((username, password)) = auth_from_netrc(host, &netrc) {
+                        request_builder = request_builder.basic_auth(username, password);
+                    }
                 }
             }
         }
