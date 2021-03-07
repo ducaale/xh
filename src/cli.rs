@@ -20,6 +20,7 @@ use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term
 // - Only use `long` with an implicit arg (just `long`)
 //   - Unless it needs a different name, but then also use `name = "..."`
 // - Add an uppercase value_name to options that take a value
+// - Add a line with triple {n} after any long doc comment
 
 /// xh is a friendly and fast tool for sending HTTP requests.
 ///
@@ -59,6 +60,7 @@ pub struct Cli {
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
     ///
     /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+    /// {n}{n}{n}
     #[structopt(short = "a", long, value_name = "USER[:PASS]")]
     pub auth: Option<String>,
 
@@ -100,6 +102,7 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
+    /// {n}{n}{n}
     #[structopt(short = "p", long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
@@ -129,12 +132,14 @@ pub struct Cli {
     /// or 3 on 3xx (Redirect) if --follow isn't set.
     ///
     /// If stdout is redirected then a warning is written to stderr.
+    /// {n}{n}{n}
     #[structopt(long)]
     pub check_status: bool,
 
     /// Print a translation to a `curl` command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
+    /// {n}{n}{n}
     #[structopt(long)]
     pub curl: bool,
 
@@ -153,6 +158,7 @@ pub struct Cli {
     ///
     /// The environment variables `http_proxy` and `https_proxy` can also be used, but
     /// are completely ignored if --proxy is passed.
+    /// {n}{n}{n}
     #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
@@ -169,25 +175,22 @@ pub struct Cli {
     /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
     /// If omitted, either a GET or a POST will be done depending on whether the
     /// request sends data.
+    /// {n}{n}{n}
     #[structopt(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
-    #[structopt(
-        value_name = "REQUEST_ITEM",
-        long_help = r"Optional key-value pairs to be included in the request.
-
-- key==value to add a parameter to the URL
-- key=value to add a JSON field (--json) or form field (--form)
-- key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-- key@filename to upload a file from filename (with --form)
-- header:value to add a header
-- header: to unset a header
-- header; to add a header with an empty value
-
-A backslash can be used to escape special characters (e.g. weird\:key=value).
-"
-    )]
+    ///
+    ///   - key==value to add a parameter to the URL
+    ///   - key=value to add a JSON field (--json) or form field (--form)
+    ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
+    ///   - key@filename to upload a file from filename (with --form)
+    ///   - header:value to add a header
+    ///   - header: to unset a header
+    ///   - header; to add a header with an empty value
+    ///
+    /// A backslash can be used to escape special characters (e.g. weird\:key=value).
+    #[structopt(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
     /// The HTTP method, if supplied.
@@ -207,6 +210,7 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
+    /// {n}{n}{n}
     #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
     pub verify: Verify,
 
@@ -217,6 +221,7 @@ A backslash can be used to escape special characters (e.g. weird\:key=value).
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
+    /// {n}{n}{n}
     #[structopt(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }
