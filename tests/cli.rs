@@ -557,7 +557,6 @@ fn netrc_env_user_password_auth() {
 
 #[test]
 fn netrc_file_user_password_auth() {
-
     for netrc_file in [".netrc", "_netrc"].iter() {
         let server = MockServer::start();
         let mock = server.mock(|when, _then| {
@@ -572,7 +571,7 @@ fn netrc_file_user_password_auth() {
             "machine {}\nlogin user\npassword pass",
             server.host()
         )
-            .unwrap();
+        .unwrap();
 
         netrc.flush().unwrap();
 

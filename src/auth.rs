@@ -37,7 +37,6 @@ fn netrc_path() -> Option<PathBuf> {
                 [".netrc", "_netrc"]
                     .iter()
                     .map(|f| hd_path.join(f))
-                    .inspect(|p| println!("{:?}", p))
                     .find(|p| p.exists())
             } else {
                 None
@@ -107,8 +106,16 @@ mod tests {
             ),
             ("example.org", good_netrc, None),
             ("example.com", malformed_netrc, None),
-            ("example.com", missing_login, Some(("".to_string(), Some("pass".to_string())))),
-            ("example.com", missing_pass, Some(("user".to_string(), None))),
+            (
+                "example.com",
+                missing_login,
+                Some(("".to_string(), Some("pass".to_string()))),
+            ),
+            (
+                "example.com",
+                missing_pass,
+                Some(("user".to_string(), None)),
+            ),
         ];
 
         for (machine, netrc, output) in expected {
