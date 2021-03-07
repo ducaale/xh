@@ -23,8 +23,8 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
 }
 
 fn netrc_path() -> Option<PathBuf> {
-    match env::var("NETRC") {
-        Ok(path) => {
+    match env::var_os("NETRC") {
+        Some(path) => {
             let pth = PathBuf::from(path);
             if pth.exists() {
                 Some(pth)
@@ -32,11 +32,12 @@ fn netrc_path() -> Option<PathBuf> {
                 None
             }
         }
-        Err(_) => {
+        None => {
             if let Some(hd_path) = home_dir() {
                 [".netrc", "_netrc"]
                     .iter()
                     .map(|f| hd_path.join(f))
+                    .inspect(|p| println!("{:?}", p))
                     .find(|p| p.exists())
             } else {
                 None
@@ -93,17 +94,24 @@ mod tests {
 
     #[test]
     fn netrc() {
-        let netrc = "machine example.com\nlogin user\npassword pass";
+        let good_netrc = "machine example.com\nlogin user\npassword pass";
+        let malformed_netrc = "I'm a malformed netrc!";
+        let missing_login = "machine example.com\npassword pass";
+        let missing_pass = "machine example.com\nlogin user\n";
 
         let expected = vec![
             (
                 "example.com",
+                good_netrc,
                 Some(("user".to_string(), Some("pass".to_string()))),
             ),
-            ("example.org", None),
+            ("example.org", good_netrc, None),
+            ("example.com", malformed_netrc, None),
+            ("example.com", missing_login, Some(("".to_string(), Some("pass".to_string())))),
+            ("example.com", missing_pass, Some(("user".to_string(), None))),
         ];
 
-        for (machine, output) in expected {
+        for (machine, netrc, output) in expected {
             assert_eq!(output, auth_from_netrc(machine, netrc));
         }
     }

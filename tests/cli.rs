@@ -1,6 +1,7 @@
 #![cfg(feature = "integration-tests")]
 use std::{
     fs::read_to_string,
+    fs::File,
     io::{Seek, SeekFrom, Write},
     process::Command,
 };
@@ -533,7 +534,7 @@ fn user_password_auth() {
 }
 
 #[test]
-fn netrc_user_password_auth() {
+fn netrc_env_user_password_auth() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
         when.header("Authorization", "Basic dXNlcjpwYXNz");
@@ -548,10 +549,42 @@ fn netrc_user_password_auth() {
     .unwrap();
 
     get_command()
-        .env("NETRC", netrc.path().to_str().unwrap())
+        .env("NETRC", netrc.path())
         .arg(server.base_url())
         .assert();
     mock.assert();
+}
+
+#[test]
+fn netrc_file_user_password_auth() {
+
+    for netrc_file in [".netrc", "_netrc"].iter() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, _then| {
+            when.header("Authorization", "Basic dXNlcjpwYXNz");
+        });
+
+        let homedir = tempfile::TempDir::new().unwrap();
+        let netrc_path = homedir.path().join(netrc_file);
+        let mut netrc = File::create(&netrc_path).unwrap();
+        writeln!(
+            netrc,
+            "machine {}\nlogin user\npassword pass",
+            server.host()
+        )
+            .unwrap();
+
+        netrc.flush().unwrap();
+
+        get_command()
+            .env("HOME", homedir.path())
+            .arg(server.base_url())
+            .assert();
+        mock.assert();
+
+        drop(netrc);
+        homedir.close().unwrap();
+    }
 }
 
 #[test]

@@ -61,7 +61,7 @@ pub struct Cli {
     pub bearer: Option<String>,
 
     /// Do not use credentials from .netrc
-    #[structopt(long = "ignore-netrc")]
+    #[structopt(long)]
     pub ignore_netrc: bool,
 
     /// Save output to FILE instead of stdout.
