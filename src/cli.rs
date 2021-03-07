@@ -187,7 +187,7 @@ pub struct Cli {
     ///   - header:value to add a header
     ///   - header: to unset a header
     ///   - header; to add a header with an empty value
-    /// 
+    ///
     /// A backslash can be used to escape special characters (e.g. weird\:key=value).
     #[structopt(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
