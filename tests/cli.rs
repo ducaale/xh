@@ -533,6 +533,23 @@ fn user_password_auth() {
 }
 
 #[test]
+fn netrc_user_password_auth() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    writeln!(netrc, "machine {}\nlogin user\npassword pass", server.host()).unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path().to_str().unwrap())
+        .arg(server.base_url())
+        .assert();
+    mock.assert();
+}
+
+#[test]
 fn check_status_warning() {
     let server = MockServer::start();
     let mock = server.mock(|_when, then| {
