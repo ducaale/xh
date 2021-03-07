@@ -59,6 +59,7 @@ pub struct Cli {
     /// Authenticate as USER with PASS. PASS will be prompted if missing.
     ///
     /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+    /// {n}{n}{n}
     #[structopt(short = "a", long, value_name = "USER[:PASS]")]
     pub auth: Option<String>,
 
@@ -100,6 +101,7 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
+    /// {n}{n}{n}
     #[structopt(short = "p", long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
@@ -129,12 +131,14 @@ pub struct Cli {
     /// or 3 on 3xx (Redirect) if --follow isn't set.
     ///
     /// If stdout is redirected then a warning is written to stderr.
+    /// {n}{n}{n}
     #[structopt(long)]
     pub check_status: bool,
 
     /// Print a translation to a `curl` command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
+    /// {n}{n}{n}
     #[structopt(long)]
     pub curl: bool,
 
@@ -153,6 +157,7 @@ pub struct Cli {
     ///
     /// The environment variables `http_proxy` and `https_proxy` can also be used, but
     /// are completely ignored if --proxy is passed.
+    /// {n}{n}{n}
     #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
@@ -169,6 +174,7 @@ pub struct Cli {
     /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
     /// If omitted, either a GET or a POST will be done depending on whether the
     /// request sends data.
+    /// {n}{n}{n}
     #[structopt(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
@@ -203,6 +209,7 @@ pub struct Cli {
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
+    /// {n}{n}{n}
     #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
     pub verify: Verify,
 
@@ -213,6 +220,7 @@ pub struct Cli {
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
+    /// {n}{n}{n}
     #[structopt(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 }
