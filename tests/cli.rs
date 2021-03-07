@@ -540,7 +540,12 @@ fn netrc_user_password_auth() {
     });
 
     let mut netrc = tempfile::NamedTempFile::new().unwrap();
-    writeln!(netrc, "machine {}\nlogin user\npassword pass", server.host()).unwrap();
+    writeln!(
+        netrc,
+        "machine {}\nlogin user\npassword pass",
+        server.host()
+    )
+    .unwrap();
 
     get_command()
         .env("NETRC", netrc.path().to_str().unwrap())
