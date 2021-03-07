@@ -22,6 +22,15 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
     }
 }
 
+fn get_home_dir() -> Option<PathBuf> {
+    #[cfg(all(target_os = "win", test))]
+    if let Some(path) = env::var_os("XH_TEST_MODE_WIN_HOME_DIR") {
+        return Some(PathBuf::from(path));
+    }
+
+    home_dir()
+}
+
 fn netrc_path() -> Option<PathBuf> {
     match env::var_os("NETRC") {
         Some(path) => {
@@ -33,7 +42,7 @@ fn netrc_path() -> Option<PathBuf> {
             }
         }
         None => {
-            if let Some(hd_path) = home_dir() {
+            if let Some(hd_path) = get_home_dir() {
                 [".netrc", "_netrc"]
                     .iter()
                     .map(|f| hd_path.join(f))

@@ -17,6 +17,8 @@ use tempfile::{tempdir, tempfile};
 fn get_base_command() -> Command {
     let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
     cmd.env("HOME", "");
+    #[cfg(target_os = "win")]
+    cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
     cmd
 }
 
@@ -575,6 +577,13 @@ fn netrc_file_user_password_auth() {
 
         netrc.flush().unwrap();
 
+        #[cfg(target_os = "win")]
+        get_command()
+            .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+            .arg(server.base_url())
+            .assert();
+
+        #[cfg(not(target_os = "win"))]
         get_command()
             .env("HOME", homedir.path())
             .arg(server.base_url())
