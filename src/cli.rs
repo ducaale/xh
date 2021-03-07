@@ -173,21 +173,17 @@ pub struct Cli {
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request.
-    #[structopt(
-        value_name = "REQUEST_ITEM",
-        long_help = r"Optional key-value pairs to be included in the request.
-
-- key==value to add a parameter to the URL
-- key=value to add a JSON field (--json) or form field (--form)
-- key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-- key@filename to upload a file from filename (with --form)
-- header:value to add a header
-- header: to unset a header
-- header; to add a header with an empty value
-
-A backslash can be used to escape special characters (e.g. weird\:key=value).
-"
-    )]
+    ///
+    ///   - key==value to add a parameter to the URL
+    ///   - key=value to add a JSON field (--json) or form field (--form)
+    ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
+    ///   - key@filename to upload a file from filename (with --form)
+    ///   - header:value to add a header
+    ///   - header: to unset a header
+    ///   - header; to add a header with an empty value
+    /// 
+    /// A backslash can be used to escape special characters (e.g. weird\:key=value).
+    #[structopt(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
     /// The HTTP method, if supplied.
