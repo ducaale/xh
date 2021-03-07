@@ -1,6 +1,7 @@
 #![cfg(feature = "integration-tests")]
 use std::{
     fs::read_to_string,
+    fs::File,
     io::{Seek, SeekFrom, Write},
     process::Command,
 };
@@ -14,7 +15,11 @@ use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
 fn get_base_command() -> Command {
-    Command::cargo_bin("xh").expect("binary should be present")
+    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    cmd.env("HOME", "");
+    #[cfg(target_os = "windows")]
+    cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
+    cmd
 }
 
 /// Sensible default command to test with. use [`get_base_command`] if this
@@ -528,6 +533,61 @@ fn user_password_auth() {
         .arg(server.base_url())
         .assert();
     mock.assert();
+}
+
+#[test]
+fn netrc_env_user_password_auth() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    writeln!(
+        netrc,
+        "machine {}\nlogin user\npassword pass",
+        server.host()
+    )
+    .unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn netrc_file_user_password_auth() {
+    for netrc_file in [".netrc", "_netrc"].iter() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, _then| {
+            when.header("Authorization", "Basic dXNlcjpwYXNz");
+        });
+
+        let homedir = tempfile::TempDir::new().unwrap();
+        let netrc_path = homedir.path().join(netrc_file);
+        let mut netrc = File::create(&netrc_path).unwrap();
+        writeln!(
+            netrc,
+            "machine {}\nlogin user\npassword pass",
+            server.host()
+        )
+        .unwrap();
+
+        netrc.flush().unwrap();
+
+        get_command()
+            .env("HOME", homedir.path())
+            .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+            .arg(server.base_url())
+            .assert();
+
+        mock.assert();
+
+        drop(netrc);
+        homedir.close().unwrap();
+    }
 }
 
 #[test]

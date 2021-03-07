@@ -21,7 +21,7 @@ use reqwest::header::{
 };
 use reqwest::redirect::Policy;
 
-use crate::auth::parse_auth;
+use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
 use crate::cli::{Cli, Pretty, Print, Proxy, RequestType, Theme, Verify};
 use crate::download::{download_file, get_file_size};
@@ -186,6 +186,14 @@ fn main() -> Result<i32> {
         if let Some(auth) = args.auth {
             let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
             request_builder = request_builder.basic_auth(username, password);
+        } else if !args.ignore_netrc {
+            if let Some(host) = url.host_str() {
+                if let Some(netrc) = read_netrc() {
+                    if let Some((username, password)) = auth_from_netrc(host, &netrc) {
+                        request_builder = request_builder.basic_auth(username, password);
+                    }
+                }
+            }
         }
         if let Some(token) = args.bearer {
             request_builder = request_builder.bearer_auth(token);
