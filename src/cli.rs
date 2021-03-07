@@ -20,6 +20,7 @@ use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term
 // - Only use `long` with an implicit arg (just `long`)
 //   - Unless it needs a different name, but then also use `name = "..."`
 // - Add an uppercase value_name to options that take a value
+// - Add a line with triple {n} after any long doc comment
 
 /// xh is a friendly and fast tool for sending HTTP requests.
 ///
