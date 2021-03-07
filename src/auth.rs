@@ -23,7 +23,7 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
 }
 
 fn get_home_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "win")]
+    #[cfg(target_os = "windows")]
     if let Some(path) = env::var_os("XH_TEST_MODE_WIN_HOME_DIR") {
         return Some(PathBuf::from(path));
     }
