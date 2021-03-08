@@ -44,6 +44,7 @@ FLAGS:
     -f, --form            Serialize data items from the command line as form fields
     -m, --multipart       Like --form, but force a multipart/form-data request even without files
     -I, --ignore-stdin    Do not attempt to read stdin
+        --ignore-netrc    Do not use credentials from .netrc
     -F, --follow          Do follow redirects
     -d, --download        Download the body to a file instead of printing it
     -h, --headers         Print only the response headers, shortcut for --print=h

@@ -183,7 +183,7 @@ pub struct Cli {
     #[structopt(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
-    /// Optional key-value pairs to be included in the request.
+    /// Optional key-value pairs to be included in the request
     ///
     ///   - key==value to add a parameter to the URL
     ///   - key=value to add a JSON field (--json) or form field (--form)
@@ -256,6 +256,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-form",
     "--no-headers",
     "--no-https",
+    "--no-ignore-netrc",
     "--no-ignore-stdin",
     "--no-json",
     "--no-max-redirects",
