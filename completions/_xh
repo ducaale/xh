@@ -42,6 +42,7 @@ _xh() {
 '--multipart[Like --form, but force a multipart/form-data request even without files]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
+'--ignore-netrc[Do not use credentials from .netrc]' \
 '-F[Do follow redirects]' \
 '--follow[Do follow redirects]' \
 '-d[Download the body to a file instead of printing it]' \
@@ -78,6 +79,7 @@ _xh() {
 '--no-form[]' \
 '--no-headers[]' \
 '--no-https[]' \
+'--no-ignore-netrc[]' \
 '--no-ignore-stdin[]' \
 '--no-json[]' \
 '--no-max-redirects[]' \

@@ -16,6 +16,7 @@ complete -c xh -s j -l json -d '(default) Serialize data items from the command 
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
 complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
+complete -c xh -l ignore-netrc -d 'Do not use credentials from .netrc'
 complete -c xh -s F -l follow -d 'Do follow redirects'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
 complete -c xh -s h -l headers -d 'Print only the response headers, shortcut for --print=h'
@@ -44,6 +45,7 @@ complete -c xh -l no-follow
 complete -c xh -l no-form
 complete -c xh -l no-headers
 complete -c xh -l no-https
+complete -c xh -l no-ignore-netrc
 complete -c xh -l no-ignore-stdin
 complete -c xh -l no-json
 complete -c xh -l no-max-redirects
