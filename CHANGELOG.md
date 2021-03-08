@@ -1,4 +1,5 @@
 ## [0.9.0] - 2021-03-08
+### Features
 - Add _--no-FLAG_ variants of flags. This is useful for disabling any flags you might have in your
   alias, see #86 (@blyxxyz)
 - Support non-standard HTTP methods, see #89 (@blyxxyz)
