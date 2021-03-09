@@ -51,7 +51,7 @@ contexts:
         3: const.language.http
         5: keyword.other.http
         7: constant.numeric.http
-    - match: '^([\w\-]+)\s*\:\s*(.*?)\s*$'
+    - match: '^([\w\-]+)\s*\: ?(.*)$'
       scope: http.requestheaders
       captures:
         1: support.variable.http
