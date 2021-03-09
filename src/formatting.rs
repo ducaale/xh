@@ -21,14 +21,19 @@ lazy_static::lazy_static! {
         env!("OUT_DIR"),
         "/themepack.themedump"
     )));
-    static ref PS: SyntaxSet = from_binary(include_bytes!(concat!(
+    static ref PS_BASIC: SyntaxSet = from_binary(include_bytes!(concat!(
         env!("OUT_DIR"),
-        "/syntax.packdump"
+        "/basic.packdump"
+    )));
+    static ref PS_LARGE: SyntaxSet = from_binary(include_bytes!(concat!(
+        env!("OUT_DIR"),
+        "/large.packdump"
     )));
 }
 
 pub struct Highlighter<'a> {
     inner: HighlightLines<'static>,
+    syntax_set: &'static SyntaxSet,
     out: Box<dyn Write + 'a>,
     buffer: Vec<u8>, // For use by HighlightWriter
 }
@@ -36,11 +41,16 @@ pub struct Highlighter<'a> {
 /// A wrapper around a [`Buffer`] to add syntax highlighting when printing.
 impl<'a> Highlighter<'a> {
     pub fn new(syntax: &'static str, theme: Theme, out: Box<dyn Write + 'a>) -> Self {
-        let syntax = PS
+        let syntax_set: &SyntaxSet = match syntax {
+            "json" | "http" => &PS_BASIC,
+            _ => &PS_LARGE,
+        };
+        let syntax = syntax_set
             .find_syntax_by_extension(syntax)
             .expect("syntax not found");
         Self {
             inner: HighlightLines::new(syntax, &TS.themes[theme.as_str()]),
+            syntax_set,
             out,
             buffer: Vec::new(),
         }
@@ -48,14 +58,14 @@ impl<'a> Highlighter<'a> {
 
     /// Write a single piece of highlighted text.
     pub fn highlight(&mut self, line: &str) -> io::Result<()> {
-        write_style(&mut self.inner, line, &mut self.out)
+        write_style(&mut self.inner, self.syntax_set, line, &mut self.out)
     }
 
     fn highlight_buffer(&mut self) -> io::Result<()> {
         if !self.buffer.is_empty() {
             let text = String::from_utf8_lossy(&self.buffer);
             // Can't call .highlight() because text references self.buffer
-            write_style(&mut self.inner, &text, &mut self.out)?;
+            write_style(&mut self.inner, self.syntax_set, &text, &mut self.out)?;
             self.buffer.clear();
         }
         Ok(())
@@ -119,12 +129,13 @@ impl Write for HighlightWriter<'_, '_> {
 
 fn write_style(
     highlighter: &mut HighlightLines,
+    syntax_set: &SyntaxSet,
     text: &str,
     out: &mut impl Write,
 ) -> io::Result<()> {
     // TODO: this text may contain multiple lines, is that ok?
     // If not, try syntect::util::LinesWithEndings
-    for (style, component) in highlighter.highlight(text, &PS) {
+    for (style, component) in highlighter.highlight(text, syntax_set) {
         write!(out, "{}", convert_style(style).paint(component))?;
     }
     Ok(())
