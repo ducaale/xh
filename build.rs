@@ -6,22 +6,29 @@ use syntect::dumps::*;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSetBuilder;
 
-fn main() {
-    println!("cargo:rerun-if-changed=assets");
-    for entry in read_dir("assets").unwrap() {
-        println!(
-            "cargo:rerun-if-changed={}",
-            entry.unwrap().path().to_str().unwrap()
-        );
-    }
+fn build_syntax(dir: &str, out: &str) {
     let out_dir = env::var_os("OUT_DIR").unwrap();
-
     let mut builder = SyntaxSetBuilder::new();
-    builder.add_plain_text_syntax();
-    builder.add_from_folder("assets", true).unwrap();
+    builder.add_from_folder(dir, true).unwrap();
     let ss = builder.build();
-    dump_to_file(&ss, Path::new(&out_dir).join("syntax.packdump")).unwrap();
+    dump_to_file(&ss, Path::new(&out_dir).join(out)).unwrap();
+}
 
+fn main() {
+    for dir in &["assets", "assets/basic", "assets/large"] {
+        println!("cargo:rerun-if-changed={}", dir);
+        for entry in read_dir(dir).unwrap() {
+            println!(
+                "cargo:rerun-if-changed={}",
+                entry.unwrap().path().to_str().unwrap()
+            );
+        }
+    }
+
+    build_syntax("assets/basic", "basic.packdump");
+    build_syntax("assets/large", "large.packdump");
+
+    let out_dir = env::var_os("OUT_DIR").unwrap();
     let ts = ThemeSet::load_from_folder("assets").unwrap();
     dump_to_file(&ts, Path::new(&out_dir).join("themepack.themedump")).unwrap();
 }
