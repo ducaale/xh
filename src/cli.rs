@@ -26,7 +26,7 @@ use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term
 ///
 /// It reimplements as much as possible of HTTPie's excellent design.
 #[derive(StructOpt, Debug)]
-#[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "xh", settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage])]
 pub struct Cli {
     /// Construct HTTP requests without sending them anywhere.
     #[structopt(long)]
