@@ -26,12 +26,8 @@ use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term
 ///
 /// It reimplements as much as possible of HTTPie's excellent design.
 #[derive(StructOpt, Debug)]
-#[structopt(name = "xh", setting = AppSettings::DeriveDisplayOrder)]
+#[structopt(name = "xh", settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage])]
 pub struct Cli {
-    /// Construct HTTP requests without sending them anywhere.
-    #[structopt(long)]
-    pub offline: bool,
-
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
@@ -47,9 +43,55 @@ pub struct Cli {
     #[structopt(skip)]
     pub request_type: RequestType,
 
-    /// Do not attempt to read stdin.
-    #[structopt(short = "I", long)]
-    pub ignore_stdin: bool,
+    /// Controls output processing.
+    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
+    pub pretty: Option<Pretty>,
+
+    /// Output coloring style.
+    #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
+    pub style: Option<Theme>,
+
+    /// String specifying what the output should contain.
+    ///
+    /// Use `H` and `B` for request header and body respectively,
+    /// and `h` and `b` for response hader and body.
+    ///
+    /// Example: `--print=Hb`
+    /// {n}{n}{n}
+    #[structopt(short = "p", long, value_name = "FORMAT")]
+    pub print: Option<Print>,
+
+    /// Print only the response headers, shortcut for --print=h.
+    #[structopt(short = "h", long)]
+    pub headers: bool,
+
+    /// Print only the response body, Shortcut for --print=b.
+    #[structopt(short = "b", long)]
+    pub body: bool,
+
+    /// Print the whole request as well as the response.
+    #[structopt(short = "v", long)]
+    pub verbose: bool,
+
+    /// Do not print to stdout or stderr.
+    #[structopt(short = "q", long)]
+    pub quiet: bool,
+
+    /// Always stream the response body.
+    #[structopt(short = "S", long)]
+    pub stream: bool,
+
+    /// Save output to FILE instead of stdout.
+    #[structopt(short = "o", long, value_name = "FILE")]
+    pub output: Option<String>,
+
+    /// Download the body to a file instead of printing it.
+    #[structopt(short = "d", long)]
+    pub download: bool,
+
+    /// Resume an interrupted download. Requires --download and --output.
+    #[structopt(short = "c", long = "continue", name = "continue")]
+    pub resume: bool,
 
     // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
@@ -72,63 +114,9 @@ pub struct Cli {
     #[structopt(long)]
     pub ignore_netrc: bool,
 
-    /// Save output to FILE instead of stdout.
-    #[structopt(short = "o", long, value_name = "FILE")]
-    pub output: Option<String>,
-
-    /// Do follow redirects.
-    #[structopt(short = "F", long)]
-    pub follow: bool,
-
-    /// Number of redirects to follow, only respected if `follow` is set.
-    #[structopt(long, value_name = "NUM")]
-    pub max_redirects: Option<usize>,
-
-    /// Download the body to a file instead of printing it.
-    #[structopt(short = "d", long)]
-    pub download: bool,
-
-    /// Print only the response headers, shortcut for --print=h.
-    #[structopt(short = "h", long)]
-    pub headers: bool,
-
-    /// Print only the response body, Shortcut for --print=b.
-    #[structopt(short = "b", long)]
-    pub body: bool,
-
-    /// Resume an interrupted download. Requires --download and --output.
-    #[structopt(short = "c", long = "continue", name = "continue")]
-    pub resume: bool,
-
-    /// String specifying what the output should contain.
-    ///
-    /// Use `H` and `B` for request header and body respectively,
-    /// and `h` and `b` for response hader and body.
-    ///
-    /// Example: `--print=Hb`
-    /// {n}{n}{n}
-    #[structopt(short = "p", long, value_name = "FORMAT")]
-    pub print: Option<Print>,
-
-    /// Print the whole request as well as the response.
-    #[structopt(short = "v", long)]
-    pub verbose: bool,
-
-    /// Do not print to stdout or stderr.
-    #[structopt(short = "q", long)]
-    pub quiet: bool,
-
-    /// Always stream the response body.
-    #[structopt(short = "S", long)]
-    pub stream: bool,
-
-    /// Controls output processing.
-    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
-    pub pretty: Option<Pretty>,
-
-    /// Output coloring style.
-    #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
-    pub style: Option<Theme>,
+    /// Construct HTTP requests without sending them anywhere.
+    #[structopt(long)]
+    pub offline: bool,
 
     /// Exit with an error status code if the server replies with an error.
     ///
@@ -140,16 +128,13 @@ pub struct Cli {
     #[structopt(long)]
     pub check_status: bool,
 
-    /// Print a translation to a `curl` command.
-    ///
-    /// For translating the other way, try https://curl2httpie.online/.
-    /// {n}{n}{n}
-    #[structopt(long)]
-    pub curl: bool,
+    /// Do follow redirects.
+    #[structopt(short = "F", long)]
+    pub follow: bool,
 
-    /// Use the long versions of curl's flags.
-    #[structopt(long)]
-    pub curl_long: bool,
+    /// Number of redirects to follow, only respected if `follow` is set.
+    #[structopt(long, value_name = "NUM")]
+    pub max_redirects: Option<usize>,
 
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
     ///
@@ -166,6 +151,26 @@ pub struct Cli {
     #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
+    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
+    ///
+    /// Specifying a CA bundle will disable the system's built-in root certificates.
+    ///
+    /// "false" instead of "no" also works. The default is "yes" ("true").
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "VERIFY")]
+    pub verify: Option<Verify>,
+
+    /// Use a client side certificate for SSL.
+    #[structopt(long, value_name = "FILE")]
+    pub cert: Option<PathBuf>,
+
+    /// A private key file to use with --cert.
+    ///
+    /// Only necessary if the private key is not contained in the cert file.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "FILE")]
+    pub cert_key: Option<PathBuf>,
+
     /// The default scheme to use if not specified in the URL.
     #[structopt(long, value_name = "SCHEME", hidden = true)]
     pub default_scheme: Option<String>,
@@ -173,6 +178,21 @@ pub struct Cli {
     /// Make HTTPS requests if not specified in the URL.
     #[structopt(long)]
     pub https: bool,
+
+    /// Do not attempt to read stdin.
+    #[structopt(short = "I", long)]
+    pub ignore_stdin: bool,
+
+    /// Print a translation to a `curl` command.
+    ///
+    /// For translating the other way, try https://curl2httpie.online/.
+    /// {n}{n}{n}
+    #[structopt(long)]
+    pub curl: bool,
+
+    /// Use the long versions of curl's flags.
+    #[structopt(long)]
+    pub curl_long: bool,
 
     /// The request URL, preceded by an optional HTTP method.
     ///
@@ -208,26 +228,6 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
-
-    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
-    ///
-    /// Specifying a CA bundle will disable the system's built-in root certificates.
-    ///
-    /// "false" instead of "no" also works. The default is "yes" ("true").
-    /// {n}{n}{n}
-    #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
-    pub verify: Verify,
-
-    /// Use a client side certificate for SSL.
-    #[structopt(long, value_name = "FILE")]
-    pub cert: Option<PathBuf>,
-
-    /// A private key file to use with --cert.
-    ///
-    /// Only necessary if the private key is not contained in the cert file.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "FILE")]
-    pub cert_key: Option<PathBuf>,
 }
 
 /// Names of flags that negate other flags.
@@ -718,12 +718,6 @@ impl FromStr for Verify {
             "yes" | "true" => Ok(Verify::Yes),
             path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
         }
-    }
-}
-
-impl Default for Verify {
-    fn default() -> Self {
-        Verify::Yes
     }
 }
 

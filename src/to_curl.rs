@@ -152,7 +152,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.flag("-C", "--continue-at");
         cmd.push("-"); // Tell curl to guess, like we do
     }
-    match args.verify {
+    match args.verify.unwrap_or(Verify::Yes) {
         Verify::CustomCABundle(filename) => {
             cmd.push("--cacert");
             // TODO: maybe filename should be as bytes?

@@ -80,27 +80,27 @@ fn main() -> Result<i32> {
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
-        if args.verify == Verify::No {
-            client = client.danger_accept_invalid_certs(true);
-        }
+        client = match args.verify.unwrap_or(Verify::Yes) {
+            Verify::Yes => client,
+            Verify::No => client.danger_accept_invalid_certs(true),
+            Verify::CustomCABundle(path) => {
+                let mut buffer = Vec::new();
+                let mut file = File::open(&path).with_context(|| {
+                    format!("Failed to open the custom CA bundle: {}", path.display())
+                })?;
+                file.read_to_end(&mut buffer).with_context(|| {
+                    format!("Failed to read the custom CA bundle: {}", path.display())
+                })?;
 
-        if let Verify::CustomCABundle(path) = args.verify {
-            client = client.tls_built_in_root_certs(false);
-
-            let mut buffer = Vec::new();
-            let mut file = File::open(&path).with_context(|| {
-                format!("Failed to open the custom CA bundle: {}", path.display())
-            })?;
-            file.read_to_end(&mut buffer).with_context(|| {
-                format!("Failed to read the custom CA bundle: {}", path.display())
-            })?;
-
-            for pem in pem::parse_many(buffer) {
-                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
-                    .with_context(|| {
-                        format!("Failed to load the custom CA bundle: {}", path.display())
-                    })?;
-                client = client.add_root_certificate(certificate);
+                client = client.tls_built_in_root_certs(false);
+                for pem in pem::parse_many(buffer) {
+                    let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
+                        .with_context(|| {
+                            format!("Failed to load the custom CA bundle: {}", path.display())
+                        })?;
+                    client = client.add_root_certificate(certificate);
+                }
+                client
             }
         };
 
