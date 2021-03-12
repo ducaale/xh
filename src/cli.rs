@@ -166,6 +166,26 @@ pub struct Cli {
     #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
+    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
+    ///
+    /// Specifying a CA bundle will disable the system's built-in root certificates.
+    ///
+    /// "false" instead of "no" also works. The default is "yes" ("true").
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "VERIFY")]
+    pub verify: Option<Verify>,
+
+    /// Use a client side certificate for SSL.
+    #[structopt(long, value_name = "FILE")]
+    pub cert: Option<PathBuf>,
+
+    /// A private key file to use with --cert.
+    ///
+    /// Only necessary if the private key is not contained in the cert file.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "FILE")]
+    pub cert_key: Option<PathBuf>,
+
     /// The default scheme to use if not specified in the URL.
     #[structopt(long, value_name = "SCHEME", hidden = true)]
     pub default_scheme: Option<String>,
@@ -208,26 +228,6 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
-
-    /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
-    ///
-    /// Specifying a CA bundle will disable the system's built-in root certificates.
-    ///
-    /// "false" instead of "no" also works. The default is "yes" ("true").
-    /// {n}{n}{n}
-    #[structopt(long, default_value, hide_default_value = true, value_name = "VERIFY")]
-    pub verify: Verify,
-
-    /// Use a client side certificate for SSL.
-    #[structopt(long, value_name = "FILE")]
-    pub cert: Option<PathBuf>,
-
-    /// A private key file to use with --cert.
-    ///
-    /// Only necessary if the private key is not contained in the cert file.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "FILE")]
-    pub cert_key: Option<PathBuf>,
 }
 
 /// Names of flags that negate other flags.
@@ -718,12 +718,6 @@ impl FromStr for Verify {
             "yes" | "true" => Ok(Verify::Yes),
             path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
         }
-    }
-}
-
-impl Default for Verify {
-    fn default() -> Self {
-        Verify::Yes
     }
 }
 
