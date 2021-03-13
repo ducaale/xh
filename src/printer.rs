@@ -45,6 +45,9 @@ impl Printer {
         Printer {
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
+            #[cfg(windows)]
+            color: pretty.color() && ansi_term::enable_ansi_support().is_ok(),
+            #[cfg(not(windows))]
             color: pretty.color(),
             stream,
             theme,

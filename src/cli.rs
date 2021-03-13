@@ -522,17 +522,8 @@ arg_enum! {
 }
 
 impl Pretty {
-    #[cfg(not(target_os = "windows"))]
     pub fn color(self) -> bool {
         matches!(self, Pretty::colors | Pretty::all)
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn color(self) -> bool {
-        match self {
-            Pretty::colors | Pretty::all => ansi_term::enable_ansi_support().is_ok(),
-            _ => false,
-        }
     }
 
     pub fn format(self) -> bool {
