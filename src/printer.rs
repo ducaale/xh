@@ -38,8 +38,7 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
-        let pretty = pretty.unwrap_or_else(|| Pretty::from(&buffer));
+    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
