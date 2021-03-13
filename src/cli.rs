@@ -531,7 +531,7 @@ impl Pretty {
     pub fn color(self) -> bool {
         match self {
             Pretty::colors | Pretty::all => ansi_term::enable_ansi_support().is_ok(),
-            _ => false
+            _ => false,
         }
     }
 
