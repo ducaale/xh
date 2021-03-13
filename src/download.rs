@@ -144,7 +144,11 @@ fn total_for_content_range(header: &str, expected_start: u64) -> Result<u64> {
 
 const BAR_TEMPLATE: &str =
     "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
+const UNCOLORED_BAR_TEMPLATE: &str =
+    "{spinner} [{elapsed_precise}] [{bar:40}] {bytes} {bytes_per_sec} ETA {eta}";
 const SPINNER_TEMPLATE: &str = "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}";
+const UNCOLORED_SPINNER_TEMPLATE: &str =
+    "{spinner} [{elapsed_precise}] {bytes} {bytes_per_sec} {msg}";
 
 pub fn download_file(
     mut response: Response,
@@ -154,6 +158,7 @@ pub fn download_file(
     // HTTPie. Hence this argument.
     orig_url: &reqwest::Url,
     mut resume: Option<u64>,
+    color: bool,
     quiet: bool,
 ) -> Result<()> {
     if resume.is_some() && response.status() != StatusCode::PARTIAL_CONTENT {
@@ -208,12 +213,20 @@ pub fn download_file(
             dest_name
         );
         let style = ProgressStyle::default_bar()
-            .template(BAR_TEMPLATE)
+            .template(if color {
+                BAR_TEMPLATE
+            } else {
+                UNCOLORED_BAR_TEMPLATE
+            })
             .progress_chars("#>-");
         Some(ProgressBar::new(total_length).with_style(style))
     } else {
         eprintln!("Downloading to {:?}", dest_name);
-        let style = ProgressStyle::default_bar().template(SPINNER_TEMPLATE);
+        let style = ProgressStyle::default_bar().template(if color {
+            SPINNER_TEMPLATE
+        } else {
+            UNCOLORED_SPINNER_TEMPLATE
+        });
         Some(ProgressBar::new_spinner().with_style(style))
     };
     if let Some(pb) = &pb {

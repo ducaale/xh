@@ -38,8 +38,7 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(pretty: Option<Pretty>, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
-        let pretty = pretty.unwrap_or_else(|| Pretty::from(&buffer));
+    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
@@ -383,7 +382,8 @@ mod tests {
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter_safe(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
-        Printer::new(args.pretty, args.style, false, buffer)
+        let pretty = args.pretty.unwrap_or_else(|| Pretty::from(&buffer));
+        Printer::new(pretty, args.style, false, buffer)
     }
 
     fn temp_path(filename: &str) -> String {

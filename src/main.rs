@@ -225,7 +225,8 @@ fn main() -> Result<i32> {
             &buffer,
         ),
     };
-    let mut printer = Printer::new(args.pretty, args.style, args.stream, buffer);
+    let pretty = args.pretty.unwrap_or_else(|| Pretty::from(&buffer));
+    let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
     if print.request_headers {
         printer.print_request_headers(&request)?;
@@ -252,7 +253,14 @@ fn main() -> Result<i32> {
         }
         if args.download {
             if exit_code == 0 {
-                download_file(response, args.output, &orig_url, resume, args.quiet)?;
+                download_file(
+                    response,
+                    args.output,
+                    &orig_url,
+                    resume,
+                    pretty.color(),
+                    args.quiet,
+                )?;
             }
         } else if print.response_body {
             printer.print_response_body(response)?;
