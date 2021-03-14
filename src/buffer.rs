@@ -1,26 +1,42 @@
-use std::io::{self, stderr, stdout, LineWriter, Stderr, Stdout, Write};
+use std::{fmt, io};
 
-use crate::utils::test_pretend_term;
+use termcolor::{Ansi, ColorChoice, StandardStream, WriteColor};
 
-#[derive(Debug)]
+use crate::{cli::Pretty, utils::test_pretend_term};
+
 pub enum Buffer {
-    File(std::fs::File),
-    Redirect(Stdout),
-    Stdout(Stdout),
-    Stderr(Stderr),
+    File(Ansi<std::fs::File>),
+    Redirect(StandardStream),
+    Stdout(StandardStream),
+    Stderr(StandardStream),
 }
 
 impl Buffer {
-    pub fn new(download: bool, output: &Option<String>, is_stdout_tty: bool) -> io::Result<Self> {
+    pub fn new(
+        download: bool,
+        output: &Option<String>,
+        is_stdout_tty: bool,
+        pretty: Option<Pretty>,
+    ) -> io::Result<Self> {
+        let color_choice = match pretty {
+            None => ColorChoice::Auto,
+            Some(pretty) if pretty.color() => ColorChoice::Always,
+            _ => ColorChoice::Never,
+        };
         Ok(if download {
-            Buffer::Stderr(stderr())
+            Buffer::Stderr(StandardStream::stderr(color_choice))
         } else if let Some(output) = output {
             let file = std::fs::File::create(&output)?;
-            Buffer::File(file)
+            Buffer::File(Ansi::new(file))
         } else if is_stdout_tty {
-            Buffer::Stdout(stdout())
+            Buffer::Stdout(StandardStream::stdout(color_choice))
         } else {
-            Buffer::Redirect(stdout())
+            let color_choice = match color_choice {
+                ColorChoice::Always => ColorChoice::AlwaysAnsi,
+                ColorChoice::Auto => ColorChoice::Never,
+                choice => choice,
+            };
+            Buffer::Redirect(StandardStream::stdout(color_choice))
         })
     }
 
@@ -33,85 +49,74 @@ impl Buffer {
         matches!(self, Buffer::Redirect(..))
     }
 
-    pub fn print(&mut self, s: &str) -> io::Result<()> {
-        write!(self.inner(), "{}", s)
+    pub fn print(&mut self, s: impl AsRef<[u8]>) -> io::Result<()> {
+        self.inner_mut().write_all(s.as_ref())
     }
 
-    fn inner(&mut self) -> &mut dyn Write {
+    fn inner(&self) -> &dyn WriteColor {
         match self {
             Buffer::File(file) => file,
-            Buffer::Redirect(stdout) | Buffer::Stdout(stdout) => stdout,
-            Buffer::Stderr(stderr) => stderr,
+            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
         }
     }
 
-    /// Use a [`Write`] handle that ensures no binary data is written to the
-    /// terminal.
-    ///
-    /// This takes a closure in order to perform cleanup at the end.
-    pub fn with_guard(
-        &mut self,
-        code: impl FnOnce(&mut dyn Write) -> io::Result<()>,
-    ) -> io::Result<()> {
-        if self.is_terminal() {
-            // Wrapping a LineWriter around the guard means binary data
-            // usually won't slip through even with very short writes. It also
-            // means the supression message starts on a new line. HTTPie works
-            // similarly.
-            // If the LineWriter receives a very long line that doesn't fit in
-            // its buffer it'll do a premature write. That's acceptable.
-            // It's avoided by `HighlightWriter` because it breaks the
-            // formatting, but there's no major concern here.
-            let mut guard = LineWriter::new(BinaryGuard(self));
-            code(&mut guard)?;
-            // If the written text did not end in a newline we need to flush
-            guard.flush()
-        } else {
-            code(self.inner())
-        }
-    }
-
-    /// Get a [`Write`] handle to write data directly. This should be used
-    /// after checking for binary content.
-    pub fn unguarded(&mut self) -> &mut dyn Write {
-        self.inner()
-    }
-}
-
-/// A wrapper around a [`Buffer`] that aborts with `InvalidData` if it receives binary data.
-///
-/// `InvalidData` is then caught up the stack to print a binary suppressor
-/// if the data is being streamed. This is a replacement for checking for a
-/// null byte in the entire response, as we do if the response isn't streamed.
-///
-/// Typically used through a [`LineWriter`].
-struct BinaryGuard<'a>(&'a mut Buffer);
-
-impl BinaryGuard<'_> {
-    fn check_dirty(&mut self, buf: &[u8]) -> io::Result<()> {
-        if buf.contains(&b'\0') {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Found binary data",
-            ))
-        } else {
-            Ok(())
+    fn inner_mut(&mut self) -> &mut dyn WriteColor {
+        match self {
+            Buffer::File(file) => file,
+            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
         }
     }
 }
 
-impl Write for BinaryGuard<'_> {
+impl io::Write for Buffer {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.check_dirty(buf)?;
-        self.0.inner().write(buf)
+        self.inner_mut().write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.0.inner().flush()
+        self.inner_mut().flush()
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.check_dirty(buf)?;
-        self.0.inner().write_all(buf)
+        self.inner_mut().write_all(buf)
+    }
+}
+
+impl WriteColor for Buffer {
+    fn supports_color(&self) -> bool {
+        self.inner().supports_color()
+    }
+
+    fn set_color(&mut self, spec: &termcolor::ColorSpec) -> io::Result<()> {
+        // We should only even attempt highlighting if coloring is supported
+        debug_assert!(self.supports_color());
+        // This one's called often, so avoid the overhead of dyn
+        match self {
+            Buffer::File(file) => file.set_color(spec),
+            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => {
+                stream.set_color(spec)
+            }
+        }
+    }
+
+    fn reset(&mut self) -> io::Result<()> {
+        self.inner_mut().reset()
+    }
+
+    fn is_synchronous(&self) -> bool {
+        self.inner().is_synchronous()
+    }
+}
+
+// Cannot be derived because StandardStream doesn't implement it
+impl fmt::Debug for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Buffer::File(..) => "File",
+            Buffer::Stderr(..) => "Stderr",
+            Buffer::Stdout(..) => "Stdout",
+            Buffer::Redirect(..) => "Redirect",
+        };
+        write!(f, "{}(..)", text)
     }
 }

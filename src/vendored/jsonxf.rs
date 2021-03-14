@@ -9,7 +9,7 @@ use std::io::prelude::*;
 use std::io::Error;
 use std::io::ErrorKind;
 
-const BUF_SIZE: usize = 1024 * 16;
+use crate::utils::BUFFER_SIZE;
 
 const C_CR: u8 = b'\r';
 const C_LF: u8 = b'\n';
@@ -103,10 +103,6 @@ impl Formatter {
 
     /// Formats a stream of JSON-encoded data without buffering.
     ///
-    /// This will perform many small writes, so it's advisable to use an
-    /// output that does its own buffering. In simple cases, use
-    /// [`Formatter::format_stream`] instead.
-    ///
     /// # Example:
     ///
     /// ```no_run
@@ -121,7 +117,7 @@ impl Formatter {
         input: &mut impl Read,
         output: &mut impl Write,
     ) -> Result<(), Error> {
-        let mut buf = [0_u8; BUF_SIZE];
+        let mut buf = [0_u8; BUFFER_SIZE];
         loop {
             match input.read(&mut buf) {
                 Ok(0) => {
@@ -143,7 +139,7 @@ impl Formatter {
     }
 
     /* Formats the contents of `buf` into `writer`. */
-    fn format_buf(&mut self, buf: &[u8], writer: &mut impl Write) -> Result<(), Error> {
+    pub fn format_buf(&mut self, buf: &[u8], writer: &mut impl Write) -> Result<(), Error> {
         let mut n = 0;
         while n < buf.len() {
             let b = buf[n];
