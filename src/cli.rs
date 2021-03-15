@@ -11,7 +11,7 @@ use reqwest::{Method, Url};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{buffer::Buffer, request_items::RequestItem, utils::test_pretend_term};
+use crate::{buffer::Buffer, request_items::RequestItem};
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -528,23 +528,6 @@ impl Pretty {
 
     pub fn format(self) -> bool {
         matches!(self, Pretty::format | Pretty::all)
-    }
-}
-
-impl From<&Buffer> for Pretty {
-    fn from(b: &Buffer) -> Self {
-        if test_pretend_term() {
-            Pretty::format
-        } else if b.is_terminal() {
-            if env::var_os("NO_COLOR").is_some() {
-                // https://no-color.org/
-                Pretty::format
-            } else {
-                Pretty::all
-            }
-        } else {
-            Pretty::none
-        }
     }
 }
 

@@ -5,7 +5,10 @@ use std::{
 
 use termcolor::{Ansi, ColorChoice, StandardStream, WriteColor};
 
-use crate::{cli::Pretty, utils::test_pretend_term};
+use crate::{
+    cli::Pretty,
+    utils::{test_default_color, test_pretend_term},
+};
 
 pub enum Buffer {
     File(Ansi<std::fs::File>),
@@ -22,6 +25,7 @@ impl Buffer {
         pretty: Option<Pretty>,
     ) -> io::Result<Self> {
         let color_choice = match pretty {
+            None if test_default_color() => ColorChoice::AlwaysAnsi,
             None => ColorChoice::Auto,
             Some(pretty) if pretty.color() => ColorChoice::Always,
             _ => ColorChoice::Never,
@@ -49,6 +53,18 @@ impl Buffer {
 
     pub fn print(&mut self, s: impl AsRef<[u8]>) -> io::Result<()> {
         self.inner_mut().write_all(s.as_ref())
+    }
+
+    pub fn guess_pretty(&self) -> Pretty {
+        if test_default_color() {
+            Pretty::all
+        } else if test_pretend_term() {
+            Pretty::format
+        } else if self.is_terminal() {
+            Pretty::all
+        } else {
+            Pretty::none
+        }
     }
 
     fn inner(&self) -> &dyn WriteColor {

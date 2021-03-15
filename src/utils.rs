@@ -17,6 +17,10 @@ pub fn test_pretend_term() -> bool {
     var_os("XH_TEST_MODE_TERM").is_some()
 }
 
+pub fn test_default_color() -> bool {
+    var_os("XH_TEST_MODE_COLOR").is_some()
+}
+
 pub enum ContentType {
     Json,
     Html,

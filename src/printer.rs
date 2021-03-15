@@ -406,7 +406,7 @@ mod tests {
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter_safe(args).unwrap();
         let buffer = Buffer::new(args.download, &args.output, is_stdout_tty, None).unwrap();
-        let pretty = args.pretty.unwrap_or_else(|| Pretty::from(&buffer));
+        let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
         Printer::new(pretty, args.style, false, buffer)
     }
 
