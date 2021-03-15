@@ -69,16 +69,26 @@ impl Buffer {
 }
 
 impl io::Write for Buffer {
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.inner_mut().write(buf)
+        match self {
+            Buffer::File(file) => file.write(buf),
+            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream.write(buf),
+            Buffer::Redirect(stream) => stream.write(buf),
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         self.inner_mut().flush()
     }
 
+    #[inline]
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.inner_mut().write_all(buf)
+        match self {
+            Buffer::File(file) => file.write_all(buf),
+            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream.write_all(buf),
+            Buffer::Redirect(stream) => stream.write_all(buf),
+        }
     }
 }
 
