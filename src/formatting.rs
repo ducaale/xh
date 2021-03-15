@@ -68,6 +68,13 @@ impl<'a> Highlighter<'a> {
     }
 }
 
+impl Drop for Highlighter<'_> {
+    fn drop(&mut self) {
+        // This is just a best-effort attempt to restore the terminal, failure can be ignored
+        let _ = self.out.reset();
+    }
+}
+
 fn convert_style(style: syntect::highlighting::Style) -> termcolor::ColorSpec {
     use syntect::highlighting::FontStyle;
     let mut spec = termcolor::ColorSpec::new();

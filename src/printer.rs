@@ -234,7 +234,6 @@ impl Printer {
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
             self.print_colorized_text(text, "http")?;
-            self.buffer.reset()?;
         } else {
             self.buffer.print(text)?;
         }
@@ -348,15 +347,9 @@ impl Printer {
         } else if self.stream {
             match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
                 Ok(_) => {
-                    if self.color {
-                        self.buffer.reset()?;
-                    }
                     self.buffer.print("\n")?;
                 }
                 Err(err) if err.kind() == io::ErrorKind::InvalidData => {
-                    if self.color {
-                        self.buffer.reset()?;
-                    }
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                 }
                 Err(err) => return Err(err.into()),
