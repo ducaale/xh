@@ -1,4 +1,7 @@
-use std::{fmt, io};
+use std::{
+    fmt,
+    io::{self, stdout, Stdout},
+};
 
 use termcolor::{Ansi, ColorChoice, StandardStream, WriteColor};
 
@@ -6,7 +9,7 @@ use crate::{cli::Pretty, utils::test_pretend_term};
 
 pub enum Buffer {
     File(Ansi<std::fs::File>),
-    Redirect(StandardStream),
+    Redirect(Ansi<Stdout>),
     Stdout(StandardStream),
     Stderr(StandardStream),
 }
@@ -31,12 +34,7 @@ impl Buffer {
         } else if is_stdout_tty {
             Buffer::Stdout(StandardStream::stdout(color_choice))
         } else {
-            let color_choice = match color_choice {
-                ColorChoice::Always => ColorChoice::AlwaysAnsi,
-                ColorChoice::Auto => ColorChoice::Never,
-                choice => choice,
-            };
-            Buffer::Redirect(StandardStream::stdout(color_choice))
+            Buffer::Redirect(Ansi::new(stdout()))
         })
     }
 
@@ -56,14 +54,16 @@ impl Buffer {
     fn inner(&self) -> &dyn WriteColor {
         match self {
             Buffer::File(file) => file,
-            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
+            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
+            Buffer::Redirect(stream) => stream,
         }
     }
 
     fn inner_mut(&mut self) -> &mut dyn WriteColor {
         match self {
             Buffer::File(file) => file,
-            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
+            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream,
+            Buffer::Redirect(stream) => stream,
         }
     }
 }
@@ -93,9 +93,8 @@ impl WriteColor for Buffer {
         // This one's called often, so avoid the overhead of dyn
         match self {
             Buffer::File(file) => file.set_color(spec),
-            Buffer::Redirect(stream) | Buffer::Stdout(stream) | Buffer::Stderr(stream) => {
-                stream.set_color(spec)
-            }
+            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream.set_color(spec),
+            Buffer::Redirect(stream) => stream.set_color(spec),
         }
     }
 
