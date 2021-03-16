@@ -38,7 +38,7 @@ fn redirecting_command() -> Command {
     cmd
 }
 
-// Color output (with ANSI colors) by default.
+/// Color output (with ANSI colors) by default.
 fn color_command() -> Command {
     let mut cmd = get_command();
     cmd.env("XH_TEST_MODE_COLOR", "1");

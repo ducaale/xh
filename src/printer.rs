@@ -124,13 +124,13 @@ impl Printer {
 
         if self.color {
             let mut buf = Vec::new();
-            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut buf)?;
+            get_json_formatter().format_buf(text.as_bytes(), &mut buf)?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut self.buffer)
+            get_json_formatter().format_buf(text.as_bytes(), &mut self.buffer)
         }
     }
 
@@ -233,11 +233,10 @@ impl Printer {
 
     fn print_headers(&mut self, text: &str) -> io::Result<()> {
         if self.color {
-            self.print_colorized_text(text, "http")?;
+            self.print_colorized_text(text, "http")
         } else {
-            self.buffer.print(text)?;
+            self.buffer.print(text)
         }
-        Ok(())
     }
 
     fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {

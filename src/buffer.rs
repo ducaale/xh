@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    io::{self, stdout, Stdout},
+    io::{self, stdout, Stdout, Write},
 };
 
 use termcolor::{Ansi, ColorChoice, StandardStream, WriteColor};
@@ -51,8 +51,9 @@ impl Buffer {
         matches!(self, Buffer::Redirect(..))
     }
 
+    #[inline]
     pub fn print(&mut self, s: impl AsRef<[u8]>) -> io::Result<()> {
-        self.inner_mut().write_all(s.as_ref())
+        self.write_all(s.as_ref())
     }
 
     pub fn guess_pretty(&self) -> Pretty {
@@ -84,7 +85,7 @@ impl Buffer {
     }
 }
 
-impl io::Write for Buffer {
+impl Write for Buffer {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
