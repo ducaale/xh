@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 
-XH_HELP2MAN=1 help2man -i doc/man-template.roff -h help -n "Yet another HTTPie clone" -N 'cargo run --' > doc/xh.1
+XH_HELP2MAN=1 help2man -i doc/man-template.roff -h help -n "friendly and fast tool for sending HTTP requests" -N 'cargo run --' > doc/xh.1
 
 cargo run -- generate_completions completions
 

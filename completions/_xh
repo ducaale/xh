@@ -15,54 +15,54 @@ _xh() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
+'--pretty=[Controls output processing]: :(all colors format none)' \
+'-s+[Output coloring style]: :(auto solarized)' \
+'--style=[Output coloring style]: :(auto solarized)' \
+'-p+[String specifying what the output should contain]' \
+'--print=[String specifying what the output should contain]' \
+'-o+[Save output to FILE instead of stdout]' \
+'--output=[Save output to FILE instead of stdout]' \
 '-A+[Specify the auth mechanism]: :(basic bearer)' \
 '--auth-type=[Specify the auth mechanism]: :(basic bearer)' \
 '-a+[Authenticate as USER with PASS. PASS will be prompted if missing]' \
 '--auth=[Authenticate as USER with PASS. PASS will be prompted if missing]' \
 '--bearer=[Authenticate with a bearer token]' \
-'-o+[Save output to FILE instead of stdout]' \
-'--output=[Save output to FILE instead of stdout]' \
 '--max-redirects=[Number of redirects to follow, only respected if `follow` is set]' \
-'-p+[String specifying what the output should contain]' \
-'--print=[String specifying what the output should contain]' \
-'--pretty=[Controls output processing]: :(all colors format none)' \
-'-s+[Output coloring style]: :(auto solarized)' \
-'--style=[Output coloring style]: :(auto solarized)' \
 '*--proxy=[Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`]' \
-'--default-scheme=[The default scheme to use if not specified in the URL]' \
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]' \
 '--cert=[Use a client side certificate for SSL]' \
 '--cert-key=[A private key file to use with --cert]' \
-'--offline[Construct HTTP requests without sending them anywhere]' \
+'--default-scheme=[The default scheme to use if not specified in the URL]' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
 '--form[Serialize data items from the command line as form fields]' \
 '-m[Like --form, but force a multipart/form-data request even without files]' \
 '--multipart[Like --form, but force a multipart/form-data request even without files]' \
-'-I[Do not attempt to read stdin]' \
-'--ignore-stdin[Do not attempt to read stdin]' \
-'--ignore-netrc[Do not use credentials from .netrc]' \
-'-F[Do follow redirects]' \
-'--follow[Do follow redirects]' \
-'-d[Download the body to a file instead of printing it]' \
-'--download[Download the body to a file instead of printing it]' \
 '-h[Print only the response headers, shortcut for --print=h]' \
 '--headers[Print only the response headers, shortcut for --print=h]' \
 '-b[Print only the response body, Shortcut for --print=b]' \
 '--body[Print only the response body, Shortcut for --print=b]' \
-'-c[Resume an interrupted download. Requires --download and --output]' \
-'--continue[Resume an interrupted download. Requires --download and --output]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
 '--stream[Always stream the response body]' \
+'-d[Download the body to a file instead of printing it]' \
+'--download[Download the body to a file instead of printing it]' \
+'-c[Resume an interrupted download. Requires --download and --output]' \
+'--continue[Resume an interrupted download. Requires --download and --output]' \
+'--ignore-netrc[Do not use credentials from .netrc]' \
+'--offline[Construct HTTP requests without sending them anywhere]' \
 '--check-status[Exit with an error status code if the server replies with an error]' \
+'-F[Do follow redirects]' \
+'--follow[Do follow redirects]' \
+'--https[Make HTTPS requests if not specified in the URL]' \
+'-I[Do not attempt to read stdin]' \
+'--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a `curl` command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
-'--https[Make HTTPS requests if not specified in the URL]' \
 '--no-auth[]' \
 '--no-auth-type[]' \
 '--no-bearer[]' \
