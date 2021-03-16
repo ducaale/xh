@@ -17,6 +17,10 @@ pub fn test_pretend_term() -> bool {
     var_os("XH_TEST_MODE_TERM").is_some()
 }
 
+pub fn test_default_color() -> bool {
+    var_os("XH_TEST_MODE_COLOR").is_some()
+}
+
 pub enum ContentType {
     Json,
     Html,
@@ -83,7 +87,7 @@ macro_rules! regex {
     }};
 }
 
-const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
+pub const BUFFER_SIZE: usize = 64 * 1024;
 
 /// io::copy, but with a larger buffer size.
 ///
@@ -96,7 +100,7 @@ const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
 /// Tests were done by running `ht -o /dev/null [-d]` on a two-gigabyte file
 /// served locally by `python3 -m http.server`. Results may vary.
 pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io::Result<()> {
-    let mut buf = vec![0; DOWNLOAD_BUFFER_SIZE];
+    let mut buf = vec![0; BUFFER_SIZE];
     let mut buf = buf.as_mut_slice();
     loop {
         match reader.read(&mut buf) {

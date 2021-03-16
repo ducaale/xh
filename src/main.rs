@@ -23,7 +23,7 @@ use reqwest::redirect::Policy;
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, Pretty, Print, Proxy, RequestType, Theme, Verify};
+use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
@@ -212,6 +212,7 @@ fn main() -> Result<i32> {
         args.download,
         &args.output,
         atty::is(Stream::Stdout) || test_pretend_term(),
+        args.pretty,
     )?;
     let is_redirect = buffer.is_redirect();
     let print = match args.print {
@@ -225,7 +226,7 @@ fn main() -> Result<i32> {
             &buffer,
         ),
     };
-    let pretty = args.pretty.unwrap_or_else(|| Pretty::from(&buffer));
+    let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
     if print.request_headers {

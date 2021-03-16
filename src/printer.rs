@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io::{self, BufRead, BufReader, Read};
 
 use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -7,12 +7,14 @@ use reqwest::blocking::{Request, Response};
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
 };
+use termcolor::WriteColor;
 
 use crate::{
+    buffer::Buffer,
+    cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType},
+    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
 };
-use crate::{Buffer, Pretty, Theme};
 
 const MULTIPART_SUPPRESSOR: &str = concat!(
     "+--------------------------------------------+\n",
@@ -27,6 +29,46 @@ const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "\n"
 );
+
+/// A wrapper around a reader that reads line by line, (optionally) returning
+/// an error if the line appears to be binary.
+///
+/// This is meant for streaming output. `checked` should typically be
+/// set to buffer.is_terminal(), but if you need neither checking nor
+/// highlighting then you may not need a `BinaryGuard` at all.
+///
+/// This reader does not validate UTF-8.
+struct BinaryGuard<'a, T: Read> {
+    reader: BufReader<&'a mut T>,
+    buffer: Vec<u8>,
+    checked: bool,
+}
+
+impl<'a, T: Read> BinaryGuard<'a, T> {
+    fn new(reader: &'a mut T, checked: bool) -> Self {
+        Self {
+            reader: BufReader::with_capacity(BUFFER_SIZE, reader),
+            buffer: Vec::new(),
+            checked,
+        }
+    }
+
+    fn read_line(&mut self) -> io::Result<Option<&[u8]>> {
+        self.buffer.clear();
+        self.reader.read_until(b'\n', &mut self.buffer)?;
+        if self.buffer.is_empty() {
+            return Ok(None);
+        }
+        if self.checked && self.buffer.contains(&b'\0') {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Found binary data",
+            ))
+        } else {
+            Ok(Some(&self.buffer))
+        }
+    }
+}
 
 pub struct Printer {
     indent_json: bool,
@@ -44,47 +86,26 @@ impl Printer {
         Printer {
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
-            #[cfg(windows)]
-            color: pretty.color() && ansi_term::enable_ansi_support().is_ok(),
-            #[cfg(not(windows))]
-            color: pretty.color(),
+            color: pretty.color() && (cfg!(test) || buffer.supports_color()),
             stream,
             theme,
             buffer,
         }
     }
 
-    /// Run a piece of code with a [`Highlighter`] instance. After the code runs
-    /// successfully, [`Highlighter::finish`] will be called to properly terminate.
-    ///
-    /// That way you don't have to remember to call it manually, and errors
-    /// can still be handled (unlike an implementation of [`Drop`]).
-    ///
-    /// This version of the method does not check for null bytes.
-    fn with_unguarded_highlighter(
-        &mut self,
-        syntax: &'static str,
-        code: impl FnOnce(&mut Highlighter) -> io::Result<()>,
-    ) -> io::Result<()> {
-        let mut highlighter =
-            Highlighter::new(syntax, self.theme, Box::new(self.buffer.unguarded()));
-        code(&mut highlighter)?;
-        highlighter.finish()
-    }
-
-    fn print_text(&mut self, text: &str) -> io::Result<()> {
-        self.buffer.unguarded().write_all(text.as_bytes())
+    fn get_highlighter(&mut self, syntax: &'static str) -> Highlighter<'_> {
+        Highlighter::new(syntax, self.theme, &mut self.buffer)
     }
 
     fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
-        self.with_unguarded_highlighter(syntax, |highlighter| highlighter.highlight(text))
+        self.get_highlighter(syntax).highlight(text)
     }
 
     fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
         if self.color {
             self.print_colorized_text(text, syntax)
         } else {
-            self.print_text(text)
+            self.buffer.print(text)
         }
     }
 
@@ -103,14 +124,13 @@ impl Printer {
 
         if self.color {
             let mut buf = Vec::new();
-            get_json_formatter().format_stream_unbuffered(&mut text.as_bytes(), &mut buf)?;
+            get_json_formatter().format_buf(text.as_bytes(), &mut buf)?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            get_json_formatter()
-                .format_stream_unbuffered(&mut text.as_bytes(), &mut self.buffer.unguarded())
+            get_json_formatter().format_buf(text.as_bytes(), &mut self.buffer)
         }
     }
 
@@ -131,24 +151,15 @@ impl Printer {
         }
     }
 
-    /// Variant of `with_unguarded_highlighter` to use for text that has not
-    /// yet been checked for null bytes.
-    fn with_guarded_highlighter(
-        &mut self,
-        syntax: &'static str,
-        code: impl FnOnce(&mut Highlighter) -> io::Result<()>,
-    ) -> io::Result<()> {
-        let theme = self.theme; // To avoid borrowing self
-        self.buffer.with_guard(|guard| {
-            let mut highlighter = Highlighter::new(syntax, theme, Box::new(guard));
-            code(&mut highlighter)?;
-            highlighter.finish()
-        })
-    }
-
     fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
-        self.buffer
-            .with_guard(|mut guard| copy_largebuf(reader, &mut guard))
+        if !self.buffer.is_terminal() {
+            return copy_largebuf(reader, &mut self.buffer);
+        }
+        let mut guard = BinaryGuard::new(reader, true);
+        while let Some(line) = guard.read_line()? {
+            self.buffer.print(line)?;
+        }
+        Ok(())
     }
 
     fn print_colorized_stream(
@@ -156,10 +167,12 @@ impl Printer {
         stream: &mut impl Read,
         syntax: &'static str,
     ) -> io::Result<()> {
-        self.with_guarded_highlighter(syntax, |highlighter| {
-            copy_largebuf(stream, &mut highlighter.linewise())?;
-            Ok(())
-        })
+        let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
+        let mut highlighter = self.get_highlighter(syntax);
+        while let Some(line) = guard.read_line()? {
+            highlighter.highlight_bytes(line)?;
+        }
+        Ok(())
     }
 
     fn print_syntax_stream(
@@ -179,13 +192,26 @@ impl Printer {
             // We don't have to do anything specialized, so fall back to the generic version
             self.print_syntax_stream(stream, "json")
         } else if self.color {
-            self.with_guarded_highlighter("json", |highlighter| {
-                get_json_formatter().format_stream_unbuffered(stream, &mut highlighter.linewise())
-            })
+            let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
+            let mut formatter = get_json_formatter();
+            let mut highlighter = self.get_highlighter("json");
+            let mut buf = Vec::new();
+            while let Some(line) = guard.read_line()? {
+                formatter.format_buf(line, &mut buf)?;
+                highlighter.highlight_bytes(&buf)?;
+                buf.clear();
+            }
+            Ok(())
         } else {
-            self.buffer.with_guard(|mut guard| {
-                get_json_formatter().format_stream_unbuffered(stream, &mut guard)
-            })
+            let mut formatter = get_json_formatter();
+            if !self.buffer.is_terminal() {
+                return formatter.format_stream_unbuffered(stream, &mut self.buffer);
+            }
+            let mut guard = BinaryGuard::new(stream, true);
+            while let Some(line) = guard.read_line()? {
+                formatter.format_buf(line, &mut self.buffer)?;
+            }
+            Ok(())
         }
     }
 
@@ -323,9 +349,6 @@ impl Printer {
                     self.buffer.print("\n")?;
                 }
                 Err(err) if err.kind() == io::ErrorKind::InvalidData => {
-                    if self.color {
-                        self.buffer.print("\x1b[0m")?;
-                    }
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                 }
                 Err(err) => return Err(err.into()),
@@ -381,8 +404,8 @@ mod tests {
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::from_iter_safe(args).unwrap();
-        let buffer = Buffer::new(args.download, &args.output, is_stdout_tty).unwrap();
-        let pretty = args.pretty.unwrap_or_else(|| Pretty::from(&buffer));
+        let buffer = Buffer::new(args.download, &args.output, is_stdout_tty, None).unwrap();
+        let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
         Printer::new(pretty, args.style, false, buffer)
     }
 

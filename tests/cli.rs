@@ -38,6 +38,13 @@ fn redirecting_command() -> Command {
     cmd
 }
 
+/// Color output (with ANSI colors) by default.
+fn color_command() -> Command {
+    let mut cmd = get_command();
+    cmd.env("XH_TEST_MODE_COLOR", "1");
+    cmd
+}
+
 #[test]
 fn basic_json_post() {
     let server = MockServer::start();
@@ -904,4 +911,41 @@ fn default_json_for_raw_body() {
         .assert()
         .success();
     mock.assert();
+}
+
+#[test]
+fn colored_headers() {
+    color_command()
+        .arg("--offline")
+        .arg(":")
+        .assert()
+        .success()
+        // Color
+        .stdout(predicate::str::contains("\x1b[4m"))
+        // Reset
+        .stdout(predicate::str::contains("\x1b[0m"));
+}
+
+#[test]
+fn colored_body() {
+    color_command()
+        .arg("--offline")
+        .arg(":")
+        .arg("x:=3")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
+}
+
+#[test]
+fn force_color_pipe() {
+    redirecting_command()
+        .arg("--ignore-stdin")
+        .arg("--offline")
+        .arg("--pretty=colors")
+        .arg(":")
+        .arg("x:=3")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
 }
