@@ -20,13 +20,41 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts=" -j -f -m -I -F -d -h -b -c -v -q -S -V -A -a -o -p -s  --offline --json --form --multipart --ignore-stdin --ignore-netrc --follow --download --headers --body --continue --verbose --quiet --stream --check-status --curl --curl-long --https --no-auth --no-auth-type --no-bearer --no-body --no-cert --no-cert-key --no-check-status --no-continue --no-curl --no-curl-long --no-default-scheme --no-download --no-follow --no-form --no-headers --no-https --no-ignore-netrc --no-ignore-stdin --no-json --no-max-redirects --no-multipart --no-offline --no-output --no-pretty --no-print --no-proxy --no-quiet --no-stream --no-style --no-verbose --no-verify --help --version --auth-type --auth --bearer --output --max-redirects --print --pretty --style --proxy --default-scheme --verify --cert --cert-key  <[METHOD] URL> <REQUEST_ITEM>... "
+            opts=" -j -f -m -h -b -v -q -S -d -c -F -I -V -s -p -o -A -a  --json --form --multipart --headers --body --verbose --quiet --stream --download --continue --ignore-netrc --offline --check-status --follow --https --ignore-stdin --curl --curl-long --no-auth --no-auth-type --no-bearer --no-body --no-cert --no-cert-key --no-check-status --no-continue --no-curl --no-curl-long --no-default-scheme --no-download --no-follow --no-form --no-headers --no-https --no-ignore-netrc --no-ignore-stdin --no-json --no-max-redirects --no-multipart --no-offline --no-output --no-pretty --no-print --no-proxy --no-quiet --no-stream --no-style --no-verbose --no-verify --help --version --pretty --style --print --output --auth-type --auth --bearer --max-redirects --proxy --verify --cert --cert-key --default-scheme  <[METHOD] URL> <REQUEST_ITEM>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
+                --pretty)
+                    COMPREPLY=($(compgen -W "all colors format none" -- "${cur}"))
+                    return 0
+                    ;;
+                --style)
+                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
+                    return 0
+                    ;;
+                    -s)
+                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
+                    return 0
+                    ;;
+                --print)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --output)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --auth-type)
                     COMPREPLY=($(compgen -W "basic bearer" -- "${cur}"))
                     return 0
@@ -47,43 +75,11 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --output)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                    -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --max-redirects)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --print)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                    -p)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --pretty)
-                    COMPREPLY=($(compgen -W "all colors format none" -- "${cur}"))
-                    return 0
-                    ;;
-                --style)
-                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
-                    return 0
-                    ;;
-                    -s)
-                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
-                    return 0
-                    ;;
                 --proxy)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --default-scheme)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -96,6 +92,10 @@ _xh() {
                     return 0
                     ;;
                 --cert-key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --default-scheme)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
