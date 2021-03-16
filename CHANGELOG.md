@@ -1,3 +1,13 @@
+## [0.9.1] - 2021-03-16
+### Bug fixes
+- Don't include the _--verify_ flag in usage when it is not used, see #100 (@ducaale)
+- Don't color progress indicators when color is disabled, see #103 (@ducaale)
+
+### Other
+- JSON requests coloring is now twice as fast, see #96 (@blyxxyz)
+- Unify flags and options in help, see #100 (@ducaale)
+- Replace ansi_term by termcolor for better Windows support, see #105 (@blyxxyz)
+
 ## [0.9.0] - 2021-03-08
 ### Features
 - Add _--no-FLAG_ variants of flags. This is useful for disabling any flags you might have in your
