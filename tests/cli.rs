@@ -69,6 +69,7 @@ fn basic_json_post() {
             "status": "ok"
         }
 
+
         "#});
     mock.assert();
 }
@@ -205,6 +206,7 @@ fn verbose() {
         {
             "x": "y"
         }
+
 
 
         HTTP/1.1 200 OK
@@ -790,6 +792,7 @@ fn formatted_json_output() {
             "": 0
         }
 
+
         "#});
     mock.assert();
 }
@@ -808,6 +811,7 @@ fn inferred_json_output() {
         {
             "": 0
         }
+
 
         "#});
     mock.assert();
@@ -828,6 +832,7 @@ fn inferred_json_javascript_output() {
         {
             "": 0
         }
+
 
         "#});
     mock.assert();
