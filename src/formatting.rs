@@ -12,6 +12,7 @@ use crate::{buffer::Buffer, cli::Theme};
 pub fn get_json_formatter() -> jsonxf::Formatter {
     let mut fmt = jsonxf::Formatter::pretty_printer();
     fmt.indent = String::from("    ");
+    fmt.record_separator = String::from("\n\n");
     fmt.eager_record_separators = true;
     fmt
 }
