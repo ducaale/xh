@@ -413,6 +413,42 @@ fn only_decode_for_terminal() {
 }
 
 #[test]
+fn do_decode_if_formatted() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    redirecting_command()
+        .arg("--pretty=all")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é");
+    mock.assert();
+}
+
+#[test]
+fn never_decode_if_binary() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        // this mimetype with a charset may actually be incoherent
+        then.header("Content-Type", "application/octet-stream; charset=latin1")
+            .body(b"\xe9");
+    });
+
+    let output = redirecting_command()
+        .arg("--pretty=all")
+        .arg(server.base_url())
+        .assert()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(&output, b"\xe9");
+    mock.assert();
+}
+
+#[test]
 fn binary_detection() {
     let server = MockServer::start();
     let mock = server.mock(|_when, then| {

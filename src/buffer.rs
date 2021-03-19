@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    io::{self, stdout, Stdout, Write},
+    io::{self, stdout, LineWriter, Stdout, Write},
     path::Path,
 };
 
@@ -12,7 +12,11 @@ use crate::{
 };
 
 pub enum Buffer {
-    File(Ansi<std::fs::File>),
+    // These are all line-buffered (File explicitly, the others implicitly)
+    // Line buffering gives unsurprising behavior but can still be a lot
+    // faster than no buffering, especially with lots of small writes from
+    // coloring
+    File(Ansi<LineWriter<std::fs::File>>),
     Redirect(Ansi<Stdout>),
     Stdout(StandardStream),
     Stderr(StandardStream),
@@ -35,7 +39,7 @@ impl Buffer {
             Buffer::Stderr(StandardStream::stderr(color_choice))
         } else if let Some(output) = output {
             let file = std::fs::File::create(&output)?;
-            Buffer::File(Ansi::new(file))
+            Buffer::File(Ansi::new(LineWriter::new(file)))
         } else if is_stdout_tty {
             Buffer::Stdout(StandardStream::stdout(color_choice))
         } else {
