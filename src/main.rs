@@ -210,7 +210,7 @@ fn main() -> Result<i32> {
 
     let buffer = Buffer::new(
         args.download,
-        &args.output,
+        args.output.as_deref(),
         atty::is(Stream::Stdout) || test_pretend_term(),
         args.pretty,
     )?;

@@ -1,5 +1,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind};
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -21,6 +22,8 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
         .and_then(|s| s.parse::<u64>().ok())
 }
 
+// This function is system-agnostic, so it's ok for it to use Strings instead
+// of PathBufs
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
         regex!(QUOTED = "filename=\"([^\"]*)\"");
@@ -63,17 +66,17 @@ fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     filename
 }
 
-pub fn get_file_size(path: Option<&str>) -> Option<u64> {
+pub fn get_file_size(path: Option<&Path>) -> Option<u64> {
     Some(fs::metadata(path?).ok()?.len())
 }
 
 /// Find a file name that doesn't exist yet.
-fn open_new_file(file_name: String) -> io::Result<(String, File)> {
-    fn try_open_new(file_name: &str) -> io::Result<Option<File>> {
+fn open_new_file(file_name: PathBuf) -> io::Result<(PathBuf, File)> {
+    fn try_open_new(file_name: &Path) -> io::Result<Option<File>> {
         match OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&file_name)
+            .open(file_name)
         {
             Ok(file) => Ok(Some(file)),
             Err(err) if err.kind() == ErrorKind::AlreadyExists => Ok(None),
@@ -84,7 +87,8 @@ fn open_new_file(file_name: String) -> io::Result<(String, File)> {
         return Ok((file_name, file));
     }
     for suffix in 1..u32::MAX {
-        let candidate = format!("{}-{}", file_name, suffix);
+        let mut candidate = file_name.clone();
+        candidate.push(format!("-{}", suffix));
         if let Some(file) = try_open_new(&candidate)? {
             return Ok((candidate, file));
         }
@@ -152,7 +156,7 @@ const UNCOLORED_SPINNER_TEMPLATE: &str =
 
 pub fn download_file(
     mut response: Response,
-    file_name: Option<String>,
+    file_name: Option<PathBuf>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
     // HTTPie. Hence this argument.
@@ -166,7 +170,7 @@ pub fn download_file(
     }
 
     let mut buffer: Box<dyn io::Write>;
-    let dest_name: String;
+    let dest_name: PathBuf;
 
     if let Some(file_name) = file_name {
         let mut open_opts = OpenOptions::new();
@@ -180,7 +184,7 @@ pub fn download_file(
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
     } else if test_pretend_term() || atty::is(Stream::Stdout) {
-        let (new_name, handle) = open_new_file(get_file_name(&response, &orig_url))?;
+        let (new_name, handle) = open_new_file(get_file_name(&response, &orig_url).into())?;
         dest_name = new_name;
         buffer = Box::new(handle);
     } else {

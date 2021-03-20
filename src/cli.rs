@@ -82,8 +82,8 @@ pub struct Cli {
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[structopt(short = "o", long, value_name = "FILE")]
-    pub output: Option<String>,
+    #[structopt(short = "o", long, value_name = "FILE", parse(from_os_str))]
+    pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
     #[structopt(short = "d", long)]
@@ -161,14 +161,14 @@ pub struct Cli {
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[structopt(long, value_name = "FILE")]
+    #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
     /// {n}{n}{n}
-    #[structopt(long, value_name = "FILE")]
+    #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub cert_key: Option<PathBuf>,
 
     /// The default scheme to use if not specified in the URL.
@@ -275,7 +275,7 @@ const NEGATION_FLAGS: &[&str] = &[
 
 impl Cli {
     pub fn from_args() -> Self {
-        Cli::from_iter(std::env::args())
+        Cli::from_iter(std::env::args_os())
     }
 
     pub fn from_iter<I>(iter: I) -> Self
