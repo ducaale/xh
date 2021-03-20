@@ -143,6 +143,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push(num.to_string());
     }
     if let Some(filename) = args.output {
+        let filename = filename.to_str().ok_or_else(|| anyhow!("Invalid UTF-8"))?;
         cmd.flag("-o", "--output");
         cmd.push(filename);
     } else if args.download {

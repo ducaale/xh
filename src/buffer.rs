@@ -1,6 +1,7 @@
 use std::{
     fmt,
     io::{self, stdout, Stdout, Write},
+    path::Path,
 };
 
 use termcolor::{Ansi, ColorChoice, StandardStream, WriteColor};
@@ -20,7 +21,7 @@ pub enum Buffer {
 impl Buffer {
     pub fn new(
         download: bool,
-        output: &Option<String>,
+        output: Option<&Path>,
         is_stdout_tty: bool,
         pretty: Option<Pretty>,
     ) -> io::Result<Self> {
