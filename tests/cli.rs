@@ -990,3 +990,19 @@ fn force_color_pipe() {
         .success()
         .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
 }
+
+#[test]
+fn request_json_keys_order_is_preserved() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"{"name":"ali","age":24}"#);
+    });
+
+    get_command()
+        .arg("get")
+        .arg(server.base_url())
+        .arg("name=ali")
+        .arg("age:=24")
+        .assert();
+    mock.assert();
+}
