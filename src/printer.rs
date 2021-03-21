@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
 use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -98,6 +98,13 @@ impl Printer {
     }
 
     fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+        // This could perhaps be optimized
+        // syntect processes the whole buffer at once, doing it line by line might
+        // let us start printing earlier (but can decrease quality since regexes
+        // can't look ahead)
+        // A buffered writer could improve performance, but we'd have to use a
+        // BufferedStandardStream instead of a StandardStream, which is slightly tricky
+        // (wrapping a BufWriter around a Buffer wouldn't preserve syntax coloring)
         self.get_highlighter(syntax).highlight(text)
     }
 
@@ -130,23 +137,25 @@ impl Printer {
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            get_json_formatter().format_buf(text.as_bytes(), &mut self.buffer)
+            let mut out = BufWriter::new(&mut self.buffer);
+            get_json_formatter().format_buf(text.as_bytes(), &mut out)?;
+            out.flush()
         }
     }
 
-    fn print_body_text(&mut self, content_type: Option<ContentType>, body: &str) -> io::Result<()> {
+    fn print_body_text(&mut self, content_type: ContentType, body: &str) -> io::Result<()> {
         match content_type {
-            Some(ContentType::Json) => self.print_json_text(body, true),
-            Some(ContentType::Xml) => self.print_syntax_text(body, "xml"),
-            Some(ContentType::Html) => self.print_syntax_text(body, "html"),
-            Some(ContentType::Css) => self.print_syntax_text(body, "css"),
+            ContentType::Json => self.print_json_text(body, true),
+            ContentType::Xml => self.print_syntax_text(body, "xml"),
+            ContentType::Html => self.print_syntax_text(body, "html"),
+            ContentType::Css => self.print_syntax_text(body, "css"),
             // In HTTPie part of this behavior is gated behind the --json flag
             // But it does JSON formatting even without that flag, so doing
             // this check unconditionally is fine
-            Some(ContentType::Text) | Some(ContentType::JavaScript) if valid_json(body) => {
+            ContentType::Text | ContentType::JavaScript if valid_json(body) => {
                 self.print_json_text(body, false)
             }
-            Some(ContentType::JavaScript) => self.print_syntax_text(body, "js"),
+            ContentType::JavaScript => self.print_syntax_text(body, "js"),
             _ => self.buffer.print(body),
         }
     }
@@ -217,16 +226,16 @@ impl Printer {
 
     fn print_body_stream(
         &mut self,
-        content_type: Option<ContentType>,
+        content_type: ContentType,
         body: &mut impl Read,
     ) -> io::Result<()> {
         match content_type {
-            Some(ContentType::Json) => self.print_json_stream(body),
-            Some(ContentType::Xml) => self.print_syntax_stream(body, "xml"),
-            Some(ContentType::Html) => self.print_syntax_stream(body, "html"),
-            Some(ContentType::Css) => self.print_syntax_stream(body, "css"),
+            ContentType::Json => self.print_json_stream(body),
+            ContentType::Xml => self.print_syntax_stream(body, "xml"),
+            ContentType::Html => self.print_syntax_stream(body, "html"),
+            ContentType::Css => self.print_syntax_stream(body, "css"),
             // print_body_text() has fancy JSON detection, but we can't do that here
-            Some(ContentType::JavaScript) => self.print_syntax_stream(body, "js"),
+            ContentType::JavaScript => self.print_syntax_stream(body, "js"),
             _ => self.print_stream(body),
         }
     }
@@ -319,7 +328,7 @@ impl Printer {
 
     pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
         match get_content_type(&request.headers()) {
-            Some(ContentType::Multipart) => {
+            ContentType::Multipart => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
             }
             content_type => {
@@ -341,8 +350,31 @@ impl Printer {
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
         let content_type = get_content_type(&response.headers());
         if !self.buffer.is_terminal() {
-            // No trailing newlines, no decoding, direct streaming
-            self.print_body_stream(content_type, &mut response)?;
+            if (self.color || self.indent_json) && content_type.is_text() {
+                // The user explicitly asked for formatting even though this is
+                // going into a file, and the response is at least supposed to be
+                // text, so decode it
+
+                // TODO: HTTPie re-encodes output in the original encoding, we don't
+                // encoding_rs::Encoder::encode_from_utf8_to_vec_without_replacement()
+                // and guess_encoding() may help, but it'll require refactoring
+
+                // The current design is a bit unfortunate because there's no way to
+                // force UTF-8 output without coloring or formatting
+                // Unconditionally decoding is not an option because the body
+                // might not be text at all
+                if self.stream {
+                    self.print_body_stream(content_type, &mut decode_stream(&mut response))?;
+                } else {
+                    let text = response.text()?;
+                    self.print_body_text(content_type, &text)?;
+                }
+            } else if self.stream {
+                copy_largebuf(&mut response, &mut self.buffer)?;
+            } else {
+                let body = response.bytes()?;
+                self.buffer.print(&body)?;
+            }
         } else if self.stream {
             match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
                 Ok(_) => {
@@ -373,13 +405,20 @@ impl Printer {
 /// but it makes no guarantees about outputting valid UTF-8 if the input is
 /// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
 /// that's going to the terminal, and don't trust its output.
+fn decode_stream(response: &mut Response) -> impl Read + '_ {
+    let encoding = guess_encoding(response);
+
+    DecodeReaderBytesBuilder::new()
+        .encoding(Some(encoding))
+        .build(response)
+}
+
+/// Guess the response's encoding, with UTF-8 as the default.
 ///
-/// `reqwest` doesn't provide an API for this, so we have to roll our own. It
-/// doesn't even provide an API to detect the response's encoding, so that
-/// logic is copied here.
+/// reqwest doesn't provide an API for this, so the logic is copied here.
 ///
 /// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
-fn decode_stream(response: &mut Response) -> impl Read + '_ {
+fn guess_encoding(response: &Response) -> &'static Encoding {
     let content_type = response
         .headers()
         .get(CONTENT_TYPE)
@@ -389,11 +428,7 @@ fn decode_stream(response: &mut Response) -> impl Read + '_ {
         .as_ref()
         .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
         .unwrap_or("utf-8");
-    let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
-
-    DecodeReaderBytesBuilder::new()
-        .encoding(Some(encoding))
-        .build(response)
+    Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8)
 }
 
 #[cfg(test)]

@@ -30,13 +30,22 @@ pub enum ContentType {
     Text,
     UrlencodedForm,
     Multipart,
+    Unknown,
 }
 
-pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
+impl ContentType {
+    pub fn is_text(&self) -> bool {
+        !matches!(
+            self,
+            ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
+        )
+    }
+}
+
+pub fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
-        .get(CONTENT_TYPE)?
-        .to_str()
-        .ok()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
         .and_then(|content_type| {
             if content_type.contains("json") {
                 Some(ContentType::Json)
@@ -62,6 +71,7 @@ pub fn get_content_type(headers: &HeaderMap) -> Option<ContentType> {
                 None
             }
         })
+        .unwrap_or(ContentType::Unknown)
 }
 
 // https://stackoverflow.com/a/45145246/5915221

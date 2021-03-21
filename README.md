@@ -149,6 +149,7 @@ xh -d httpbin.org/json -o res.json
 - `rustls` is used instead of the system's TLS library.
 - Headers are sent and printed in lowercase.
 - JSON keys are not sorted.
+- Formatted output is always UTF-8.
 
 ## Similar Projects
 
