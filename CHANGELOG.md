@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.9.2] - 2021-03-24
 ### Bug fixes
 - Escape backslash in JSON highlighting definition, see #108 (@blyxxyz)
 - Do not require filenames to be valid unicode, see #112 (@blyxxyz)

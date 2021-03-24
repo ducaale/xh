@@ -2601,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "xh"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
