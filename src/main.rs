@@ -76,7 +76,9 @@ fn main() -> Result<i32> {
         false => Policy::none(),
     };
 
-    let mut client = Client::builder().redirect(redirect);
+    let mut client = Client::builder()
+        .http2_adaptive_window(true)
+        .redirect(redirect);
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
