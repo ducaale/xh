@@ -69,7 +69,7 @@ impl Buffer {
         } else if self.is_terminal() {
             // supports_color() considers $TERM, $NO_COLOR, etc
             // This lets us do the right thing with the progress bar
-            if self.supports_color() {
+            if self.supports_color() || cfg!(test) {
                 Pretty::all
             } else {
                 Pretty::format
