@@ -67,7 +67,13 @@ impl Buffer {
         } else if test_pretend_term() {
             Pretty::format
         } else if self.is_terminal() {
-            Pretty::all
+            // supports_color() considers $TERM, $NO_COLOR, etc
+            // This lets us do the right thing with the progress bar
+            if self.supports_color() {
+                Pretty::all
+            } else {
+                Pretty::format
+            }
         } else {
             Pretty::none
         }
