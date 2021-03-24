@@ -1,3 +1,19 @@
+## [Unreleased]
+### Bug fixes
+- Escape backslash in JSON highlighting definition, see #108 (@blyxxyz)
+- Do not require filenames to be valid unicode, see #112 (@blyxxyz)
+- Preserve the order of JSON keys in requests, see #113 (@ducaale)
+- Keep bar coloring consistent with other colored output
+  (e.g. don't color it if $NO_COLOR is set), see #114 (@blyxxyz)
+- Prevent mitsuhiko/indicatif#144 in narrow terminals, see #114 (@blyxxyz)
+
+### Other
+- JSON records are now seperated by double newlines, see #109 (@blyxxyz)
+- Writing to a redirect or a file now doesn't stream unless you use --stream, like HTTPie,
+  and it properly decodes the response when it needs to, see #111 (@blyxxyz)
+- Writing formatted JSON to a file is now ~25 times faster than before, see #111 (@blyxxyz)
+- Use adaptive window for HTTP/2, see #115 (@blyxxyz)
+
 ## [0.9.1] - 2021-03-16
 ### Bug fixes
 - Don't include the _--verify_ flag in usage when it is not used, see #100 (@ducaale)
