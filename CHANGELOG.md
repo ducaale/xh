@@ -11,7 +11,7 @@
 - JSON records are now seperated by double newlines, see #109 (@blyxxyz)
 - Writing to a redirect or a file now doesn't stream unless you use --stream, like HTTPie,
   and it properly decodes the response when it needs to, see #111 (@blyxxyz)
-- Writing formatted JSON to a file is now ~25 times faster than before, see #111 (@blyxxyz)
+- Writing formatted JSON to a file is now significantly faster, see #111 (@blyxxyz)
 - Use adaptive window for HTTP/2, see #115 (@blyxxyz)
 
 ## [0.9.1] - 2021-03-16
