@@ -154,7 +154,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push("-"); // Tell curl to guess, like we do
     }
     match args.verify.unwrap_or(Verify::Yes) {
-        Verify::CustomCABundle(filename) => {
+        Verify::CustomCaBundle(filename) => {
             cmd.push("--cacert");
             // TODO: maybe filename should be as bytes?
             // (does the way we have structopt set up even accept non-unicode?)
@@ -253,7 +253,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         // form after construction and we don't want to actually read the files
         for item in request_items.0 {
             match item {
-                RequestItem::JSONField(..) => {
+                RequestItem::JsonField(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {

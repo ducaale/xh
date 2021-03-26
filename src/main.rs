@@ -85,7 +85,7 @@ fn main() -> Result<i32> {
         client = match args.verify.unwrap_or(Verify::Yes) {
             Verify::Yes => client,
             Verify::No => client.danger_accept_invalid_certs(true),
-            Verify::CustomCABundle(path) => {
+            Verify::CustomCaBundle(path) => {
                 let mut buffer = Vec::new();
                 let mut file = File::open(&path).with_context(|| {
                     format!("Failed to open the custom CA bundle: {}", path.display())

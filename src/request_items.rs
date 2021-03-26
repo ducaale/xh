@@ -17,7 +17,7 @@ pub enum RequestItem {
     HttpHeaderToUnset(String),
     UrlParam(String, String),
     DataField(String, String),
-    JSONField(String, serde_json::Value),
+    JsonField(String, serde_json::Value),
     FormFile(String, String, Option<String>),
 }
 
@@ -79,7 +79,7 @@ impl FromStr for RequestItem {
             match sep {
                 "==" => Ok(RequestItem::UrlParam(key, value)),
                 "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JSONField(
+                ":=" => Ok(RequestItem::JsonField(
                     key,
                     serde_json::from_str(&value).map_err(|err| {
                         clap::Error::with_description(
@@ -207,7 +207,7 @@ impl RequestItems {
         let mut body = serde_json::Map::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(key, value) => {
+                RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
                 }
                 RequestItem::DataField(key, value) => {
@@ -228,7 +228,7 @@ impl RequestItems {
         let mut text_fields = Vec::<(String, String)>::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(_, _) => {
+                RequestItem::JsonField(_, _) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
@@ -243,7 +243,7 @@ impl RequestItems {
         let mut form = multipart::Form::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(_, _) => {
+                RequestItem::JsonField(_, _) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
@@ -286,7 +286,7 @@ impl RequestItems {
                 | RequestItem::HttpHeaderToUnset(..)
                 | RequestItem::UrlParam(..) => continue,
                 RequestItem::DataField(..)
-                | RequestItem::JSONField(..)
+                | RequestItem::JsonField(..)
                 | RequestItem::FormFile(..) => return Method::POST,
             }
         }
@@ -333,7 +333,7 @@ mod tests {
         // Header
         assert_eq!(parse("foo:bar"), HttpHeader("foo".into(), "bar".into()));
         // JSON field
-        assert_eq!(parse("foo:=[1,2]"), JSONField("foo".into(), json!([1, 2])));
+        assert_eq!(parse("foo:=[1,2]"), JsonField("foo".into(), json!([1, 2])));
         // Bad JSON field
         "foo:=bar".parse::<RequestItem>().unwrap_err();
         // Can't escape normal chars
