@@ -690,7 +690,7 @@ impl FromStr for Proxy {
 pub enum Verify {
     Yes,
     No,
-    CustomCABundle(PathBuf),
+    CustomCaBundle(PathBuf),
 }
 
 impl FromStr for Verify {
@@ -699,7 +699,7 @@ impl FromStr for Verify {
         match verify.to_lowercase().as_str() {
             "no" | "false" => Ok(Verify::No),
             "yes" | "true" => Ok(Verify::Yes),
-            path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
+            path => Ok(Verify::CustomCaBundle(PathBuf::from(path))),
         }
     }
 }
@@ -709,7 +709,7 @@ impl fmt::Display for Verify {
         match self {
             Verify::No => write!(f, "no"),
             Verify::Yes => write!(f, "yes"),
-            Verify::CustomCABundle(path) => write!(f, "custom ca bundle: {}", path.display()),
+            Verify::CustomCaBundle(path) => write!(f, "custom ca bundle: {}", path.display()),
         }
     }
 }

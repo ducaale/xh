@@ -236,6 +236,7 @@ pub fn download_file(
     };
     if let Some(pb) = &pb {
         pb.set_position(starting_length);
+        pb.reset_eta();
     }
 
     match pb {
