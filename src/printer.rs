@@ -452,21 +452,21 @@ mod tests {
     }
 
     #[test]
-    fn test_1() {
+    fn terminal_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stdout(..));
     }
 
     #[test]
-    fn test_2() {
+    fn redirect_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::Redirect(..));
     }
 
     #[test]
-    fn test_3() {
+    fn terminal_mode_with_output_file() {
         let output = temp_path("temp3");
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
@@ -474,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    fn test_4() {
+    fn redirect_mode_with_output_file() {
         let output = temp_path("temp4");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-o", output],
@@ -485,21 +485,21 @@ mod tests {
     }
 
     #[test]
-    fn test_5() {
+    fn terminal_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
-    fn test_6() {
+    fn redirect_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
-    fn test_7() {
+    fn terminal_mode_download_with_output_file() {
         let output = temp_path("temp7");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn test_8() {
+    fn redirect_mode_download_with_output_file() {
         let output = temp_path("temp8");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
