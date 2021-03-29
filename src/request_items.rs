@@ -214,7 +214,8 @@ impl RequestItems {
                 RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
                 }
-                RequestItem::JsonFieldFromFile(key, value) | RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::JsonFieldFromFile(key, value)
+                | RequestItem::DataFieldFromFile(key, value) => {
                     let mut file = File::open(value)?;
                     let mut contents = String::new();
                     file.read_to_string(&mut contents)?;
@@ -308,7 +309,7 @@ impl RequestItems {
                 | RequestItem::HttpHeaderToUnset(..)
                 | RequestItem::UrlParam(..) => continue,
                 RequestItem::DataField(..)
-                |RequestItem::DataFieldFromFile(..)
+                | RequestItem::DataFieldFromFile(..)
                 | RequestItem::JsonField(..)
                 | RequestItem::JsonFieldFromFile(..)
                 | RequestItem::FormFile(..) => return Method::POST,
@@ -351,7 +352,10 @@ mod tests {
         // Data field
         assert_eq!(parse("foo=bar"), DataField("foo".into(), "bar".into()));
         // Data field from file
-        assert_eq!(parse("foo=@data.json"), DataFieldFromFile("foo".into(), "data.json".into()));
+        assert_eq!(
+            parse("foo=@data.json"),
+            DataFieldFromFile("foo".into(), "data.json".into())
+        );
         // URL param
         assert_eq!(parse("foo==bar"), UrlParam("foo".into(), "bar".into()));
         // Escaped right before separator
@@ -361,7 +365,10 @@ mod tests {
         // JSON field
         assert_eq!(parse("foo:=[1,2]"), JsonField("foo".into(), json!([1, 2])));
         // JSON field from file
-        assert_eq!(parse("foo:=@data.json"), JsonFieldFromFile("foo".into(), "data.json".into()));
+        assert_eq!(
+            parse("foo:=@data.json"),
+            JsonFieldFromFile("foo".into(), "data.json".into())
+        );
         // Bad JSON field
         "foo:=bar".parse::<RequestItem>().unwrap_err();
         // Can't escape normal chars
