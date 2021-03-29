@@ -1,4 +1,4 @@
-use std::{fs::File, io, io::Read, path::Path, str::FromStr};
+use std::{fs, fs::File, io, path::Path, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -214,15 +214,14 @@ impl RequestItems {
                 RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
                 }
-                RequestItem::JsonFieldFromFile(key, value)
-                | RequestItem::DataFieldFromFile(key, value) => {
-                    let mut file = File::open(value)?;
-                    let mut contents = String::new();
-                    file.read_to_string(&mut contents)?;
-                    body.insert(key, serde_json::from_str(&contents)?);
+                RequestItem::JsonFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::from_str(&fs::read_to_string(value)?)?);
                 }
                 RequestItem::DataField(key, value) => {
                     body.insert(key, serde_json::Value::String(value));
+                }
+                RequestItem::DataFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::Value::String(fs::read_to_string(value)?));
                 }
                 RequestItem::FormFile(..) => {
                     return Err(anyhow!(
@@ -244,10 +243,7 @@ impl RequestItems {
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
                 RequestItem::DataFieldFromFile(key, value) => {
-                    let mut file = File::open(value)?;
-                    let mut contents = String::new();
-                    file.read_to_string(&mut contents)?;
-                    text_fields.push((key, contents));
+                    text_fields.push((key, fs::read_to_string(value)?));
                 }
                 RequestItem::FormFile(..) => unreachable!(),
                 _ => {}
@@ -267,10 +263,7 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
-                    let mut file = File::open(value)?;
-                    let mut contents = String::new();
-                    file.read_to_string(&mut contents)?;
-                    form = form.text(key, contents);
+                    form = form.text(key, fs::read_to_string(value)?);
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     let mut part = file_to_part(&value)?;
