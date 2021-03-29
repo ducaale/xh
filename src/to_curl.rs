@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::{stderr, stdout, Write};
 
 use anyhow::{anyhow, Result};
@@ -253,12 +254,16 @@ pub fn translate(args: Cli) -> Result<Command> {
         // form after construction and we don't want to actually read the files
         for item in request_items.0 {
             match item {
-                RequestItem::JsonField(..) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     cmd.flag("-F", "--form");
                     cmd.push(format!("{}={}", key, value));
+                }
+                RequestItem::DataFieldFromFile(key, value) => {
+                    cmd.flag("-F", "--form");
+                    cmd.push(format!("{}={}", key, fs::read_to_string(value)?));
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     cmd.flag("-F", "--form");
@@ -268,7 +273,9 @@ pub fn translate(args: Cli) -> Result<Command> {
                         cmd.push(format!("{}=@{}", key, value));
                     }
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
     } else {
