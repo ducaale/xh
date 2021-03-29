@@ -263,7 +263,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
                     cmd.flag("-F", "--form");
-                    cmd.push(format!("{}={}", key, fs::read_to_string(value)?));
+                    cmd.push(format!("{}=<{}", key, value));
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     cmd.flag("-F", "--form");
