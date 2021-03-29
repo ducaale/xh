@@ -1,4 +1,3 @@
-use std::fs;
 use std::io::{stderr, stdout, Write};
 
 use anyhow::{anyhow, Result};
