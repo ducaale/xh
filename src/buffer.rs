@@ -33,7 +33,7 @@ impl Buffer {
             None if test_default_color() => ColorChoice::AlwaysAnsi,
             None => ColorChoice::Auto,
             Some(pretty) if pretty.color() => ColorChoice::Always,
-            _ => ColorChoice::Never,
+            Some(..) => ColorChoice::Never,
         };
         Ok(if download {
             Buffer::Stderr(StandardStream::stderr(color_choice))

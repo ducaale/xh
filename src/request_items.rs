@@ -191,7 +191,12 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
-                _ => {}
+                RequestItem::UrlParam(..) => {},
+                RequestItem::DataField(..) => {},
+                RequestItem::DataFieldFromFile(..) => {},
+                RequestItem::JsonField(..) => {},
+                RequestItem::JsonFieldFromFile(..) => {},
+                RequestItem::FormFile(..) => {},
             }
         }
         Ok((headers, headers_to_unset))
@@ -228,7 +233,9 @@ impl RequestItems {
                         "Sending Files is not supported when the request body is in JSON format"
                     ));
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Json(body))
@@ -246,7 +253,9 @@ impl RequestItems {
                     text_fields.push((key, fs::read_to_string(value)?));
                 }
                 RequestItem::FormFile(..) => unreachable!(),
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Form(text_fields))
@@ -272,7 +281,9 @@ impl RequestItems {
                     }
                     form = form.part(key, part);
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Multipart(form))
