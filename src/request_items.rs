@@ -191,12 +191,12 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
-                RequestItem::UrlParam(..) => {},
-                RequestItem::DataField(..) => {},
-                RequestItem::DataFieldFromFile(..) => {},
-                RequestItem::JsonField(..) => {},
-                RequestItem::JsonFieldFromFile(..) => {},
-                RequestItem::FormFile(..) => {},
+                RequestItem::UrlParam(..) => {}
+                RequestItem::DataField(..) => {}
+                RequestItem::DataFieldFromFile(..) => {}
+                RequestItem::JsonField(..) => {}
+                RequestItem::JsonFieldFromFile(..) => {}
+                RequestItem::FormFile(..) => {}
             }
         }
         Ok((headers, headers_to_unset))
