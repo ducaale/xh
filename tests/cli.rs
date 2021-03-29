@@ -1006,3 +1006,55 @@ fn request_json_keys_order_is_preserved() {
         .assert();
     mock.assert();
 }
+
+#[test]
+fn data_field_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"{"ids":"[1,2,3]"}"#);
+    });
+
+    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    write!(text_file, "[1,2,3]").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("ids=@{}", text_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn data_field_from_file_in_form_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"message=hello+world"#);
+    });
+
+    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    write!(text_file, "hello world").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("--form")
+        .arg(format!("message=@{}", text_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn json_field_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"{"ids":[1,2,3]}"#);
+    });
+
+    let mut json_file = tempfile::NamedTempFile::new().unwrap();
+    writeln!(json_file, "[1,2,3]").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
