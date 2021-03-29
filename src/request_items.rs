@@ -1,4 +1,4 @@
-use std::{fs::File, io, path::Path, str::FromStr};
+use std::{fs, fs::File, io, path::Path, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -17,7 +17,9 @@ pub enum RequestItem {
     HttpHeaderToUnset(String),
     UrlParam(String, String),
     DataField(String, String),
+    DataFieldFromFile(String, String),
     JsonField(String, serde_json::Value),
+    JsonFieldFromFile(String, String),
     FormFile(String, String, Option<String>),
 }
 
@@ -25,7 +27,7 @@ impl FromStr for RequestItem {
     type Err = clap::Error;
     fn from_str(request_item: &str) -> clap::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
-        const SEPS: &[&str] = &["==", ":=", "=", "@", ":"];
+        const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
         fn unescape(text: &str) -> String {
             let mut out = String::new();
@@ -107,6 +109,8 @@ impl FromStr for RequestItem {
                 }
                 ":" if value.is_empty() => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
+                "=@" => Ok(RequestItem::DataFieldFromFile(key, value)),
+                ":=@" => Ok(RequestItem::JsonFieldFromFile(key, value)),
                 _ => unreachable!(),
             }
         } else if let Some(header) = request_item.strip_suffix(';') {
@@ -145,7 +149,7 @@ impl Body {
             // This is a slight divergence from HTTPie, which will simply
             // discard stdin if it receives --multipart without request items,
             // but that behavior is useless so there's no need to match it
-            Body::Multipart(_) => false,
+            Body::Multipart(..) => false,
         }
     }
 
@@ -187,7 +191,12 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
-                _ => {}
+                RequestItem::UrlParam(..) => {}
+                RequestItem::DataField(..) => {}
+                RequestItem::DataFieldFromFile(..) => {}
+                RequestItem::JsonField(..) => {}
+                RequestItem::JsonFieldFromFile(..) => {}
+                RequestItem::FormFile(..) => {}
             }
         }
         Ok((headers, headers_to_unset))
@@ -210,15 +219,23 @@ impl RequestItems {
                 RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
                 }
+                RequestItem::JsonFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::from_str(&fs::read_to_string(value)?)?);
+                }
                 RequestItem::DataField(key, value) => {
                     body.insert(key, serde_json::Value::String(value));
                 }
-                RequestItem::FormFile(_, _, _) => {
+                RequestItem::DataFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::Value::String(fs::read_to_string(value)?));
+                }
+                RequestItem::FormFile(..) => {
                     return Err(anyhow!(
                         "Sending Files is not supported when the request body is in JSON format"
                     ));
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Json(body))
@@ -228,12 +245,17 @@ impl RequestItems {
         let mut text_fields = Vec::<(String, String)>::new();
         for item in self.0 {
             match item {
-                RequestItem::JsonField(_, _) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
+                RequestItem::DataFieldFromFile(key, value) => {
+                    text_fields.push((key, fs::read_to_string(value)?));
+                }
                 RequestItem::FormFile(..) => unreachable!(),
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Form(text_fields))
@@ -243,11 +265,14 @@ impl RequestItems {
         let mut form = multipart::Form::new();
         for item in self.0 {
             match item {
-                RequestItem::JsonField(_, _) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
+                }
+                RequestItem::DataFieldFromFile(key, value) => {
+                    form = form.text(key, fs::read_to_string(value)?);
                 }
                 RequestItem::FormFile(key, value, file_type) => {
                     let mut part = file_to_part(&value)?;
@@ -256,7 +281,9 @@ impl RequestItems {
                     }
                     form = form.part(key, part);
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Multipart(form))
@@ -286,7 +313,9 @@ impl RequestItems {
                 | RequestItem::HttpHeaderToUnset(..)
                 | RequestItem::UrlParam(..) => continue,
                 RequestItem::DataField(..)
+                | RequestItem::DataFieldFromFile(..)
                 | RequestItem::JsonField(..)
+                | RequestItem::JsonFieldFromFile(..)
                 | RequestItem::FormFile(..) => return Method::POST,
             }
         }
@@ -326,6 +355,11 @@ mod tests {
 
         // Data field
         assert_eq!(parse("foo=bar"), DataField("foo".into(), "bar".into()));
+        // Data field from file
+        assert_eq!(
+            parse("foo=@data.json"),
+            DataFieldFromFile("foo".into(), "data.json".into())
+        );
         // URL param
         assert_eq!(parse("foo==bar"), UrlParam("foo".into(), "bar".into()));
         // Escaped right before separator
@@ -334,6 +368,11 @@ mod tests {
         assert_eq!(parse("foo:bar"), HttpHeader("foo".into(), "bar".into()));
         // JSON field
         assert_eq!(parse("foo:=[1,2]"), JsonField("foo".into(), json!([1, 2])));
+        // JSON field from file
+        assert_eq!(
+            parse("foo:=@data.json"),
+            JsonFieldFromFile("foo".into(), "data.json".into())
+        );
         // Bad JSON field
         "foo:=bar".parse::<RequestItem>().unwrap_err();
         // Can't escape normal chars
