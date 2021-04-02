@@ -1,6 +1,7 @@
 #!/bin/sh
 
-cd /tmp/
+temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
+cd $temp_dir
 
 if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
     target="x86_64-apple-darwin"
@@ -15,20 +16,13 @@ else
     exit 1
 fi
 
-rm -rf xh*
-
 curl -s https://api.github.com/repos/ducaale/xh/releases/latest \
 | grep -wo "https.*$target.tar.gz" \
-| wget -qi -
+| xargs -n 1 curl -O -sSL
 
-tarball="$(find . -name "xh*$target.tar.gz")"
-tar -xzf $tarball --strip-components=1 
+tar xzf xh-*
+sudo mv xh-*/xh /usr/local/bin/
+sudo ln -s /usr/local/bin/xh /usr/local/bin/xhs
 
-chmod +x xh
-sudo mv xh /usr/local/bin/
-
-location="$(which xh)"
-echo "xh binary location: $location"
-
-version="$(xh --version)"
-echo "xh binary version: $version"
+echo "xh binary location: $(which xh)"
+echo "xh binary version: $(xh --version)"
