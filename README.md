@@ -8,30 +8,26 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 ## Installation
 
-### On macOS and Linux via Homebrew
+### via curl (Linux/macOS)
+
 ```
-brew install xh
+curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ```
 
-### On windows via Scoop
-```
-scoop install xh
-```
+### Using a package manager
 
-### On Arch linux via Pacman
-```
-pacman -S xh
-```
+| OS           | Method    | Command            |
+|--------------|-----------|--------------------|
+| Any          | Cargo\*   | `cargo install xh` |
+| Linux        | Linuxbrew | `brew install xh`  |
+| Arch Linux   | Pacman    | `pacman -S xh`     |
+| macOS        | Homebrew  | `brew install xh`  |
+| Windows      | Scoop     | `scoop install xh` |
 
-### From binaries
+\* Make sure that you have Rust 1.45 or later installed
+
+### Using pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
-
-### From source
-Make sure that you have Rust 1.45 or later installed.
-
-```
-cargo install xh
-```
 
 ## Usage
 ```
