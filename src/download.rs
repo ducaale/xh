@@ -242,7 +242,7 @@ pub fn download_file(
     match pb {
         Some(ref pb) => {
             copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
-            pb.finish_with_message("Done");
+            pb.finish_and_clear();
         }
         None => {
             copy_largebuf(&mut response, &mut buffer)?;
