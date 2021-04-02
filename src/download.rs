@@ -147,13 +147,11 @@ fn total_for_content_range(header: &str, expected_start: u64) -> Result<u64> {
 }
 
 const BAR_TEMPLATE: &str =
-    "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
+    "{spinner:.green} {percent}% [{wide_bar:.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
 const UNCOLORED_BAR_TEMPLATE: &str =
-    "{spinner} [{elapsed_precise}] [{wide_bar}] {bytes} {bytes_per_sec} ETA {eta}";
-const SPINNER_TEMPLATE: &str =
-    "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {wide_msg}";
-const UNCOLORED_SPINNER_TEMPLATE: &str =
-    "{spinner} [{elapsed_precise}] {bytes} {bytes_per_sec} {wide_msg}";
+    "{spinner} {percent}% [{wide_bar}] {bytes} {bytes_per_sec} ETA {eta}";
+const SPINNER_TEMPLATE: &str = "{spinner:.green} {bytes} {bytes_per_sec} {wide_msg}";
+const UNCOLORED_SPINNER_TEMPLATE: &str = "{spinner} {bytes} {bytes_per_sec} {wide_msg}";
 
 pub fn download_file(
     mut response: Response,
