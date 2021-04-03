@@ -35,5 +35,4 @@ tar xzf xh-*
 sudo mv xh-*/xh /usr/local/bin/
 sudo ln -sf /usr/local/bin/xh /usr/local/bin/xhs
 
-echo "$(xh --version) has been installed successfully"
-echo 'Please ensure that /usr/loca/bin is added to your $PATH'
+echo "xh v$(xh --version | cut -c4-8) has been installed to /usr/local/bin"
