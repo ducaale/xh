@@ -1,7 +1,7 @@
 #!/bin/sh
 
 temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
-cd $temp_dir
+cd "$temp_dir"
 
 if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
     target="x86_64-apple-darwin"
