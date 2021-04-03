@@ -22,7 +22,7 @@ curl -s https://api.github.com/repos/ducaale/xh/releases/latest \
 
 tar xzf xh-*
 sudo mv xh-*/xh /usr/local/bin/
-sudo ln -s /usr/local/bin/xh /usr/local/bin/xhs
+sudo ln -sf /usr/local/bin/xh /usr/local/bin/xhs
 
 echo "xh binary location: $(which xh)"
 echo "xh binary version: $(xh --version)"
