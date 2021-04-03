@@ -12,13 +12,25 @@ elif [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "amd64" ]; then
 elif [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "arm" ]; then
     target="arm-unknown-linux-gnueabihf"
 else
-    echo "unsupported OS or architecture"
+    echo "Unsupported OS or architecture"
+    exit 1
+fi
+
+if which curl > /dev/null; then
+    fetch='curl -sSL -o'
+elif which wget > /dev/null; then
+    fetch='wget -q -O'
+else
+    echo "Can't find curl or wget, can't download package"
     exit 1
 fi
 
 echo "Detected target: $target"
 
-url=$(curl -sSL https://api.github.com/repos/ducaale/xh/releases/latest | grep -wo -m1 "https://.*$target.tar.gz")
+url=$(
+    $fetch - https://api.github.com/repos/ducaale/xh/releases/latest |
+    grep -wo -m1 "https://.*$target.tar.gz"
+)
 if ! test "$url"; then
     echo "Could not find release info"
     exit 1
@@ -26,12 +38,12 @@ fi
 
 echo "Downloading xh..."
 
-if ! curl -SLO "$url"; then
+if ! $fetch xh.tar.gz "$url"; then
     echo "Could not download tarball"
     exit 1
 fi
 
-tar xzf xh-*
+tar xzf xh.tar.gz
 sudo mv xh-*/xh /usr/local/bin/
 sudo ln -sf /usr/local/bin/xh /usr/local/bin/xhs
 
