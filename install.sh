@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
 cd "$temp_dir"
 
@@ -29,7 +31,7 @@ echo "Detected target: $target"
 
 url=$(
     $fetch - https://api.github.com/repos/ducaale/xh/releases/latest |
-    grep -wo -m1 "https://.*$target.tar.gz"
+    grep -wo -m1 "https://.*$target.tar.gz" || true
 )
 if ! test "$url"; then
     echo "Could not find release info"
