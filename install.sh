@@ -21,7 +21,7 @@ fi
 if which curl > /dev/null; then
     fetch='curl -sSL -o'
 elif which wget > /dev/null; then
-    fetch='wget -q -O'
+    fetch='wget -nv -O'
 else
     echo "Can't find curl or wget, can't download package"
     exit 1
