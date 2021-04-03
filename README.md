@@ -11,7 +11,7 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 ### via curl (Linux/macOS)
 
 ```
-curl -sfL https://git.io/xh/install.sh | sh
+curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ```
 
 ### Using a package manager
