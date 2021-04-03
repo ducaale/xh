@@ -35,4 +35,4 @@ tar xzf xh-*
 sudo mv xh-*/xh /usr/local/bin/
 sudo ln -sf /usr/local/bin/xh /usr/local/bin/xhs
 
-echo "xh v$(xh --version | cut -c4-8) has been installed to /usr/local/bin"
+echo "$(/usr/local/bin/xh --version) has been installed to /usr/local/bin"
