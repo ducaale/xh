@@ -14,6 +14,9 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ```
 
+This installs `xh` and `xhs` to `/usr/local/bin` by default. To control where `xh` is installed,
+set `$bindir` to point to the desired location e.g `bindir="$HOME/bin"`.
+
 ### Using a package manager
 
 | OS           | Method    | Command            |
