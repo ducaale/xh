@@ -76,4 +76,4 @@ else
     sudo ln -sf "$bindir/xh" "$bindir/xhs"
 fi
 
-echo "$($bindir/xh --version) has been installed to $bindir"
+echo "$("$bindir"/xh --version) has been installed to $bindir"
