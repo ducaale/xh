@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -56,7 +56,7 @@ case $PATH in
 esac
 
 printf "Install location [default: %s]: " "$default_bin"
-read -r bindir
+read -r bindir < /dev/tty
 bindir=${bindir:-$default_bin}
 
 if ! test -d "$bindir"; then
