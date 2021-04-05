@@ -66,8 +66,6 @@ while ! test -d "$bindir"; then
     bindir=${bindir:-$default_bin}
 fi
 
-bindir="${bindir:-/usr/local/bin}"
-
 tar xzf xh.tar.gz
 
 if test -w "$bindir"; then
