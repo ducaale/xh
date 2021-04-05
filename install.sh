@@ -59,12 +59,12 @@ printf "Install location [default: %s]: " "$default_bin"
 read -r bindir < /dev/tty
 bindir=${bindir:-$default_bin}
 
-while ! test -d "$bindir"; then
+while ! test -d "$bindir"; do
     echo "Directory $bindir does not exist"
     printf "Install location [default: %s]: " "$default_bin"
     read -r bindir < /dev/tty
     bindir=${bindir:-$default_bin}
-fi
+done
 
 tar xzf xh.tar.gz
 
