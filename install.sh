@@ -45,8 +45,10 @@ if ! $fetch xh.tar.gz "$url"; then
     exit 1
 fi
 
-tar xzf xh.tar.gz
-sudo mv xh-*/xh /usr/local/bin/
-sudo ln -sf /usr/local/bin/xh /usr/local/bin/xhs
+bindir="${bindir:-/usr/local/bin}"
 
-echo "$(/usr/local/bin/xh --version) has been installed to /usr/local/bin"
+tar xzf xh.tar.gz
+sudo mv xh-*/xh "$bindir/"
+sudo ln -sf "$bindir/xh" "$bindir/xhs"
+
+echo "$($bindir/xh --version) has been installed to $bindir"
