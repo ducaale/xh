@@ -59,9 +59,11 @@ printf "Install location [default: %s]: " "$default_bin"
 read -r bindir < /dev/tty
 bindir=${bindir:-$default_bin}
 
-if ! test -d "$bindir"; then
+while ! test -d "$bindir"; then
     echo "Directory $bindir does not exist"
-    exit 1
+    printf "Install location [default: %s]: " "$default_bin"
+    read -r bindir < /dev/tty
+    bindir=${bindir:-$default_bin}
 fi
 
 bindir="${bindir:-/usr/local/bin}"
