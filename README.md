@@ -11,11 +11,8 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 ### via curl (Linux/macOS)
 
 ```
-curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
+/bin/bash <(curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh)
 ```
-
-This installs `xh` and `xhs` to `/usr/local/bin` by default. To control where `xh` is installed,
-set `$bindir` to point to the desired location e.g `bindir="$HOME/bin"`.
 
 ### Using a package manager
 

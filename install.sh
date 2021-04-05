@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -45,10 +45,35 @@ if ! $fetch xh.tar.gz "$url"; then
     exit 1
 fi
 
+user_bin=~/.local/bin
+case $PATH in
+    *:"$user_bin":* | "$user_bin":* | *:"$user_bin")
+        default_bin=$user_bin
+        ;;
+    *)
+        default_bin=/usr/local/bin
+        ;;
+esac
+
+printf "Install location [default: %s]: " "$default_bin"
+read -r bindir
+bindir=${bindir:-$default_bin}
+
+if ! test -d "$bindir"; then
+    echo "Directory $bindir does not exist"
+    exit 1
+fi
+
 bindir="${bindir:-/usr/local/bin}"
 
 tar xzf xh.tar.gz
-sudo mv xh-*/xh "$bindir/"
-sudo ln -sf "$bindir/xh" "$bindir/xhs"
+
+if test -w "$bindir"; then
+    mv xh-*/xh "$bindir/"
+    ln -sf "$bindir/xh" "$bindir/xhs"
+else
+    sudo mv xh-*/xh "$bindir/"
+    sudo ln -sf "$bindir/xh" "$bindir/xhs"
+fi
 
 echo "$($bindir/xh --version) has been installed to $bindir"
