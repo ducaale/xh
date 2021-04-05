@@ -45,13 +45,13 @@ if ! $fetch xh.tar.gz "$url"; then
     exit 1
 fi
 
-user_bin=~/.local/bin
+user_bin="$HOME/.local/bin"
 case $PATH in
     *:"$user_bin":* | "$user_bin":* | *:"$user_bin")
         default_bin=$user_bin
         ;;
     *)
-        default_bin=/usr/local/bin
+        default_bin='/usr/local/bin'
         ;;
 esac
 
