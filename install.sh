@@ -31,7 +31,7 @@ echo "Detected target: $target"
 
 url=$(
     $fetch - https://api.github.com/repos/ducaale/xh/releases/latest |
-    grep -wo -m1 "https://.*$target.tar.gz" || true
+    tac | tac | grep -wo -m1 "https://.*$target.tar.gz" || true
 )
 if ! test "$url"; then
     echo "Could not find release info"
