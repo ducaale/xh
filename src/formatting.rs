@@ -6,7 +6,6 @@ use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 use termcolor::WriteColor;
 
-use crate::vendored::jsonxf;
 use crate::{buffer::Buffer, cli::Theme};
 
 pub fn get_json_formatter() -> jsonxf::Formatter {

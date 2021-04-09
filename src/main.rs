@@ -8,7 +8,6 @@ mod request_items;
 mod to_curl;
 mod url;
 mod utils;
-mod vendored;
 
 use std::fs::File;
 use std::io::{stdin, Read};
