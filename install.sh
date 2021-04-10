@@ -9,8 +9,6 @@ if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
     target="x86_64-apple-darwin"
 elif [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
     target="x86_64-unknown-linux-musl"
-elif [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "amd64" ]; then
-    target="x86_64-unknown-linux-musl"
 elif [ "$(uname -s)" = "Linux" ] && ( uname -m | grep -q -e '^arm' -e '^aarch' ); then
     target="arm-unknown-linux-gnueabihf"
 else
