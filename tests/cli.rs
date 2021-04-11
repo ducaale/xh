@@ -1058,3 +1058,41 @@ fn json_field_from_file() {
         .assert();
     mock.assert();
 }
+
+#[test]
+fn can_unset_default_headers() {
+    get_command()
+        .arg(":")
+        .arg("user-agent:")
+        .arg("--offline")
+        .assert()
+        .stdout(indoc! {r#"
+            GET / HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, deflate
+            connection: keep-alive
+            host: http.mock
+
+        "#});
+}
+
+#[test]
+fn can_unset_headers() {
+    get_command()
+        .arg(":")
+        .arg("hello:world")
+        .arg("goodby:world")
+        .arg("goodby:")
+        .arg("--offline")
+        .assert()
+        .stdout(indoc! {r#"
+            GET / HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, deflate
+            connection: keep-alive
+            hello: world
+            host: http.mock
+            user-agent: xh/0.0.0 (test mode)
+
+        "#});
+}
