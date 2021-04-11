@@ -36,6 +36,7 @@ pub struct Session {
 
 impl Session {
     pub fn load_session(host: String, name_or_path: String, read_only: bool) -> Result<Self> {
+        // TODO: read from file
         let content: Content = serde_json::from_str(SESSION_CONTENT)?;
         // TODO: remove expired cookies
         let s = Session {
@@ -101,6 +102,8 @@ impl Session {
         } else {
             println!("host: {} session_name: {}", self.host, self.name_or_path);
         }
+
+        // TODO: save to file
         println!("{}", serde_json::to_string_pretty(&self.content)?);
 
         Ok(())
