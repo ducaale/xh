@@ -13,6 +13,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+cookie = "0.15"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"

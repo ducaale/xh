@@ -5,6 +5,7 @@ mod download;
 mod formatting;
 mod printer;
 mod request_items;
+mod session;
 mod to_curl;
 mod url;
 mod utils;
@@ -26,6 +27,7 @@ use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
+use crate::session::Session;
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -49,7 +51,7 @@ fn main() -> Result<i32> {
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers()?;
+    let (mut headers, headers_to_unset) = request_items.headers()?;
     let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
@@ -137,6 +139,22 @@ fn main() -> Result<i32> {
         }?);
     }
 
+    let mut session = match (args.session, args.session_read_only, url.host()) {
+        (Some(name_or_path), None, Some(host)) => {
+            Some(Session::load_session(host.to_string(), name_or_path, false))
+        }
+        (None, Some(name_or_path), Some(host)) => {
+            Some(Session::load_session(host.to_string(), name_or_path, true))
+        }
+        (_, _, _) => None,
+    };
+
+    if let Some(ref s) = session {
+        for (key, value) in s.headers().iter() {
+            headers.entry(key).or_insert(value.clone());
+        }
+    }
+
     let client = client.build()?;
 
     let request = {
@@ -200,7 +218,7 @@ fn main() -> Result<i32> {
             request_builder = request_builder.bearer_auth(token);
         }
 
-        let mut request = request_builder.headers(headers).build()?;
+        let mut request = request_builder.headers(headers.clone()).build()?;
 
         headers_to_unset.iter().for_each(|h| {
             request.headers_mut().remove(h);
@@ -208,6 +226,11 @@ fn main() -> Result<i32> {
 
         request
     };
+
+    if let Some(ref mut s) = session {
+        s.save_auth(&request.headers());
+        s.save_headers(&headers);
+    }
 
     let buffer = Buffer::new(
         args.download,
@@ -236,14 +259,14 @@ fn main() -> Result<i32> {
     if print.request_body {
         printer.print_request_body(&request)?;
     }
+
+    let mut exit_code: i32 = 0;
     if !args.offline {
         let orig_url = request.url().clone();
         let response = client.execute(request)?;
-        if print.response_headers {
-            printer.print_response_headers(&response)?;
-        }
         let status = response.status();
-        let exit_code: i32 = match status.as_u16() {
+
+        exit_code = match status.as_u16() {
             _ if !(args.check_status || args.download) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
@@ -252,6 +275,14 @@ fn main() -> Result<i32> {
         };
         if is_redirect && exit_code != 0 {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
+        }
+
+        if let Some(ref mut s) = session {
+            s.save_cookies(&response.headers());
+        }
+
+        if print.response_headers {
+            printer.print_response_headers(&response)?;
         }
         if args.download {
             if exit_code == 0 {
@@ -267,8 +298,13 @@ fn main() -> Result<i32> {
         } else if print.response_body {
             printer.print_response_body(response)?;
         }
-        Ok(exit_code)
-    } else {
-        Ok(0)
     }
+
+    if let Some(ref mut s) = session {
+        if !s.read_only {
+            s.persist();
+        }
+    }
+
+    Ok(exit_code)
 }

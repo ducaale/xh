@@ -93,6 +93,12 @@ pub struct Cli {
     #[structopt(short = "c", long = "continue", name = "continue")]
     pub resume: bool,
 
+    #[structopt(long)]
+    pub session: Option<String>,
+
+    #[structopt(long, conflicts_with = "session")]
+    pub session_read_only: Option<String>,
+
     // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
     #[structopt(short = "A", long, possible_values = &AuthType::variants(),

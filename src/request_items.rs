@@ -189,6 +189,7 @@ impl RequestItems {
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
+                    headers.remove(&key);
                     headers_to_unset.push(key);
                 }
                 RequestItem::UrlParam(..) => {}
