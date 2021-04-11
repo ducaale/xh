@@ -304,7 +304,7 @@ fn main() -> Result<i32> {
     if let Some(ref mut s) = session {
         if !s.read_only {
             s.persist()
-                .context(format!("couldn't persist session {}", s.name_or_path))?;
+                .context(format!("couldn't persist session {:?}", s.path))?;
         }
     }
 

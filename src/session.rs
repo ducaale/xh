@@ -1,25 +1,12 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::fs;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use cookie::Cookie;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, COOKIE, SET_COOKIE};
 use serde::{Deserialize, Serialize};
-
-const SESSION_CONTENT: &str = r#"
-    {
-        "__meta__": {
-            "about": "xh session file",
-            "xh": "0.9.2"
-        },
-        "cookies": {
-            "__cfduid": "__cfduid=deafc9f3a8f236b14d9d35d487bc49fda1618150617; expires=Tue, 11-May-21 14:16:57 GMT; path=/; domain=.pie.dev; HttpOnly; SameSite=Lax"
-        },
-        "headers": {
-            "custom": "thing",
-            "customm": "thingg"
-        }
-    }"#;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Content {
@@ -27,26 +14,58 @@ struct Content {
     headers: HashMap<String, String>,
 }
 
+impl Default for Content {
+    fn default() -> Self {
+        Content {
+            cookies: HashMap::new(),
+            headers: HashMap::new(),
+        }
+    }
+}
+
 pub struct Session {
-    host: String,
-    pub name_or_path: String,
+    pub path: PathBuf,
     pub read_only: bool,
     content: Content,
 }
 
+fn ensure_file_exists(path: PathBuf) -> Result<PathBuf> {
+    if path.exists() {
+        Ok(path)
+    } else {
+        fs::create_dir_all(path.parent().unwrap())?;
+        fs::File::create(&path)?;
+        Ok(path)
+    }
+}
+
 impl Session {
     pub fn load_session(host: String, name_or_path: String, read_only: bool) -> Result<Self> {
-        // TODO: read from file
-        let content: Content = serde_json::from_str(SESSION_CONTENT)?;
-        // TODO: remove expired cookies
-        let s = Session {
-            host,
-            name_or_path,
-            read_only,
-            content,
+        let path = if name_or_path.contains(std::path::is_separator) {
+            ensure_file_exists(PathBuf::from(name_or_path))?
+        } else {
+            let mut path = dirs::config_dir()
+                .unwrap()
+                .join::<PathBuf>(["xh", "sessions", &host, &name_or_path].iter().collect());
+            path.set_extension("json");
+            ensure_file_exists(path)?
         };
 
-        Ok(s)
+        let content = {
+            let content = fs::read_to_string(&path)?;
+            if content.is_empty() {
+                Content::default()
+            } else {
+                serde_json::from_str::<Content>(&content)?
+            }
+        };
+
+        // TODO: remove expired cookies
+        Ok(Session {
+            path,
+            read_only,
+            content,
+        })
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
@@ -104,15 +123,7 @@ impl Session {
     }
 
     pub fn persist(&self) -> Result<()> {
-        if self.name_or_path.contains(std::path::is_separator) {
-            println!("path: {}", self.name_or_path);
-        } else {
-            println!("host: {} session_name: {}", self.host, self.name_or_path);
-        }
-
-        // TODO: save to file
-        println!("{}", serde_json::to_string_pretty(&self.content)?);
-
+        fs::write(&self.path, serde_json::to_string_pretty(&self.content)?)?;
         Ok(())
     }
 }
