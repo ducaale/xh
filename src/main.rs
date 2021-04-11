@@ -141,16 +141,16 @@ fn main() -> Result<i32> {
 
     let mut session = match (args.session, args.session_read_only, url.host()) {
         (Some(name_or_path), None, Some(host)) => {
-            Some(Session::load_session(host.to_string(), name_or_path, false))
+            Some(Session::load_session(host.to_string(), name_or_path, false)?)
         }
         (None, Some(name_or_path), Some(host)) => {
-            Some(Session::load_session(host.to_string(), name_or_path, true))
+            Some(Session::load_session(host.to_string(), name_or_path, true)?)
         }
         (_, _, _) => None,
     };
 
     if let Some(ref s) = session {
-        for (key, value) in s.headers().iter() {
+        for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert(value.clone());
         }
     }
@@ -228,8 +228,8 @@ fn main() -> Result<i32> {
     };
 
     if let Some(ref mut s) = session {
-        s.save_auth(&request.headers());
-        s.save_headers(&headers);
+        s.save_auth(&request.headers())?;
+        s.save_headers(&headers)?;
     }
 
     let buffer = Buffer::new(
@@ -278,7 +278,7 @@ fn main() -> Result<i32> {
         }
 
         if let Some(ref mut s) = session {
-            s.save_cookies(&response.headers());
+            s.save_cookies(&response.headers())?;
         }
 
         if print.response_headers {
@@ -302,7 +302,7 @@ fn main() -> Result<i32> {
 
     if let Some(ref mut s) = session {
         if !s.read_only {
-            s.persist();
+            s.persist()?;
         }
     }
 
