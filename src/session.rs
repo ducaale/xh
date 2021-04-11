@@ -29,7 +29,7 @@ struct Content {
 
 pub struct Session {
     host: String,
-    name_or_path: String,
+    pub name_or_path: String,
     pub read_only: bool,
     content: Content,
 }
@@ -51,13 +51,18 @@ impl Session {
 
     pub fn headers(&self) -> Result<HeaderMap> {
         let mut headers: HeaderMap = HeaderMap::try_from(&self.content.headers)?;
-        let cookies = self.content.cookies.iter()
+        let cookies = self
+            .content
+            .cookies
+            .iter()
             .map(|(_, value)| Cookie::parse(value).unwrap())
             .map(|c| format!("{}={}", c.name(), c.value()))
             .collect::<Vec<_>>()
             .join("; ");
         if !cookies.is_empty() {
-            headers.entry(COOKIE).or_insert(HeaderValue::from_str(&cookies)?);
+            headers
+                .entry(COOKIE)
+                .or_insert(HeaderValue::from_str(&cookies)?);
         }
 
         Ok(headers)
@@ -90,7 +95,9 @@ impl Session {
         for cookie in response_headers.get_all(SET_COOKIE) {
             let raw_cookie = cookie.to_str()?;
             let parsed_cookie = Cookie::parse(raw_cookie)?;
-            self.content.cookies.insert(parsed_cookie.name().into(), raw_cookie.into());
+            self.content
+                .cookies
+                .insert(parsed_cookie.name().into(), raw_cookie.into());
         }
 
         Ok(())

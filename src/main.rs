@@ -139,12 +139,13 @@ fn main() -> Result<i32> {
         }?);
     }
 
-    let mut session = match (args.session, args.session_read_only, url.host()) {
-        (Some(name_or_path), None, Some(host)) => {
-            Some(Session::load_session(host.to_string(), name_or_path, false)?)
-        }
-        (None, Some(name_or_path), Some(host)) => {
-            Some(Session::load_session(host.to_string(), name_or_path, true)?)
+    let mut session = match (&args.session, &args.session_read_only, &url.host()) {
+        (Some(name_or_path), None, Some(host)) | (None, Some(name_or_path), Some(host)) => {
+            let read_only = args.session_read_only.is_some();
+            Some(
+                Session::load_session(host.to_string(), name_or_path.to_string(), read_only)
+                    .context(format!("couldn't load session {}", name_or_path))?,
+            )
         }
         (_, _, _) => None,
     };
@@ -302,7 +303,8 @@ fn main() -> Result<i32> {
 
     if let Some(ref mut s) = session {
         if !s.read_only {
-            s.persist()?;
+            s.persist()
+                .context(format!("couldn't persist session {}", s.name_or_path))?;
         }
     }
 
