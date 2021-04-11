@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Content {
+    // TODO: add __meta__ section
     cookies: HashMap<String, String>,
     headers: HashMap<String, String>,
 }
