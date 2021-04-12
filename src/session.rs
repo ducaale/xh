@@ -10,14 +10,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Content {
-    // TODO: add __meta__ section
+    #[serde(rename = "__meta__")]
+    meta: HashMap<String, String>,
+    // TODO: Replace String with Cookie
+    // (need to use Serde's serialize_with and deserialize_with)
     cookies: HashMap<String, String>,
     headers: HashMap<String, String>,
 }
 
 impl Default for Content {
     fn default() -> Self {
+        let mut meta = HashMap::new();
+        meta.insert("about".into(),  "xh session file".into());
+        meta.insert("xh".into(),  env!("CARGO_PKG_VERSION").into());
         Content {
+            meta,
             cookies: HashMap::new(),
             headers: HashMap::new(),
         }
