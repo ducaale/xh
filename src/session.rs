@@ -87,11 +87,8 @@ impl Session {
             .collect::<Vec<_>>()
             .join("; ");
         if !cookies.is_empty() {
-            headers
-                .entry(COOKIE)
-                .or_insert(HeaderValue::from_str(&cookies)?);
+            headers.insert(COOKIE, HeaderValue::from_str(&cookies)?);
         }
-
         Ok(headers)
     }
 
