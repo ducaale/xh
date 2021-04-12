@@ -21,8 +21,8 @@ struct Content {
 impl Default for Content {
     fn default() -> Self {
         let mut meta = HashMap::new();
-        meta.insert("about".into(),  "xh session file".into());
-        meta.insert("xh".into(),  env!("CARGO_PKG_VERSION").into());
+        meta.insert("about".into(), "xh session file".into());
+        meta.insert("xh".into(), env!("CARGO_PKG_VERSION").into());
         Content {
             meta,
             cookies: HashMap::new(),
