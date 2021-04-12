@@ -41,13 +41,13 @@ fn ensure_file_exists(path: PathBuf) -> Result<PathBuf> {
 }
 
 impl Session {
-    pub fn load_session(host: String, name_or_path: String, read_only: bool) -> Result<Self> {
+    pub fn load_session(host: &str, name_or_path: &str, read_only: bool) -> Result<Self> {
         let path = if name_or_path.contains(std::path::is_separator) {
             ensure_file_exists(PathBuf::from(name_or_path))?
         } else {
             let mut path = dirs::config_dir()
                 .unwrap()
-                .join::<PathBuf>(["xh", "sessions", &host, &name_or_path].iter().collect());
+                .join::<PathBuf>(["xh", "sessions", host, name_or_path].iter().collect());
             path.set_extension("json");
             ensure_file_exists(path)?
         };
