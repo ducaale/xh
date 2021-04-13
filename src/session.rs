@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::{fs, io};
 use std::path::PathBuf;
+use std::{fs, io};
 
 use anyhow::{Context, Result};
 use cookie::Cookie;
@@ -64,7 +64,7 @@ impl Session {
         let content = match fs::read_to_string(&path) {
             Ok(content) => serde_json::from_str::<Content>(&content)?,
             Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
-            Err(err) => return Err(err.into())
+            Err(err) => return Err(err.into()),
         };
 
         // TODO: remove expired cookies
