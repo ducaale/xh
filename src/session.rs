@@ -24,7 +24,7 @@ impl Default for Meta {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
@@ -32,16 +32,6 @@ struct Content {
     // (need to use Serde's serialize_with and deserialize_with)
     cookies: HashMap<String, String>,
     headers: HashMap<String, String>,
-}
-
-impl Default for Content {
-    fn default() -> Self {
-        Content {
-            meta: Meta::default(),
-            cookies: HashMap::new(),
-            headers: HashMap::new(),
-        }
-    }
 }
 
 pub struct Session {
