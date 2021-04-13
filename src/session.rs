@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::{fs, io};
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cookie::Cookie;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, COOKIE, SET_COOKIE};
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ impl Session {
             PathBuf::from(name_or_path)
         } else {
             let mut path = dirs::config_dir()
-                .unwrap()
+                .context("couldn't get config directory")?
                 .join::<PathBuf>(["xh", "sessions", host].iter().collect());
             path.push(format!("{}.json", name_or_path));
             path
