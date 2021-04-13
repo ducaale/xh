@@ -56,8 +56,8 @@ impl Session {
         } else {
             let mut path = dirs::config_dir()
                 .unwrap()
-                .join::<PathBuf>(["xh", "sessions", host, name_or_path].iter().collect());
-            path.set_extension("json");
+                .join::<PathBuf>(["xh", "sessions", host].iter().collect());
+            path.push(format!("{}.json", name_or_path));
             ensure_file_exists(path)?
         };
 
