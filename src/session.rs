@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::fs;
+use std::{fs, io};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -17,8 +17,8 @@ struct Meta {
 impl Default for Meta {
     fn default() -> Self {
         Meta {
-            xh: env!("CARGO_PKG_VERSION").into(),
             about: "xh session file".into(),
+            xh: env!("CARGO_PKG_VERSION").into(),
         }
     }
 }
@@ -52,22 +52,19 @@ pub struct Session {
 impl Session {
     pub fn load_session(host: &str, name_or_path: &str, read_only: bool) -> Result<Self> {
         let path = if name_or_path.contains(std::path::is_separator) {
-            ensure_file_exists(PathBuf::from(name_or_path))?
+            PathBuf::from(name_or_path)
         } else {
             let mut path = dirs::config_dir()
                 .unwrap()
                 .join::<PathBuf>(["xh", "sessions", host].iter().collect());
             path.push(format!("{}.json", name_or_path));
-            ensure_file_exists(path)?
+            path
         };
 
-        let content = {
-            let content = fs::read_to_string(&path)?;
-            if content.is_empty() {
-                Content::default()
-            } else {
-                serde_json::from_str::<Content>(&content)?
-            }
+        let content = match fs::read_to_string(&path) {
+            Ok(content) => serde_json::from_str::<Content>(&content)?,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
+            Err(err) => return Err(err.into())
         };
 
         // TODO: remove expired cookies
@@ -127,17 +124,15 @@ impl Session {
     }
 
     pub fn persist(&self) -> Result<()> {
-        fs::write(&self.path, serde_json::to_string_pretty(&self.content)?)?;
+        if let Some(parent_path) = self.path.parent() {
+            fs::create_dir_all(parent_path)?;
+        }
+        let session_file = fs::File::create(&self.path)?;
+        if !self.read_only {
+            let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+            let mut ser = serde_json::Serializer::with_formatter(session_file, formatter);
+            self.content.serialize(&mut ser)?;
+        }
         Ok(())
-    }
-}
-
-fn ensure_file_exists(path: PathBuf) -> Result<PathBuf> {
-    if path.exists() {
-        Ok(path)
-    } else {
-        fs::create_dir_all(path.parent().unwrap())?;
-        fs::File::create(&path)?;
-        Ok(path)
     }
 }
