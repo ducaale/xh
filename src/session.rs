@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
-use std::{fs, io};
+use std::fs;
+use std::io::{self, Write};
 
 use anyhow::{Context, Result};
 use cookie::Cookie;
@@ -127,11 +128,12 @@ impl Session {
         if let Some(parent_path) = self.path.parent() {
             fs::create_dir_all(parent_path)?;
         }
-        let session_file = fs::File::create(&self.path)?;
+        let mut session_file = fs::File::create(&self.path)?;
         if !self.read_only {
             let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-            let mut ser = serde_json::Serializer::with_formatter(session_file, formatter);
+            let mut ser = serde_json::Serializer::with_formatter(&mut session_file, formatter);
             self.content.serialize(&mut ser)?;
+            session_file.write_all(b"\n")?;
         }
         Ok(())
     }
