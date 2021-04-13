@@ -152,7 +152,7 @@ fn main() -> Result<i32> {
 
     if let Some(ref s) = session {
         for (key, value) in s.headers()?.iter() {
-            headers.entry(key).or_insert(value.clone());
+            headers.entry(key).or_insert_with(|| value.clone());
         }
     }
 
