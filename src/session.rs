@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::path::PathBuf;
 use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use cookie::Cookie;
