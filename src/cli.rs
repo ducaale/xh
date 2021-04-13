@@ -94,10 +94,10 @@ pub struct Cli {
     pub resume: bool,
 
     #[structopt(long)]
-    pub session: Option<String>,
+    pub session: Option<OsString>,
 
     #[structopt(long, conflicts_with = "session")]
-    pub session_read_only: Option<String>,
+    pub session_read_only: Option<OsString>,
 
     #[structopt(skip)]
     pub is_session_read_only: bool,
