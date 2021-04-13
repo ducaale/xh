@@ -99,6 +99,9 @@ pub struct Cli {
     #[structopt(long, conflicts_with = "session")]
     pub session_read_only: Option<String>,
 
+    #[structopt(skip)]
+    pub is_session_read_only: bool,
+
     // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
     #[structopt(short = "A", long, possible_values = &AuthType::variants(),
@@ -419,6 +422,10 @@ impl Cli {
             self.request_type = RequestType::Form;
         } else if self.multipart {
             self.request_type = RequestType::Multipart;
+        }
+        if self.session_read_only.is_some() {
+            self.is_session_read_only = true;
+            self.session = mem::take(&mut self.session_read_only);
         }
         Ok(())
     }

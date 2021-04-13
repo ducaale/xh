@@ -139,15 +139,12 @@ fn main() -> Result<i32> {
         }?);
     }
 
-    let mut session = match (&args.session, &args.session_read_only, &url.host_str()) {
-        (Some(name_or_path), None, Some(host)) | (None, Some(name_or_path), Some(host)) => {
-            let read_only = args.session_read_only.is_some();
-            Some(
-                Session::load_session(host, name_or_path, read_only)
-                    .context(format!("couldn't load session {}", name_or_path))?,
-            )
-        }
-        (_, _, _) => None,
+    let mut session = match (&args.session, &url.host_str()) {
+        (Some(name_or_path), Some(host)) => Some(
+            Session::load_session(host, name_or_path, args.is_session_read_only)
+                .context(format!("couldn't load session {}", name_or_path))?,
+        ),
+        (_, _) => None,
     };
 
     if let Some(ref s) = session {
