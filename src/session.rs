@@ -3,9 +3,10 @@ use std::convert::TryFrom;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use cookie::Cookie;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, COOKIE, SET_COOKIE};
 use serde::{Deserialize, Serialize};
 
@@ -24,13 +25,49 @@ impl Default for Meta {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Cookie {
+    name: String,
+    value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secure: Option<bool>,
+}
+
+impl Cookie {
+    fn has_expired(&self) -> bool {
+        let start = SystemTime::now();
+        let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap();
+        match self.expires {
+            Some(expires) => u128::try_from(expires).unwrap() > since_the_epoch.as_millis(),
+            None => false
+        }
+    }
+}
+
+impl FromStr for Cookie {
+    type Err = cookie::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let c = cookie::Cookie::parse(s)?;
+        Ok(Cookie {
+            name: c.name().into(),
+            value: c.value().into(),
+            expires: c.expires().and_then(|v| v.datetime()).map(|v| v.unix_timestamp()),
+            path: c.path().map(Into::into),
+            secure: c.secure(),
+        })
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
-    // TODO: Replace String with Cookie
-    // (need to use Serde's serialize_with and deserialize_with)
-    cookies: HashMap<String, String>,
+    cookies: HashMap<String, Cookie>,
     headers: HashMap<String, String>,
 }
 
@@ -58,7 +95,6 @@ impl Session {
             Err(err) => return Err(err.into()),
         };
 
-        // TODO: remove expired cookies
         Ok(Session {
             path,
             read_only,
@@ -72,8 +108,8 @@ impl Session {
             .content
             .cookies
             .values()
-            .map(|value| Cookie::parse(value).unwrap())
-            .map(|c| format!("{}={}", c.name(), c.value()))
+            .filter(|c| c.has_expired())
+            .map(|c| format!("{}={}", c.name, c.value))
             .collect::<Vec<_>>()
             .join("; ");
         if !cookies.is_empty() {
@@ -105,11 +141,10 @@ impl Session {
 
     pub fn save_cookies(&mut self, response_headers: &HeaderMap) -> Result<()> {
         for cookie in response_headers.get_all(SET_COOKIE) {
-            let raw_cookie = cookie.to_str()?;
-            let parsed_cookie = Cookie::parse(raw_cookie)?;
+            let parsed_cookie = Cookie::from_str(cookie.to_str()?)?;
             self.content
                 .cookies
-                .insert(parsed_cookie.name().into(), raw_cookie.into());
+                .insert(parsed_cookie.name.clone(), parsed_cookie);
         }
         Ok(())
     }
