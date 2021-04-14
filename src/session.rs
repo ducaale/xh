@@ -43,7 +43,7 @@ impl Cookie {
         let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap();
         match self.expires {
             Some(expires) => u128::try_from(expires).unwrap() > since_the_epoch.as_millis(),
-            None => false
+            None => false,
         }
     }
 }
@@ -56,7 +56,10 @@ impl FromStr for Cookie {
         Ok(Cookie {
             name: c.name().into(),
             value: c.value().into(),
-            expires: c.expires().and_then(|v| v.datetime()).map(|v| v.unix_timestamp()),
+            expires: c
+                .expires()
+                .and_then(|v| v.datetime())
+                .map(|v| v.unix_timestamp()),
             path: c.path().map(Into::into),
             secure: c.secure(),
         })
