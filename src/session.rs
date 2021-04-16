@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, COOKIE, SET_COOKIE};
@@ -30,7 +30,7 @@ struct Cookie {
     name: String,
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    expires: Option<i64>,
+    expires: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,10 +39,8 @@ struct Cookie {
 
 impl Cookie {
     fn has_expired(&self) -> bool {
-        let start = SystemTime::now();
-        let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap();
         match self.expires {
-            Some(expires) => u128::try_from(expires).unwrap() > since_the_epoch.as_millis(),
+            Some(expires) => UNIX_EPOCH + Duration::from_millis(expires) < SystemTime::now(),
             None => false,
         }
     }
@@ -59,7 +57,8 @@ impl FromStr for Cookie {
             expires: c
                 .expires()
                 .and_then(|v| v.datetime())
-                .map(|v| v.unix_timestamp()),
+                .map(|v| v.unix_timestamp())
+                .and_then(|v| u64::try_from(v).ok()),
             path: c.path().map(Into::into),
             secure: c.secure(),
         })
@@ -111,7 +110,7 @@ impl Session {
             .content
             .cookies
             .values()
-            .filter(|c| c.has_expired())
+            .filter(|c| !c.has_expired())
             .map(|c| format!("{}={}", c.name, c.value))
             .collect::<Vec<_>>()
             .join("; ");
