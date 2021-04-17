@@ -1,4 +1,4 @@
-use std::{fs, fs::File, collections::HashSet, io, path::Path, str::FromStr};
+use std::{collections::HashSet, fs, fs::File, io, path::Path, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};

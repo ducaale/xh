@@ -57,7 +57,7 @@ impl Cookie {
                     .and_then(|v| u64::try_from(v).ok()),
                 path: c.path().map(Into::into),
                 secure: c.secure(),
-            }
+            },
         ))
     }
 }
@@ -143,9 +143,7 @@ impl Session {
     pub fn save_cookies(&mut self, response_headers: &HeaderMap) -> Result<()> {
         for cookie in response_headers.get_all(SET_COOKIE) {
             let (name, parsed_cookie) = Cookie::parse(cookie.to_str()?)?;
-            self.content
-                .cookies
-                .insert(name, parsed_cookie);
+            self.content.cookies.insert(name, parsed_cookie);
         }
         Ok(())
     }
@@ -211,7 +209,7 @@ mod tests {
         path_to_session.push("session1.json");
         fs::write(
             &path_to_session,
-            indoc::indoc!{r#"
+            indoc::indoc! {r#"
                 {
                     "__meta__": {
                         "about": "HTTPie session file",
@@ -235,7 +233,7 @@ mod tests {
                         "authorization": "bearer hello"
                     }
                 }
-            "#}
+            "#},
         )?;
 
         Session::load_session("localhost", path_to_session.into(), false)?;
