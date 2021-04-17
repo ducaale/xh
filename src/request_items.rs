@@ -1,4 +1,4 @@
-use std::{fs, fs::File, io, path::Path, str::FromStr};
+use std::{fs, fs::File, collections::HashSet, io, path::Path, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -177,20 +177,21 @@ impl RequestItems {
             .any(|item| matches!(item, RequestItem::FormFile(..)))
     }
 
-    pub fn headers(&self) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
+    pub fn headers(&self) -> Result<(HeaderMap<HeaderValue>, HashSet<HeaderName>)> {
         let mut headers = HeaderMap::new();
-        let mut headers_to_unset = vec![];
+        let mut headers_to_unset = HashSet::new();
         for item in &self.0 {
             match item {
                 RequestItem::HttpHeader(key, value) => {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     let value = HeaderValue::from_str(&value)?;
+                    headers_to_unset.remove(&key);
                     headers.insert(key, value);
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers.remove(&key);
-                    headers_to_unset.push(key);
+                    headers_to_unset.insert(key);
                 }
                 RequestItem::UrlParam(..) => {}
                 RequestItem::DataField(..) => {}

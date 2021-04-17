@@ -1096,3 +1096,23 @@ fn can_unset_headers() {
 
         "#});
 }
+
+#[test]
+fn can_set_unset_header() {
+    get_command()
+        .arg(":")
+        .arg("hello:")
+        .arg("hello:world")
+        .arg("--offline")
+        .assert()
+        .stdout(indoc! {r#"
+            GET / HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, deflate
+            connection: keep-alive
+            hello: world
+            host: http.mock
+            user-agent: xh/0.0.0 (test mode)
+
+        "#});
+}
