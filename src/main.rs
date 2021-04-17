@@ -276,7 +276,9 @@ fn main() -> Result<i32> {
         }
 
         if let Some(ref mut s) = session {
-            s.save_cookies(&response.headers())?;
+            if orig_url.host() == response.url().host() {
+                s.save_cookies(&response.headers())?;
+            }
         }
 
         if print.response_headers {
