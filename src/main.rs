@@ -27,7 +27,7 @@ use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
-use crate::session::Session;
+use crate::session::{merge_headers, Session};
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -152,9 +152,7 @@ fn main() -> Result<i32> {
     };
 
     if let Some(ref s) = session {
-        for (key, value) in s.headers()?.iter() {
-            headers.entry(key).or_insert_with(|| value.clone());
-        }
+        headers = merge_headers(s.headers()?, headers)
     }
 
     let client = client.build()?;

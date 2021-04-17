@@ -165,3 +165,29 @@ impl Session {
         Ok(())
     }
 }
+
+fn insert_cookie(headers: &mut HeaderMap, cookie: HeaderValue) {
+    if let Some(existing_cookie) = headers.get(COOKIE) {
+        let cookie = HeaderValue::from_str(&format!(
+            "{}; {}",
+            existing_cookie.to_str().unwrap(),
+            cookie.to_str().unwrap()
+        ))
+        .unwrap();
+        headers.insert(COOKIE, cookie);
+    } else {
+        headers.insert(COOKIE, cookie);
+    }
+}
+
+pub fn merge_headers(mut headers1: HeaderMap, headers2: HeaderMap) -> HeaderMap {
+    for (key, value) in headers2.iter() {
+        if key != COOKIE {
+            headers1.insert(key, value.clone());
+        } else {
+            insert_cookie(&mut headers1, value.clone());
+        }
+    }
+
+    headers1
+}
