@@ -4,7 +4,6 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -14,21 +13,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 struct Meta {
     about: String,
-    xh: String,
+    xh: Option<String>,
 }
 
 impl Default for Meta {
     fn default() -> Self {
         Meta {
             about: "xh session file".into(),
-            xh: env!("CARGO_PKG_VERSION").into(),
+            xh: Some(env!("CARGO_PKG_VERSION").into()),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Cookie {
-    name: String,
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<u64>,
@@ -45,27 +43,26 @@ impl Cookie {
             None => false,
         }
     }
-}
 
-impl FromStr for Cookie {
-    type Err = cookie::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn parse(s: &str) -> Result<(String, Self), cookie::ParseError> {
         let c = cookie::Cookie::parse(s)?;
-        Ok(Cookie {
-            name: c.name().into(),
-            value: c.value().into(),
-            expires: c
-                .expires()
-                .and_then(|v| v.datetime())
-                .map(|v| v.unix_timestamp())
-                .and_then(|v| u64::try_from(v).ok()),
-            path: c.path().map(Into::into),
-            secure: c.secure(),
-        })
+        Ok((
+            c.name().into(),
+            Cookie {
+                value: c.value().into(),
+                expires: c
+                    .expires()
+                    .and_then(|v| v.datetime())
+                    .map(|v| v.unix_timestamp())
+                    .and_then(|v| u64::try_from(v).ok()),
+                path: c.path().map(Into::into),
+                secure: c.secure(),
+            }
+        ))
     }
 }
 
+// Note: Unlike xh, HTTPie has a dedicated section for auth info
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
@@ -111,9 +108,9 @@ impl Session {
         let cookies = self
             .content
             .cookies
-            .values()
-            .filter(|c| !c.has_expired())
-            .map(|c| format!("{}={}", c.name, c.value))
+            .iter()
+            .filter(|(_, cookie)| !cookie.has_expired())
+            .map(|(name, cookie)| format!("{}={}", name, cookie.value))
             .collect::<Vec<_>>()
             .join("; ");
         if !cookies.is_empty() {
@@ -145,10 +142,10 @@ impl Session {
 
     pub fn save_cookies(&mut self, response_headers: &HeaderMap) -> Result<()> {
         for cookie in response_headers.get_all(SET_COOKIE) {
-            let parsed_cookie = Cookie::from_str(cookie.to_str()?)?;
+            let (name, parsed_cookie) = Cookie::parse(cookie.to_str()?)?;
             self.content
                 .cookies
-                .insert(parsed_cookie.name.clone(), parsed_cookie);
+                .insert(name, parsed_cookie);
         }
         Ok(())
     }
@@ -201,4 +198,47 @@ pub fn merge_headers(mut headers1: HeaderMap, headers2: HeaderMap) -> HeaderMap 
         }
     }
     headers1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+
+    #[test]
+    fn can_read_httpie_session_file() -> Result<()> {
+        let mut path_to_session = std::env::temp_dir();
+        path_to_session.push("session1.json");
+        fs::write(
+            &path_to_session,
+            indoc::indoc!{r#"
+                {
+                    "__meta__": {
+                        "about": "HTTPie session file",
+                        "help": "https://httpie.org/doc#sessions",
+                        "httpie": "2.3.0"
+                    },
+                    "auth": {
+                        "password": null,
+                        "type": null,
+                        "username": null
+                    },
+                    "cookies": {
+                        "__cfduid": {
+                            "expires": 1620239688,
+                            "path": "/",
+                            "secure": false,
+                            "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
+                        }
+                    },
+                    "headers": {
+                        "authorization": "bearer hello"
+                    }
+                }
+            "#}
+        )?;
+
+        Session::load_session("localhost", path_to_session.into(), false)?;
+        Ok(())
+    }
 }
