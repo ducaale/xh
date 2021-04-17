@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -80,14 +81,15 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn load_session(host: &str, name_or_path: &str, read_only: bool) -> Result<Self> {
-        let path = if name_or_path.contains(std::path::is_separator) {
+    pub fn load_session(host: &str, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
+        let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
             let mut path = dirs::config_dir()
                 .context("couldn't get config directory")?
                 .join::<PathBuf>(["xh", "sessions", host].iter().collect());
-            path.push(format!("{}.json", name_or_path));
+            name_or_path.push(".json");
+            path.push(name_or_path);
             path
         };
 
@@ -166,6 +168,10 @@ impl Session {
     }
 }
 
+fn is_path(value: &OsString) -> bool {
+    value.to_string_lossy().contains(std::path::is_separator)
+}
+
 fn insert_cookie(headers: &mut HeaderMap, cookie: HeaderValue) {
     if let Some(existing_cookie) = headers.get(COOKIE) {
         let cookie = HeaderValue::from_str(&format!(
@@ -191,7 +197,7 @@ pub fn merge_headers(mut headers1: HeaderMap, headers2: HeaderMap) -> HeaderMap 
             Some(ref current_key) => {
                 headers1.insert(current_key, value);
             }
-            None => unreachable!()
+            None => unreachable!(),
         }
     }
     headers1

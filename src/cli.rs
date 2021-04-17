@@ -93,10 +93,10 @@ pub struct Cli {
     #[structopt(short = "c", long = "continue", name = "continue")]
     pub resume: bool,
 
-    #[structopt(long)]
+    #[structopt(long, parse(from_os_str))]
     pub session: Option<OsString>,
 
-    #[structopt(long, conflicts_with = "session")]
+    #[structopt(long, conflicts_with = "session", parse(from_os_str))]
     pub session_read_only: Option<OsString>,
 
     #[structopt(skip)]
