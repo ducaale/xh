@@ -181,13 +181,18 @@ fn insert_cookie(headers: &mut HeaderMap, cookie: HeaderValue) {
 }
 
 pub fn merge_headers(mut headers1: HeaderMap, headers2: HeaderMap) -> HeaderMap {
-    for (key, value) in headers2.iter() {
-        if key != COOKIE {
-            headers1.insert(key, value.clone());
-        } else {
-            insert_cookie(&mut headers1, value.clone());
+    let mut current_key = None;
+    for (key, value) in headers2 {
+        current_key = key.or(current_key);
+        match current_key {
+            Some(ref current_key) if current_key == COOKIE => {
+                insert_cookie(&mut headers1, value);
+            }
+            Some(ref current_key) => {
+                headers1.insert(current_key, value);
+            }
+            None => unreachable!()
         }
     }
-
     headers1
 }
