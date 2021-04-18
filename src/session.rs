@@ -250,4 +250,41 @@ mod tests {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn can_deserialize_auth_section() -> Result<()> {
+        let mut path_to_session = std::env::temp_dir();
+        path_to_session.push("session2.json");
+        fs::write(
+            &path_to_session,
+            indoc::indoc! {r#"
+                {
+                    "__meta__": {
+                        "about": "HTTPie session file",
+                        "help": "https://httpie.org/doc#sessions",
+                        "httpie": "2.3.0"
+                    },
+                    "auth": {
+                        "type": "basic",
+                        "raw_auth": "user:pass"
+                    },
+                    "cookies": {},
+                    "headers": {}
+                }
+            "#},
+        )?;
+
+        let session = Session::load_session(
+            &Url::parse("http://localhost")?,
+            path_to_session.into(),
+            false,
+        )?;
+
+        assert_eq!(
+            session.content.headers.get("authorization"),
+            Some(&"Basic dXNlcjpwYXNz".to_string()),
+        );
+
+        Ok(())
+    }
 }
