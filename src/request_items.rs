@@ -179,6 +179,7 @@ impl RequestItems {
 
     pub fn headers(&self) -> Result<(HeaderMap<HeaderValue>, HashSet<HeaderName>)> {
         let mut headers = HeaderMap::new();
+        #[allow(clippy::mutable_key_type)]
         let mut headers_to_unset = HashSet::new();
         for item in &self.0 {
             match item {
