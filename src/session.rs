@@ -57,9 +57,8 @@ impl From<Cookie> for cookie_crate::Cookie<'static> {
     fn from(c: Cookie) -> cookie_crate::Cookie<'static> {
         let mut cookie_builder = cookie_crate::Cookie::build(c.name, c.value);
         if let Some(expires) = c.expires {
-            cookie_builder = cookie_builder.expires(
-                time::OffsetDateTime::from_unix_timestamp(expires)
-            );
+            cookie_builder =
+                cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
         }
         if let Some(path) = c.path {
             cookie_builder = cookie_builder.path(path);
@@ -133,7 +132,9 @@ impl Session {
     }
 
     pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
-        self.content.cookies.values()
+        self.content
+            .cookies
+            .values()
             .map(Clone::clone)
             .map(Into::into)
             .collect::<Vec<_>>()
@@ -163,7 +164,9 @@ impl Session {
     pub fn save_cookies(&mut self, response_cookies: Vec<&cookie_crate::Cookie>) {
         self.content.cookies.clear();
         for cookie in response_cookies {
-            self.content.cookies.insert(cookie.name().into(), cookie.into());
+            self.content
+                .cookies
+                .insert(cookie.name().into(), cookie.into());
         }
     }
 
@@ -224,7 +227,11 @@ mod tests {
             "#},
         )?;
 
-        Session::load_session("localhost", path_to_session.into(), false)?;
+        Session::load_session(
+            &Url::parse("http://localhost")?,
+            path_to_session.into(),
+            false,
+        )?;
         Ok(())
     }
 }

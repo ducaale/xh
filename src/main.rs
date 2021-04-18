@@ -18,7 +18,7 @@ use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT, COOKIE,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
 use reqwest::redirect::Policy;
 
