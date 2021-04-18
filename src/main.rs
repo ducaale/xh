@@ -12,12 +12,13 @@ mod utils;
 
 use std::fs::File;
 use std::io::{stdin, Read};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT, COOKIE,
 };
 use reqwest::redirect::Policy;
 
@@ -27,7 +28,7 @@ use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
-use crate::session::{merge_headers, Session};
+use crate::session::Session;
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -139,6 +140,9 @@ fn main() -> Result<i32> {
         }?);
     }
 
+    let cookie_jar = Arc::new(cookie_store::CookieStoreMutex::default());
+    client = client.cookie_provider(cookie_jar.clone());
+
     let mut session = match (&args.session, &url.host_str()) {
         (Some(name_or_path), Some(host)) => Some(
             Session::load_session(host, name_or_path.clone(), args.is_session_read_only)
@@ -150,7 +154,17 @@ fn main() -> Result<i32> {
     };
 
     if let Some(ref s) = session {
-        headers = merge_headers(s.headers()?, headers)
+        for (key, value) in s.headers()?.iter() {
+            headers.entry(key).or_insert_with(|| value.clone());
+        }
+        let mut cookie_jar = cookie_jar.lock().unwrap();
+        for cookie in s.cookies() {
+            cookie_jar.insert_raw(&cookie, &url)?;
+        }
+        for cookie in headers.get_all(COOKIE) {
+            let c: cookie_crate::Cookie = cookie.to_str()?.parse()?;
+            cookie_jar.insert_raw(&c, &url)?;
+        }
     }
 
     let client = client.build()?;
@@ -276,9 +290,11 @@ fn main() -> Result<i32> {
         }
 
         if let Some(ref mut s) = session {
-            if orig_url.host() == response.url().host() {
-                s.save_cookies(&response.headers())?;
-            }
+            let cookie_jar = cookie_jar.lock().unwrap();
+            let response_cookies = cookie_jar
+                .get_request_cookies(&orig_url)
+                .collect::<Vec<_>>();
+            s.save_cookies(response_cookies);
         }
 
         if print.response_headers {

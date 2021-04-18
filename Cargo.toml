@@ -13,7 +13,8 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
-cookie = "0.15"
+cookie_crate = { version = "0.15", package = "cookie" }
+cookie_store = "0.13"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
@@ -34,12 +35,13 @@ serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
 structopt = "0.3"
 termcolor = "1.1.2"
+time = "0.2.26"
 jsonxf = "1.1.0"
 
 [dependencies.reqwest]
 version = "0.11.1"
 default-features = false
-features = ["rustls-tls", "json", "gzip", "brotli", "multipart", "blocking", "socks"]
+features = ["rustls-tls", "json", "gzip", "brotli", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"

@@ -4,10 +4,9 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, COOKIE, SET_COOKIE};
+use reqwest::header::{HeaderMap, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,40 +24,49 @@ impl Default for Meta {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Cookie {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Cookie {
+    #[serde(default)]
+    name: String,
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    expires: Option<u64>,
+    expires: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     secure: Option<bool>,
 }
 
-impl Cookie {
-    fn has_expired(&self) -> bool {
-        match self.expires {
-            Some(expires) => UNIX_EPOCH + Duration::from_millis(expires) < SystemTime::now(),
-            None => false,
+impl From<&cookie_crate::Cookie<'_>> for Cookie {
+    fn from(c: &cookie_crate::Cookie) -> Self {
+        Cookie {
+            name: c.name().into(),
+            value: c.value().into(),
+            expires: c
+                .expires()
+                .and_then(|v| v.datetime())
+                .map(|v| v.unix_timestamp()),
+            path: c.path().map(Into::into),
+            secure: c.secure(),
         }
     }
+}
 
-    fn parse(s: &str) -> Result<(String, Self), cookie::ParseError> {
-        let c = cookie::Cookie::parse(s)?;
-        Ok((
-            c.name().into(),
-            Cookie {
-                value: c.value().into(),
-                expires: c
-                    .expires()
-                    .and_then(|v| v.datetime())
-                    .map(|v| v.unix_timestamp())
-                    .and_then(|v| u64::try_from(v).ok()),
-                path: c.path().map(Into::into),
-                secure: c.secure(),
-            },
-        ))
+impl From<Cookie> for cookie_crate::Cookie<'static> {
+    fn from(c: Cookie) -> cookie_crate::Cookie<'static> {
+        let mut cookie_builder = cookie_crate::Cookie::build(c.name, c.value);
+        if let Some(expires) = c.expires {
+            cookie_builder = cookie_builder.expires(
+                time::OffsetDateTime::from_unix_timestamp(expires)
+            );
+        }
+        if let Some(path) = c.path {
+            cookie_builder = cookie_builder.path(path);
+        }
+        if let Some(secure) = c.secure {
+            cookie_builder = cookie_builder.secure(secure);
+        }
+        cookie_builder.finish()
     }
 }
 
@@ -78,6 +86,7 @@ pub struct Session {
 }
 
 impl Session {
+    // TODO: include port in host
     pub fn load_session(host: &str, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
@@ -91,7 +100,13 @@ impl Session {
         };
 
         let content = match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str::<Content>(&content)?,
+            Ok(content) => {
+                let mut parsed = serde_json::from_str::<Content>(&content)?;
+                for (name, cookie) in parsed.cookies.iter_mut() {
+                    cookie.name = name.clone();
+                }
+                parsed
+            }
             Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
             Err(err) => return Err(err.into()),
         };
@@ -104,19 +119,14 @@ impl Session {
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
-        let mut headers: HeaderMap = HeaderMap::try_from(&self.content.headers)?;
-        let cookies = self
-            .content
-            .cookies
-            .iter()
-            .filter(|(_, cookie)| !cookie.has_expired())
-            .map(|(name, cookie)| format!("{}={}", name, cookie.value))
+        Ok(HeaderMap::try_from(&self.content.headers)?)
+    }
+
+    pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
+        self.content.cookies.values()
+            .map(Clone::clone)
+            .map(Into::into)
             .collect::<Vec<_>>()
-            .join("; ");
-        if !cookies.is_empty() {
-            headers.insert(COOKIE, HeaderValue::from_str(&cookies)?);
-        }
-        Ok(headers)
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
@@ -140,12 +150,11 @@ impl Session {
         Ok(())
     }
 
-    pub fn save_cookies(&mut self, response_headers: &HeaderMap) -> Result<()> {
-        for cookie in response_headers.get_all(SET_COOKIE) {
-            let (name, parsed_cookie) = Cookie::parse(cookie.to_str()?)?;
-            self.content.cookies.insert(name, parsed_cookie);
+    pub fn save_cookies(&mut self, response_cookies: Vec<&cookie_crate::Cookie>) {
+        self.content.cookies.clear();
+        for cookie in response_cookies {
+            self.content.cookies.insert(cookie.name().into(), cookie.into());
         }
-        Ok(())
     }
 
     pub fn persist(&self) -> Result<()> {
@@ -165,37 +174,6 @@ impl Session {
 
 fn is_path(value: &OsString) -> bool {
     value.to_string_lossy().contains(std::path::is_separator)
-}
-
-fn insert_cookie(headers: &mut HeaderMap, cookie: HeaderValue) {
-    if let Some(existing_cookie) = headers.get(COOKIE) {
-        let cookie = HeaderValue::from_str(&format!(
-            "{}; {}",
-            existing_cookie.to_str().unwrap(),
-            cookie.to_str().unwrap()
-        ))
-        .unwrap();
-        headers.insert(COOKIE, cookie);
-    } else {
-        headers.insert(COOKIE, cookie);
-    }
-}
-
-pub fn merge_headers(mut headers1: HeaderMap, headers2: HeaderMap) -> HeaderMap {
-    let mut current_key = None;
-    for (key, value) in headers2 {
-        current_key = key.or(current_key);
-        match current_key {
-            Some(ref current_key) if current_key == COOKIE => {
-                insert_cookie(&mut headers1, value);
-            }
-            Some(ref current_key) => {
-                headers1.insert(current_key, value);
-            }
-            None => unreachable!(),
-        }
-    }
-    headers1
 }
 
 #[cfg(test)]
