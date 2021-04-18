@@ -76,7 +76,7 @@ Each option can be reset with a --no-OPTION argument.
 
 Run `xh help` for more detailed information.
 
-## Request Items
+### Request Items
 
 `xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
@@ -87,7 +87,7 @@ Run `xh help` for more detailed information.
 * `;` for including headers with empty values e.g `header-without-value;`.
 * `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
 
-## xh and xhs
+### xh and xhs
 
 `xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
 via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:
