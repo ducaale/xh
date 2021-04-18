@@ -13,6 +13,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+base64 = "0.13"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { git = "https://github.com/blyxxyz/cookie_store", branch = "no-reqwest-default-features" }
 dirs = "3.0.1"

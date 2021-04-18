@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 struct Meta {
     about: String,
-    xh: Option<String>,
+    xh: Option<String>, // needed to maintain compatibility with HTTPie's session files
 }
 
 impl Default for Meta {
@@ -23,6 +23,13 @@ impl Default for Meta {
             xh: Some(env!("CARGO_PKG_VERSION").into()),
         }
     }
+}
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+struct Auth {
+    #[serde(rename = "type")]
+    auth_type: Option<String>,
+    raw_auth: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -70,11 +77,12 @@ impl From<Cookie> for cookie_crate::Cookie<'static> {
     }
 }
 
-// Note: Unlike xh, HTTPie has a dedicated section for auth info
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
+    #[serde(skip_serializing)]
+    auth: Auth, // needed to maintain compatibility with HTTPie's session files
     cookies: HashMap<String, Cookie>,
     headers: HashMap<String, String>,
 }
@@ -113,6 +121,14 @@ impl Session {
                 let mut parsed = serde_json::from_str::<Content>(&content)?;
                 for (name, cookie) in parsed.cookies.iter_mut() {
                     cookie.name = name.clone();
+                }
+                if let Auth { auth_type: Some(ref auth_type), raw_auth: Some(ref raw_auth) } = parsed.auth {
+                    if auth_type.as_str() == "basic" {
+                        parsed.headers.entry("authorization".into())
+                            .or_insert_with(|| {
+                                format!("Basic {}", base64::encode(raw_auth))
+                            });
+                    }
                 }
                 parsed
             }

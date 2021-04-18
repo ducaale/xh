@@ -2771,6 +2771,7 @@ dependencies = [
  "assert_cmd",
  "assert_matches",
  "atty",
+ "base64",
  "cookie 0.15.0",
  "cookie_store 0.13.3",
  "curl",
