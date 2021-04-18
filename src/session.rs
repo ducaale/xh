@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 struct Meta {
     about: String,
-    xh: Option<String>, // needed to maintain compatibility with HTTPie's session files
+    xh: Option<String>, // optional to be able to load HTTPie's session files
 }
 
 impl Default for Meta {
