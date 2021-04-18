@@ -122,12 +122,16 @@ impl Session {
                 for (name, cookie) in parsed.cookies.iter_mut() {
                     cookie.name = name.clone();
                 }
-                if let Auth { auth_type: Some(ref auth_type), raw_auth: Some(ref raw_auth) } = parsed.auth {
+                if let Auth {
+                    auth_type: Some(ref auth_type),
+                    raw_auth: Some(ref raw_auth),
+                } = parsed.auth
+                {
                     if auth_type.as_str() == "basic" {
-                        parsed.headers.entry("authorization".into())
-                            .or_insert_with(|| {
-                                format!("Basic {}", base64::encode(raw_auth))
-                            });
+                        parsed
+                            .headers
+                            .entry("authorization".into())
+                            .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
                     }
                 }
                 parsed
