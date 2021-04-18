@@ -27,7 +27,7 @@ pacman -S xh
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
 ### From source
-Make sure that you have Rust 1.45 or later installed.
+Make sure that you have Rust 1.46 or later installed.
 
 ```
 cargo install xh
