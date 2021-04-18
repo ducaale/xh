@@ -5,8 +5,9 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use reqwest::header::{HeaderMap, AUTHORIZATION};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,14 +87,23 @@ pub struct Session {
 }
 
 impl Session {
-    // TODO: include port in host
-    pub fn load_session(host: &str, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
+    pub fn load_session(url: &Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
             let mut path = dirs::config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["xh", "sessions", host].iter().collect());
+                .join::<PathBuf>(["xh", "sessions"].iter().collect());
+
+            let url = match (url.host_str(), url.port()) {
+                (Some(host), Some(port)) => format!("{}_{}", host, port),
+                (Some(host), None) => host.into(),
+                (None, _) => {
+                    return Err(anyhow!("couldn't extract host from url"));
+                }
+            };
+            path.push(url);
+
             name_or_path.push(".json");
             path.push(name_or_path);
             path

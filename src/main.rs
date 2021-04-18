@@ -143,14 +143,14 @@ fn main() -> Result<i32> {
     let cookie_jar = Arc::new(cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
 
-    let mut session = match (&args.session, &url.host_str()) {
-        (Some(name_or_path), Some(host)) => Some(
-            Session::load_session(host, name_or_path.clone(), args.is_session_read_only)
+    let mut session = match &args.session {
+        Some(name_or_path) => Some(
+            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
         ),
-        (_, _) => None,
+        None => None,
     };
 
     if let Some(ref s) = session {
