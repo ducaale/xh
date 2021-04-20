@@ -38,7 +38,7 @@ termcolor = "1.1.2"
 [dependencies.reqwest]
 version = "0.11.1"
 default-features = false
-features = ["blocking", "brotli", "gzip", "json", "multipart", "rustls-tls", "socks"]
+features = ["blocking", "brotli", "gzip", "json", "multipart", "rustls-tls", "socks", "trust-dns"]
 
 [dependencies.syntect]
 version = "4.4"
