@@ -19,6 +19,7 @@ encoding_rs_io = "0.1.7"
 exit_status = "0.1.0"
 humantime = "2.1.0"
 indicatif = "0.15.0"
+jsonxf = "1.1.0"
 lazy_static = "1.4.0"
 memchr = "2.3.4"
 mime = "0.3.16"
@@ -33,17 +34,16 @@ serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
 structopt = "0.3"
 termcolor = "1.1.2"
-jsonxf = "1.1.0"
 
 [dependencies.reqwest]
 version = "0.11.1"
 default-features = false
-features = ["rustls-tls", "json", "gzip", "brotli", "multipart", "blocking", "socks"]
+features = ["blocking", "brotli", "gzip", "json", "multipart", "rustls-tls", "socks"]
 
 [dependencies.syntect]
 version = "4.4"
 default-features = false
-features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+features = ["dump-create", "dump-load", "html", "parsing", "regex-onig", "yaml-load"]
 
 [dev-dependencies]
 # Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
