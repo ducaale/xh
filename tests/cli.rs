@@ -14,6 +14,16 @@ use predicates::prelude::*;
 use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
+pub fn random_string() -> String {
+    use rand::Rng;
+
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect()
+}
+
 fn get_base_command() -> Command {
     let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
     cmd.env("HOME", "");
@@ -1115,4 +1125,48 @@ fn can_set_unset_header() {
             user-agent: xh/0.0.0 (test mode)
 
         "#});
+}
+
+#[test]
+fn anonymous_sessions() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.header("set-cookie", "cook1=one; Path=/");
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .arg("--auth=me:pass")
+        .arg("hello:world")
+        .assert()
+        .success();
+
+    mock.assert();
+
+    let session_content = read_to_string(path_to_session).unwrap();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "cookies": {
+                "cook1": {
+                    "name": "cook1",
+                    "value": "one"
+                }
+            },
+            "headers": {
+                "hello": "world",
+                "authorization": "Basic bWU6cGFzcw=="
+            }
+        })
+    );
 }
