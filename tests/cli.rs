@@ -1079,7 +1079,7 @@ fn can_unset_default_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, deflate
+            accept-encoding: gzip, br
             connection: keep-alive
             host: http.mock
 
@@ -1098,7 +1098,7 @@ fn can_unset_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, deflate
+            accept-encoding: gzip, br
             connection: keep-alive
             hello: world
             host: http.mock
@@ -1118,7 +1118,7 @@ fn can_set_unset_header() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, deflate
+            accept-encoding: gzip, br
             connection: keep-alive
             hello: world
             host: http.mock
@@ -1147,7 +1147,7 @@ fn named_sessions() {
 
     let path_to_session = dirs::config_dir().unwrap().join::<std::path::PathBuf>(
         [
-            "xh",
+            "xh-test",
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
             &format!("{}.json", random_name),
