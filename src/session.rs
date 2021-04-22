@@ -10,6 +10,8 @@ use reqwest::header::{HeaderMap, AUTHORIZATION};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
+use crate::utils::test_mode;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Meta {
     about: String,
@@ -20,7 +22,11 @@ impl Default for Meta {
     fn default() -> Self {
         Meta {
             about: "xh session file".into(),
-            xh: Some(env!("CARGO_PKG_VERSION").into()),
+            xh: Some(if test_mode() {
+                "0.0.0".into()
+            } else {
+                env!("CARGO_PKG_VERSION").into()
+            }),
         }
     }
 }
@@ -82,7 +88,7 @@ struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     #[serde(skip_serializing)]
-    auth: Auth, // needed to maintain compatibility with HTTPie's session files
+    auth: Option<Auth>, // needed to maintain compatibility with HTTPie's session files
     cookies: HashMap<String, Cookie>,
     headers: HashMap<String, String>,
 }
@@ -122,10 +128,10 @@ impl Session {
                 for (name, cookie) in parsed.cookies.iter_mut() {
                     cookie.name = name.clone();
                 }
-                if let Auth {
+                if let Some(Auth {
                     auth_type: Some(ref auth_type),
                     raw_auth: Some(ref raw_auth),
-                } = parsed.auth
+                }) = parsed.auth
                 {
                     if auth_type.as_str() == "basic" {
                         parsed
@@ -212,12 +218,14 @@ fn is_path(value: &OsString) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::random_string;
     use anyhow::Result;
 
     #[test]
     fn can_read_httpie_session_file() -> Result<()> {
         let mut path_to_session = std::env::temp_dir();
-        path_to_session.push("session1.json");
+        let file_name = random_string();
+        path_to_session.push(file_name);
         fs::write(
             &path_to_session,
             indoc::indoc! {r#"
@@ -258,7 +266,8 @@ mod tests {
     #[test]
     fn can_deserialize_auth_section() -> Result<()> {
         let mut path_to_session = std::env::temp_dir();
-        path_to_session.push("session2.json");
+        let file_name = random_string();
+        path_to_session.push(file_name);
         fs::write(
             &path_to_session,
             indoc::indoc! {r#"
@@ -289,6 +298,43 @@ mod tests {
             Some(&"Basic dXNlcjpwYXNz".to_string()),
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn can_read_xh_session_file() -> Result<()> {
+        let mut path_to_session = std::env::temp_dir();
+        let file_name = random_string();
+        path_to_session.push(file_name);
+        fs::write(
+            &path_to_session,
+            indoc::indoc! {r#"
+                {
+                    "__meta__": {
+                        "about": "HTTPie session file",
+                        "xh": "0.9.2"
+                    },
+                    "cookies": {
+                        "__cfduid": {
+                            "expires": 1620239688,
+                            "path": "/",
+                            "secure": false,
+                            "name": "__cfduid",
+                            "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
+                        }
+                    },
+                    "headers": {
+                        "authorization": "bearer hello"
+                    }
+                }
+            "#},
+        )?;
+
+        Session::load_session(
+            &Url::parse("http://localhost")?,
+            path_to_session.into(),
+            false,
+        )?;
         Ok(())
     }
 }

@@ -434,6 +434,7 @@ fn guess_encoding(response: &Response) -> &'static Encoding {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
@@ -445,8 +446,9 @@ mod tests {
         Printer::new(pretty, args.style, false, buffer)
     }
 
-    fn temp_path(filename: &str) -> String {
+    fn temp_path() -> String {
         let mut dir = std::env::temp_dir();
+        let filename = random_string();
         dir.push(filename);
         dir.to_str().unwrap().to_owned()
     }
@@ -467,7 +469,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_with_output_file() {
-        let output = temp_path("temp3");
+        let output = temp_path();
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::File(_));
@@ -475,7 +477,7 @@ mod tests {
 
     #[test]
     fn redirect_mode_with_output_file() {
-        let output = temp_path("temp4");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-o", output],
             false,
@@ -500,7 +502,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_download_with_output_file() {
-        let output = temp_path("temp7");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             true,
@@ -511,7 +513,7 @@ mod tests {
 
     #[test]
     fn redirect_mode_download_with_output_file() {
-        let output = temp_path("temp8");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             false,
