@@ -1128,6 +1128,59 @@ fn can_set_unset_header() {
 }
 
 #[test]
+fn named_sessions() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.header("set-cookie", "cook1=one; Path=/");
+    });
+
+    let random_name = random_string();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("--session={}", random_name))
+        .arg("cookie:lang=en")
+        .assert()
+        .success();
+
+    mock.assert();
+
+    let path_to_session = dirs::config_dir().unwrap().join::<std::path::PathBuf>(
+        [
+            "xh",
+            "sessions",
+            &format!("127.0.0.1_{}", server.port()),
+            &format!("{}.json", random_name),
+        ]
+        .iter()
+        .collect(),
+    );
+
+    let session_content = read_to_string(path_to_session).unwrap();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "cookies": {
+                "cook1": {
+                    "name": "cook1",
+                    "value": "one"
+                },
+                "lang": {
+                    "name": "lang",
+                    "value": "en"
+                }
+            },
+            "headers": {}
+        })
+    );
+}
+
+#[test]
 fn anonymous_sessions() {
     let server = MockServer::start();
     let mock = server.mock(|_, then| {

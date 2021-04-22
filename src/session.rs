@@ -106,7 +106,11 @@ impl Session {
         } else {
             let mut path = dirs::config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["xh", "sessions"].iter().collect());
+                .join::<PathBuf>(
+                    [if test_mode() { "xh-test" } else { "xh" }, "sessions"]
+                        .iter()
+                        .collect(),
+                );
 
             let url = match (url.host_str(), url.port()) {
                 (Some(host), Some(port)) => format!("{}_{}", host, port),
