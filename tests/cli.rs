@@ -510,6 +510,37 @@ fn request_binary_detection() {
 }
 
 #[test]
+fn timeout() {
+    get_command()
+        .arg("--timeout=0.01")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("operation timed out"));
+}
+
+#[test]
+fn timeout_no_limit() {
+    get_command()
+        .arg("--timeout=0")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .success();
+}
+
+#[test]
+fn timeout_invalid() {
+    get_command()
+        .arg("--timeout=-0.01")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Invalid seconds as connection timeout",
+        ));
+}
+
+#[test]
 fn last_supplied_proxy_wins() {
     let first_server = MockServer::start();
     let first_mock = first_server.mock(|when, then| {

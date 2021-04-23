@@ -60,6 +60,7 @@ OPTIONS:
         --check-status               Exit with an error status code if the server replies with an error
     -F, --follow                     Do follow redirects
         --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>              Connection timeout of the request
         --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
         --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                Use a client side certificate for SSL
