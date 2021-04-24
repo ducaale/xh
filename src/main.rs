@@ -139,10 +139,16 @@ fn main() -> Result<i32> {
 
     let client = client.build()?;
 
+    let compression_scheme = if args.download {
+        HeaderValue::from_static("identity")
+    } else {
+        HeaderValue::from_static("gzip, br")
+    };
+
     let request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
+            .header(ACCEPT_ENCODING, compression_scheme)
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
