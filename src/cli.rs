@@ -179,6 +179,10 @@ pub struct Cli {
     #[structopt(long)]
     pub https: bool,
 
+    /// Force to use HTTP/2.
+    #[structopt(long)]
+    pub http2: bool,
+
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
@@ -255,6 +259,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-follow",
     "--no-form",
     "--no-headers",
+    "--no-http2",
     "--no-https",
     "--no-ignore-netrc",
     "--no-ignore-stdin",

@@ -65,6 +65,7 @@ OPTIONS:
         --cert <FILE>                Use a client side certificate for SSL
         --cert-key <FILE>            A private key file to use with --cert
         --https                      Make HTTPS requests if not specified in the URL
+        --http2                      Force to use HTTP/2
     -I, --ignore-stdin               Do not attempt to read stdin
         --curl                       Print a translation to a `curl` command
         --curl-long                  Use the long versions of curl's flags

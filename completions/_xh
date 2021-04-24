@@ -59,6 +59,7 @@ _xh() {
 '-F[Do follow redirects]' \
 '--follow[Do follow redirects]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
+'--http2[Force to use HTTP/2]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a `curl` command]' \
@@ -78,6 +79,7 @@ _xh() {
 '--no-follow[]' \
 '--no-form[]' \
 '--no-headers[]' \
+'--no-http2[]' \
 '--no-https[]' \
 '--no-ignore-netrc[]' \
 '--no-ignore-stdin[]' \

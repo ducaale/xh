@@ -26,6 +26,7 @@ complete -c xh -l offline -d 'Construct HTTP requests without sending them anywh
 complete -c xh -l check-status -d 'Exit with an error status code if the server replies with an error'
 complete -c xh -s F -l follow -d 'Do follow redirects'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
+complete -c xh -l http2 -d 'Force to use HTTP/2'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
 complete -c xh -l curl -d 'Print a translation to a `curl` command'
 complete -c xh -l curl-long -d 'Use the long versions of curl\'s flags'
@@ -44,6 +45,7 @@ complete -c xh -l no-download
 complete -c xh -l no-follow
 complete -c xh -l no-form
 complete -c xh -l no-headers
+complete -c xh -l no-http2
 complete -c xh -l no-https
 complete -c xh -l no-ignore-netrc
 complete -c xh -l no-ignore-stdin

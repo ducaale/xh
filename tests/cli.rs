@@ -768,6 +768,22 @@ fn cert_with_key() {
 }
 
 #[test]
+fn forced_http2() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _then| {
+        when.method(GET);
+    });
+
+    get_command()
+        .arg("--http2")
+        .arg(server.base_url())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
+    mock.assert();
+}
+
+#[test]
 fn forced_json() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
