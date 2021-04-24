@@ -24,6 +24,10 @@ pub fn random_string() -> String {
         .collect()
 }
 
+fn config_dir() -> std::path::PathBuf {
+    std::env::temp_dir()
+}
+
 fn get_base_command() -> Command {
     let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
     cmd.env("HOME", "");
@@ -1145,9 +1149,9 @@ fn named_sessions() {
 
     mock.assert();
 
-    let path_to_session = dirs::config_dir().unwrap().join::<std::path::PathBuf>(
+    let path_to_session = config_dir().join::<std::path::PathBuf>(
         [
-            "xh-test",
+            "xh",
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
             &format!("{}.json", random_name),

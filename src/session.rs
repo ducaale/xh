@@ -104,23 +104,9 @@ impl Session {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
-            let mut path = dirs::config_dir()
+            let mut path = config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(
-                    [if test_mode() { "xh-test" } else { "xh" }, "sessions"]
-                        .iter()
-                        .collect(),
-                );
-
-            let url = match (url.host_str(), url.port()) {
-                (Some(host), Some(port)) => format!("{}_{}", host, port),
-                (Some(host), None) => host.into(),
-                (None, _) => {
-                    return Err(anyhow!("couldn't extract host from url"));
-                }
-            };
-            path.push(url);
-
+                .join::<PathBuf>(["xh", "sessions", &path_from_url(url)?].iter().collect());
             name_or_path.push(".json");
             path.push(name_or_path);
             path
@@ -217,6 +203,22 @@ impl Session {
 
 fn is_path(value: &OsString) -> bool {
     value.to_string_lossy().contains(std::path::is_separator)
+}
+
+fn config_dir() -> Option<PathBuf> {
+    if test_mode() {
+        Some(std::env::temp_dir())
+    } else {
+        dirs::config_dir()
+    }
+}
+
+fn path_from_url(url: &Url) -> Result<String> {
+    match (url.host_str(), url.port()) {
+        (Some(host), Some(port)) => Ok(format!("{}_{}", host, port)),
+        (Some(host), None) => Ok(host.into()),
+        (None, _) => Err(anyhow!("couldn't extract host from url")),
+    }
 }
 
 #[cfg(test)]
