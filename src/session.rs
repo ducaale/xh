@@ -116,7 +116,9 @@ impl Session {
             Ok(content) => {
                 let mut parsed = serde_json::from_str::<Content>(&content)?;
                 for (name, cookie) in parsed.cookies.iter_mut() {
-                    cookie.name = name.clone();
+                    if cookie.name == String::default() {
+                        cookie.name = name.clone();
+                    }
                 }
                 if let Some(Auth {
                     auth_type: Some(ref auth_type),
