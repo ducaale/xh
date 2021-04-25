@@ -160,9 +160,9 @@ impl Session {
         Ok(())
     }
 
-    pub fn save_cookies(&mut self, response_cookies: Vec<&cookie_crate::Cookie>) {
+    pub fn save_cookies(&mut self, cookies: Vec<&cookie_crate::Cookie>) {
         self.content.cookies.clear();
-        for cookie in response_cookies {
+        for cookie in cookies {
             self.content
                 .cookies
                 .insert(cookie.name().into(), cookie.into());

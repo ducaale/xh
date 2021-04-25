@@ -1170,14 +1170,8 @@ fn named_sessions() {
                 "xh": "0.0.0"
             },
             "cookies": {
-                "cook1": {
-                    "name": "cook1",
-                    "value": "one"
-                },
-                "lang": {
-                    "name": "lang",
-                    "value": "en"
-                }
+                "cook1": { "value": "one" },
+                "lang": { "value": "en" }
             },
             "headers": {}
         })
@@ -1215,15 +1209,76 @@ fn anonymous_sessions() {
                 "xh": "0.0.0"
             },
             "cookies": {
-                "cook1": {
-                    "name": "cook1",
-                    "value": "one"
-                }
+                "cook1": { "value": "one" }
             },
             "headers": {
                 "hello": "world",
                 "authorization": "Basic bWU6cGFzcw=="
             }
+        })
+    );
+}
+
+#[test]
+fn expired_cookies_are_removed_from_session() {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let future_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 1000;
+    let past_timestamp = 1114425967; // 2005-04-25
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "cookies": {
+                "expired_cookie": {
+                    "value": "random_string",
+                    "expires": past_timestamp
+                },
+                "unexpired_cookie": {
+                    "value": "random_string",
+                    "expires": future_timestamp
+                },
+                "with_out_expiry": {
+                    "value": "random_string",
+                }
+            },
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(":")
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--offline")
+        .assert()
+        .success();
+
+    let session_content = read_to_string(session_file.path()).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "cookies": {
+                "unexpired_cookie": {
+                    "value": "random_string",
+                    "expires": future_timestamp
+                },
+                "with_out_expiry": {
+                    "value": "random_string",
+                }
+            },
+            "headers": {}
         })
     );
 }
