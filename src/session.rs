@@ -22,11 +22,7 @@ impl Default for Meta {
     fn default() -> Self {
         Meta {
             about: "xh session file".into(),
-            xh: Some(if test_mode() {
-                "0.0.0".into()
-            } else {
-                env!("CARGO_PKG_VERSION").into()
-            }),
+            xh: Some(xh_version()),
         }
     }
 }
@@ -40,8 +36,6 @@ struct Auth {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cookie {
-    #[serde(default)]
-    name: String,
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<i64>,
@@ -54,7 +48,6 @@ pub struct Cookie {
 impl From<&cookie_crate::Cookie<'_>> for Cookie {
     fn from(c: &cookie_crate::Cookie) -> Self {
         Cookie {
-            name: c.name().into(),
             value: c.value().into(),
             expires: c
                 .expires()
@@ -63,23 +56,6 @@ impl From<&cookie_crate::Cookie<'_>> for Cookie {
             path: c.path().map(Into::into),
             secure: c.secure(),
         }
-    }
-}
-
-impl From<Cookie> for cookie_crate::Cookie<'static> {
-    fn from(c: Cookie) -> cookie_crate::Cookie<'static> {
-        let mut cookie_builder = cookie_crate::Cookie::build(c.name, c.value);
-        if let Some(expires) = c.expires {
-            cookie_builder =
-                cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
-        }
-        if let Some(path) = c.path {
-            cookie_builder = cookie_builder.path(path);
-        }
-        if let Some(secure) = c.secure {
-            cookie_builder = cookie_builder.secure(secure);
-        }
-        cookie_builder.finish()
     }
 }
 
@@ -115,11 +91,6 @@ impl Session {
         let content = match fs::read_to_string(&path) {
             Ok(content) => {
                 let mut parsed = serde_json::from_str::<Content>(&content)?;
-                for (name, cookie) in parsed.cookies.iter_mut() {
-                    if cookie.name == String::default() {
-                        cookie.name = name.clone();
-                    }
-                }
                 if let Some(Auth {
                     auth_type: Some(ref auth_type),
                     raw_auth: Some(ref raw_auth),
@@ -150,12 +121,22 @@ impl Session {
     }
 
     pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
-        self.content
-            .cookies
-            .values()
-            .map(Clone::clone)
-            .map(Into::into)
-            .collect::<Vec<_>>()
+        let mut cookies = vec![];
+        for (name, c) in self.content.cookies.iter() {
+            let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
+            if let Some(expires) = c.expires {
+                cookie_builder =
+                    cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
+            }
+            if let Some(ref path) = c.path {
+                cookie_builder = cookie_builder.path(path);
+            }
+            if let Some(secure) = c.secure {
+                cookie_builder = cookie_builder.secure(secure);
+            }
+            cookies.push(cookie_builder.finish());
+        }
+        cookies
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
@@ -212,6 +193,14 @@ fn config_dir() -> Option<PathBuf> {
         Some(std::env::temp_dir())
     } else {
         dirs::config_dir()
+    }
+}
+
+fn xh_version() -> String {
+    if test_mode() {
+        "0.0.0".into()
+    } else {
+        env!("CARGO_PKG_VERSION").into()
     }
 }
 
@@ -327,7 +316,6 @@ mod tests {
                             "expires": 1620239688,
                             "path": "/",
                             "secure": false,
-                            "name": "__cfduid",
                             "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
                         }
                     },
