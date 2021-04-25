@@ -274,7 +274,6 @@ fn main() -> Result<i32> {
 
     let mut exit_code: i32 = 0;
     if !args.offline {
-        let orig_url = request.url().clone();
         let response = client.execute(request)?;
         let status = response.status();
 
@@ -289,14 +288,6 @@ fn main() -> Result<i32> {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
 
-        if let Some(ref mut s) = session {
-            let cookie_jar = cookie_jar.lock().unwrap();
-            let response_cookies = cookie_jar
-                .get_request_cookies(&orig_url)
-                .collect::<Vec<_>>();
-            s.save_cookies(response_cookies);
-        }
-
         if print.response_headers {
             printer.print_response_headers(&response)?;
         }
@@ -305,7 +296,7 @@ fn main() -> Result<i32> {
                 download_file(
                     response,
                     args.output,
-                    &orig_url,
+                    &url,
                     resume,
                     pretty.color(),
                     args.quiet,
@@ -317,6 +308,10 @@ fn main() -> Result<i32> {
     }
 
     if let Some(ref mut s) = session {
+        let cookie_jar = cookie_jar.lock().unwrap();
+        let response_cookies = cookie_jar.get_request_cookies(&url).collect::<Vec<_>>();
+        s.save_cookies(response_cookies);
+
         s.persist()
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }
