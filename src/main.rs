@@ -159,11 +159,17 @@ fn main() -> Result<i32> {
         }
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
-            cookie_jar.insert_raw(&cookie, &url)?;
+            match cookie_jar.insert_raw(&cookie, &url) {
+                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
+                Err(err) => return Err(err.into()),
+            }
         }
         for cookie in headers.get_all(COOKIE) {
             let c: cookie_crate::Cookie = cookie.to_str()?.parse()?;
-            cookie_jar.insert_raw(&c, &url)?;
+            match cookie_jar.insert_raw(&c, &url) {
+                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
+                Err(err) => return Err(err.into()),
+            }
         }
     }
 
