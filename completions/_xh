@@ -28,6 +28,7 @@ _xh() {
 '--auth=[Authenticate as USER with PASS. PASS will be prompted if missing]' \
 '--bearer=[Authenticate with a bearer token]' \
 '--max-redirects=[Number of redirects to follow, only respected if `follow` is set]' \
+'--timeout=[Connection timeout of the request]' \
 '*--proxy=[Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`]' \
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]' \
 '--cert=[Use a client side certificate for SSL]' \
@@ -92,6 +93,7 @@ _xh() {
 '--no-quiet[]' \
 '--no-stream[]' \
 '--no-style[]' \
+'--no-timeout[]' \
 '--no-verbose[]' \
 '--no-verify[]' \
 '--help[Prints help information]' \

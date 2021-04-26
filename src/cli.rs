@@ -6,6 +6,7 @@ use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use reqwest::{Method, Url};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
@@ -135,6 +136,13 @@ pub struct Cli {
     /// Number of redirects to follow, only respected if `follow` is set.
     #[structopt(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
+
+    /// Connection timeout of the request.
+    ///
+    /// The default value is `0`, i.e., there is no timeout limit.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "SEC")]
+    pub timeout: Option<Timeout>,
 
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
     ///
@@ -269,6 +277,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-quiet",
     "--no-stream",
     "--no-style",
+    "--no-timeout",
     "--no-verbose",
     "--no-verify",
 ];
@@ -641,6 +650,34 @@ impl FromStr for Print {
             response_body,
         };
         Ok(p)
+    }
+}
+
+#[derive(Debug)]
+pub struct Timeout(Duration);
+
+impl Timeout {
+    pub fn as_duration(&self) -> Duration {
+        self.0
+    }
+}
+
+impl FromStr for Timeout {
+    type Err = Error;
+
+    fn from_str(sec: &str) -> Result<Timeout> {
+        let pos_sec: f64 = match sec.parse::<f64>() {
+            Ok(sec) if sec.is_sign_positive() => sec,
+            _ => {
+                return Err(Error::with_description(
+                    "Invalid seconds as connection timeout",
+                    ErrorKind::InvalidValue,
+                ))
+            }
+        };
+
+        let dur = Duration::from_secs_f64(pos_sec);
+        Ok(Timeout(dur))
     }
 }
 
