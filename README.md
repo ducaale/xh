@@ -16,13 +16,14 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### Using a package manager
 
-| OS           | Method    | Command            |
-|--------------|-----------|--------------------|
-| Any          | Cargo\*   | `cargo install xh` |
-| Linux        | Linuxbrew | `brew install xh`  |
-| Arch Linux   | Pacman    | `pacman -S xh`     |
-| macOS        | Homebrew  | `brew install xh`  |
-| Windows      | Scoop     | `scoop install xh` |
+| OS           | Method    | Command                 |
+|--------------|-----------|-------------------------|
+| Any          | Cargo\*   | `cargo install xh`      |
+| Linux        | Linuxbrew | `brew install xh`       |
+| Arch Linux   | Pacman    | `pacman -S xh`          |
+| macOS        | Homebrew  | `brew install xh`       |
+| macOS        | MacPorts  | `sudo port install xh`  |
+| Windows      | Scoop     | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.45 or later installed
 
