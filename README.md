@@ -14,7 +14,7 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ```
 
-### Using a package manager
+### via a package manager
 
 | OS           | Method    | Command                 |
 |--------------|-----------|-------------------------|
@@ -25,9 +25,9 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 | macOS        | MacPorts  | `sudo port install xh`  |
 | Windows      | Scoop     | `scoop install xh`      |
 
-\* Make sure that you have Rust 1.45 or later installed
+\* Make sure that you have Rust 1.46 or later installed
 
-### Using pre-built binaries
+### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
 ## Usage
@@ -57,6 +57,7 @@ OPTIONS:
         --check-status               Exit with an error status code if the server replies with an error
     -F, --follow                     Do follow redirects
         --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>              Connection timeout of the request
         --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
         --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                Use a client side certificate for SSL

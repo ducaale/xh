@@ -1,6 +1,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -147,13 +148,11 @@ fn total_for_content_range(header: &str, expected_start: u64) -> Result<u64> {
 }
 
 const BAR_TEMPLATE: &str =
-    "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
+    "{spinner:.green} {percent}% [{wide_bar:.cyan/blue}] {bytes} {bytes_per_sec} ETA {eta}";
 const UNCOLORED_BAR_TEMPLATE: &str =
-    "{spinner} [{elapsed_precise}] [{wide_bar}] {bytes} {bytes_per_sec} ETA {eta}";
-const SPINNER_TEMPLATE: &str =
-    "{spinner:.green} [{elapsed_precise}] {bytes} {bytes_per_sec} {wide_msg}";
-const UNCOLORED_SPINNER_TEMPLATE: &str =
-    "{spinner} [{elapsed_precise}] {bytes} {bytes_per_sec} {wide_msg}";
+    "{spinner} {percent}% [{wide_bar}] {bytes} {bytes_per_sec} ETA {eta}";
+const SPINNER_TEMPLATE: &str = "{spinner:.green} {bytes} {bytes_per_sec} {wide_msg}";
+const UNCOLORED_SPINNER_TEMPLATE: &str = "{spinner} {bytes} {bytes_per_sec} {wide_msg}";
 
 pub fn download_file(
     mut response: Response,
@@ -209,6 +208,8 @@ pub fn download_file(
         total_length = get_content_length(&response.headers());
     }
 
+    let starting_time = Instant::now();
+
     let pb = if quiet {
         None
     } else if let Some(total_length) = total_length {
@@ -242,7 +243,22 @@ pub fn download_file(
     match pb {
         Some(ref pb) => {
             copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
-            pb.finish_with_message("Done");
+            let downloaded_length = pb.position() - starting_length;
+            pb.finish_and_clear();
+            let time_taken = starting_time.elapsed().as_secs();
+            if let Some(speed) = downloaded_length.checked_div(time_taken) {
+                eprintln!(
+                    "Done. {} in {} ({}/s)",
+                    HumanBytes(downloaded_length),
+                    humantime::format_duration(Duration::from_secs(time_taken)),
+                    HumanBytes(speed)
+                );
+            } else {
+                eprintln!(
+                    "Done. {} in less than a second",
+                    HumanBytes(downloaded_length)
+                );
+            }
         }
         None => {
             copy_largebuf(&mut response, &mut buffer)?;

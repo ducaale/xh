@@ -196,7 +196,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         accept: application/json, */*;q=0.5
-        accept-encoding: gzip, deflate
+        accept-encoding: gzip, br
         connection: keep-alive
         content-length: 9
         content-type: application/json
@@ -507,6 +507,37 @@ fn request_binary_detection() {
 
 
         "#});
+}
+
+#[test]
+fn timeout() {
+    get_command()
+        .arg("--timeout=0.01")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("operation timed out"));
+}
+
+#[test]
+fn timeout_no_limit() {
+    get_command()
+        .arg("--timeout=0")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .success();
+}
+
+#[test]
+fn timeout_invalid() {
+    get_command()
+        .arg("--timeout=-0.01")
+        .arg("https://httpbin.org/delay/0.05")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Invalid seconds as connection timeout",
+        ));
 }
 
 #[test]

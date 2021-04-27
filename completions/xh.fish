@@ -6,6 +6,7 @@ complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic
 complete -c xh -s a -l auth -d 'Authenticate as USER with PASS. PASS will be prompted if missing'
 complete -c xh -l bearer -d 'Authenticate with a bearer token'
 complete -c xh -l max-redirects -d 'Number of redirects to follow, only respected if `follow` is set'
+complete -c xh -l timeout -d 'Connection timeout of the request'
 complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`'
 complete -c xh -l verify -d 'If "no", skip SSL verification. If a file path, use it as a CA bundle'
 complete -c xh -l cert -d 'Use a client side certificate for SSL'
@@ -58,6 +59,7 @@ complete -c xh -l no-proxy
 complete -c xh -l no-quiet
 complete -c xh -l no-stream
 complete -c xh -l no-style
+complete -c xh -l no-timeout
 complete -c xh -l no-verbose
 complete -c xh -l no-verify
 complete -c xh -l help -d 'Prints help information'
