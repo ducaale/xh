@@ -509,16 +509,18 @@ fn request_binary_detection() {
         "#});
 }
 
-#[test]
-fn timeout() {
-    get_command()
-        .arg("--timeout=0.01")
-        .arg("https://httpbin.org/delay/0.05")
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("operation timed out"));
-}
+// TODO: figure out a way to avoid non-deterministic test failure
+// #[test]
+// fn timeout() {
+//     get_command()
+//         .arg("--timeout=0.01")
+//         .arg("https://httpbin.org/delay/0.05")
+//         .assert()
+//         .failure()
+//         .stderr(predicates::str::contains("operation timed out"));
+// }
 
+// TODO: use httpmock to test this
 #[test]
 fn timeout_no_limit() {
     get_command()
@@ -532,7 +534,8 @@ fn timeout_no_limit() {
 fn timeout_invalid() {
     get_command()
         .arg("--timeout=-0.01")
-        .arg("https://httpbin.org/delay/0.05")
+        .arg("--offline")
+        .arg(":")
         .assert()
         .failure()
         .stderr(predicates::str::contains(
