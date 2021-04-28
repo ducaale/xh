@@ -657,8 +657,8 @@ impl FromStr for Print {
 pub struct Timeout(Duration);
 
 impl Timeout {
-    pub fn as_duration(&self) -> Duration {
-        self.0
+    pub fn as_duration(&self) -> Option<Duration> {
+        Some(self.0).filter(|t| t != &Duration::from_nanos(0))
     }
 }
 
