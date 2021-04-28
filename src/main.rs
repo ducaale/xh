@@ -11,7 +11,6 @@ mod utils;
 
 use std::fs::File;
 use std::io::{stdin, Read};
-use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -71,19 +70,17 @@ fn main() -> Result<i32> {
     }
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
+    let timeout = args.timeout.and_then(|t| t.as_duration());
     let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
-    let timeout = args
-        .timeout
-        .map(|t| t.as_duration())
-        .filter(|t| t != &Duration::from_nanos(0));
 
     let mut client = Client::builder()
         .http2_adaptive_window(true)
-        .redirect(redirect)
-        .connect_timeout(timeout);
+        .timeout(timeout)
+        .redirect(redirect);
+
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
