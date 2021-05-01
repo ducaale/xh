@@ -3,7 +3,7 @@
 set -e
 
 temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
-trap 'rm -r "$temp_dir"' EXIT INT TERM
+trap 'rm -rf "$temp_dir"' EXIT INT TERM
 cd "$temp_dir"
 
 if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
