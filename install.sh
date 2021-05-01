@@ -2,10 +2,6 @@
 
 set -e
 
-temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
-trap 'rm -rf "$temp_dir"' EXIT INT TERM
-cd "$temp_dir"
-
 if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
     target="x86_64-apple-darwin"
 elif [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
@@ -38,6 +34,10 @@ if ! test "$url"; then
 fi
 
 echo "Downloading xh..."
+
+temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
+trap 'rm -rf "$temp_dir"' EXIT INT TERM
+cd "$temp_dir"
 
 if ! $fetch xh.tar.gz "$url"; then
     echo "Could not download tarball"
