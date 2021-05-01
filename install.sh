@@ -13,19 +13,22 @@ else
     exit 1
 fi
 
-if which curl > /dev/null; then
-    fetch='curl -sSL -o'
-elif which wget > /dev/null; then
-    fetch='wget -nv -O'
-else
-    echo "Can't find curl or wget, can't download package"
-    exit 1
-fi
+fetch()
+{
+    if which curl > /dev/null; then
+        if [ "$#" -eq 2 ]; then curl -SL -o "$1" "$2"; else curl -sSL "$1"; fi
+    elif which wget > /dev/null; then
+        if [ "$#" -eq 2 ]; then wget -O "$1" "$2"; else wget -nv -O - "$1"; fi
+    else
+        echo "Can't find curl or wget, can't download package"
+        exit 1
+    fi
+}
 
 echo "Detected target: $target"
 
 url=$(
-    $fetch - https://api.github.com/repos/ducaale/xh/releases/latest |
+    fetch https://api.github.com/repos/ducaale/xh/releases/latest |
     tac | tac | grep -wo -m1 "https://.*$target.tar.gz" || true
 )
 if ! test "$url"; then
@@ -39,7 +42,7 @@ temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
 trap 'rm -rf "$temp_dir"' EXIT INT TERM
 cd "$temp_dir"
 
-if ! $fetch xh.tar.gz "$url"; then
+if ! fetch xh.tar.gz "$url"; then
     echo "Could not download tarball"
     exit 1
 fi
