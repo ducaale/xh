@@ -157,6 +157,7 @@ fn main() -> Result<i32> {
         for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert_with(|| value.clone());
         }
+
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
             match cookie_jar.insert_raw(&cookie, &url) {
@@ -164,11 +165,9 @@ fn main() -> Result<i32> {
                 Err(err) => return Err(err.into()),
             }
         }
-        for cookie in headers.get_all(COOKIE) {
-            let c: cookie_crate::Cookie = cookie.to_str()?.parse()?;
-            match cookie_jar.insert_raw(&c, &url) {
-                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
-                Err(err) => return Err(err.into()),
+        if let Some(cookie) = headers.get(COOKIE) {
+            for cookie in cookie.to_str()?.split(";") {
+                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
         }
     }
