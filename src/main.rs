@@ -169,7 +169,7 @@ fn main() -> Result<i32> {
             }
         }
         if let Some(cookie) = headers.get(COOKIE) {
-            for cookie in cookie.to_str()?.split(";") {
+            for cookie in cookie.to_str()?.split(';') {
                 cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
         }
