@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
+use std::mem;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
@@ -75,22 +76,7 @@ impl Session {
         };
 
         let content = match fs::read_to_string(&path) {
-            Ok(content) => {
-                let mut parsed = serde_json::from_str::<Content>(&content)?;
-                if let Some(Auth {
-                    auth_type: Some(ref auth_type),
-                    raw_auth: Some(ref raw_auth),
-                }) = parsed.auth
-                {
-                    if auth_type.as_str() == "basic" {
-                        parsed
-                            .headers
-                            .entry("authorization".into())
-                            .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
-                    }
-                }
-                parsed
-            }
+            Ok(content) => migrate_from_old_session(serde_json::from_str::<Content>(&content)?),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
             Err(err) => return Err(err.into()),
         };
@@ -205,6 +191,26 @@ fn path_from_url(url: &Url) -> Result<String> {
         (Some(host), None) => Ok(host.into()),
         (None, _) => Err(anyhow!("couldn't extract host from url")),
     }
+}
+
+fn migrate_from_old_session(mut content: Content) -> Content {
+    let auth = mem::take(&mut content.auth);
+    if let Some(Auth {
+        auth_type: Some(ref auth_type),
+        raw_auth: Some(ref raw_auth),
+    }) = auth
+    {
+        if auth_type.as_str() == "basic" {
+            content
+                .headers
+                .entry("authorization".into())
+                .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
+        }
+    }
+    // meta will be useful in the future for migrating old session files
+    // but for time being, we're going to just override it
+    content.meta = Meta::default();
+    content
 }
 
 #[cfg(test)]
