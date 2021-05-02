@@ -1282,3 +1282,54 @@ fn expired_cookies_are_removed_from_session() {
         })
     );
 }
+
+#[test]
+fn cookies_override_each_other_in_the_correct_order() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.header("set-cookie", "lang=en")
+            .header("set-cookie", "cook1=one");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "cookies": {
+                "lang": { "value": "fr" },
+                "cook2": { "value": "three" }
+            },
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("cookie:cook1=two;cook2=two")
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    mock.assert();
+
+    let session_content = read_to_string(session_file.path()).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "cookies": {
+                "lang": { "value": "en" },
+                "cook1": { "value": "one" },
+                "cook2": { "value": "two" }
+            },
+            "headers": {}
+        })
+    );
+}
