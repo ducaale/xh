@@ -314,7 +314,13 @@ fn main() -> Result<i32> {
 
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
-        s.save_cookies(cookie_jar.matches(&url));
+        s.save_cookies(
+            cookie_jar
+                .matches(&url)
+                .into_iter()
+                .map(|c| cookie_crate::Cookie::from(c.clone()))
+                .collect(),
+        );
         s.persist()
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }

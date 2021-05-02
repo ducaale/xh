@@ -146,20 +146,19 @@ impl Session {
         cookies
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<&cookie_store::Cookie>) {
+    pub fn save_cookies(&mut self, cookies: Vec<cookie_crate::Cookie>) {
         self.content.cookies.clear();
         for cookie in cookies {
-            let c: cookie_crate::Cookie = cookie.clone().into();
             self.content.cookies.insert(
                 cookie.name().into(),
                 Cookie {
-                    value: c.value().into(),
-                    expires: c
+                    value: cookie.value().into(),
+                    expires: cookie
                         .expires()
                         .and_then(|v| v.datetime())
                         .map(|v| v.unix_timestamp()),
-                    path: c.path().map(Into::into),
-                    secure: c.secure(),
+                    path: cookie.path().map(Into::into),
+                    secure: cookie.secure(),
                 },
             );
         }
