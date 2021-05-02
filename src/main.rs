@@ -73,6 +73,7 @@ fn main() -> Result<i32> {
     }
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
+    let timeout = args.timeout.and_then(|t| t.as_duration());
     let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
@@ -80,7 +81,9 @@ fn main() -> Result<i32> {
 
     let mut client = Client::builder()
         .http2_adaptive_window(true)
+        .timeout(timeout)
         .redirect(redirect);
+
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
@@ -174,10 +177,16 @@ fn main() -> Result<i32> {
 
     let client = client.build()?;
 
+    let compression_scheme = if args.download {
+        HeaderValue::from_static("identity")
+    } else {
+        HeaderValue::from_static("gzip, br")
+    };
+
     let request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
+            .header(ACCEPT_ENCODING, compression_scheme)
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 

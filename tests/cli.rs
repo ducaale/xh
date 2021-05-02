@@ -4,6 +4,7 @@ use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},
     process::Command,
+    time::Duration,
 };
 
 use assert_cmd::prelude::*;
@@ -521,6 +522,52 @@ fn request_binary_detection() {
 
 
         "#});
+}
+
+#[test]
+fn timeout() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.status(200).delay(Duration::from_secs_f32(0.5));
+    });
+
+    get_command()
+        .arg("--timeout=0.1")
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("operation timed out"));
+
+    mock.assert();
+}
+
+#[test]
+fn timeout_no_limit() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.status(200).delay(Duration::from_secs_f32(0.5));
+    });
+
+    get_command()
+        .arg("--timeout=0")
+        .arg(server.base_url())
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn timeout_invalid() {
+    get_command()
+        .arg("--timeout=-0.01")
+        .arg("--offline")
+        .arg(":")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Invalid seconds as connection timeout",
+        ));
 }
 
 #[test]
