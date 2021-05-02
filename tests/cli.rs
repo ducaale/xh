@@ -1170,7 +1170,7 @@ fn named_sessions() {
                 "xh": "0.0.0"
             },
             "cookies": {
-                "cook1": { "value": "one" },
+                "cook1": { "value": "one", "path": "/" },
                 "lang": { "value": "en" }
             },
             "headers": {}
@@ -1182,7 +1182,7 @@ fn named_sessions() {
 fn anonymous_sessions() {
     let server = MockServer::start();
     let mock = server.mock(|_, then| {
-        then.header("set-cookie", "cook1=one; Path=/");
+        then.header("set-cookie", "cook1=one");
     });
 
     let mut path_to_session = std::env::temp_dir();

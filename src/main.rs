@@ -315,11 +315,7 @@ fn main() -> Result<i32> {
 
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
-        // TODO: investigate why expires is set to None when get_request_cookies() is used
-        // but not for iter_any()
-        let response_cookies = cookie_jar.get_request_cookies(&url).collect::<Vec<_>>();
-        s.save_cookies(response_cookies);
-
+        s.save_cookies(cookie_jar.matches(&url));
         s.persist()
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }

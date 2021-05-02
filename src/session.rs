@@ -45,20 +45,6 @@ pub struct Cookie {
     secure: Option<bool>,
 }
 
-impl From<&cookie_crate::Cookie<'_>> for Cookie {
-    fn from(c: &cookie_crate::Cookie) -> Self {
-        Cookie {
-            value: c.value().into(),
-            expires: c
-                .expires()
-                .and_then(|v| v.datetime())
-                .map(|v| v.unix_timestamp()),
-            path: c.path().map(Into::into),
-            secure: c.secure(),
-        }
-    }
-}
-
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
@@ -120,25 +106,6 @@ impl Session {
         Ok(HeaderMap::try_from(&self.content.headers)?)
     }
 
-    pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
-        let mut cookies = vec![];
-        for (name, c) in self.content.cookies.iter() {
-            let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
-            if let Some(expires) = c.expires {
-                cookie_builder =
-                    cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
-            }
-            if let Some(ref path) = c.path {
-                cookie_builder = cookie_builder.path(path);
-            }
-            if let Some(secure) = c.secure {
-                cookie_builder = cookie_builder.secure(secure);
-            }
-            cookies.push(cookie_builder.finish());
-        }
-        cookies
-    }
-
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
         for (key, value) in request_headers.iter() {
             let key = key.as_str();
@@ -160,12 +127,41 @@ impl Session {
         Ok(())
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<&cookie_crate::Cookie>) {
+    pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
+        let mut cookies = vec![];
+        for (name, c) in self.content.cookies.iter() {
+            let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
+            if let Some(expires) = c.expires {
+                cookie_builder =
+                    cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
+            }
+            if let Some(ref path) = c.path {
+                cookie_builder = cookie_builder.path(path);
+            }
+            if let Some(secure) = c.secure {
+                cookie_builder = cookie_builder.secure(secure);
+            }
+            cookies.push(cookie_builder.finish());
+        }
+        cookies
+    }
+
+    pub fn save_cookies(&mut self, cookies: Vec<&cookie_store::Cookie>) {
         self.content.cookies.clear();
         for cookie in cookies {
-            self.content
-                .cookies
-                .insert(cookie.name().into(), cookie.into());
+            let c: cookie_crate::Cookie = cookie.clone().into();
+            self.content.cookies.insert(
+                cookie.name().into(),
+                Cookie {
+                    value: c.value().into(),
+                    expires: c
+                        .expires()
+                        .and_then(|v| v.datetime())
+                        .map(|v| v.unix_timestamp()),
+                    path: c.path().map(Into::into),
+                    secure: c.secure(),
+                },
+            );
         }
     }
 
