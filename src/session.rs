@@ -14,16 +14,17 @@ use serde::{Deserialize, Serialize};
 use crate::utils::test_mode;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Meta {
-    about: String,
-    xh: Option<String>, // optional to be able to load HTTPie's session files
+#[serde(untagged)]
+enum Meta {
+    Xh { about: String, xh: String },
+    Httpie { httpie: String },
 }
 
 impl Default for Meta {
     fn default() -> Self {
-        Meta {
+        Meta::Xh {
             about: "xh session file".into(),
-            xh: Some(xh_version()),
+            xh: xh_version(),
         }
     }
 }
@@ -51,9 +52,33 @@ struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     #[serde(skip_serializing)]
-    auth: Option<Auth>, // needed to maintain compatibility with HTTPie's session files
+    auth: Option<Auth>,
     cookies: HashMap<String, Cookie>,
     headers: HashMap<String, String>,
+}
+
+impl Content {
+    fn migrate(mut self) -> Self {
+        match self.meta {
+            Meta::Httpie { .. } => {
+                let auth = mem::take(&mut self.auth);
+                if let Some(Auth {
+                    auth_type: Some(ref auth_type),
+                    raw_auth: Some(ref raw_auth),
+                }) = auth
+                {
+                    if auth_type.as_str() == "basic" {
+                        self.headers
+                            .entry("authorization".into())
+                            .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
+                    }
+                }
+            }
+            Meta::Xh { .. } => {}
+        }
+        self.meta = Meta::default();
+        self
+    }
 }
 
 pub struct Session {
@@ -76,7 +101,7 @@ impl Session {
         };
 
         let content = match fs::read_to_string(&path) {
-            Ok(content) => migrate_from_old_session(serde_json::from_str::<Content>(&content)?),
+            Ok(content) => serde_json::from_str::<Content>(&content)?.migrate(),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
             Err(err) => return Err(err.into()),
         };
@@ -191,26 +216,6 @@ fn path_from_url(url: &Url) -> Result<String> {
         (Some(host), None) => Ok(host.into()),
         (None, _) => Err(anyhow!("couldn't extract host from url")),
     }
-}
-
-fn migrate_from_old_session(mut content: Content) -> Content {
-    let auth = mem::take(&mut content.auth);
-    if let Some(Auth {
-        auth_type: Some(ref auth_type),
-        raw_auth: Some(ref raw_auth),
-    }) = auth
-    {
-        if auth_type.as_str() == "basic" {
-            content
-                .headers
-                .entry("authorization".into())
-                .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
-        }
-    }
-    // meta will be useful in the future for migrating old session files
-    // but for time being, we're going to just override it
-    content.meta = Meta::default();
-    content
 }
 
 #[cfg(test)]
