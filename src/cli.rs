@@ -74,6 +74,10 @@ pub struct Cli {
     #[structopt(short = "v", long)]
     pub verbose: bool,
 
+    /// show any intermediary requests/responses.
+    #[structopt(long)]
+    pub all: bool,
+
     /// Do not print to stdout or stderr.
     #[structopt(short = "q", long)]
     pub quiet: bool,

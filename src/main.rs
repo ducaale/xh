@@ -4,6 +4,7 @@ mod cli;
 mod download;
 mod formatting;
 mod printer;
+mod redirect;
 mod request_items;
 mod session;
 mod to_curl;
@@ -20,7 +21,6 @@ use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
-use reqwest::redirect::Policy;
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
@@ -74,15 +74,11 @@ fn main() -> Result<i32> {
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
     let timeout = args.timeout.and_then(|t| t.as_duration());
-    let redirect = match args.follow {
-        true => Policy::limited(args.max_redirects.unwrap_or(10)),
-        false => Policy::none(),
-    };
 
     let mut client = Client::builder()
         .http2_adaptive_window(true)
-        .timeout(timeout)
-        .redirect(redirect);
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(timeout);
 
     let mut resume: Option<u64> = None;
 
@@ -277,6 +273,7 @@ fn main() -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
+    // TODO: pass print to printer
     let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
     if print.request_headers {
@@ -288,7 +285,22 @@ fn main() -> Result<i32> {
 
     let mut exit_code: i32 = 0;
     if !args.offline {
-        let response = client.execute(request)?;
+        let response = if args.follow {
+            let mut client =
+                redirect::RedirectFollower::new(&client, args.max_redirects.unwrap_or(10));
+            if args.all {
+                client.on_redirect(|response, request| {
+                    printer.print_request_headers(request)?;
+                    printer.print_request_body(request)?;
+                    printer.print_response_headers(&response)?;
+                    printer.print_response_body(response)?;
+                    Ok(())
+                });
+            }
+            client.execute(request)?
+        } else {
+            client.execute(request)?
+        };
         let status = response.status();
 
         exit_code = match status.as_u16() {
