@@ -1,7 +1,7 @@
 #![cfg(feature = "integration-tests")]
 use std::{
-    fs::read_to_string,
     fs::File,
+    fs::{create_dir_all, read_to_string},
     io::{Seek, SeekFrom, Write},
     process::Command,
     time::Duration,
@@ -1263,6 +1263,88 @@ fn anonymous_sessions() {
                 "authorization": "Basic bWU6cGFzcw=="
             }
         })
+    );
+}
+
+#[test]
+fn anonymous_read_only_session() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=en");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let old_session_content = serde_json::json!({
+        "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "cookies": {
+            "cookie1": { "value": "one" }
+        },
+        "headers": {
+            "hello": "world"
+        }
+    });
+
+    std::fs::write(&session_file, old_session_content.to_string()).unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("goodbye:world")
+        .arg(format!(
+            "--session-read-only={}",
+            session_file.path().to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&read_to_string(session_file.path()).unwrap())
+            .unwrap(),
+        old_session_content
+    );
+}
+
+#[test]
+fn named_read_only_session() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=en");
+    });
+
+    let random_name = random_string();
+    let path_to_session = config_dir().join::<std::path::PathBuf>(
+        [
+            "xh",
+            "sessions",
+            &format!("127.0.0.1_{}", server.port()),
+            &format!("{}.json", random_name),
+        ]
+        .iter()
+        .collect(),
+    );
+    let old_session_content = serde_json::json!({
+        "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "cookies": {
+            "cookie1": { "value": "one" }
+        },
+        "headers": {
+            "hello": "world"
+        }
+    });
+    create_dir_all(path_to_session.parent().unwrap()).unwrap();
+    File::create(&path_to_session).unwrap();
+    std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("goodbye:world")
+        .arg(format!("--session-read-only={}", random_name))
+        .assert()
+        .success();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&read_to_string(path_to_session).unwrap())
+            .unwrap(),
+        old_session_content
     );
 }
 
