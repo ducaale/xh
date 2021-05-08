@@ -1304,6 +1304,46 @@ fn anonymous_read_only_session() {
 }
 
 #[test]
+fn session_files_are_created_in_read_only_mode() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=ar");
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+    assert_eq!(path_to_session.exists(), false);
+
+    get_command()
+        .arg(server.base_url())
+        .arg("hello:world")
+        .arg(format!(
+            "--session-read-only={}",
+            path_to_session.to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    let session_content = read_to_string(path_to_session).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "cookies": {
+                "lang": { "value": "ar" }
+            },
+            "headers": {
+                "hello": "world"
+            }
+        })
+    );
+}
+
+#[test]
 fn named_read_only_session() {
     let server = MockServer::start();
     server.mock(|_, then| {
