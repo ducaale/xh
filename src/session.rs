@@ -18,6 +18,7 @@ use crate::utils::test_mode;
 enum Meta {
     Xh { about: String, xh: String },
     Httpie { httpie: String },
+    Other,
 }
 
 impl Default for Meta {
@@ -59,22 +60,17 @@ struct Content {
 
 impl Content {
     fn migrate(mut self) -> Self {
-        match self.meta {
-            Meta::Httpie { .. } => {
-                let auth = mem::take(&mut self.auth);
-                if let Some(Auth {
-                    auth_type: Some(ref auth_type),
-                    raw_auth: Some(ref raw_auth),
-                }) = auth
-                {
-                    if auth_type.as_str() == "basic" {
-                        self.headers
-                            .entry("authorization".into())
-                            .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
-                    }
-                }
+        let auth = mem::take(&mut self.auth);
+        if let Some(Auth {
+            auth_type: Some(ref auth_type),
+            raw_auth: Some(ref raw_auth),
+        }) = auth
+        {
+            if auth_type.as_str() == "basic" {
+                self.headers
+                    .entry("authorization".into())
+                    .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
             }
-            Meta::Xh { .. } => {}
         }
         self.meta = Meta::default();
         self
