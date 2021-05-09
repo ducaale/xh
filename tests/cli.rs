@@ -1,7 +1,7 @@
 #![cfg(feature = "integration-tests")]
 use std::{
-    fs::read_to_string,
     fs::File,
+    fs::{read_to_string, OpenOptions},
     io::{Seek, SeekFrom, Write},
     process::Command,
     time::Duration,
@@ -977,7 +977,7 @@ fn mixed_stdin_request_items() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Request body (from stdin) and Request data (key=value) cannot be mixed",
+            "Request body (from stdin) and request data (key=value) cannot be mixed",
         ));
 }
 
@@ -1009,6 +1009,100 @@ fn default_json_for_raw_body() {
         .assert()
         .success();
     mock.assert();
+}
+
+#[test]
+fn body_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "text/plain")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn body_from_file_with_explicit_mimetype() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "image/png")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{};type=image/png", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn body_from_file_with_fallback_mimetype() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "application/json")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn no_double_file_body() {
+    get_command()
+        .arg(":")
+        .arg("@foo")
+        .arg("@bar")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Can't read request from multiple files",
+        ));
 }
 
 #[test]
