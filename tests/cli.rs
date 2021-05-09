@@ -25,10 +25,6 @@ pub fn random_string() -> String {
         .collect()
 }
 
-fn config_dir() -> std::path::PathBuf {
-    std::env::temp_dir()
-}
-
 fn get_base_command() -> Command {
     let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
     cmd.env("HOME", "");
@@ -1185,9 +1181,11 @@ fn named_sessions() {
         then.header("set-cookie", "cook1=one; Path=/");
     });
 
+    let config_dir = tempdir().unwrap();
     let random_name = random_string();
 
     get_command()
+        .env("XH_TEST_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg(format!("--session={}", random_name))
         .arg("cookie:lang=en")
@@ -1196,7 +1194,7 @@ fn named_sessions() {
 
     mock.assert();
 
-    let path_to_session = config_dir().join::<std::path::PathBuf>(
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
             "xh",
             "sessions",
@@ -1350,8 +1348,9 @@ fn named_read_only_session() {
         then.header("set-cookie", "lang=en");
     });
 
+    let config_dir = tempdir().unwrap();
     let random_name = random_string();
-    let path_to_session = config_dir().join::<std::path::PathBuf>(
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
             "xh",
             "sessions",
@@ -1375,6 +1374,7 @@ fn named_read_only_session() {
     std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
 
     get_command()
+        .env("XH_TEST_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg("goodbye:world")
         .arg(format!("--session-read-only={}", random_name))

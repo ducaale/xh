@@ -192,7 +192,7 @@ fn is_path(value: &OsString) -> bool {
 
 fn config_dir() -> Option<PathBuf> {
     if test_mode() {
-        Some(std::env::temp_dir())
+        std::env::var_os("XH_TEST_CONFIG_DIR").map(Into::into)
     } else {
         dirs::config_dir()
     }
