@@ -290,10 +290,10 @@ fn main() -> Result<i32> {
                 redirect::RedirectFollower::new(&client, args.max_redirects.unwrap_or(10));
             if args.all {
                 client.on_redirect(|response, request| {
-                    printer.print_request_headers(request)?;
-                    printer.print_request_body(request)?;
                     printer.print_response_headers(&response)?;
                     printer.print_response_body(response)?;
+                    printer.print_request_headers(request)?;
+                    printer.print_request_body(request)?;
                     Ok(())
                 });
             }
