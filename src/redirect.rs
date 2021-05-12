@@ -2,7 +2,7 @@ use anyhow::Result;
 use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::LOCATION;
-use reqwest::{Method, StatusCode, Url};
+use reqwest::{Method, StatusCode};
 
 #[derive(Debug)]
 enum ClonedRequest {
@@ -34,12 +34,12 @@ fn clone_request(request: &Request) -> ClonedRequest {
 }
 
 fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request> {
-    let next_url = || {
+    let next_url = |request: &Request| {
         response
             .headers()
             .get(LOCATION)
             .and_then(|location| location.to_str().ok())
-            .and_then(|location| Url::parse(location).ok()) // TODO: handle relative urls
+            .and_then(|location| request.url().join(location).ok())
     };
 
     match response.status() {
@@ -48,7 +48,7 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
                 ClonedRequest::Full(request) | ClonedRequest::Partial(request) => {
                     let mut request = clone_request(&request).inner();
                     // TODO: check if sensitive headers should be removed
-                    *request.url_mut() = next_url()?;
+                    *request.url_mut() = next_url(&request)?;
                     if !matches!(request.method(), &Method::GET | &Method::HEAD) {
                         *request.method_mut() = Method::GET;
                     }
@@ -60,7 +60,7 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
             ClonedRequest::Full(request) => {
                 let mut request = clone_request(&request).inner();
                 // TODO: check if sensitive headers should be removed
-                *request.url_mut() = next_url()?;
+                *request.url_mut() = next_url(&request)?;
                 Some(request)
             }
             ClonedRequest::Partial(..) => None,
