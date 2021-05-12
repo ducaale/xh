@@ -2,9 +2,10 @@ use anyhow::Result;
 use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{
-    CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, LOCATION, TRANSFER_ENCODING,
+    HeaderMap, AUTHORIZATION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, LOCATION,
+    PROXY_AUTHORIZATION, TRANSFER_ENCODING, WWW_AUTHENTICATE,
 };
-use reqwest::{Method, StatusCode};
+use reqwest::{Method, StatusCode, Url};
 
 #[derive(Debug)]
 enum ClonedRequest {
@@ -46,7 +47,7 @@ fn clone_request(request: &Request) -> ClonedRequest {
 }
 
 fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request> {
-    let next_url = |request: &Request| {
+    let get_next_url = |request: &Request| {
         response
             .headers()
             .get(LOCATION)
@@ -59,8 +60,10 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
             match request {
                 ClonedRequest::Full(request) | ClonedRequest::Partial(request) => {
                     let mut request = clone_request(&request).inner();
-                    // TODO: check if sensitive headers should be removed
-                    *request.url_mut() = next_url(&request)?;
+                    let next_url = get_next_url(&request)?;
+                    let prev_url = request.url().clone();
+                    remove_sensitive_headers(request.headers_mut(), &next_url, &prev_url);
+                    *request.url_mut() = next_url;
                     if !matches!(request.method(), &Method::GET | &Method::HEAD) {
                         *request.method_mut() = Method::GET;
                     }
@@ -71,13 +74,29 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
         StatusCode::TEMPORARY_REDIRECT | StatusCode::PERMANENT_REDIRECT => match request {
             ClonedRequest::Full(request) => {
                 let mut request = clone_request(&request).inner();
-                // TODO: check if sensitive headers should be removed
-                *request.url_mut() = next_url(&request)?;
+                let next_url = get_next_url(&request)?;
+                let prev_url = request.url().clone();
+                remove_sensitive_headers(request.headers_mut(), &next_url, &prev_url);
+                *request.url_mut() = next_url;
                 Some(request)
             }
             ClonedRequest::Partial(..) => None,
         },
         _ => None,
+    }
+}
+
+// Copied from https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/redirect.rs#L234
+// with slight modifications
+fn remove_sensitive_headers(headers: &mut HeaderMap, next: &Url, previous: &Url) {
+    let cross_host = next.host_str() != previous.host_str()
+        || next.port_or_known_default() != previous.port_or_known_default();
+    if cross_host {
+        headers.remove(AUTHORIZATION);
+        headers.remove(COOKIE);
+        headers.remove("cookie2");
+        headers.remove(PROXY_AUTHORIZATION);
+        headers.remove(WWW_AUTHENTICATE);
     }
 }
 
