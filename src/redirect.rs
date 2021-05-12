@@ -1,7 +1,9 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::LOCATION;
+use reqwest::header::{
+    CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, LOCATION, TRANSFER_ENCODING,
+};
 use reqwest::{Method, StatusCode};
 
 #[derive(Debug)]
@@ -28,7 +30,17 @@ fn clone_request(request: &Request) -> ClonedRequest {
             *cloned_request.body_mut() = Some(body.to_owned().into());
             ClonedRequest::Full(cloned_request)
         }
-        Some(None) => ClonedRequest::Partial(cloned_request),
+        Some(None) => {
+            for header in &[
+                TRANSFER_ENCODING,
+                CONTENT_ENCODING,
+                CONTENT_TYPE,
+                CONTENT_LENGTH,
+            ] {
+                cloned_request.headers_mut().remove(header);
+            }
+            ClonedRequest::Partial(cloned_request)
+        }
         None => ClonedRequest::Full(cloned_request),
     }
 }
