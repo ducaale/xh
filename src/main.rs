@@ -273,15 +273,10 @@ fn main() -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    // TODO: pass print to printer
-    let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
+    let mut printer = Printer::new(print, pretty, args.style, args.stream, buffer);
 
-    if print.request_headers {
-        printer.print_request_headers(&request)?;
-    }
-    if print.request_body {
-        printer.print_request_body(&request)?;
-    }
+    printer.print_request_headers(&request)?;
+    printer.print_request_body(&request)?;
 
     let mut exit_code: i32 = 0;
     if !args.offline {
@@ -292,6 +287,7 @@ fn main() -> Result<i32> {
                 client.on_redirect(|response, request| {
                     printer.print_response_headers(&response)?;
                     printer.print_response_body(response)?;
+                    printer.print_seperator()?;
                     printer.print_request_headers(request)?;
                     printer.print_request_body(request)?;
                     Ok(())
@@ -301,8 +297,8 @@ fn main() -> Result<i32> {
         } else {
             client.execute(request)?
         };
-        let status = response.status();
 
+        let status = response.status();
         exit_code = match status.as_u16() {
             _ if !(args.check_status || args.download) => 0,
             300..=399 if !args.follow => 3,
@@ -314,9 +310,7 @@ fn main() -> Result<i32> {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
 
-        if print.response_headers {
-            printer.print_response_headers(&response)?;
-        }
+        printer.print_response_headers(&response)?;
         if args.download {
             if exit_code == 0 {
                 download_file(
@@ -328,7 +322,7 @@ fn main() -> Result<i32> {
                     args.quiet,
                 )?;
             }
-        } else if print.response_body {
+        } else {
             printer.print_response_body(response)?;
         }
     }

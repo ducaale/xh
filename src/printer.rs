@@ -11,7 +11,7 @@ use termcolor::WriteColor;
 
 use crate::{
     buffer::Buffer,
-    cli::{Pretty, Theme},
+    cli::{Pretty, Print, Theme},
     formatting::{get_json_formatter, Highlighter},
     utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
 };
@@ -71,6 +71,7 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
 }
 
 pub struct Printer {
+    print: Print,
     indent_json: bool,
     color: bool,
     theme: Theme,
@@ -80,10 +81,17 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
+    pub fn new(
+        print: Print,
+        pretty: Pretty,
+        theme: Option<Theme>,
+        stream: bool,
+        buffer: Buffer,
+    ) -> Self {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
+            print,
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
             color: pretty.color() && (cfg!(test) || buffer.supports_color()),
@@ -269,7 +277,16 @@ impl Printer {
         header_string
     }
 
+    pub fn print_seperator(&mut self) -> io::Result<()> {
+        self.buffer.print("\n")?;
+        Ok(())
+    }
+
     pub fn print_request_headers(&mut self, request: &Request) -> io::Result<()> {
+        if !self.print.request_headers {
+            return Ok(());
+        }
+
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -314,6 +331,10 @@ impl Printer {
     }
 
     pub fn print_response_headers(&mut self, response: &Response) -> io::Result<()> {
+        if !self.print.response_headers {
+            return Ok(());
+        }
+
         let version = response.version();
         let status = response.status();
         let headers = response.headers();
@@ -327,6 +348,10 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
+        if !self.print.request_body {
+            return Ok(());
+        }
+
         match get_content_type(&request.headers()) {
             ContentType::Multipart => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
@@ -348,6 +373,10 @@ impl Printer {
     }
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
+        if !self.print.response_body {
+            return Ok(());
+        }
+
         let content_type = get_content_type(&response.headers());
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -443,7 +472,7 @@ mod tests {
         let buffer =
             Buffer::new(args.download, args.output.as_deref(), is_stdout_tty, None).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, args.style, false, buffer)
+        Printer::new("hHbB".parse().unwrap(), pretty, args.style, false, buffer)
     }
 
     fn temp_path() -> String {
