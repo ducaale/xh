@@ -1106,6 +1106,27 @@ fn no_double_file_body() {
 }
 
 #[test]
+fn print_body_from_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--offline")
+        .arg(":")
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Hello world"));
+}
+
+#[test]
 fn colored_headers() {
     color_command()
         .arg("--offline")

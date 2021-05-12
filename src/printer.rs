@@ -326,13 +326,14 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
+    pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
         match get_content_type(&request.headers()) {
             ContentType::Multipart => {
                 self.buffer.print(MULTIPART_SUPPRESSOR)?;
             }
             content_type => {
-                if let Some(body) = request.body().and_then(|b| b.as_bytes()) {
+                if let Some(body) = request.body_mut() {
+                    let body = body.buffer()?;
                     if body.contains(&b'\0') {
                         self.buffer.print(BINARY_SUPPRESSOR)?;
                     } else {

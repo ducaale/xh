@@ -150,7 +150,7 @@ fn main() -> Result<i32> {
         HeaderValue::from_static("gzip, br")
     };
 
-    let request = {
+    let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
             .header(ACCEPT_ENCODING, compression_scheme)
@@ -252,7 +252,7 @@ fn main() -> Result<i32> {
         printer.print_request_headers(&request)?;
     }
     if print.request_body {
-        printer.print_request_body(&request)?;
+        printer.print_request_body(&mut request)?;
     }
     if !args.offline {
         let orig_url = request.url().clone();
