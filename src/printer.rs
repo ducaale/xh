@@ -16,13 +16,6 @@ use crate::{
     utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
 };
 
-const MULTIPART_SUPPRESSOR: &str = concat!(
-    "+--------------------------------------------+\n",
-    "| NOTE: multipart data not shown in terminal |\n",
-    "+--------------------------------------------+\n",
-    "\n"
-);
-
 const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "| NOTE: binary data not shown in terminal |\n",
@@ -327,23 +320,17 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
-        match get_content_type(&request.headers()) {
-            ContentType::Multipart => {
-                self.buffer.print(MULTIPART_SUPPRESSOR)?;
+        let content_type = get_content_type(&request.headers());
+        if let Some(body) = request.body_mut() {
+            let body = body.buffer()?;
+            if body.contains(&b'\0') {
+                self.buffer.print(BINARY_SUPPRESSOR)?;
+            } else {
+                self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
+                self.buffer.print("\n")?;
             }
-            content_type => {
-                if let Some(body) = request.body_mut() {
-                    let body = body.buffer()?;
-                    if body.contains(&b'\0') {
-                        self.buffer.print(BINARY_SUPPRESSOR)?;
-                    } else {
-                        self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
-                        self.buffer.print("\n")?;
-                    }
-                    // Breathing room between request and response
-                    self.buffer.print("\n")?;
-                }
-            }
+            // Breathing room between request and response
+            self.buffer.print("\n")?;
         }
         Ok(())
     }
