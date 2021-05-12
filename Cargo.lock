@@ -2824,6 +2824,7 @@ dependencies = [
  "memchr",
  "mime",
  "mime2ext",
+ "mime_guess",
  "netrc-rs",
  "pem",
  "predicates",

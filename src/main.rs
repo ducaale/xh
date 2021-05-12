@@ -63,7 +63,8 @@ fn main() -> Result<i32> {
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
             } else {
                 return Err(anyhow!(
-                    "Request body (from stdin) and Request data (key=value) cannot be mixed"
+                    "Request body (from stdin) and request data (key=value) cannot be mixed. \
+                    Pass --ignore-stdin to ignore standard input."
                 ));
             }
         }
@@ -184,7 +185,7 @@ fn main() -> Result<i32> {
         HeaderValue::from_static("gzip, br")
     };
 
-    let request = {
+    let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
             .header(ACCEPT_ENCODING, compression_scheme)
@@ -220,6 +221,13 @@ fn main() -> Result<i32> {
                 RequestType::Multipart => unreachable!(),
             }
             .body(body),
+            Body::File {
+                file_name,
+                file_type,
+            } => request_builder.body(File::open(file_name)?).header(
+                CONTENT_TYPE,
+                file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
+            ),
         };
 
         if args.resume {
@@ -284,7 +292,7 @@ fn main() -> Result<i32> {
         printer.print_request_headers(&request)?;
     }
     if print.request_body {
-        printer.print_request_body(&request)?;
+        printer.print_request_body(&mut request)?;
     }
 
     let mut exit_code: i32 = 0;
