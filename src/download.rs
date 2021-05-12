@@ -88,8 +88,11 @@ fn open_new_file(file_name: PathBuf) -> io::Result<(PathBuf, File)> {
         return Ok((file_name, file));
     }
     for suffix in 1..u32::MAX {
-        let mut candidate = file_name.clone();
-        candidate.push(format!("-{}", suffix));
+        let candidate = {
+            let mut candidate = file_name.clone().into_os_string();
+            candidate.push(format!("-{}", suffix));
+            PathBuf::from(candidate)
+        };
         if let Some(file) = try_open_new(&candidate)? {
             return Ok((candidate, file));
         }

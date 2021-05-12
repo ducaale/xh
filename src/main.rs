@@ -76,7 +76,8 @@ fn main() -> Result<i32> {
     let timeout = args.timeout.and_then(|t| t.as_duration());
 
     let mut client = Client::builder()
-        .http2_adaptive_window(true)
+        .http2_initial_stream_window_size(4_194_304)
+        .http2_initial_connection_window_size(4_194_304)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout);
 

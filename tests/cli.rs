@@ -299,7 +299,7 @@ fn proxy_https_proxy() {
 fn download_generated_filename() {
     let dir = tempdir().unwrap();
     let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
+    server.mock(|_when, then| {
         then.header("Content-Type", "application/json").body("file");
     });
 
@@ -308,8 +308,18 @@ fn download_generated_filename() {
         .arg(server.url("/foo/bar/"))
         .current_dir(&dir)
         .assert();
-    mock.assert();
+
+    get_command()
+        .arg("--download")
+        .arg(server.url("/foo/bar/"))
+        .current_dir(&dir)
+        .assert();
+
     assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
+    assert_eq!(
+        read_to_string(dir.path().join("bar.json-1")).unwrap(),
+        "file"
+    );
 }
 
 #[test]
