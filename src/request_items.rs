@@ -350,14 +350,6 @@ impl RequestItems {
         Ok(body)
     }
 
-    pub fn is_multipart(&self, request_type: RequestType) -> bool {
-        match request_type {
-            RequestType::Multipart => true,
-            RequestType::Form => self.has_form_files(),
-            RequestType::Json => false,
-        }
-    }
-
     pub fn body(self, request_type: RequestType) -> Result<Body> {
         match request_type {
             RequestType::Multipart => self.body_as_multipart(),
@@ -368,7 +360,18 @@ impl RequestItems {
         }
     }
 
-    /// Guess which would be appropriate for the return value of `body`.
+    /// Determine whether a multipart request should be used.
+    ///
+    /// This duplicates logic in `body()` for the benefit of `to_curl`.
+    pub fn is_multipart(&self, request_type: RequestType) -> bool {
+        match request_type {
+            RequestType::Multipart => true,
+            RequestType::Form => self.has_form_files(),
+            RequestType::Json => false,
+        }
+    }
+
+    /// Guess which HTTP method would be appropriate for the return value of `body`.
     ///
     /// It's better to use `Body::pick_method`, if possible. This method is
     /// for the benefit of `to_curl`, which sometimes has to process the
