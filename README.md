@@ -89,6 +89,8 @@ Run `xh help` for more detailed information.
 * `;` for including headers with empty values e.g `header-without-value;`.
 * `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
 
+The request body can also be read from standard input, or from a file using `@filename`.
+
 ### xh and xhs
 
 `xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`

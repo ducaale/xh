@@ -102,7 +102,7 @@ fn remove_sensitive_headers(headers: &mut HeaderMap, next: &Url, previous: &Url)
 
 pub struct RedirectFollower<'a, T>
 where
-    T: FnMut(Response, &Request) -> Result<()>,
+    T: FnMut(Response, &mut Request) -> Result<()>,
 {
     client: &'a Client,
     max_redirects: usize,
@@ -111,7 +111,7 @@ where
 
 impl<'a, T> RedirectFollower<'a, T>
 where
-    T: FnMut(Response, &Request) -> Result<()>,
+    T: FnMut(Response, &mut Request) -> Result<()>,
 {
     pub fn new(client: &'a Client, max_redirects: usize) -> Self {
         RedirectFollower {
@@ -129,7 +129,7 @@ where
         let mut cloned_request = clone_request(&request);
         let mut response = self.client.execute(request)?;
         let mut remaining_redirects = self.max_redirects - 1;
-        while let Some(next_request) = next_request(&cloned_request, &response) {
+        while let Some(mut next_request) = next_request(&cloned_request, &response) {
             if remaining_redirects > 0 {
                 remaining_redirects -= 1;
             } else {
@@ -139,7 +139,7 @@ where
                 ));
             }
             if let Some(ref mut callback) = self.callback {
-                callback(response, &next_request)?;
+                callback(response, &mut next_request)?;
             }
             cloned_request = clone_request(&next_request);
             response = self.client.execute(next_request)?;

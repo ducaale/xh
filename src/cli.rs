@@ -230,6 +230,7 @@ pub struct Cli {
     ///   - key=value to add a JSON field (--json) or form field (--form)
     ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
     ///   - key@filename to upload a file from filename (with --form)
+    ///   - @filename to use a file as the request body
     ///   - header:value to add a header
     ///   - header: to unset a header
     ///   - header; to add a header with an empty value
