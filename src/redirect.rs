@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{
@@ -128,7 +128,16 @@ where
     pub fn execute(&mut self, request: Request) -> Result<Response> {
         let mut cloned_request = clone_request(&request);
         let mut response = self.client.execute(request)?;
+        let mut remaining_redirects = self.max_redirects - 1;
         while let Some(next_request) = next_request(&cloned_request, &response) {
+            if remaining_redirects > 0 {
+                remaining_redirects -= 1;
+            } else {
+                return Err(anyhow!(
+                    "Too many redirects (--max-redirect={})",
+                    self.max_redirects
+                ));
+            }
             if let Some(ref mut callback) = self.callback {
                 callback(response, &next_request)?;
             }
