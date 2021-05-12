@@ -320,7 +320,10 @@ impl RequestItems {
         }
         for item in self.0 {
             match item {
-                RequestItem::DataField(..) | RequestItem::JsonField(..) => {
+                RequestItem::DataField(..)
+                | RequestItem::JsonField(..)
+                | RequestItem::DataFieldFromFile(..)
+                | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!(
                         "Request body (from a file) and request data (key=value) cannot be mixed."
                     ));
@@ -343,7 +346,9 @@ impl RequestItems {
                         file_name: file_name.into(),
                     });
                 }
-                _ => {}
+                RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderToUnset(..)
+                | RequestItem::UrlParam(..) => {}
             }
         }
         let body = body.expect("Should have had at least one file field");
