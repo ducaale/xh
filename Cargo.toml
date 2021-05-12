@@ -15,7 +15,8 @@ anyhow = "1.0.38"
 atty = "0.2"
 base64 = "0.13"
 cookie_crate = { version = "0.15", package = "cookie" }
-cookie_store = { git = "https://github.com/blyxxyz/cookie_store", branch = "no-reqwest-default-features" }
+cookie_store = { version = "0.14.1" }
+reqwest_cookie_store = { version = "0.1.4" }
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
