@@ -139,7 +139,7 @@ fn main() -> Result<i32> {
         }?);
     }
 
-    let cookie_jar = Arc::new(cookie_store::CookieStoreMutex::default());
+    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
 
     let mut session = match &args.session {

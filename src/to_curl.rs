@@ -178,14 +178,14 @@ pub fn translate(args: Cli) -> Result<Command> {
         match proxy {
             crate::cli::Proxy::All(proxy) => {
                 cmd.flag("-x", "--proxy");
-                cmd.push(proxy.into_string());
+                cmd.push(proxy.to_string());
             }
             crate::cli::Proxy::Http(proxy) => {
                 // These don't seem to have corresponding flags
-                cmd.env("http_proxy", proxy.into_string());
+                cmd.env("http_proxy", proxy.to_string());
             }
             crate::cli::Proxy::Https(proxy) => {
-                cmd.env("https_proxy", proxy.into_string());
+                cmd.env("https_proxy", proxy.to_string());
             }
         }
     }

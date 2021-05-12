@@ -1,7 +1,7 @@
 #![cfg(feature = "integration-tests")]
 use std::{
-    fs::read_to_string,
     fs::File,
+    fs::{create_dir_all, read_to_string},
     io::{Seek, SeekFrom, Write},
     process::Command,
     time::Duration,
@@ -23,10 +23,6 @@ pub fn random_string() -> String {
         .take(10)
         .map(char::from)
         .collect()
-}
-
-fn config_dir() -> std::path::PathBuf {
-    std::env::temp_dir()
 }
 
 fn get_base_command() -> Command {
@@ -1185,9 +1181,11 @@ fn named_sessions() {
         then.header("set-cookie", "cook1=one; Path=/");
     });
 
+    let config_dir = tempdir().unwrap();
     let random_name = random_string();
 
     get_command()
+        .env("XH_TEST_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg(format!("--session={}", random_name))
         .arg("cookie:lang=en")
@@ -1196,7 +1194,7 @@ fn named_sessions() {
 
     mock.assert();
 
-    let path_to_session = config_dir().join::<std::path::PathBuf>(
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
             "xh",
             "sessions",
@@ -1263,6 +1261,130 @@ fn anonymous_sessions() {
                 "authorization": "Basic bWU6cGFzcw=="
             }
         })
+    );
+}
+
+#[test]
+fn anonymous_read_only_session() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=en");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let old_session_content = serde_json::json!({
+        "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "cookies": {
+            "cookie1": { "value": "one" }
+        },
+        "headers": {
+            "hello": "world"
+        }
+    });
+
+    std::fs::write(&session_file, old_session_content.to_string()).unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("goodbye:world")
+        .arg(format!(
+            "--session-read-only={}",
+            session_file.path().to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&read_to_string(session_file.path()).unwrap())
+            .unwrap(),
+        old_session_content
+    );
+}
+
+#[test]
+fn session_files_are_created_in_read_only_mode() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=ar");
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+    assert_eq!(path_to_session.exists(), false);
+
+    get_command()
+        .arg(server.base_url())
+        .arg("hello:world")
+        .arg(format!(
+            "--session-read-only={}",
+            path_to_session.to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    let session_content = read_to_string(path_to_session).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "cookies": {
+                "lang": { "value": "ar" }
+            },
+            "headers": {
+                "hello": "world"
+            }
+        })
+    );
+}
+
+#[test]
+fn named_read_only_session() {
+    let server = MockServer::start();
+    server.mock(|_, then| {
+        then.header("set-cookie", "lang=en");
+    });
+
+    let config_dir = tempdir().unwrap();
+    let random_name = random_string();
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
+        [
+            "xh",
+            "sessions",
+            &format!("127.0.0.1_{}", server.port()),
+            &format!("{}.json", random_name),
+        ]
+        .iter()
+        .collect(),
+    );
+    let old_session_content = serde_json::json!({
+        "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "cookies": {
+            "cookie1": { "value": "one" }
+        },
+        "headers": {
+            "hello": "world"
+        }
+    });
+    create_dir_all(path_to_session.parent().unwrap()).unwrap();
+    File::create(&path_to_session).unwrap();
+    std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
+
+    get_command()
+        .env("XH_TEST_CONFIG_DIR", config_dir.path())
+        .arg(server.base_url())
+        .arg("goodbye:world")
+        .arg(format!("--session-read-only={}", random_name))
+        .assert()
+        .success();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&read_to_string(path_to_session).unwrap())
+            .unwrap(),
+        old_session_content
     );
 }
 
