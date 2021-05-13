@@ -1631,19 +1631,19 @@ fn cookies_override_each_other_in_the_correct_order() {
 #[test]
 fn print_intermediate_requests_and_responses() {
     let server1 = MockServer::start();
-    server1.mock(|_, then| {
-        then.header("date", "N/A").body("final destination");
-    });
     let server2 = MockServer::start();
-    server2.mock(|_, then| {
-        then.header("location", &server1.base_url())
+    server1.mock(|_, then| {
+        then.header("location", &server2.base_url())
             .status(302)
             .header("date", "N/A")
             .body("redirecting...");
     });
+    server2.mock(|_, then| {
+        then.header("date", "N/A").body("final destination");
+    });
 
     get_command()
-        .arg(server2.base_url())
+        .arg(server1.base_url())
         .arg("--follow")
         .arg("--verbose")
         .arg("--all")
@@ -1675,7 +1675,7 @@ fn print_intermediate_requests_and_responses() {
             date: N/A
 
             final destination
-        "#, url = server1.base_url() });
+        "#, url = server2.base_url() });
 }
 
 #[test]
@@ -1705,3 +1705,63 @@ fn max_redirects_is_enforced() {
         ))
         .failure();
 }
+
+#[test]
+fn method_is_changed_before_following_302_redirect() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    let mock1 = server1.mock(|when, then| {
+        when.method(POST).body(r#"{"name":"ali"}"#);
+        then.header("location", &server2.base_url())
+            .status(302)
+            .header("date", "N/A")
+            .body("redirecting...");
+    });
+    let mock2 = server2.mock(|when, then| {
+        when.method(GET);
+        then.header("date", "N/A").body("final destination");
+    });
+
+    get_command()
+        .arg("post")
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg("name=ali")
+        .assert()
+        .success();
+
+    mock1.assert();
+    mock2.assert();
+}
+
+#[test]
+fn method_is_not_changed_before_following_307_redirect() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    let mock1 = server1.mock(|when, then| {
+        when.method(POST).body(r#"{"name":"ali"}"#);
+        then.header("location", &server2.base_url())
+            .status(307)
+            .header("date", "N/A")
+            .body("redirecting...");
+    });
+    let mock2 = server2.mock(|when, then| {
+        when.method(POST).body(r#"{"name":"ali"}"#);
+        then.header("date", "N/A").body("final destination");
+    });
+
+    get_command()
+        .arg("post")
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg("name=ali")
+        .assert()
+        .success();
+
+    mock1.assert();
+    mock2.assert();
+}
+
+// TODO: test if senstive headers are removed for cross redirect
+// TODO: test if content headers are removed for redirects other than 307 and 308
+// TODO: test redirect behaviour for non-cloneable bodies
