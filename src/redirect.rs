@@ -13,14 +13,6 @@ enum ClonedRequest {
     Full(Request),
 }
 
-impl ClonedRequest {
-    fn inner(self) -> Request {
-        match self {
-            Self::Partial(request) | Self::Full(request) => request,
-        }
-    }
-}
-
 fn clone_request(request: &Request) -> ClonedRequest {
     let mut cloned_request = Request::new(request.method().clone(), request.url().clone());
     *cloned_request.timeout_mut() = request.timeout().cloned();
@@ -31,22 +23,12 @@ fn clone_request(request: &Request) -> ClonedRequest {
             *cloned_request.body_mut() = Some(body.to_owned().into());
             ClonedRequest::Full(cloned_request)
         }
-        Some(None) => {
-            for header in &[
-                TRANSFER_ENCODING,
-                CONTENT_ENCODING,
-                CONTENT_TYPE,
-                CONTENT_LENGTH,
-            ] {
-                cloned_request.headers_mut().remove(header);
-            }
-            ClonedRequest::Partial(cloned_request)
-        }
+        Some(None) => ClonedRequest::Partial(cloned_request),
         None => ClonedRequest::Full(cloned_request),
     }
 }
 
-fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request> {
+fn next_request(request: ClonedRequest, response: &Response) -> Option<Request> {
     let get_next_url = |request: &Request| {
         response
             .headers()
@@ -58,12 +40,13 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
     match response.status() {
         StatusCode::MOVED_PERMANENTLY | StatusCode::FOUND | StatusCode::SEE_OTHER => {
             match request {
-                ClonedRequest::Full(request) | ClonedRequest::Partial(request) => {
-                    let mut request = clone_request(&request).inner();
+                ClonedRequest::Full(mut request) | ClonedRequest::Partial(mut request) => {
                     let next_url = get_next_url(&request)?;
                     let prev_url = request.url().clone();
                     remove_sensitive_headers(request.headers_mut(), &next_url, &prev_url);
+                    remove_content_headers(request.headers_mut());
                     *request.url_mut() = next_url;
+                    *request.body_mut() = None;
                     if !matches!(request.method(), &Method::GET | &Method::HEAD) {
                         *request.method_mut() = Method::GET;
                     }
@@ -72,8 +55,7 @@ fn next_request(request: &ClonedRequest, response: &Response) -> Option<Request>
             }
         }
         StatusCode::TEMPORARY_REDIRECT | StatusCode::PERMANENT_REDIRECT => match request {
-            ClonedRequest::Full(request) => {
-                let mut request = clone_request(&request).inner();
+            ClonedRequest::Full(mut request) => {
                 let next_url = get_next_url(&request)?;
                 let prev_url = request.url().clone();
                 remove_sensitive_headers(request.headers_mut(), &next_url, &prev_url);
@@ -97,6 +79,17 @@ fn remove_sensitive_headers(headers: &mut HeaderMap, next: &Url, previous: &Url)
         headers.remove("cookie2");
         headers.remove(PROXY_AUTHORIZATION);
         headers.remove(WWW_AUTHENTICATE);
+    }
+}
+
+fn remove_content_headers(headers: &mut HeaderMap) {
+    for header in &[
+        TRANSFER_ENCODING,
+        CONTENT_ENCODING,
+        CONTENT_TYPE,
+        CONTENT_LENGTH,
+    ] {
+        headers.remove(header);
     }
 }
 
@@ -129,7 +122,7 @@ where
         let mut cloned_request = clone_request(&request);
         let mut response = self.client.execute(request)?;
         let mut remaining_redirects = self.max_redirects - 1;
-        while let Some(mut next_request) = next_request(&cloned_request, &response) {
+        while let Some(mut next_request) = next_request(cloned_request, &response) {
             if remaining_redirects > 0 {
                 remaining_redirects -= 1;
             } else {
