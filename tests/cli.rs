@@ -8,7 +8,7 @@ use std::{
 };
 
 use assert_cmd::prelude::*;
-use httpmock::{Method::*, MockServer};
+use httpmock::{HttpMockRequest, Method::*, MockServer};
 use indoc::{formatdoc, indoc};
 use predicate::str::contains;
 use predicates::prelude::*;
@@ -1685,13 +1685,11 @@ fn max_redirects_is_enforced() {
     server1.mock(|_, then| {
         then.header("location", &server2.base_url())
             .status(302)
-            .header("date", "N/A")
             .body("redirecting...");
     });
     server2.mock(|_, then| {
         then.header("location", &server2.base_url()) // redirect to the same server
             .status(302)
-            .header("date", "N/A")
             .body("redirecting...");
     });
 
@@ -1714,12 +1712,11 @@ fn method_is_changed_before_following_302_redirect() {
         when.method(POST).body(r#"{"name":"ali"}"#);
         then.header("location", &server2.base_url())
             .status(302)
-            .header("date", "N/A")
             .body("redirecting...");
     });
     let mock2 = server2.mock(|when, then| {
         when.method(GET);
-        then.header("date", "N/A").body("final destination");
+        then.body("final destination");
     });
 
     get_command()
@@ -1742,12 +1739,11 @@ fn method_is_not_changed_before_following_307_redirect() {
         when.method(POST).body(r#"{"name":"ali"}"#);
         then.header("location", &server2.base_url())
             .status(307)
-            .header("date", "N/A")
             .body("redirecting...");
     });
     let mock2 = server2.mock(|when, then| {
         when.method(POST).body(r#"{"name":"ali"}"#);
-        then.header("date", "N/A").body("final destination");
+        then.body("final destination");
     });
 
     get_command()
@@ -1762,6 +1758,39 @@ fn method_is_not_changed_before_following_307_redirect() {
     mock2.assert();
 }
 
-// TODO: test if senstive headers are removed for cross redirect
+#[test]
+fn sensitive_headers_are_removed_after_cross_domain_redirect() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    let mock1 = server1.mock(|when, then| {
+        when.header_exists("authorization").header_exists("hello");
+        then.header("location", &server2.base_url())
+            .status(302)
+            .body("redirecting...");
+    });
+    let mock2 = server2.mock(|when, then| {
+        when.header_exists("hello")
+            .matches(|req: &HttpMockRequest| {
+                !req.headers
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .any(|(key, _)| key == "authorization")
+            });
+        then.header("date", "N/A").body("final destination");
+    });
+
+    get_command()
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg("--auth=user:pass")
+        .arg("hello:world")
+        .assert()
+        .success();
+
+    mock1.assert();
+    mock2.assert();
+}
+
 // TODO: test if content headers are removed for redirects other than 307 and 308
 // TODO: test redirect behaviour for non-cloneable bodies
