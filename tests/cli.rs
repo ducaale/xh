@@ -1800,4 +1800,28 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
     mock2.assert();
 }
 
-// TODO: test redirect behaviour for non-cloneable bodies
+#[test]
+fn stop_follow_if_body_is_not_cloneable_for_307_redirect() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    server1.mock(|_, then| {
+        then.header("location", &server2.base_url())
+            .status(307)
+            .body("redirecting...");
+    });
+    server2.mock(|_, then| {
+        then.body("final destination");
+    });
+
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    writeln!(file, "hello world").unwrap();
+
+    get_command()
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg(format!("@{}", file.path().to_string_lossy()))
+        .assert()
+        // we're only outputting the last response so it should be okay to do this simple check
+        .stdout(predicate::str::contains("HTTP/1.1 307 Temporary Redirect"))
+        .success();
+}
