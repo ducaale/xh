@@ -1709,13 +1709,21 @@ fn method_is_changed_before_following_302_redirect() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
     let mock1 = server1.mock(|when, then| {
-        when.method(POST).body(r#"{"name":"ali"}"#);
+        when.method(POST)
+            .header_exists("content-length")
+            .body(r#"{"name":"ali"}"#);
         then.header("location", &server2.base_url())
             .status(302)
             .body("redirecting...");
     });
     let mock2 = server2.mock(|when, then| {
-        when.method(GET);
+        when.method(GET).matches(|req: &HttpMockRequest| {
+            !req.headers
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|(key, _)| key == "content-length")
+        });
         then.body("final destination");
     });
 
@@ -1792,5 +1800,4 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
     mock2.assert();
 }
 
-// TODO: test if content headers are removed for redirects other than 307 and 308
 // TODO: test redirect behaviour for non-cloneable bodies
