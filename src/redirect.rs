@@ -134,7 +134,7 @@ where
                 remaining_redirects -= 1;
             } else {
                 return Err(anyhow!(
-                    "Too many redirects (--max-redirect={})",
+                    "Too many redirects (--max-redirects={})",
                     self.max_redirects
                 ));
             }

@@ -1677,3 +1677,31 @@ fn print_intermediate_requests_and_responses() {
             final destination
         "#, url = server1.base_url() });
 }
+
+#[test]
+fn max_redirects_is_enforced() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    server1.mock(|_, then| {
+        then.header("location", &server2.base_url())
+            .status(302)
+            .header("date", "N/A")
+            .body("redirecting...");
+    });
+    server2.mock(|_, then| {
+        then.header("location", &server2.base_url()) // redirect to the same server
+            .status(302)
+            .header("date", "N/A")
+            .body("redirecting...");
+    });
+
+    get_command()
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg("--max-redirects=5")
+        .assert()
+        .stderr(predicate::str::contains(
+            "Too many redirects (--max-redirects=5)",
+        ))
+        .failure();
+}
