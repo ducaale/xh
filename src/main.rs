@@ -175,16 +175,10 @@ fn main() -> Result<i32> {
 
     let client = client.build()?;
 
-    let compression_scheme = if args.download {
-        HeaderValue::from_static("identity")
-    } else {
-        HeaderValue::from_static("gzip, br")
-    };
-
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, compression_scheme)
+            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
@@ -261,6 +255,12 @@ fn main() -> Result<i32> {
     if let Some(ref mut s) = session {
         s.save_auth(&request.headers())?;
         s.save_headers(&headers)?;
+    }
+
+    if args.download {
+        request
+            .headers_mut()
+            .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
     }
 
     let buffer = Buffer::new(
