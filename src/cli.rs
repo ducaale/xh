@@ -98,10 +98,21 @@ pub struct Cli {
     #[structopt(short = "c", long = "continue", name = "continue")]
     pub resume: bool,
 
-    #[structopt(long, parse(from_os_str))]
+    /// Create, or reuse and update a session.
+    ///
+    /// Within a session, custom headers, auth credential, as well as any cookies sent
+    /// by the server persist between requests.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub session: Option<OsString>,
 
-    #[structopt(long, conflicts_with = "session", parse(from_os_str))]
+    /// Create or read a session without updating it form the request/response exchange.
+    #[structopt(
+        long,
+        value_name = "FILE",
+        conflicts_with = "session",
+        parse(from_os_str)
+    )]
     pub session_read_only: Option<OsString>,
 
     #[structopt(skip)]
@@ -289,6 +300,8 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-print",
     "--no-proxy",
     "--no-quiet",
+    "--no-session",
+    "--no-session-read-only",
     "--no-stream",
     "--no-style",
     "--no-timeout",

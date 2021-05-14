@@ -27,6 +27,8 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--print', 'print', [CompletionResultType]::ParameterName, 'String specifying what the output should contain')
             [CompletionResult]::new('-o', 'o', [CompletionResultType]::ParameterName, 'Save output to FILE instead of stdout')
             [CompletionResult]::new('--output', 'output', [CompletionResultType]::ParameterName, 'Save output to FILE instead of stdout')
+            [CompletionResult]::new('--session', 'session', [CompletionResultType]::ParameterName, 'Create, or reuse and update a session')
+            [CompletionResult]::new('--session-read-only', 'session-read-only', [CompletionResultType]::ParameterName, 'Create or read a session without updating it form the request/response exchange')
             [CompletionResult]::new('-A', 'A', [CompletionResultType]::ParameterName, 'Specify the auth mechanism')
             [CompletionResult]::new('--auth-type', 'auth-type', [CompletionResultType]::ParameterName, 'Specify the auth mechanism')
             [CompletionResult]::new('-a', 'a', [CompletionResultType]::ParameterName, 'Authenticate as USER with PASS. PASS will be prompted if missing')
