@@ -285,6 +285,8 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-print",
     "--no-proxy",
     "--no-quiet",
+    "--no-session",
+    "--no-session-read-only",
     "--no-stream",
     "--no-style",
     "--no-timeout",
