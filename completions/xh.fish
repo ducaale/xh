@@ -20,6 +20,7 @@ complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-dat
 complete -c xh -s h -l headers -d 'Print only the response headers, shortcut for --print=h'
 complete -c xh -s b -l body -d 'Print only the response body, Shortcut for --print=b'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
+complete -c xh -l all -d 'show any intermediary requests/responses'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
 complete -c xh -s S -l stream -d 'Always stream the response body'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
@@ -32,6 +33,7 @@ complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
 complete -c xh -l curl -d 'Print a translation to a `curl` command'
 complete -c xh -l curl-long -d 'Use the long versions of curl\'s flags'
+complete -c xh -l no-all
 complete -c xh -l no-auth
 complete -c xh -l no-auth-type
 complete -c xh -l no-bearer
@@ -59,6 +61,8 @@ complete -c xh -l no-pretty
 complete -c xh -l no-print
 complete -c xh -l no-proxy
 complete -c xh -l no-quiet
+complete -c xh -l no-session
+complete -c xh -l no-session-read-only
 complete -c xh -l no-stream
 complete -c xh -l no-style
 complete -c xh -l no-timeout

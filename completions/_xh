@@ -48,6 +48,7 @@ _xh() {
 '--body[Print only the response body, Shortcut for --print=b]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
+'--all[show any intermediary requests/responses]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
@@ -66,6 +67,7 @@ _xh() {
 '--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a `curl` command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
+'--no-all[]' \
 '--no-auth[]' \
 '--no-auth-type[]' \
 '--no-bearer[]' \
@@ -93,6 +95,8 @@ _xh() {
 '--no-print[]' \
 '--no-proxy[]' \
 '--no-quiet[]' \
+'--no-session[]' \
+'--no-session-read-only[]' \
 '--no-stream[]' \
 '--no-style[]' \
 '--no-timeout[]' \
