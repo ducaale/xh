@@ -1627,3 +1627,21 @@ fn cookies_override_each_other_in_the_correct_order() {
         })
     );
 }
+
+#[test]
+fn accept_encoding_not_modifiable_in_download_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.header("accept-encoding", "identity");
+        then.body(r#"{"ids":[1,2,3]}"#);
+    });
+
+    let dir = tempdir().unwrap();
+    get_command()
+        .current_dir(&dir)
+        .arg(server.base_url())
+        .arg("--download")
+        .arg("accept-encoding:gzip")
+        .assert();
+    mock.assert();
+}
