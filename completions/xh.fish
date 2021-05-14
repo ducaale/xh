@@ -2,6 +2,8 @@ complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all colors fo
 complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized"
 complete -c xh -s p -l print -d 'String specifying what the output should contain'
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout'
+complete -c xh -l session -d 'Create, or reuse and update a session'
+complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange'
 complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic bearer"
 complete -c xh -s a -l auth -d 'Authenticate as USER with PASS. PASS will be prompted if missing'
 complete -c xh -l bearer -d 'Authenticate with a bearer token'

@@ -36,38 +36,40 @@ USAGE:
     xh [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
 OPTIONS:
-    -j, --json                       (default) Serialize data items from the command line as a JSON object
-    -f, --form                       Serialize data items from the command line as form fields
-    -m, --multipart                  Like --form, but force a multipart/form-data request even without files
-        --pretty <STYLE>             Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>              Output coloring style [possible values: auto, solarized]
-    -p, --print <FORMAT>             String specifying what the output should contain
-    -h, --headers                    Print only the response headers, shortcut for --print=h
-    -b, --body                       Print only the response body, Shortcut for --print=b
-    -v, --verbose                    Print the whole request as well as the response
-    -q, --quiet                      Do not print to stdout or stderr
-    -S, --stream                     Always stream the response body
-    -o, --output <FILE>              Save output to FILE instead of stdout
-    -d, --download                   Download the body to a file instead of printing it
-    -c, --continue                   Resume an interrupted download. Requires --download and --output
-    -a, --auth <USER[:PASS]>         Authenticate as USER with PASS. PASS will be prompted if missing
-        --bearer <TOKEN>             Authenticate with a bearer token
-        --ignore-netrc               Do not use credentials from .netrc
-        --offline                    Construct HTTP requests without sending them anywhere
-        --check-status               Exit with an error status code if the server replies with an error
-    -F, --follow                     Do follow redirects
-        --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
-        --timeout <SEC>              Connection timeout of the request
-        --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
-        --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
-        --cert <FILE>                Use a client side certificate for SSL
-        --cert-key <FILE>            A private key file to use with --cert
-        --https                      Make HTTPS requests if not specified in the URL
-    -I, --ignore-stdin               Do not attempt to read stdin
-        --curl                       Print a translation to a `curl` command
-        --curl-long                  Use the long versions of curl's flags
-        --help                       Prints help information
-    -V, --version                    Prints version information
+    -j, --json                        (default) Serialize data items from the command line as a JSON object
+    -f, --form                        Serialize data items from the command line as form fields
+    -m, --multipart                   Like --form, but force a multipart/form-data request even without files
+        --pretty <STYLE>              Controls output processing [possible values: all, colors, format, none]
+    -s, --style <THEME>               Output coloring style [possible values: auto, solarized]
+    -p, --print <FORMAT>              String specifying what the output should contain
+    -h, --headers                     Print only the response headers, shortcut for --print=h
+    -b, --body                        Print only the response body, Shortcut for --print=b
+    -v, --verbose                     Print the whole request as well as the response
+    -q, --quiet                       Do not print to stdout or stderr
+    -S, --stream                      Always stream the response body
+    -o, --output <FILE>               Save output to FILE instead of stdout
+    -d, --download                    Download the body to a file instead of printing it
+    -c, --continue                    Resume an interrupted download. Requires --download and --output
+        --session <FILE>              Create, or reuse and update a session
+        --session-read-only <FILE>    Create or read a session without updating it form the request/response exchange
+    -a, --auth <USER[:PASS]>          Authenticate as USER with PASS. PASS will be prompted if missing
+        --bearer <TOKEN>              Authenticate with a bearer token
+        --ignore-netrc                Do not use credentials from .netrc
+        --offline                     Construct HTTP requests without sending them anywhere
+        --check-status                Exit with an error status code if the server replies with an error
+    -F, --follow                      Do follow redirects
+        --max-redirects <NUM>         Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>               Connection timeout of the request
+        --proxy <PROTOCOL:URL>...     Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
+        --verify <VERIFY>             If "no", skip SSL verification. If a file path, use it as a CA bundle
+        --cert <FILE>                 Use a client side certificate for SSL
+        --cert-key <FILE>             A private key file to use with --cert
+        --https                       Make HTTPS requests if not specified in the URL
+    -I, --ignore-stdin                Do not attempt to read stdin
+        --curl                        Print a translation to a `curl` command
+        --curl-long                   Use the long versions of curl's flags
+        --help                        Prints help information
+    -V, --version                     Prints version information
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
