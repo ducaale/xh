@@ -1705,7 +1705,7 @@ fn max_redirects_is_enforced() {
 }
 
 #[test]
-fn method_is_changed_before_following_302_redirect() {
+fn method_is_changed_when_following_302_redirect() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
     let mock1 = server1.mock(|when, then| {
@@ -1740,7 +1740,7 @@ fn method_is_changed_before_following_302_redirect() {
 }
 
 #[test]
-fn method_is_not_changed_before_following_307_redirect() {
+fn method_is_not_changed_when_following_307_redirect() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
     let mock1 = server1.mock(|when, then| {
@@ -1801,7 +1801,7 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
 }
 
 #[test]
-fn stop_follow_if_body_is_not_cloneable_for_307_redirect() {
+fn request_body_is_buffered_for_307_redirect() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
     server1.mock(|_, then| {
@@ -1809,7 +1809,8 @@ fn stop_follow_if_body_is_not_cloneable_for_307_redirect() {
             .status(307)
             .body("redirecting...");
     });
-    server2.mock(|_, then| {
+    let mock2 = server2.mock(|when, then| {
+        when.body("hello world\n");
         then.body("final destination");
     });
 
@@ -1821,7 +1822,7 @@ fn stop_follow_if_body_is_not_cloneable_for_307_redirect() {
         .arg("--follow")
         .arg(format!("@{}", file.path().to_string_lossy()))
         .assert()
-        // we're only outputting the last response so it should be okay to do this simple check
-        .stdout(predicate::str::contains("HTTP/1.1 307 Temporary Redirect"))
         .success();
+
+    mock2.assert();
 }
