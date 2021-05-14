@@ -418,18 +418,18 @@ mod tests {
             ),
             (
                 "xh -d httpbin.org/get",
-                "curl -L -O 'http://httpbin.org/get'",
-                "curl -L -O http://httpbin.org/get",
+                "curl -f -L -O 'http://httpbin.org/get'",
+                "curl -f -L -O http://httpbin.org/get",
             ),
             (
                 "xh -d -o foobar --continue httpbin.org/get",
-                "curl -L -o foobar -C - 'http://httpbin.org/get'",
-                "curl -L -o foobar -C - http://httpbin.org/get",
+                "curl -f -L -o foobar -C - 'http://httpbin.org/get'",
+                "curl -f -L -o foobar -C - http://httpbin.org/get",
             ),
             (
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
-                "curl --location --output foobar --continue-at - 'http://httpbin.org/get'",
-                "curl --location --output foobar --continue-at - http://httpbin.org/get",
+                "curl --fail --location --output foobar --continue-at - 'http://httpbin.org/get'",
+                "curl --fail --location --output foobar --continue-at - http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post @foo.txt",
