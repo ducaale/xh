@@ -273,6 +273,7 @@ pub struct Cli {
 /// (https://crates.io/crates/cargo-expand, https://crates.io/crates/ripgrep)
 /// But this is fragile, please apply human judgment.
 const NEGATION_FLAGS: &[&str] = &[
+    "--no-all",
     "--no-auth",
     "--no-auth-type",
     "--no-bearer",
