@@ -432,6 +432,7 @@ impl Cli {
         }
         if self.download {
             self.follow = true;
+            self.check_status = true;
         }
         if self.curl_long {
             self.curl = true;

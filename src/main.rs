@@ -308,13 +308,14 @@ fn main() -> Result<i32> {
         };
 
         let status = response.status();
-        exit_code = match status.as_u16() {
-            _ if !(args.check_status || args.download) => 0,
-            300..=399 if !args.follow => 3,
-            400..=499 => 4,
-            500..=599 => 5,
-            _ => 0,
-        };
+        if args.check_status {
+            exit_code = match status.as_u16() {
+                300..=399 if !args.follow => 3,
+                400..=499 => 4,
+                500..=599 => 5,
+                _ => 0,
+            }
+        }
         if is_redirect && exit_code != 0 {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
