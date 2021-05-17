@@ -1,4 +1,4 @@
-## Unreleased
+## [0.10.0] - 2021-05-17
 ### Features
 - Support reading DataField and JsonField value from a file, see #118 (@ducaale)
 - Add percentage of progress to download progress bar, see #119 (@sorairolake)
