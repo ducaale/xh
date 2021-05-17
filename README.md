@@ -8,30 +8,27 @@ as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 ## Installation
 
-### On macOS and Linux via Homebrew
+### via curl (Linux/macOS)
+
 ```
-brew install xh
+curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ```
 
-### On windows via Scoop
-```
-scoop install xh
-```
+### via a package manager
 
-### On Arch linux via Pacman
-```
-pacman -S xh
-```
+| OS           | Method    | Command                 |
+|--------------|-----------|-------------------------|
+| Any          | Cargo\*   | `cargo install xh`      |
+| Linux        | Linuxbrew | `brew install xh`       |
+| Arch Linux   | Pacman    | `pacman -S xh`          |
+| macOS        | Homebrew  | `brew install xh`       |
+| macOS        | MacPorts  | `sudo port install xh`  |
+| Windows      | Scoop     | `scoop install xh`      |
 
-### From binaries
+\* Make sure that you have Rust 1.46 or later installed
+
+### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
-
-### From source
-Make sure that you have Rust 1.45 or later installed.
-
-```
-cargo install xh
-```
 
 ## Usage
 ```
@@ -60,6 +57,7 @@ OPTIONS:
         --check-status               Exit with an error status code if the server replies with an error
     -F, --follow                     Do follow redirects
         --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>              Connection timeout of the request
         --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
         --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                Use a client side certificate for SSL
@@ -80,17 +78,20 @@ Each option can be reset with a --no-OPTION argument.
 
 Run `xh help` for more detailed information.
 
-## Request Items
+### Request Items
 
 `xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
-* `=`/`:=` for setting the request body's JSON fields (`=` for strings and `:=` for other JSON types).
+* `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 * `==` for adding query strings.
 * `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
 * `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 * `;` for including headers with empty values e.g `header-without-value;`.
+* `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
 
-## xh and xhs
+The request body can also be read from standard input, or from a file using `@filename`.
+
+### xh and xhs
 
 `xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
 via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:

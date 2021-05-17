@@ -1,4 +1,9 @@
-use std::{fs::File, io, path::Path, str::FromStr};
+use std::{
+    fs::{self, File},
+    io,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -17,15 +22,21 @@ pub enum RequestItem {
     HttpHeaderToUnset(String),
     UrlParam(String, String),
     DataField(String, String),
-    JSONField(String, serde_json::Value),
-    FormFile(String, String, Option<String>),
+    DataFieldFromFile(String, String),
+    JsonField(String, serde_json::Value),
+    JsonFieldFromFile(String, String),
+    FormFile {
+        key: String,
+        file_name: String,
+        file_type: Option<String>,
+    },
 }
 
 impl FromStr for RequestItem {
     type Err = clap::Error;
     fn from_str(request_item: &str) -> clap::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
-        const SEPS: &[&str] = &["==", ":=", "=", "@", ":"];
+        const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
         fn unescape(text: &str) -> String {
             let mut out = String::new();
@@ -79,7 +90,7 @@ impl FromStr for RequestItem {
             match sep {
                 "==" => Ok(RequestItem::UrlParam(key, value)),
                 "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JSONField(
+                ":=" => Ok(RequestItem::JsonField(
                     key,
                     serde_json::from_str(&value).map_err(|err| {
                         clap::Error::with_description(
@@ -95,18 +106,24 @@ impl FromStr for RequestItem {
                     // rsplitn iterates from the right, so it's either
                     if let Some(&typed_filename) = with_type.get(1) {
                         // [mimetype, filename]
-                        Ok(RequestItem::FormFile(
+                        Ok(RequestItem::FormFile {
                             key,
-                            typed_filename.to_owned(),
-                            Some(with_type[0].to_owned()),
-                        ))
+                            file_name: typed_filename.to_owned(),
+                            file_type: Some(with_type[0].to_owned()),
+                        })
                     } else {
                         // [filename]
-                        Ok(RequestItem::FormFile(key, value, None))
+                        Ok(RequestItem::FormFile {
+                            key,
+                            file_name: value,
+                            file_type: None,
+                        })
                     }
                 }
                 ":" if value.is_empty() => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
+                "=@" => Ok(RequestItem::DataFieldFromFile(key, value)),
+                ":=@" => Ok(RequestItem::JsonFieldFromFile(key, value)),
                 _ => unreachable!(),
             }
         } else if let Some(header) = request_item.strip_suffix(';') {
@@ -131,6 +148,10 @@ pub enum Body {
     Form(Vec<(String, String)>),
     Multipart(multipart::Form),
     Raw(Vec<u8>),
+    File {
+        file_name: PathBuf,
+        file_type: Option<HeaderValue>,
+    },
 }
 
 impl Body {
@@ -145,7 +166,8 @@ impl Body {
             // This is a slight divergence from HTTPie, which will simply
             // discard stdin if it receives --multipart without request items,
             // but that behavior is useless so there's no need to match it
-            Body::Multipart(_) => false,
+            Body::Multipart(..) => false,
+            Body::File { .. } => false,
         }
     }
 
@@ -170,7 +192,7 @@ impl RequestItems {
     pub fn has_form_files(&self) -> bool {
         self.0
             .iter()
-            .any(|item| matches!(item, RequestItem::FormFile(..)))
+            .any(|item| matches!(item, RequestItem::FormFile { .. }))
     }
 
     pub fn headers(&self) -> Result<(HeaderMap<HeaderValue>, Vec<HeaderName>)> {
@@ -187,7 +209,12 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(&key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
-                _ => {}
+                RequestItem::UrlParam(..) => {}
+                RequestItem::DataField(..) => {}
+                RequestItem::DataFieldFromFile(..) => {}
+                RequestItem::JsonField(..) => {}
+                RequestItem::JsonFieldFromFile(..) => {}
+                RequestItem::FormFile { .. } => {}
             }
         }
         Ok((headers, headers_to_unset))
@@ -207,18 +234,22 @@ impl RequestItems {
         let mut body = serde_json::Map::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(key, value) => {
+                RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
+                }
+                RequestItem::JsonFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::from_str(&fs::read_to_string(value)?)?);
                 }
                 RequestItem::DataField(key, value) => {
                     body.insert(key, serde_json::Value::String(value));
                 }
-                RequestItem::FormFile(_, _, _) => {
-                    return Err(anyhow!(
-                        "Sending Files is not supported when the request body is in JSON format"
-                    ));
+                RequestItem::DataFieldFromFile(key, value) => {
+                    body.insert(key, serde_json::Value::String(fs::read_to_string(value)?));
                 }
-                _ => {}
+                RequestItem::FormFile { .. } => unreachable!(),
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Json(body))
@@ -228,12 +259,17 @@ impl RequestItems {
         let mut text_fields = Vec::<(String, String)>::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(_, _) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
-                RequestItem::FormFile(..) => unreachable!(),
-                _ => {}
+                RequestItem::DataFieldFromFile(key, value) => {
+                    text_fields.push((key, fs::read_to_string(value)?));
+                }
+                RequestItem::FormFile { .. } => unreachable!(),
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Form(text_fields))
@@ -243,23 +279,80 @@ impl RequestItems {
         let mut form = multipart::Form::new();
         for item in self.0 {
             match item {
-                RequestItem::JSONField(_, _) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     form = form.text(key, value);
                 }
-                RequestItem::FormFile(key, value, file_type) => {
-                    let mut part = file_to_part(&value)?;
+                RequestItem::DataFieldFromFile(key, value) => {
+                    form = form.text(key, fs::read_to_string(value)?);
+                }
+                RequestItem::FormFile {
+                    key,
+                    file_name,
+                    file_type,
+                } => {
+                    let mut part = file_to_part(&file_name)?;
                     if let Some(file_type) = file_type {
                         part = part.mime_str(&file_type)?;
                     }
                     form = form.part(key, part);
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
         Ok(Body::Multipart(form))
+    }
+
+    fn body_from_file(self) -> Result<Body> {
+        let mut body = None;
+        if self
+            .0
+            .iter()
+            .any(|item| matches!(item, RequestItem::FormFile {key, ..} if !key.is_empty()))
+        {
+            return Err(anyhow!(
+                "Can't use file fields in JSON mode (perhaps you meant --form?)"
+            ));
+        }
+        for item in self.0 {
+            match item {
+                RequestItem::DataField(..)
+                | RequestItem::JsonField(..)
+                | RequestItem::DataFieldFromFile(..)
+                | RequestItem::JsonFieldFromFile(..) => {
+                    return Err(anyhow!(
+                        "Request body (from a file) and request data (key=value) cannot be mixed."
+                    ));
+                }
+                RequestItem::FormFile {
+                    key,
+                    file_name,
+                    file_type,
+                } => {
+                    assert!(key.is_empty());
+                    if body.is_some() {
+                        return Err(anyhow!("Can't read request from multiple files"));
+                    }
+                    body = Some(Body::File {
+                        file_type: file_type
+                            .as_deref()
+                            .or_else(|| mime_guess::from_path(&file_name).first_raw())
+                            .map(HeaderValue::from_str)
+                            .transpose()?,
+                        file_name: file_name.into(),
+                    });
+                }
+                RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderToUnset(..)
+                | RequestItem::UrlParam(..) => {}
+            }
+        }
+        let body = body.expect("Should have had at least one file field");
+        Ok(body)
     }
 
     pub fn body(self, request_type: RequestType) -> Result<Body> {
@@ -267,11 +360,23 @@ impl RequestItems {
             RequestType::Multipart => self.body_as_multipart(),
             RequestType::Form if self.has_form_files() => self.body_as_multipart(),
             RequestType::Form => self.body_as_form(),
+            RequestType::Json if self.has_form_files() => self.body_from_file(),
             RequestType::Json => self.body_as_json(),
         }
     }
 
-    /// Guess which would be appropriate for the return value of `body`.
+    /// Determine whether a multipart request should be used.
+    ///
+    /// This duplicates logic in `body()` for the benefit of `to_curl`.
+    pub fn is_multipart(&self, request_type: RequestType) -> bool {
+        match request_type {
+            RequestType::Multipart => true,
+            RequestType::Form => self.has_form_files(),
+            RequestType::Json => false,
+        }
+    }
+
+    /// Guess which HTTP method would be appropriate for the return value of `body`.
     ///
     /// It's better to use `Body::pick_method`, if possible. This method is
     /// for the benefit of `to_curl`, which sometimes has to process the
@@ -286,8 +391,10 @@ impl RequestItems {
                 | RequestItem::HttpHeaderToUnset(..)
                 | RequestItem::UrlParam(..) => continue,
                 RequestItem::DataField(..)
-                | RequestItem::JSONField(..)
-                | RequestItem::FormFile(..) => return Method::POST,
+                | RequestItem::DataFieldFromFile(..)
+                | RequestItem::JsonField(..)
+                | RequestItem::JsonFieldFromFile(..)
+                | RequestItem::FormFile { .. } => return Method::POST,
             }
         }
         Method::GET
@@ -326,6 +433,11 @@ mod tests {
 
         // Data field
         assert_eq!(parse("foo=bar"), DataField("foo".into(), "bar".into()));
+        // Data field from file
+        assert_eq!(
+            parse("foo=@data.json"),
+            DataFieldFromFile("foo".into(), "data.json".into())
+        );
         // URL param
         assert_eq!(parse("foo==bar"), UrlParam("foo".into(), "bar".into()));
         // Escaped right before separator
@@ -333,7 +445,12 @@ mod tests {
         // Header
         assert_eq!(parse("foo:bar"), HttpHeader("foo".into(), "bar".into()));
         // JSON field
-        assert_eq!(parse("foo:=[1,2]"), JSONField("foo".into(), json!([1, 2])));
+        assert_eq!(parse("foo:=[1,2]"), JsonField("foo".into(), json!([1, 2])));
+        // JSON field from file
+        assert_eq!(
+            parse("foo:=@data.json"),
+            JsonFieldFromFile("foo".into(), "data.json".into())
+        );
         // Bad JSON field
         "foo:=bar".parse::<RequestItem>().unwrap_err();
         // Can't escape normal chars
@@ -351,20 +468,42 @@ mod tests {
         // Empty header
         assert_eq!(parse("foobar;"), HttpHeader("foobar".into(), "".into()));
         // Untyped file
-        assert_eq!(parse("foo@bar"), FormFile("foo".into(), "bar".into(), None));
+        assert_eq!(
+            parse("foo@bar"),
+            FormFile {
+                key: "foo".into(),
+                file_name: "bar".into(),
+                file_type: None
+            }
+        );
         // Typed file
         assert_eq!(
             parse("foo@bar;type=qux"),
-            FormFile("foo".into(), "bar".into(), Some("qux".into())),
+            FormFile {
+                key: "foo".into(),
+                file_name: "bar".into(),
+                file_type: Some("qux".into())
+            },
         );
         // Multi-typed file
         assert_eq!(
             parse("foo@bar;type=qux;type=qux"),
-            FormFile("foo".into(), "bar;type=qux".into(), Some("qux".into())),
+            FormFile {
+                key: "foo".into(),
+                file_name: "bar;type=qux".into(),
+                file_type: Some("qux".into())
+            },
         );
         // Empty filename
         // (rejecting this would be fine too, the main point is to see if it panics)
-        assert_eq!(parse("foo@"), FormFile("foo".into(), "".into(), None));
+        assert_eq!(
+            parse("foo@"),
+            FormFile {
+                key: "foo".into(),
+                file_name: "".into(),
+                file_type: None
+            }
+        );
         // No separator
         "foobar".parse::<RequestItem>().unwrap_err();
         "".parse::<RequestItem>().unwrap_err();

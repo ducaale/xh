@@ -1,9 +1,10 @@
 #![cfg(feature = "integration-tests")]
 use std::{
-    fs::read_to_string,
     fs::File,
+    fs::{read_to_string, OpenOptions},
     io::{Seek, SeekFrom, Write},
     process::Command,
+    time::Duration,
 };
 
 use assert_cmd::prelude::*;
@@ -196,7 +197,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         accept: application/json, */*;q=0.5
-        accept-encoding: gzip, deflate
+        accept-encoding: gzip, br
         connection: keep-alive
         content-length: 9
         content-type: application/json
@@ -288,7 +289,7 @@ fn proxy_https_proxy() {
 fn download_generated_filename() {
     let dir = tempdir().unwrap();
     let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
+    server.mock(|_when, then| {
         then.header("Content-Type", "application/json").body("file");
     });
 
@@ -297,8 +298,18 @@ fn download_generated_filename() {
         .arg(server.url("/foo/bar/"))
         .current_dir(&dir)
         .assert();
-    mock.assert();
+
+    get_command()
+        .arg("--download")
+        .arg(server.url("/foo/bar/"))
+        .current_dir(&dir)
+        .assert();
+
     assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
+    assert_eq!(
+        read_to_string(dir.path().join("bar.json-1")).unwrap(),
+        "file"
+    );
 }
 
 #[test]
@@ -507,6 +518,52 @@ fn request_binary_detection() {
 
 
         "#});
+}
+
+#[test]
+fn timeout() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.status(200).delay(Duration::from_secs_f32(0.5));
+    });
+
+    get_command()
+        .arg("--timeout=0.1")
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("operation timed out"));
+
+    mock.assert();
+}
+
+#[test]
+fn timeout_no_limit() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.status(200).delay(Duration::from_secs_f32(0.5));
+    });
+
+    get_command()
+        .arg("--timeout=0")
+        .arg(server.base_url())
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn timeout_invalid() {
+    get_command()
+        .arg("--timeout=-0.01")
+        .arg("--offline")
+        .arg(":")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Invalid seconds as connection timeout",
+        ));
 }
 
 #[test]
@@ -920,7 +977,7 @@ fn mixed_stdin_request_items() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Request body (from stdin) and Request data (key=value) cannot be mixed",
+            "Request body (from stdin) and request data (key=value) cannot be mixed",
         ));
 }
 
@@ -952,6 +1009,121 @@ fn default_json_for_raw_body() {
         .assert()
         .success();
     mock.assert();
+}
+
+#[test]
+fn body_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "text/plain")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn body_from_file_with_explicit_mimetype() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "image/png")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{};type=image/png", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn body_from_file_with_fallback_mimetype() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("content-type", "application/json")
+            .body("Hello world\n");
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn no_double_file_body() {
+    get_command()
+        .arg(":")
+        .arg("@foo")
+        .arg("@bar")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Can't read request from multiple files",
+        ));
+}
+
+#[test]
+fn print_body_from_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--offline")
+        .arg(":")
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Hello world"));
 }
 
 #[test]
@@ -1003,6 +1175,76 @@ fn request_json_keys_order_is_preserved() {
         .arg(server.base_url())
         .arg("name=ali")
         .arg("age:=24")
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn data_field_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"{"ids":"[1,2,3]"}"#);
+    });
+
+    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    write!(text_file, "[1,2,3]").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("ids=@{}", text_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn data_field_from_file_in_form_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"message=hello+world"#);
+    });
+
+    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    write!(text_file, "hello world").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("--form")
+        .arg(format!("message=@{}", text_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn json_field_from_file() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.body(r#"{"ids":[1,2,3]}"#);
+    });
+
+    let mut json_file = tempfile::NamedTempFile::new().unwrap();
+    writeln!(json_file, "[1,2,3]").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
+        .assert();
+    mock.assert();
+}
+
+#[test]
+fn accept_encoding_not_modifiable_in_download_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.header("accept-encoding", "identity");
+        then.body(r#"{"ids":[1,2,3]}"#);
+    });
+
+    let dir = tempdir().unwrap();
+    get_command()
+        .current_dir(&dir)
+        .arg(server.base_url())
+        .arg("--download")
+        .arg("accept-encoding:gzip")
         .assert();
     mock.assert();
 }

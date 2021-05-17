@@ -154,7 +154,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push("-"); // Tell curl to guess, like we do
     }
     match args.verify.unwrap_or(Verify::Yes) {
-        Verify::CustomCABundle(filename) => {
+        Verify::CustomCaBundle(filename) => {
             cmd.push("--cacert");
             // TODO: maybe filename should be as bytes?
             // (does the way we have structopt set up even accept non-unicode?)
@@ -248,27 +248,37 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push(token);
     }
 
-    if args.multipart || request_items.has_form_files() {
+    if request_items.is_multipart(args.request_type) {
         // We can't use .body() here because we can't look inside the multipart
         // form after construction and we don't want to actually read the files
         for item in request_items.0 {
             match item {
-                RequestItem::JSONField(..) => {
+                RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
                     cmd.flag("-F", "--form");
                     cmd.push(format!("{}={}", key, value));
                 }
-                RequestItem::FormFile(key, value, file_type) => {
+                RequestItem::DataFieldFromFile(key, value) => {
+                    cmd.flag("-F", "--form");
+                    cmd.push(format!("{}=<{}", key, value));
+                }
+                RequestItem::FormFile {
+                    key,
+                    file_name,
+                    file_type,
+                } => {
                     cmd.flag("-F", "--form");
                     if let Some(file_type) = file_type {
-                        cmd.push(format!("{}=@{};type={}", key, value, file_type));
+                        cmd.push(format!("{}=@{};type={}", key, file_name, file_type));
                     } else {
-                        cmd.push(format!("{}=@{}", key, value));
+                        cmd.push(format!("{}=@{}", key, file_name));
                     }
                 }
-                _ => {}
+                RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderToUnset(..) => {}
+                RequestItem::UrlParam(..) => {}
             }
         }
     } else {
@@ -305,6 +315,18 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::Json(..) => {}
             Body::Multipart { .. } => unreachable!(),
             Body::Raw(..) => unreachable!(),
+            Body::File {
+                file_name,
+                file_type,
+            } => {
+                if let Some(file_type) = file_type {
+                    cmd.header("content-type", file_type.to_str()?);
+                } else {
+                    cmd.header("content-type", JSON_CONTENT_TYPE);
+                }
+                cmd.push("--data-binary");
+                cmd.push(format!("@{}", file_name.to_string_lossy()));
+            }
         }
     }
 
@@ -408,6 +430,11 @@ mod tests {
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
                 "curl --location --output foobar --continue-at - 'http://httpbin.org/get'",
                 "curl --location --output foobar --continue-at - http://httpbin.org/get",
+            ),
+            (
+                "xh httpbin.org/post @foo.txt",
+                "curl 'http://httpbin.org/post' -H 'content-type: text/plain' --data-binary '@foo.txt'",
+                r#"curl http://httpbin.org/post -H "content-type: text/plain" --data-binary @foo.txt"#,
             ),
         ];
         for (input, output_unix, output_windows) in expected {

@@ -21,9 +21,15 @@ Optional key-value pairs to be included in the request.
 .IP
 \fBkey=value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR)
 .IP
+\fBkey=@value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR) from a file.
+.IP
 \fBkey:=value\fR to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
 .IP
+\fBkey:=@value\fR to add a complex JSON value (e.g. `numbers:=@data.json`) from a file.
+.IP
 \fBkey@filename\fR to upload a file from filename (with \fB\-\-form\fR)
+.IP
+\fB@filename\fR to use a file as the request body
 .IP
 \fBheader:value\fR to add a header
 .IP

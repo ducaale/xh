@@ -16,13 +16,6 @@ use crate::{
     utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
 };
 
-const MULTIPART_SUPPRESSOR: &str = concat!(
-    "+--------------------------------------------+\n",
-    "| NOTE: multipart data not shown in terminal |\n",
-    "+--------------------------------------------+\n",
-    "\n"
-);
-
 const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "| NOTE: binary data not shown in terminal |\n",
@@ -326,23 +319,18 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_request_body(&mut self, request: &Request) -> io::Result<()> {
-        match get_content_type(&request.headers()) {
-            ContentType::Multipart => {
-                self.buffer.print(MULTIPART_SUPPRESSOR)?;
+    pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
+        let content_type = get_content_type(&request.headers());
+        if let Some(body) = request.body_mut() {
+            let body = body.buffer()?;
+            if body.contains(&b'\0') {
+                self.buffer.print(BINARY_SUPPRESSOR)?;
+            } else {
+                self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
+                self.buffer.print("\n")?;
             }
-            content_type => {
-                if let Some(body) = request.body().and_then(|b| b.as_bytes()) {
-                    if body.contains(&b'\0') {
-                        self.buffer.print(BINARY_SUPPRESSOR)?;
-                    } else {
-                        self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
-                        self.buffer.print("\n")?;
-                    }
-                    // Breathing room between request and response
-                    self.buffer.print("\n")?;
-                }
-            }
+            // Breathing room between request and response
+            self.buffer.print("\n")?;
         }
         Ok(())
     }
@@ -452,21 +440,21 @@ mod tests {
     }
 
     #[test]
-    fn test_1() {
+    fn terminal_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stdout(..));
     }
 
     #[test]
-    fn test_2() {
+    fn redirect_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::Redirect(..));
     }
 
     #[test]
-    fn test_3() {
+    fn terminal_mode_with_output_file() {
         let output = temp_path("temp3");
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
@@ -474,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    fn test_4() {
+    fn redirect_mode_with_output_file() {
         let output = temp_path("temp4");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-o", output],
@@ -485,21 +473,21 @@ mod tests {
     }
 
     #[test]
-    fn test_5() {
+    fn terminal_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
-    fn test_6() {
+    fn redirect_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
     }
 
     #[test]
-    fn test_7() {
+    fn terminal_mode_download_with_output_file() {
         let output = temp_path("temp7");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
@@ -510,7 +498,7 @@ mod tests {
     }
 
     #[test]
-    fn test_8() {
+    fn redirect_mode_download_with_output_file() {
         let output = temp_path("temp8");
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],

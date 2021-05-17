@@ -6,6 +6,7 @@ use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use reqwest::{Method, Url};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
@@ -136,6 +137,13 @@ pub struct Cli {
     #[structopt(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
+    /// Connection timeout of the request.
+    ///
+    /// The default value is `0`, i.e., there is no timeout limit.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "SEC")]
+    pub timeout: Option<Timeout>,
+
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
     ///
     /// PROTOCOL can be `http`, `https` or `all`.
@@ -209,6 +217,7 @@ pub struct Cli {
     ///   - key=value to add a JSON field (--json) or form field (--form)
     ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
     ///   - key@filename to upload a file from filename (with --form)
+    ///   - @filename to use a file as the request body
     ///   - header:value to add a header
     ///   - header: to unset a header
     ///   - header; to add a header with an empty value
@@ -269,6 +278,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-quiet",
     "--no-stream",
     "--no-style",
+    "--no-timeout",
     "--no-verbose",
     "--no-verify",
 ];
@@ -644,6 +654,34 @@ impl FromStr for Print {
     }
 }
 
+#[derive(Debug)]
+pub struct Timeout(Duration);
+
+impl Timeout {
+    pub fn as_duration(&self) -> Option<Duration> {
+        Some(self.0).filter(|t| t != &Duration::from_nanos(0))
+    }
+}
+
+impl FromStr for Timeout {
+    type Err = Error;
+
+    fn from_str(sec: &str) -> Result<Timeout> {
+        let pos_sec: f64 = match sec.parse::<f64>() {
+            Ok(sec) if sec.is_sign_positive() => sec,
+            _ => {
+                return Err(Error::with_description(
+                    "Invalid seconds as connection timeout",
+                    ErrorKind::InvalidValue,
+                ))
+            }
+        };
+
+        let dur = Duration::from_secs_f64(pos_sec);
+        Ok(Timeout(dur))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Proxy {
     Http(Url),
@@ -690,7 +728,7 @@ impl FromStr for Proxy {
 pub enum Verify {
     Yes,
     No,
-    CustomCABundle(PathBuf),
+    CustomCaBundle(PathBuf),
 }
 
 impl FromStr for Verify {
@@ -699,7 +737,7 @@ impl FromStr for Verify {
         match verify.to_lowercase().as_str() {
             "no" | "false" => Ok(Verify::No),
             "yes" | "true" => Ok(Verify::Yes),
-            path => Ok(Verify::CustomCABundle(PathBuf::from(path))),
+            path => Ok(Verify::CustomCaBundle(PathBuf::from(path))),
         }
     }
 }
@@ -709,7 +747,7 @@ impl fmt::Display for Verify {
         match self {
             Verify::No => write!(f, "no"),
             Verify::Yes => write!(f, "yes"),
-            Verify::CustomCABundle(path) => write!(f, "custom ca bundle: {}", path.display()),
+            Verify::CustomCaBundle(path) => write!(f, "custom ca bundle: {}", path.display()),
         }
     }
 }

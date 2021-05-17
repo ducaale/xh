@@ -811,6 +811,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -947,6 +956,12 @@ dependencies = [
  "serde_regex",
  "tokio",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -1090,6 +1105,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc9f84f9b115ce7843d60706df1422a916680bfdfcbdb0447c5614ff9d7e4d78"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "jsonxf"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfca5477a192d9eef9349f3e6b62437d069530e3bb2a8ffe204f89b02b9deb9d"
+dependencies = [
+ "getopts",
+ "memchr",
 ]
 
 [[package]]
@@ -2613,12 +2638,15 @@ dependencies = [
  "encoding_rs_io",
  "exit_status",
  "httpmock",
+ "humantime",
  "indicatif",
  "indoc",
+ "jsonxf",
  "lazy_static",
  "memchr",
  "mime",
  "mime2ext",
+ "mime_guess",
  "netrc-rs",
  "pem",
  "predicates",

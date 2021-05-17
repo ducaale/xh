@@ -8,7 +8,6 @@ mod request_items;
 mod to_curl;
 mod url;
 mod utils;
-mod vendored;
 
 use std::fs::File;
 use std::io::{stdin, Read};
@@ -61,7 +60,8 @@ fn main() -> Result<i32> {
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
             } else {
                 return Err(anyhow!(
-                    "Request body (from stdin) and Request data (key=value) cannot be mixed"
+                    "Request body (from stdin) and request data (key=value) cannot be mixed. \
+                    Pass --ignore-stdin to ignore standard input."
                 ));
             }
         }
@@ -71,21 +71,25 @@ fn main() -> Result<i32> {
     }
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
+    let timeout = args.timeout.and_then(|t| t.as_duration());
     let redirect = match args.follow {
         true => Policy::limited(args.max_redirects.unwrap_or(10)),
         false => Policy::none(),
     };
 
     let mut client = Client::builder()
-        .http2_adaptive_window(true)
+        .http2_initial_stream_window_size(4_194_304)
+        .http2_initial_connection_window_size(4_194_304)
+        .timeout(timeout)
         .redirect(redirect);
+
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
         client = match args.verify.unwrap_or(Verify::Yes) {
             Verify::Yes => client,
             Verify::No => client.danger_accept_invalid_certs(true),
-            Verify::CustomCABundle(path) => {
+            Verify::CustomCaBundle(path) => {
                 let mut buffer = Vec::new();
                 let mut file = File::open(&path).with_context(|| {
                     format!("Failed to open the custom CA bundle: {}", path.display())
@@ -140,10 +144,10 @@ fn main() -> Result<i32> {
 
     let client = client.build()?;
 
-    let request = {
+    let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate"))
+            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
@@ -176,6 +180,13 @@ fn main() -> Result<i32> {
                 RequestType::Multipart => unreachable!(),
             }
             .body(body),
+            Body::File {
+                file_name,
+                file_type,
+            } => request_builder.body(File::open(file_name)?).header(
+                CONTENT_TYPE,
+                file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
+            ),
         };
 
         if args.resume {
@@ -210,6 +221,12 @@ fn main() -> Result<i32> {
         request
     };
 
+    if args.download {
+        request
+            .headers_mut()
+            .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+    };
+
     let buffer = Buffer::new(
         args.download,
         args.output.as_deref(),
@@ -235,7 +252,7 @@ fn main() -> Result<i32> {
         printer.print_request_headers(&request)?;
     }
     if print.request_body {
-        printer.print_request_body(&request)?;
+        printer.print_request_body(&mut request)?;
     }
     if !args.offline {
         let orig_url = request.url().clone();
