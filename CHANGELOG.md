@@ -1,3 +1,23 @@
+## Unreleased
+### Features
+- Support reading DataField and JsonField value from a file, see #118 (@ducaale)
+- Add percentage of progress to download progress bar, see #119 (@sorairolake)
+- Add the timeout flag, see #131 (@sorairolake)
+- Support installation via a shell script, see #122 (@ducaale)
+- Support reading request body from file, see #140 (@blyxxyz)
+
+### Bug fixes
+- Fix progress bar ETA when resuming download, see #116 (@blyxxyz)
+- Replace `deflate` in Accept-Encoding to `br`, see #128 (@sorairolake)
+- Set Accept-Encoding to `identity` in download mode, see #130 (@sorairolake)
+- Replace HTTP/2 adaptive window by fixed window to prevent crashes, see #138 (@blyxxyz)
+- Fix a bug where same file cannot be re-downloaded, see #139 (@ducaale)
+- Enforce accept-encoding to be `identity` in download mode, see #141 (@ducaale)
+
+### Other
+- Unvendor jsonxf, see #124 (@blyxxyz)
+- Add config file for clippy, see #123 (@sorairolake)
+
 ## [0.9.2] - 2021-03-24
 ### Bug fixes
 - Escape backslash in JSON highlighting definition, see #108 (@blyxxyz)
