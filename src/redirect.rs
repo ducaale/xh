@@ -81,8 +81,8 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
     match response.status() {
         StatusCode::MOVED_PERMANENTLY | StatusCode::FOUND | StatusCode::SEE_OTHER => {
             let next_url = get_next_url(&request)?;
-            let prev_url = request.url().clone();
-            if is_cross_domain_redirect(&next_url, &prev_url) {
+            let prev_url = request.url();
+            if is_cross_domain_redirect(&next_url, prev_url) {
                 remove_sensitive_headers(request.headers_mut());
             }
             remove_content_headers(request.headers_mut());
@@ -97,8 +97,8 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
         }
         StatusCode::TEMPORARY_REDIRECT | StatusCode::PERMANENT_REDIRECT => {
             let next_url = get_next_url(&request)?;
-            let prev_url = request.url().clone();
-            if is_cross_domain_redirect(&next_url, &prev_url) {
+            let prev_url = request.url();
+            if is_cross_domain_redirect(&next_url, prev_url) {
                 remove_sensitive_headers(request.headers_mut());
             }
             *request.url_mut() = next_url;
