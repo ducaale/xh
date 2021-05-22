@@ -33,6 +33,8 @@ where
     }
 
     pub fn execute(&mut self, mut first_request: Request) -> Result<Response> {
+        // This buffers the body in case we need it again later
+        // reqwest does *not* do this, it ignores 307/308 with a streaming body
         let mut request = clone_request(&mut first_request);
         let mut response = self.client.execute(first_request)?;
         let mut remaining_redirects = self.max_redirects - 1;
