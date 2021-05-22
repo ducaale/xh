@@ -69,6 +69,7 @@ fn clone_request(request: &mut Request) -> Request {
     request.try_clone().unwrap() // guaranteed to not fail if body is already buffered
 }
 
+// See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607
 fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {
     let get_next_url = |request: &Request| {
         response
@@ -108,11 +109,13 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
     }
 }
 
+// See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/redirect.rs#L234-L246
 fn is_cross_domain_redirect(next: &Url, previous: &Url) -> bool {
     next.host_str() != previous.host_str()
         || next.port_or_known_default() != previous.port_or_known_default()
 }
 
+// See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/redirect.rs#L234-L246
 fn remove_sensitive_headers(headers: &mut HeaderMap) {
     headers.remove(AUTHORIZATION);
     headers.remove(COOKIE);
@@ -121,6 +124,7 @@ fn remove_sensitive_headers(headers: &mut HeaderMap) {
     headers.remove(WWW_AUTHENTICATE);
 }
 
+// See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1503-L1510
 fn remove_content_headers(headers: &mut HeaderMap) {
     headers.remove(TRANSFER_ENCODING);
     headers.remove(CONTENT_ENCODING);
