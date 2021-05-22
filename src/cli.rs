@@ -434,6 +434,9 @@ impl Cli {
             self.follow = true;
             self.check_status = true;
         }
+        if self.verbose {
+            self.all = true;
+        }
         if self.curl_long {
             self.curl = true;
         }
