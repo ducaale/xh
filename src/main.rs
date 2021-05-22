@@ -293,12 +293,12 @@ fn main() -> Result<i32> {
             let mut client =
                 redirect::RedirectFollower::new(&client, args.max_redirects.unwrap_or(10));
             if args.all {
-                client.on_redirect(|response, request| {
-                    printer.print_response_headers(&response)?;
-                    printer.print_response_body(response)?;
+                client.on_redirect(|prev_response, next_request| {
+                    printer.print_response_headers(&prev_response)?;
+                    printer.print_response_body(prev_response)?;
                     printer.print_seperator()?;
-                    printer.print_request_headers(request)?;
-                    printer.print_request_body(request)?;
+                    printer.print_request_headers(next_request)?;
+                    printer.print_request_body(next_request)?;
                     Ok(())
                 });
             }
