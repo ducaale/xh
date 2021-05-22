@@ -62,7 +62,9 @@ fn clone_request(request: &mut Request) -> Request {
         .body_mut()
         .as_mut()
         .map(|b| b.buffer().expect("unable to buffer request"));
-    request.try_clone().unwrap() // guranteed to not fail if body is already buffered
+    // This doesn't copy the contents of the buffer, cloning requests is cheap
+    // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
+    request.try_clone().unwrap() // guaranteed to not fail if body is already buffered
 }
 
 fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {
