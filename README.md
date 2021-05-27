@@ -126,14 +126,14 @@ xh put httpbin.org/put id:=49 age:=25 | less
 xh -d httpbin.org/json -o res.json
 ```
 
-## xh vs HTTPie
+## How xh compares to HTTPie
 
-### Advantages over HTTPie
+### Advantages
 
-- Improved startup speed. `xh` may run short requests many times as fast.
+- Improved startup speed.
 - Available as a single statically linked binary that's easy to install and carry around.
 - HTTP/2 support.
-- Builtin translation to curl commands with the `--curl` flag (similar to https://curl2httpie.online/).
+- Builtin translation to curl commands with the `--curl` flag.
 - Short, cheatsheet-style output from `--help`. (For longer output, pass `help`.)
 
 ### Disadvantages
@@ -151,8 +151,8 @@ xh -d httpbin.org/json -o res.json
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
 
-## Similar Projects
+## Similar or related Projects
 
-- https://github.com/rs/curlie
-- https://github.com/saghm/rural
-- https://github.com/mark-burnett/ht
+- [curlie](https://github.com/rs/curlie) - frontend to curl that adds the ease of use of httpie
+- [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
+- [curl2httpie](https://github.com/dcb9/curl2httpie) - covert command arguments between cURL and HTTPie
