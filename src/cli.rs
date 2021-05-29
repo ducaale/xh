@@ -385,6 +385,14 @@ impl Cli {
             cli.https = true;
         }
 
+        if cli.verify.is_none() {
+            if let Some(path) = env::var_os("REQUESTS_CA_BUNDLE") {
+                cli.verify = Some(Verify::CustomCaBundle(PathBuf::from(path)));
+            } else if let Some(path) = env::var_os("CURL_CA_BUNDLE") {
+                cli.verify = Some(Verify::CustomCaBundle(PathBuf::from(path)));
+            }
+        }
+
         cli.process_relations()?;
         Ok(cli)
     }
