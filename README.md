@@ -1,14 +1,14 @@
 # xh
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
 
-xh is a friendly and fast tool for sending HTTP requests. It reimplements as much
+`xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
 as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
 ## Installation
 
-### via curl (Linux/macOS)
+### via cURL (Linux & macOS)
 
 ```
 curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
@@ -82,26 +82,37 @@ Run `xh help` for more detailed information.
 
 `xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
-* `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
-* `==` for adding query strings.
-* `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
-* `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
-* `;` for including headers with empty values e.g `header-without-value;`.
-* `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
+- `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
+- `==` for adding query strings.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
+- `;` for including headers with empty values e.g `header-without-value;`.
+- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
 
 The request body can also be read from standard input, or from a file using `@filename`.
 
-### xh and xhs
+### Shorthand form for URLs
+
+Similar to HTTPie, specifying the scheme portion of the request URL is optional. `xh` also supports
+omitting `localhost` from the URL as long it starts with colon plus an optional port number. 
+
+```sh
+xh localhost:3000/users # resolves to http://localhost:3000/users
+xh localhost:3000/users # resolves to http://localhost:3000/users
+xh :3000/users          # resolves to http://localhost:3000/users
+xh :/users              # resolves to http://localhost:80/users
+xh example.com          # resolves to http://example.com
+```
+
+### Making HTTPS requests by default
 
 `xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
 via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:
 
 ```sh
-$ cd /path/to/xh
-$ ln -s ./xh ./xhs
-
-xh httpbin.org/get | jq .url  # "http://httpbin.org/get"
-xhs httpbin.org/get | jq .url # "https://httpbin.org/get"
+cd /path/to/xh && ln -s ./xh ./xhs
+xh httpbin.org/get  # resolves to http://httpbin.org/get
+xhs httpbin.org/get # resolves to https://httpbin.org/get
 ```
 
 ## Examples
@@ -153,6 +164,6 @@ xh -d httpbin.org/json -o res.json
 
 ## Similar or related Projects
 
-- [curlie](https://github.com/rs/curlie) - frontend to curl that adds the ease of use of httpie
+- [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
 - [curl2httpie](https://github.com/dcb9/curl2httpie) - covert command arguments between cURL and HTTPie
