@@ -98,6 +98,8 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--no-print', 'no-print', [CompletionResultType]::ParameterName, 'no-print')
             [CompletionResult]::new('--no-proxy', 'no-proxy', [CompletionResultType]::ParameterName, 'no-proxy')
             [CompletionResult]::new('--no-quiet', 'no-quiet', [CompletionResultType]::ParameterName, 'no-quiet')
+            [CompletionResult]::new('--no-session', 'no-session', [CompletionResultType]::ParameterName, 'no-session')
+            [CompletionResult]::new('--no-session-read-only', 'no-session-read-only', [CompletionResultType]::ParameterName, 'no-session-read-only')
             [CompletionResult]::new('--no-stream', 'no-stream', [CompletionResultType]::ParameterName, 'no-stream')
             [CompletionResult]::new('--no-style', 'no-style', [CompletionResultType]::ParameterName, 'no-style')
             [CompletionResult]::new('--no-timeout', 'no-timeout', [CompletionResultType]::ParameterName, 'no-timeout')

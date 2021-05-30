@@ -1,14 +1,14 @@
 # xh
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
 
-xh is a friendly and fast tool for sending HTTP requests. It reimplements as much
+`xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
 as possible of [HTTPie's](https://httpie.io/) excellent design.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
 ## Installation
 
-### via curl (Linux/macOS)
+### via cURL (Linux & macOS)
 
 ```
 curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
@@ -16,16 +16,20 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### via a package manager
 
-| OS           | Method    | Command                 |
-|--------------|-----------|-------------------------|
-| Any          | Cargo\*   | `cargo install xh`      |
-| Linux        | Linuxbrew | `brew install xh`       |
-| Arch Linux   | Pacman    | `pacman -S xh`          |
-| macOS        | Homebrew  | `brew install xh`       |
-| macOS        | MacPorts  | `sudo port install xh`  |
-| Windows      | Scoop     | `scoop install xh`      |
+| OS             | Method    | Command                 |
+|----------------|-----------|-------------------------|
+| Any            | Cargo\*   | `cargo install xh`      |
+| Any            | [Huber]   | `huber install xh`      |
+| Arch Linux     | Pacman    | `pacman -S xh`          |
+| Linux & macOS  | Nixpkgs   | `nix-env -iA nixpkgs.xh`|
+| Linux & macOS  | Homebrew  | `brew install xh`       |
+| macOS          | MacPorts  | `sudo port install xh`  |
+| Windows        | Scoop     | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.46 or later installed
+
+[Huber]: https://github.com/innobead/huber#installing-huber
+
 
 ### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
@@ -84,26 +88,37 @@ Run `xh help` for more detailed information.
 
 `xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
 
-* `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
-* `==` for adding query strings.
-* `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
-* `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
-* `;` for including headers with empty values e.g `header-without-value;`.
-* `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
+- `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
+- `==` for adding query strings.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
+- `;` for including headers with empty values e.g `header-without-value;`.
+- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
 
 The request body can also be read from standard input, or from a file using `@filename`.
 
-### xh and xhs
+### Shorthand form for URLs
+
+Similar to HTTPie, specifying the scheme portion of the request URL is optional. `xh` also supports
+omitting `localhost` from the URL as long it starts with colon plus an optional port number. 
+
+```sh
+xh localhost:3000/users # resolves to http://localhost:3000/users
+xh localhost:3000/users # resolves to http://localhost:3000/users
+xh :3000/users          # resolves to http://localhost:3000/users
+xh :/users              # resolves to http://localhost:80/users
+xh example.com          # resolves to http://example.com
+```
+
+### Making HTTPS requests by default
 
 `xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
 via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:
 
 ```sh
-$ cd /path/to/xh
-$ ln -s ./xh ./xhs
-
-xh httpbin.org/get | jq .url  # "http://httpbin.org/get"
-xhs httpbin.org/get | jq .url # "https://httpbin.org/get"
+cd /path/to/xh && ln -s ./xh ./xhs
+xh httpbin.org/get  # resolves to http://httpbin.org/get
+xhs httpbin.org/get # resolves to https://httpbin.org/get
 ```
 
 ## Examples
@@ -128,14 +143,14 @@ xh put httpbin.org/put id:=49 age:=25 | less
 xh -d httpbin.org/json -o res.json
 ```
 
-## xh vs HTTPie
+## How xh compares to HTTPie
 
-### Advantages over HTTPie
+### Advantages
 
-- Improved startup speed. `xh` may run short requests many times as fast.
+- Improved startup speed.
 - Available as a single statically linked binary that's easy to install and carry around.
 - HTTP/2 support.
-- Builtin translation to curl commands with the `--curl` flag (similar to https://curl2httpie.online/).
+- Builtin translation to curl commands with the `--curl` flag.
 - Short, cheatsheet-style output from `--help`. (For longer output, pass `help`.)
 
 ### Disadvantages
@@ -153,8 +168,8 @@ xh -d httpbin.org/json -o res.json
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
 
-## Similar Projects
+## Similar or related Projects
 
-- https://github.com/rs/curlie
-- https://github.com/saghm/rural
-- https://github.com/mark-burnett/ht
+- [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
+- [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
+- [curl2httpie](https://github.com/dcb9/curl2httpie) - covert command arguments between cURL and HTTPie

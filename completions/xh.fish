@@ -59,6 +59,8 @@ complete -c xh -l no-pretty
 complete -c xh -l no-print
 complete -c xh -l no-proxy
 complete -c xh -l no-quiet
+complete -c xh -l no-session
+complete -c xh -l no-session-read-only
 complete -c xh -l no-stream
 complete -c xh -l no-style
 complete -c xh -l no-timeout
