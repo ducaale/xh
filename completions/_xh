@@ -48,7 +48,7 @@ _xh() {
 '--body[Print only the response body, Shortcut for --print=b]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
-'--all[show any intermediary requests/responses]' \
+'--all[Show any intermediary requests/responses]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \

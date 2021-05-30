@@ -53,7 +53,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--body', 'body', [CompletionResultType]::ParameterName, 'Print only the response body, Shortcut for --print=b')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Print the whole request as well as the response')
             [CompletionResult]::new('--verbose', 'verbose', [CompletionResultType]::ParameterName, 'Print the whole request as well as the response')
-            [CompletionResult]::new('--all', 'all', [CompletionResultType]::ParameterName, 'show any intermediary requests/responses')
+            [CompletionResult]::new('--all', 'all', [CompletionResultType]::ParameterName, 'Show any intermediary requests/responses')
             [CompletionResult]::new('-q', 'q', [CompletionResultType]::ParameterName, 'Do not print to stdout or stderr')
             [CompletionResult]::new('--quiet', 'quiet', [CompletionResultType]::ParameterName, 'Do not print to stdout or stderr')
             [CompletionResult]::new('-S', 'S', [CompletionResultType]::ParameterName, 'Always stream the response body')

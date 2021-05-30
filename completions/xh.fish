@@ -20,7 +20,7 @@ complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-dat
 complete -c xh -s h -l headers -d 'Print only the response headers, shortcut for --print=h'
 complete -c xh -s b -l body -d 'Print only the response body, Shortcut for --print=b'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
-complete -c xh -l all -d 'show any intermediary requests/responses'
+complete -c xh -l all -d 'Show any intermediary requests/responses'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
 complete -c xh -s S -l stream -d 'Always stream the response body'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
