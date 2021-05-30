@@ -9,8 +9,10 @@ mod to_curl;
 mod url;
 mod utils;
 
+use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -86,7 +88,19 @@ fn main() -> Result<i32> {
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
-        client = match args.verify.unwrap_or(Verify::Yes) {
+        let verify = args.verify.unwrap_or_else(|| {
+            // requests library which is used by HTTPie checks for both
+            // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
+            // See https://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
+            if let Some(path) = env::var_os("REQUESTS_CA_BUNDLE") {
+                Verify::CustomCaBundle(PathBuf::from(path))
+            } else if let Some(path) = env::var_os("CURL_CA_BUNDLE") {
+                Verify::CustomCaBundle(PathBuf::from(path))
+            } else {
+                Verify::Yes
+            }
+        });
+        client = match verify {
             Verify::Yes => client,
             Verify::No => client.danger_accept_invalid_certs(true),
             Verify::CustomCaBundle(path) => {
