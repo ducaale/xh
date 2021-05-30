@@ -283,7 +283,7 @@ fn main() -> Result<i32> {
         atty::is(Stream::Stdout) || test_pretend_term(),
         args.pretty,
     )?;
-    let is_redirect = buffer.is_redirect();
+    let is_output_redirected = buffer.is_redirect();
     let print = match args.print {
         Some(print) => print,
         None => Print::new(
@@ -330,7 +330,7 @@ fn main() -> Result<i32> {
                 _ => 0,
             }
         }
-        if is_redirect && exit_code != 0 {
+        if is_output_redirected && exit_code != 0 {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
 
