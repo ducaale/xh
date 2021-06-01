@@ -74,7 +74,7 @@ pub struct Cli {
     #[structopt(short = "v", long)]
     pub verbose: bool,
 
-    /// Show any intermediary requests/responses.
+    /// Show any intermediary requests/responses while following redirects with --follow.
     #[structopt(long)]
     pub all: bool,
 
