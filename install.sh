@@ -38,7 +38,7 @@ fi
 
 echo "Downloading xh..."
 
-temp_dir=$(mktemp -d /tmp/xh.XXXXXXXX)
+temp_dir=$(mktemp -dt xh.XXXXXX)
 trap 'rm -rf "$temp_dir"' EXIT INT TERM
 cd "$temp_dir"
 
