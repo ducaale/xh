@@ -80,8 +80,7 @@ fn main() -> Result<i32> {
     };
 
     let mut client = Client::builder()
-        .http2_initial_stream_window_size(4_194_304)
-        .http2_initial_connection_window_size(4_194_304)
+        .http2_adaptive_window(true)
         .timeout(timeout)
         .redirect(redirect);
 
