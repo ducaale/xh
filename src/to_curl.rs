@@ -58,8 +58,8 @@ impl Command {
         self.push(format!("{}: {}", name, value));
     }
 
-    fn env(&mut self, var: &'static str, value: String) {
-        self.env.push((var, value));
+    fn env(&mut self, var: &'static str, value: impl Into<String>) {
+        self.env.push((var, value.into()));
     }
 
     fn warn(&mut self, message: String) {
@@ -178,14 +178,14 @@ pub fn translate(args: Cli) -> Result<Command> {
         match proxy {
             crate::cli::Proxy::All(proxy) => {
                 cmd.flag("-x", "--proxy");
-                cmd.push(proxy.into_string());
+                cmd.push(proxy);
             }
             crate::cli::Proxy::Http(proxy) => {
                 // These don't seem to have corresponding flags
-                cmd.env("http_proxy", proxy.into_string());
+                cmd.env("http_proxy", proxy);
             }
             crate::cli::Proxy::Https(proxy) => {
-                cmd.env("https_proxy", proxy.into_string());
+                cmd.env("https_proxy", proxy);
             }
         }
     }
