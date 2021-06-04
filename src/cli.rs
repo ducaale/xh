@@ -29,8 +29,11 @@ use crate::{buffer::Buffer, request_items::RequestItem};
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
-    settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage],
-    global_setting = AppSettings::ColoredHelp,
+    settings = &[
+        AppSettings::DeriveDisplayOrder,
+        AppSettings::UnifiedHelpMessage,
+        AppSettings::ColoredHelp,
+    ],
 )]
 pub struct Cli {
     /// (default) Serialize data items from the command line as a JSON object.
@@ -300,6 +303,11 @@ impl Cli {
         match Self::from_iter_safe(iter) {
             Ok(cli) => cli,
             Err(err) if err.kind == ErrorKind::HelpDisplayed => {
+                let mut app = if env::var("NO_COLOR").is_ok() {
+                    Cli::clap().setting(AppSettings::ColorNever)
+                } else {
+                    Cli::clap()
+                };
                 // The logic here is a little tricky.
                 //
                 // Normally with structopt/clap, -h prints short help while --help
@@ -313,26 +321,25 @@ impl Cli {
                 // want to print long help, then we insert our own error in from_iter_safe
                 // with a special tag.
                 if env::var_os("XH_HELP2MAN").is_some() {
-                    Cli::clap()
-                        .template(
-                            "\
-                                Usage: {usage}\n\
-                                \n\
-                                {long-about}\n\
-                                \n\
-                                Options:\n\
-                                {flags}\n\
-                                {options}\n\
-                                {after-help}\
-                            ",
-                        )
-                        .print_long_help()
-                        .unwrap();
+                    app.template(
+                        "\
+                            Usage: {usage}\n\
+                            \n\
+                            {long-about}\n\
+                            \n\
+                            Options:\n\
+                            {flags}\n\
+                            {options}\n\
+                            {after-help}\
+                        ",
+                    )
+                    .print_long_help()
+                    .unwrap();
                 } else if err.message == "XH_PRINT_LONG_HELP" {
-                    Cli::clap().print_long_help().unwrap();
+                    app.print_long_help().unwrap();
                     println!();
                 } else {
-                    Cli::clap().print_help().unwrap();
+                    app.print_help().unwrap();
                     println!(
                         "\n\nRun `{} help` for more complete documentation.",
                         env!("CARGO_PKG_NAME")
