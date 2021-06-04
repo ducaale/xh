@@ -27,7 +27,11 @@ use crate::{buffer::Buffer, request_items::RequestItem};
 ///
 /// It reimplements as much as possible of HTTPie's excellent design.
 #[derive(StructOpt, Debug)]
-#[structopt(name = "xh", settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage])]
+#[structopt(
+    name = "xh",
+    settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage],
+    global_setting = AppSettings::ColoredHelp,
+)]
 pub struct Cli {
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
