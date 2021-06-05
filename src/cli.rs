@@ -27,7 +27,14 @@ use crate::{buffer::Buffer, request_items::RequestItem};
 ///
 /// It reimplements as much as possible of HTTPie's excellent design.
 #[derive(StructOpt, Debug)]
-#[structopt(name = "xh", settings = &[AppSettings::DeriveDisplayOrder, AppSettings::UnifiedHelpMessage])]
+#[structopt(
+    name = "xh",
+    settings = &[
+        AppSettings::DeriveDisplayOrder,
+        AppSettings::UnifiedHelpMessage,
+        AppSettings::ColoredHelp,
+    ],
+)]
 pub struct Cli {
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
@@ -429,6 +436,12 @@ impl Cli {
 
     pub fn clap() -> clap::App<'static, 'static> {
         let mut app = <Self as StructOpt>::clap();
+        // Clap 2.33 implements color output via ansi_term crate,
+        // which does not handle `NO_COLOR` environment variable.
+        // We handle it here.
+        if env::var_os("NO_COLOR").is_some() {
+            app = app.setting(AppSettings::ColorNever);
+        }
         for &flag in NEGATION_FLAGS {
             // `orig` and `flag` both need a static lifetime, so we
             // build `orig` by trimming `flag` instead of building `flag`
