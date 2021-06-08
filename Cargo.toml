@@ -61,5 +61,7 @@ default = ["integration-tests"]
 
 integration-tests = []
 
+native-tls = ["reqwest/native-tls"]
+
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }
