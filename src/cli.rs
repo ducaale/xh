@@ -126,7 +126,7 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
-    /// Exit with an error status code if the server replies with an error.
+    /// (default) Exit with an error status code if the server replies with an error.
     ///
     /// The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error),
     /// or 3 on 3xx (Redirect) if --follow isn't set.
@@ -392,12 +392,12 @@ impl Cli {
             cli.https = true;
         }
 
-        cli.process_relations()?;
+        cli.process_relations(&matches)?;
         Ok(cli)
     }
 
     /// Set flags that are implied by other flags and report conflicting flags.
-    fn process_relations(&mut self) -> clap::Result<()> {
+    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
         if self.resume && !self.download {
             return Err(Error::with_description(
                 "--continue only works with --download",
@@ -421,6 +421,12 @@ impl Cli {
         }
         if self.auth_type == AuthType::bearer && self.auth.is_some() {
             self.bearer = self.auth.take();
+        }
+        // We would like for --check-status to default to true but that is not
+        // something structopt supports.
+        self.check_status = true;
+        if matches.is_present("--no-check-status") {
+            self.check_status = false;
         }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
@@ -1088,5 +1094,23 @@ mod tests {
         .unwrap();
         assert_eq!(cli.bearer, None);
         assert_eq!(cli.auth_type, AuthType::basic);
+    }
+
+    #[test]
+    fn negating_check_status() {
+        let cli = parse(&[":"]).unwrap();
+        assert_eq!(cli.check_status, true);
+
+        let cli = parse(&["--check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, true);
+
+        let cli = parse(&["--no-check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, false);
+
+        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, false);
+
+        let cli = parse(&["--no-check-status", "--check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, true);
     }
 }

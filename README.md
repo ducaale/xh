@@ -165,6 +165,7 @@ xh -d httpbin.org/json -o res.json
 - Headers are sent and printed in lowercase.
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
+- `--check-status` is enabled by default.
 
 ## Similar or related Projects
 
