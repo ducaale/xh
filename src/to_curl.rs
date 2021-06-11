@@ -129,7 +129,9 @@ pub fn translate(args: Cli) -> Result<Command> {
         // showing up right away
         cmd.flag("-N", "--no-buffer");
     }
-    if args.check_status {
+    // Since --fail is bit disruptive than HTTPie's --check-status flag, we will not enable
+    // it unless the user explicitely sets the latter flag
+    if args.check_status.unwrap_or(false) {
         // Suppresses output on failure, unlike us
         cmd.flag("-f", "--fail");
     }

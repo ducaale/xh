@@ -275,7 +275,7 @@ fn main() -> Result<i32> {
         }
         let status = response.status();
         let exit_code: i32 = match status.as_u16() {
-            _ if !(args.check_status || args.download) => 0,
+            _ if !(args.check_status.unwrap_or(true) || args.download) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
             500..=599 => 5,

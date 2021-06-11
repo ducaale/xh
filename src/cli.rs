@@ -133,8 +133,11 @@ pub struct Cli {
     ///
     /// If stdout is redirected then a warning is written to stderr.
     /// {n}{n}{n}
-    #[structopt(long)]
-    pub check_status: bool,
+    #[structopt(long = "check-status", name = "check-status")]
+    pub check_status_raw: bool,
+
+    #[structopt(skip)]
+    pub check_status: Option<bool>,
 
     /// Do follow redirects.
     #[structopt(short = "F", long)]
@@ -422,12 +425,12 @@ impl Cli {
         if self.auth_type == AuthType::bearer && self.auth.is_some() {
             self.bearer = self.auth.take();
         }
-        // We would like for --check-status to default to true but that is not
-        // something structopt supports.
-        self.check_status = true;
-        if matches.is_present("--no-check-status") {
-            self.check_status = false;
-        }
+        self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            (false, false) => None,
+        };
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
             // Also the default, so this shouldn't do anything
@@ -456,7 +459,7 @@ impl Cli {
             app = app.arg(
                 // The name is inconsequential, but it has to be unique and it
                 // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::with_name(flag)
+                clap::Arg::with_name(&flag[2..])
                     .long(flag)
                     .hidden(true)
                     // overrides_with is enough to make the flags take effect
@@ -999,9 +1002,6 @@ mod tests {
         let cli = parse(&["--no-offline", ":"]).unwrap();
         assert_eq!(cli.offline, false);
 
-        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, false);
-
         // In HTTPie, the order doesn't matter, so this would be false
         let cli = parse(&["--no-offline", "--offline", ":"]).unwrap();
         assert_eq!(cli.offline, true);
@@ -1099,18 +1099,18 @@ mod tests {
     #[test]
     fn negating_check_status() {
         let cli = parse(&[":"]).unwrap();
-        assert_eq!(cli.check_status, true);
+        assert_eq!(cli.check_status, None);
 
         let cli = parse(&["--check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, true);
+        assert_eq!(cli.check_status, Some(true));
 
         let cli = parse(&["--no-check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, false);
+        assert_eq!(cli.check_status, Some(false));
 
         let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, false);
+        assert_eq!(cli.check_status, Some(false));
 
         let cli = parse(&["--no-check-status", "--check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, true);
+        assert_eq!(cli.check_status, Some(true));
     }
 }
