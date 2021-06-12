@@ -119,6 +119,10 @@ xh httpbin.org/get  # resolves to http://httpbin.org/get
 xhs httpbin.org/get # resolves to https://httpbin.org/get
 ```
 
+### Strict compatibility mode
+
+TODO: explain how renaming binary to either `http` or `https` turns on strict compatibility mode.
+
 ## Examples
 
 ```sh
@@ -161,11 +165,12 @@ xh -d httpbin.org/json -o res.json
 
 ### Other differences
 
+- `--check-status` is enabled unless `xh` is being used in
+  [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
 - `rustls` is used instead of the system's TLS library.
 - Headers are sent and printed in lowercase.
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
-- `--check-status` is enabled by default.
 
 ## Similar or related Projects
 
