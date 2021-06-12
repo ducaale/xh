@@ -36,6 +36,9 @@ use crate::{buffer::Buffer, request_items::RequestItem};
     ],
 )]
 pub struct Cli {
+    #[structopt(skip)]
+    pub httpie_compat_mode: bool,
+
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
@@ -126,15 +129,18 @@ pub struct Cli {
     #[structopt(long)]
     pub offline: bool,
 
-    /// Exit with an error status code if the server replies with an error.
+    /// (default) Exit with an error status code if the server replies with an error.
     ///
     /// The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error),
     /// or 3 on 3xx (Redirect) if --follow isn't set.
     ///
     /// If stdout is redirected then a warning is written to stderr.
     /// {n}{n}{n}
-    #[structopt(long)]
-    pub check_status: bool,
+    #[structopt(long = "check-status", name = "check-status")]
+    pub check_status_raw: bool,
+
+    #[structopt(skip)]
+    pub check_status: Option<bool>,
 
     /// Do follow redirects.
     #[structopt(short = "F", long)]
@@ -385,19 +391,22 @@ impl Cli {
             cli.request_items.push(request_item.parse()?);
         }
 
-        if matches!(
-            app.get_bin_name().and_then(|name| name.split('.').next()),
-            Some("https") | Some("xhs") | Some("xhttps")
-        ) {
+        let bin_name = app.get_bin_name().and_then(|name| name.split('.').next());
+        if matches!(bin_name, Some("https") | Some("xhs") | Some("xhttps")) {
             cli.https = true;
         }
+        if matches!(bin_name, Some("http") | Some("https"))
+            || env::var_os("XH_HTTPIE_COMPAT_MODE").is_some()
+        {
+            cli.httpie_compat_mode = true;
+        }
 
-        cli.process_relations()?;
+        cli.process_relations(&matches)?;
         Ok(cli)
     }
 
     /// Set flags that are implied by other flags and report conflicting flags.
-    fn process_relations(&mut self) -> clap::Result<()> {
+    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
         if self.resume && !self.download {
             return Err(Error::with_description(
                 "--continue only works with --download",
@@ -421,6 +430,15 @@ impl Cli {
         }
         if self.auth_type == AuthType::bearer && self.auth.is_some() {
             self.bearer = self.auth.take();
+        }
+        self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            (false, false) => None,
+        };
+        if self.download {
+            self.check_status = Some(true);
         }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
@@ -450,7 +468,7 @@ impl Cli {
             app = app.arg(
                 // The name is inconsequential, but it has to be unique and it
                 // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::with_name(flag)
+                clap::Arg::with_name(&flag[2..])
                     .long(flag)
                     .hidden(true)
                     // overrides_with is enough to make the flags take effect
@@ -993,9 +1011,6 @@ mod tests {
         let cli = parse(&["--no-offline", ":"]).unwrap();
         assert_eq!(cli.offline, false);
 
-        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
-        assert_eq!(cli.check_status, false);
-
         // In HTTPie, the order doesn't matter, so this would be false
         let cli = parse(&["--no-offline", "--offline", ":"]).unwrap();
         assert_eq!(cli.offline, true);
@@ -1088,5 +1103,23 @@ mod tests {
         .unwrap();
         assert_eq!(cli.bearer, None);
         assert_eq!(cli.auth_type, AuthType::basic);
+    }
+
+    #[test]
+    fn negating_check_status() {
+        let cli = parse(&[":"]).unwrap();
+        assert_eq!(cli.check_status, None);
+
+        let cli = parse(&["--check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, Some(true));
+
+        let cli = parse(&["--no-check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, Some(false));
+
+        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, Some(false));
+
+        let cli = parse(&["--no-check-status", "--check-status", ":"]).unwrap();
+        assert_eq!(cli.check_status, Some(true));
     }
 }

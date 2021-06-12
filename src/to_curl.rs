@@ -129,7 +129,9 @@ pub fn translate(args: Cli) -> Result<Command> {
         // showing up right away
         cmd.flag("-N", "--no-buffer");
     }
-    if args.check_status {
+    // Since --fail is bit disruptive than HTTPie's --check-status flag, we will not enable
+    // it unless the user explicitely sets the latter flag
+    if args.check_status.unwrap_or(false) {
         // Suppresses output on failure, unlike us
         cmd.flag("-f", "--fail");
     }
@@ -418,18 +420,18 @@ mod tests {
             ),
             (
                 "xh -d httpbin.org/get",
-                "curl -L -O 'http://httpbin.org/get'",
-                "curl -L -O http://httpbin.org/get",
+                "curl -f -L -O 'http://httpbin.org/get'",
+                "curl -f -L -O http://httpbin.org/get",
             ),
             (
                 "xh -d -o foobar --continue httpbin.org/get",
-                "curl -L -o foobar -C - 'http://httpbin.org/get'",
-                "curl -L -o foobar -C - http://httpbin.org/get",
+                "curl -f -L -o foobar -C - 'http://httpbin.org/get'",
+                "curl -f -L -o foobar -C - http://httpbin.org/get",
             ),
             (
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
-                "curl --location --output foobar --continue-at - 'http://httpbin.org/get'",
-                "curl --location --output foobar --continue-at - http://httpbin.org/get",
+                "curl --fail --location --output foobar --continue-at - 'http://httpbin.org/get'",
+                "curl --fail --location --output foobar --continue-at - http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post @foo.txt",

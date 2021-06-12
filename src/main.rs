@@ -274,8 +274,9 @@ fn main() -> Result<i32> {
             printer.print_response_headers(&response)?;
         }
         let status = response.status();
+        let check_status = args.check_status.unwrap_or(!args.httpie_compat_mode);
         let exit_code: i32 = match status.as_u16() {
-            _ if !(args.check_status || args.download) => 0,
+            _ if !(check_status) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
             500..=599 => 5,
