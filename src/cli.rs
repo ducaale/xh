@@ -431,6 +431,9 @@ impl Cli {
             (false, true) => Some(false),
             (false, false) => None,
         };
+        if self.download {
+            self.check_status = Some(true);
+        }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
             // Also the default, so this shouldn't do anything
