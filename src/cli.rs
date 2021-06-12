@@ -37,7 +37,7 @@ use crate::{buffer::Buffer, request_items::RequestItem};
 )]
 pub struct Cli {
     #[structopt(skip)]
-    pub strict_compat_mode: bool,
+    pub httpie_compat_mode: bool,
 
     /// (default) Serialize data items from the command line as a JSON object.
     #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
@@ -395,8 +395,10 @@ impl Cli {
         if matches!(bin_name, Some("https") | Some("xhs") | Some("xhttps")) {
             cli.https = true;
         }
-        if matches!(bin_name, Some("http") | Some("https")) {
-            cli.strict_compat_mode = true;
+        if matches!(bin_name, Some("http") | Some("https"))
+            || env::var_os("XH_HTTPIE_COMPAT_MODE").is_some()
+        {
+            cli.httpie_compat_mode = true;
         }
 
         cli.process_relations(&matches)?;
