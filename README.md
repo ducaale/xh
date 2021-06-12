@@ -177,4 +177,4 @@ xh -d httpbin.org/json -o res.json
 
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
-- [curl2httpie](https://github.com/dcb9/curl2httpie) - covert command arguments between cURL and HTTPie
+- [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
