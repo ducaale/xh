@@ -121,8 +121,8 @@ xhs httpbin.org/get # resolves to https://httpbin.org/get
 
 ### Strict compatibility mode
 
-This can be useful for users who are initially migrating from HTTPie to `xh`. To enable this mode, you can either
-rename the binary to `http`/`https` or use `XH_HTTPIE_COMPAT_MODE` env variable.
+If `xh` is invoked as `http` or `https` (by renaming the binary), or if the `XH_HTTPIE_COMPAT_MODE` environment variable is set,
+it will run in HTTPie compatibility mode. The only current difference is that `--check-status` is not enabled by default.
 
 ## Examples
 
