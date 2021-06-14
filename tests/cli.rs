@@ -1,4 +1,3 @@
-#![cfg(feature = "integration-tests")]
 use std::{
     fs::File,
     fs::{read_to_string, OpenOptions},
