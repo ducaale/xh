@@ -17,15 +17,16 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### via a package manager
 
-| OS             | Method    | Command                 |
-|----------------|-----------|-------------------------|
-| Any            | Cargo\*   | `cargo install xh`      |
-| Any            | [Huber]   | `huber install xh`      |
-| Arch Linux     | Pacman    | `pacman -S xh`          |
-| Linux & macOS  | Nixpkgs   | `nix-env -iA nixpkgs.xh`|
-| Linux & macOS  | Homebrew  | `brew install xh`       |
-| macOS          | MacPorts  | `sudo port install xh`  |
-| Windows        | Scoop     | `scoop install xh`      |
+| OS             | Method     | Command                 |
+|----------------|------------|-------------------------|
+| Any            | Cargo\*    | `cargo install xh`      |
+| Any            | [Huber]    | `huber install xh`      |
+| Arch Linux     | Pacman     | `pacman -S xh`          |
+| FreeBSD        | FreshPorts | `pkg install xh`        |
+| Linux & macOS  | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
+| Linux & macOS  | Homebrew   | `brew install xh`       |
+| macOS          | MacPorts   | `sudo port install xh`  |
+| Windows        | Scoop      | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.46 or later installed
 
