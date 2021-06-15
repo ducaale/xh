@@ -79,11 +79,11 @@ fn main() -> Result<i32> {
     let timeout = args.timeout.and_then(|t| t.as_duration());
 
     let mut client = Client::builder()
-        .http2_initial_stream_window_size(4_194_304)
-        .http2_initial_connection_window_size(4_194_304)
+        .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout);
 
+    let mut exit_code: i32 = 0;
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
@@ -301,7 +301,6 @@ fn main() -> Result<i32> {
     printer.print_request_headers(&request)?;
     printer.print_request_body(&mut request)?;
 
-    let mut exit_code: i32 = 0;
     if !args.offline {
         let response = if args.follow {
             let mut client =
@@ -322,7 +321,7 @@ fn main() -> Result<i32> {
         };
 
         let status = response.status();
-        if args.check_status {
+        if args.check_status.unwrap_or(!args.httpie_compat_mode) {
             exit_code = match status.as_u16() {
                 300..=399 if !args.follow => 3,
                 400..=499 => 4,

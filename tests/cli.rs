@@ -652,6 +652,36 @@ fn check_status() {
 }
 
 #[test]
+fn check_status_is_implied() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .code(4)
+        .stderr("");
+    mock.assert();
+}
+
+#[test]
+fn check_status_is_not_implied_in_compat_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .env("XH_HTTPIE_COMPAT_MODE", "")
+        .arg(server.base_url())
+        .assert()
+        .code(0);
+    mock.assert();
+}
+
+#[test]
 fn user_password_auth() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
