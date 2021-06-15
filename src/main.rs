@@ -83,8 +83,7 @@ fn main() -> Result<i32> {
     };
 
     let mut client = Client::builder()
-        .http2_initial_stream_window_size(4_194_304)
-        .http2_initial_connection_window_size(4_194_304)
+        .http2_adaptive_window(true)
         .timeout(timeout)
         .redirect(redirect);
 
@@ -313,9 +312,9 @@ fn main() -> Result<i32> {
     if !args.offline {
         let response = client.execute(request)?;
         let status = response.status();
-
+        let check_status = args.check_status.unwrap_or(!args.httpie_compat_mode);
         exit_code = match status.as_u16() {
-            _ if !(args.check_status || args.download) => 0,
+            _ if !(check_status) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
             500..=599 => 5,

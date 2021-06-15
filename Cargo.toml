@@ -37,7 +37,7 @@ serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
-structopt = "0.3"
+structopt = { version = "0.3", features = ["wrap_help"] }
 termcolor = "1.1.2"
 time = "0.2.26"
 jsonxf = "1.1.0"

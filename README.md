@@ -16,15 +16,16 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### via a package manager
 
-| OS             | Method    | Command                 |
-|----------------|-----------|-------------------------|
-| Any            | Cargo\*   | `cargo install xh`      |
-| Any            | [Huber]   | `huber install xh`      |
-| Arch Linux     | Pacman    | `pacman -S xh`          |
-| Linux & macOS  | Nixpkgs   | `nix-env -iA nixpkgs.xh`|
-| Linux & macOS  | Homebrew  | `brew install xh`       |
-| macOS          | MacPorts  | `sudo port install xh`  |
-| Windows        | Scoop     | `scoop install xh`      |
+| OS             | Method     | Command                 |
+|----------------|------------|-------------------------|
+| Any            | Cargo\*    | `cargo install xh`      |
+| Any            | [Huber]    | `huber install xh`      |
+| Arch Linux     | Pacman     | `pacman -S xh`          |
+| FreeBSD        | FreshPorts | `pkg install xh`        |
+| Linux & macOS  | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
+| Linux & macOS  | Homebrew   | `brew install xh`       |
+| macOS          | MacPorts   | `sudo port install xh`  |
+| Windows        | Scoop      | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.46 or later installed
 
@@ -121,6 +122,11 @@ xh httpbin.org/get  # resolves to http://httpbin.org/get
 xhs httpbin.org/get # resolves to https://httpbin.org/get
 ```
 
+### Strict compatibility mode
+
+If `xh` is invoked as `http` or `https` (by renaming the binary), or if the `XH_HTTPIE_COMPAT_MODE` environment variable is set,
+it will run in HTTPie compatibility mode. The only current difference is that `--check-status` is not enabled by default.
+
 ## Examples
 
 ```sh
@@ -163,6 +169,8 @@ xh -d httpbin.org/json -o res.json
 
 ### Other differences
 
+- `--check-status` is enabled unless `xh` is being used in
+  [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
 - `rustls` is used instead of the system's TLS library.
 - Headers are sent and printed in lowercase.
 - JSON keys are not sorted.
@@ -172,4 +180,4 @@ xh -d httpbin.org/json -o res.json
 
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
-- [curl2httpie](https://github.com/dcb9/curl2httpie) - covert command arguments between cURL and HTTPie
+- [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
