@@ -15,8 +15,10 @@ jobs:
             os: ubuntu-latest
           - target: x86_64-apple-darwin
             os: macos-latest
+            flags: --features=native-tls
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            flags: --features=native-tls
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             use-cross: true
@@ -45,10 +47,18 @@ jobs:
     strategy:
       matrix:
         job:
-          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
-          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
-          - { os: macos-latest   , target: x86_64-apple-darwin }
-          - { os: windows-latest , target: x86_64-pc-windows-msvc }
+          - os: ubuntu-latest
+            target: arm-unknown-linux-gnueabihf
+            use-cross: true
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            use-cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            flags: --features=native-tls
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            flags: --features=native-tls
     steps:
       - uses: actions/checkout@v2
       - name: Build target
@@ -56,7 +66,7 @@ jobs:
         with:
           use-cross: ${{ matrix.job.use-cross }}
           command: build
-          args: --release --target ${{ matrix.job.target }}
+          args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
       - name: Strip release binary (linux and macOS)
         if: matrix.job.os != 'windows-latest'
