@@ -258,6 +258,10 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
     pub request_items: Vec<RequestItem>,
+
+    /// The name of the binary.
+    #[structopt(skip)]
+    pub bin_name: String,
 }
 
 /// Names of flags that negate other flags.
@@ -409,11 +413,16 @@ impl Cli {
             cli.request_items.push(request_item.parse()?);
         }
 
-        let bin_name = app.get_bin_name().and_then(|name| name.split('.').next());
-        if matches!(bin_name, Some("https") | Some("xhs") | Some("xhttps")) {
+        cli.bin_name = app
+            .get_bin_name()
+            .and_then(|name| name.split('.').next())
+            .unwrap_or("xh")
+            .to_owned();
+
+        if matches!(cli.bin_name.as_str(), "https" | "xhs" | "xhttps") {
             cli.https = true;
         }
-        if matches!(bin_name, Some("http") | Some("https"))
+        if matches!(cli.bin_name.as_str(), "http" | "https")
             || env::var_os("XH_HTTPIE_COMPAT_MODE").is_some()
         {
             cli.httpie_compat_mode = true;

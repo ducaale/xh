@@ -734,7 +734,7 @@ fn check_status_warning() {
         .arg(server.base_url())
         .assert()
         .code(5)
-        .stderr("\nxh: warning: HTTP 501 Not Implemented\n\n");
+        .stderr("xh: warning: HTTP 501 Not Implemented\n");
     mock.assert();
 }
 

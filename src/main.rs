@@ -14,6 +14,7 @@ use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
 use std::path::PathBuf;
+use std::process;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -41,14 +42,30 @@ fn get_user_agent() -> &'static str {
     }
 }
 
-#[exit_status::main]
-fn main() -> Result<i32> {
+fn main() {
     let args = Cli::parse();
+    let bin_name = args.bin_name.clone();
+    match inner_main(args) {
+        Ok(exit_code) => {
+            process::exit(exit_code);
+        }
+        Err(err) => {
+            eprintln!("{}: error: {:?}", bin_name, err);
+            process::exit(1);
+        }
+    }
+}
 
+fn inner_main(args: Cli) -> Result<i32> {
     if args.curl {
         to_curl::print_curl_translation(args)?;
         return Ok(0);
     }
+
+    let warn = {
+        let bin_name = &args.bin_name;
+        move |msg| eprintln!("{}: warning: {}", bin_name, msg)
+    };
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
@@ -298,7 +315,7 @@ fn main() -> Result<i32> {
             _ => 0,
         };
         if is_redirect && exit_code != 0 {
-            eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
+            warn(&format!("HTTP {}", status));
         }
         if args.download {
             if exit_code == 0 {
