@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use url::{Host, Url};
+
 /// Whether to make some things more deterministic for the benefit of tests
 pub fn test_mode() -> bool {
     // In integration tests the binary isn't compiled with cfg(test), so we
@@ -74,4 +76,8 @@ pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io:
             Err(e) => return Err(e),
         }
     }
+}
+
+pub(crate) fn requires_native_tls(url: &Url) -> bool {
+    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
 }

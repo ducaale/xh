@@ -14,7 +14,10 @@ use serde::{Deserialize, Serialize};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{buffer::Buffer, request_items::RequestItem, utils::config_dir};
+use crate::buffer::Buffer;
+use crate::regex;
+use crate::request_items::RequestItems;
+use crate::utils::config_dir;
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -53,9 +56,6 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     #[structopt(short = "m", long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
-
-    #[structopt(skip)]
-    pub request_type: RequestType,
 
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
@@ -195,7 +195,6 @@ pub struct Cli {
     #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub cert_key: Option<PathBuf>,
 
-    #[cfg(feature = "native-tls")]
     /// Use the system TLS library instead of rustls (if enabled at compile time).
     #[structopt(long)]
     pub native_tls: bool,
@@ -252,12 +251,12 @@ pub struct Cli {
     pub method: Option<Method>,
 
     /// The request URL.
-    #[structopt(skip)]
-    pub url: String,
+    #[structopt(skip = ("http://placeholder".parse::<Url>().unwrap()))]
+    pub url: Url,
 
     /// Optional key-value pairs to be included in the request.
     #[structopt(skip)]
-    pub request_items: Vec<RequestItem>,
+    pub request_items: RequestItems,
 
     /// The name of the binary.
     #[structopt(skip)]
@@ -397,20 +396,21 @@ impl Cli {
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
+        let raw_url;
         match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                cli.url = rest_args.next().ok_or_else(|| {
+                raw_url = rest_args.next().ok_or_else(|| {
                     Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
                 })?;
             }
             None => {
                 cli.method = None;
-                cli.url = mem::take(&mut cli.raw_method_or_url);
+                raw_url = mem::take(&mut cli.raw_method_or_url);
             }
         }
         for request_item in rest_args {
-            cli.request_items.push(request_item.parse()?);
+            cli.request_items.items.push(request_item.parse()?);
         }
 
         cli.bin_name = app
@@ -429,6 +429,18 @@ impl Cli {
         }
 
         cli.process_relations(&matches)?;
+
+        cli.url = construct_url(
+            &raw_url,
+            cli.default_scheme.as_deref(),
+            cli.request_items.query(),
+        )
+        .map_err(|err| Error {
+            message: format!("Invalid URL: {}", err),
+            kind: ErrorKind::ValueValidation,
+            info: None,
+        })?;
+
         Ok(cli)
     }
 
@@ -469,12 +481,11 @@ impl Cli {
         }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
-            // Also the default, so this shouldn't do anything
-            self.request_type = RequestType::Json;
+            self.request_items.request_type = RequestType::Json;
         } else if self.form {
-            self.request_type = RequestType::Form;
+            self.request_items.request_type = RequestType::Form;
         } else if self.multipart {
-            self.request_type = RequestType::Multipart;
+            self.request_items.request_type = RequestType::Multipart;
         }
         Ok(())
     }
@@ -550,6 +561,33 @@ fn parse_method(method: &str) -> Option<Method> {
     } else {
         None
     }
+}
+
+fn construct_url(
+    url: &str,
+    default_scheme: Option<&str>,
+    query: Vec<(&str, &str)>,
+) -> std::result::Result<Url, url::ParseError> {
+    let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
+    if !default_scheme.ends_with("://") {
+        default_scheme.push_str("://");
+    }
+    let mut url: Url = if url.starts_with(':') {
+        format!("{}{}{}", default_scheme, "localhost", url).parse()?
+    } else if !regex!("[a-zA-Z0-9]://.+").is_match(url) {
+        format!("{}{}", default_scheme, url).parse()?
+    } else {
+        url.parse()?
+    };
+    if !query.is_empty() {
+        // If we run this even without adding pairs it adds a `?`, hence
+        // the .is_empty() check
+        let mut pairs = url.query_pairs_mut();
+        for (name, value) in query {
+            pairs.append_pair(name, value);
+        }
+    }
+    Ok(url)
 }
 
 // This signature is a little weird: we either return an error or don't
@@ -868,6 +906,8 @@ fn safe_exit() -> ! {
 mod tests {
     use super::*;
 
+    use crate::request_items::RequestItem;
+
     fn parse(args: &[&str]) -> Result<Cli> {
         Cli::from_iter_safe(
             Some("xh".to_string())
@@ -880,16 +920,16 @@ mod tests {
     fn implicit_method() {
         let cli = parse(&["example.org"]).unwrap();
         assert_eq!(cli.method, None);
-        assert_eq!(cli.url, "example.org");
-        assert!(cli.request_items.is_empty());
+        assert_eq!(cli.url.to_string(), "http://example.org/");
+        assert!(cli.request_items.items.is_empty());
     }
 
     #[test]
     fn explicit_method() {
         let cli = parse(&["get", "example.org"]).unwrap();
         assert_eq!(cli.method, Some(Method::GET));
-        assert_eq!(cli.url, "example.org");
-        assert!(cli.request_items.is_empty());
+        assert_eq!(cli.url.to_string(), "http://example.org/");
+        assert!(cli.request_items.items.is_empty());
     }
 
     #[test]
@@ -900,12 +940,10 @@ mod tests {
         // Non-standard method used by varnish
         let cli = parse(&["purge", ":"]).unwrap();
         assert_eq!(cli.method, Some("PURGE".parse().unwrap()));
-        assert_eq!(cli.url, ":");
+        assert_eq!(cli.url.to_string(), "http://localhost/");
 
-        // Zero-length arg should not be interpreted as method
-        let cli = parse(&[""]).unwrap();
-        assert_eq!(cli.method, None);
-        assert_eq!(cli.url, "");
+        // Zero-length arg should not be interpreted as method, but fail to parse as URL
+        parse(&[""]).unwrap_err();
     }
 
     #[test]
@@ -917,17 +955,17 @@ mod tests {
     fn space_in_url() {
         let cli = parse(&["post", "example.org/foo bar"]).unwrap();
         assert_eq!(cli.method, Some(Method::POST));
-        assert_eq!(cli.url, "example.org/foo bar");
-        assert!(cli.request_items.is_empty());
+        assert_eq!(cli.url.to_string(), "http://example.org/foo%20bar");
+        assert!(cli.request_items.items.is_empty());
     }
 
     #[test]
     fn request_items() {
         let cli = parse(&["get", "example.org", "foo=bar"]).unwrap();
         assert_eq!(cli.method, Some(Method::GET));
-        assert_eq!(cli.url, "example.org");
+        assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
-            cli.request_items,
+            cli.request_items.items,
             vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
         );
     }
@@ -936,9 +974,9 @@ mod tests {
     fn request_items_implicit_method() {
         let cli = parse(&["example.org", "foo=bar"]).unwrap();
         assert_eq!(cli.method, None);
-        assert_eq!(cli.url, "example.org");
+        assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
-            cli.request_items,
+            cli.request_items.items,
             vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
         );
     }
@@ -969,19 +1007,19 @@ mod tests {
     #[test]
     fn request_type_overrides() {
         let cli = parse(&["--form", "--json", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.request_type, RequestType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&["--json", "--form", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Form);
+        assert_eq!(cli.request_items.request_type, RequestType::Form);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, true);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&[":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.request_type, RequestType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
@@ -1078,25 +1116,25 @@ mod tests {
 
         // In HTTPie, this resolves to json, but that seems wrong
         let cli = parse(&["--no-form", "--multipart", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Multipart);
+        assert_eq!(cli.request_items.request_type, RequestType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
         let cli = parse(&["--multipart", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Multipart);
+        assert_eq!(cli.request_items.request_type, RequestType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
         let cli = parse(&["--form", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.request_type, RequestType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&["--form", "--json", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.request_type, RequestType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);

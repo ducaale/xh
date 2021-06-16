@@ -197,7 +197,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         Accept: application/json, */*;q=0.5
-        Accept-Encoding: gzip, deflate, br
+        Accept-Encoding: gzip, br
         Connection: keep-alive
         Content-Length: 9
         Content-Type: application/json
@@ -852,6 +852,60 @@ fn cert_with_key() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
         .stdout(predicates::str::contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
+}
+
+#[cfg(not(feature = "native-tls"))]
+#[test]
+fn native_tls_flag_disabled() {
+    get_command()
+        .arg("--native-tls")
+        .arg(":")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "built without native-tls support",
+        ));
+}
+
+#[cfg(not(feature = "native-tls"))]
+#[test]
+fn improved_https_ip_error_no_support() {
+    get_command()
+        .arg("https://1.1.1.1")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("rustls does not support"))
+        .stderr(predicates::str::contains(
+            "building with the `native-tls` feature",
+        ));
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn improved_https_ip_error_with_support() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.permanent_redirect("https://1.1.1.1");
+    });
+    get_command()
+        .arg("--follow")
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("rustls does not support"))
+        .stderr(predicates::str::contains("using the --native-tls flag"));
+    mock.assert();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn auto_nativetls() {
+    get_command()
+        .arg("--offline")
+        .arg("https://1.1.1.1")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains("native-tls will be enabled"));
 }
 
 #[test]

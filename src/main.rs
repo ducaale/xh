@@ -7,7 +7,6 @@ mod formatting;
 mod printer;
 mod request_items;
 mod to_curl;
-mod url;
 mod utils;
 
 use std::env;
@@ -29,8 +28,7 @@ use crate::buffer::Buffer;
 use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
-use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
-use crate::url::construct_url;
+use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::utils::{test_mode, test_pretend_term};
 
 fn get_user_agent() -> &'static str {
@@ -45,12 +43,31 @@ fn get_user_agent() -> &'static str {
 fn main() {
     let args = Cli::parse();
     let bin_name = args.bin_name.clone();
+    let url = args.url.clone();
+    let native_tls = args.native_tls;
+
     match inner_main(args) {
         Ok(exit_code) => {
             process::exit(exit_code);
         }
         Err(err) => {
             eprintln!("{}: error: {:?}", bin_name, err);
+            if !native_tls && err.root_cause().to_string() == "invalid dnsname" {
+                eprintln!();
+                if utils::requires_native_tls(&url) {
+                    eprintln!("rustls does not support HTTPS for IP addresses.");
+                } else {
+                    // Maybe we went to https://<IP> after a redirect?
+                    eprintln!(
+                        "This may happen because rustls does not support HTTPS for IP addresses."
+                    );
+                }
+                if cfg!(feature = "native-tls") {
+                    eprintln!("Try using the --native-tls flag.");
+                } else {
+                    eprintln!("Consider building with the `native-tls` feature enabled.");
+                }
+            }
             process::exit(1);
         }
     }
@@ -67,13 +84,11 @@ fn inner_main(args: Cli) -> Result<i32> {
         move |msg| eprintln!("{}: warning: {}", bin_name, msg)
     };
 
-    let request_items = RequestItems::new(args.request_items);
-    let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers()?;
-    let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
+    let (headers, headers_to_unset) = args.request_items.headers()?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
-    let mut body = request_items.body(args.request_type)?;
+    let request_type = args.request_items.request_type;
+    let mut body = args.request_items.body()?;
     if !ignore_stdin {
         if !body.is_empty() {
             if body.is_multipart() {
@@ -107,11 +122,20 @@ fn inner_main(args: Cli) -> Result<i32> {
     #[cfg(feature = "native-tls")]
     if args.native_tls {
         client = client.use_native_tls();
+    } else if utils::requires_native_tls(&args.url) {
+        // We should be loud about this to prevent confusion
+        warn("rustls does not support HTTPS for IP addresses. native-tls will be enabled. Use --native-tls to silence this warning.");
+        client = client.use_native_tls();
+    }
+
+    #[cfg(not(feature = "native-tls"))]
+    if args.native_tls {
+        return Err(anyhow!("This binary was built without native-tls support"));
     }
 
     let mut resume: Option<u64> = None;
 
-    if url.scheme() == "https" {
+    if args.url.scheme() == "https" {
         let verify = args.verify.unwrap_or_else(|| {
             // requests library which is used by HTTPie checks for both
             // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
@@ -184,11 +208,8 @@ fn inner_main(args: Cli) -> Result<i32> {
 
     let mut request = {
         let mut request_builder = client
-            .request(method, url.clone())
-            .header(
-                ACCEPT_ENCODING,
-                HeaderValue::from_static("gzip, deflate, br"),
-            )
+            .request(method, args.url.clone())
+            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
@@ -212,7 +233,7 @@ fn inner_main(args: Cli) -> Result<i32> {
                     request_builder
                 }
             }
-            Body::Raw(body) => match args.request_type {
+            Body::Raw(body) => match request_type {
                 RequestType::Json => request_builder
                     .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                     .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
@@ -242,10 +263,10 @@ fn inner_main(args: Cli) -> Result<i32> {
         }
 
         if let Some(auth) = args.auth {
-            let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
+            let (username, password) = parse_auth(auth, args.url.host_str().unwrap_or("<host>"))?;
             request_builder = request_builder.basic_auth(username, password);
         } else if !args.ignore_netrc {
-            if let Some(host) = url.host_str() {
+            if let Some(host) = args.url.host_str() {
                 if let Some(netrc) = read_netrc() {
                     if let Some((username, password)) = auth_from_netrc(host, &netrc) {
                         request_builder = request_builder.basic_auth(username, password);
