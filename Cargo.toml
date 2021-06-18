@@ -60,7 +60,6 @@ tempfile = "3.2.0"
 default = ["integration-tests"]
 
 integration-tests = []
-
 native-tls = ["reqwest/native-tls"]
 
 [build-dependencies]
