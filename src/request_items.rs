@@ -10,7 +10,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
 use structopt::clap;
 
-use crate::cli::RequestType;
+use crate::cli::BodyType;
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
@@ -207,7 +207,7 @@ fn rsplit_once_any<'a, 'b>(
 #[derive(Default, Debug)]
 pub struct RequestItems {
     pub items: Vec<RequestItem>,
-    pub request_type: RequestType,
+    pub body_type: BodyType,
 }
 
 pub enum Body {
@@ -426,12 +426,12 @@ impl RequestItems {
     }
 
     pub fn body(self) -> Result<Body> {
-        match self.request_type {
-            RequestType::Multipart => self.body_as_multipart(),
-            RequestType::Form if self.has_form_files() => self.body_as_multipart(),
-            RequestType::Form => self.body_as_form(),
-            RequestType::Json if self.has_form_files() => self.body_from_file(),
-            RequestType::Json => self.body_as_json(),
+        match self.body_type {
+            BodyType::Multipart => self.body_as_multipart(),
+            BodyType::Form if self.has_form_files() => self.body_as_multipart(),
+            BodyType::Form => self.body_as_form(),
+            BodyType::Json if self.has_form_files() => self.body_from_file(),
+            BodyType::Json => self.body_as_json(),
         }
     }
 
@@ -439,10 +439,10 @@ impl RequestItems {
     ///
     /// This duplicates logic in `body()` for the benefit of `to_curl`.
     pub fn is_multipart(&self) -> bool {
-        match self.request_type {
-            RequestType::Multipart => true,
-            RequestType::Form => self.has_form_files(),
-            RequestType::Json => false,
+        match self.body_type {
+            BodyType::Multipart => true,
+            BodyType::Form => self.has_form_files(),
+            BodyType::Json => false,
         }
     }
 
@@ -452,7 +452,7 @@ impl RequestItems {
     /// for the benefit of `to_curl`, which sometimes has to process the
     /// request items itself.
     pub fn pick_method(&self) -> Method {
-        if self.request_type == RequestType::Multipart {
+        if self.body_type == BodyType::Multipart {
             return Method::POST;
         }
         for item in &self.items {

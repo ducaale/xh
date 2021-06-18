@@ -25,7 +25,7 @@ use reqwest::redirect::Policy;
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
+use crate::cli::{BodyType, Cli, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
@@ -87,7 +87,7 @@ fn inner_main(args: Cli) -> Result<i32> {
     let (headers, headers_to_unset) = args.request_items.headers()?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
-    let request_type = args.request_items.request_type;
+    let body_type = args.request_items.body_type;
     let mut body = args.request_items.body()?;
     if !ignore_stdin {
         if !body.is_empty() {
@@ -233,13 +233,13 @@ fn inner_main(args: Cli) -> Result<i32> {
                     request_builder
                 }
             }
-            Body::Raw(body) => match request_type {
-                RequestType::Json => request_builder
+            Body::Raw(body) => match body_type {
+                BodyType::Json => request_builder
                     .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                     .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
-                RequestType::Form => request_builder
+                BodyType::Form => request_builder
                     .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE)),
-                RequestType::Multipart => unreachable!(),
+                BodyType::Multipart => unreachable!(),
             }
             .body(body),
             Body::File {

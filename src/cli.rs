@@ -481,11 +481,11 @@ impl Cli {
         }
         // `overrides_with_all` ensures that only one of these is true
         if self.json {
-            self.request_items.request_type = RequestType::Json;
+            self.request_items.body_type = BodyType::Json;
         } else if self.form {
-            self.request_items.request_type = RequestType::Form;
+            self.request_items.body_type = BodyType::Form;
         } else if self.multipart {
-            self.request_items.request_type = RequestType::Multipart;
+            self.request_items.body_type = BodyType::Multipart;
         }
         Ok(())
     }
@@ -883,15 +883,15 @@ impl fmt::Display for Verify {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum RequestType {
+pub enum BodyType {
     Json,
     Form,
     Multipart,
 }
 
-impl Default for RequestType {
+impl Default for BodyType {
     fn default() -> Self {
-        RequestType::Json
+        BodyType::Json
     }
 }
 
@@ -1007,19 +1007,19 @@ mod tests {
     #[test]
     fn request_type_overrides() {
         let cli = parse(&["--form", "--json", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&["--json", "--form", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Form);
+        assert_eq!(cli.request_items.body_type, BodyType::Form);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, true);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&[":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
@@ -1116,25 +1116,25 @@ mod tests {
 
         // In HTTPie, this resolves to json, but that seems wrong
         let cli = parse(&["--no-form", "--multipart", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Multipart);
+        assert_eq!(cli.request_items.body_type, BodyType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
         let cli = parse(&["--multipart", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Multipart);
+        assert_eq!(cli.request_items.body_type, BodyType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
         let cli = parse(&["--form", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
         let cli = parse(&["--form", "--json", "--no-form", ":"]).unwrap();
-        assert_eq!(cli.request_items.request_type, RequestType::Json);
+        assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
