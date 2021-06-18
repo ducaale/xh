@@ -296,7 +296,7 @@ fn main() -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    let mut printer = Printer::new(print, pretty, args.style, args.stream, buffer);
+    let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
 
     printer.print_request_headers(&request)?;
     printer.print_request_body(&mut request)?;
@@ -305,6 +305,9 @@ fn main() -> Result<i32> {
         let response = if args.follow {
             let mut client =
                 redirect::RedirectFollower::new(&client, args.max_redirects.unwrap_or(10));
+            if let Some(history_print) = args.history_print {
+                printer.print = history_print;
+            }
             if args.all {
                 client.on_redirect(|prev_response, next_request| {
                     printer.print_response_headers(&prev_response)?;
@@ -333,6 +336,7 @@ fn main() -> Result<i32> {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
 
+        printer.print = print;
         printer.print_response_headers(&response)?;
         if args.download {
             if exit_code == 0 {

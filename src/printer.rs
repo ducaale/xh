@@ -64,7 +64,7 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
 }
 
 pub struct Printer {
-    print: Print,
+    pub print: Print,
     indent_json: bool,
     color: bool,
     theme: Theme,

@@ -50,7 +50,8 @@ OPTIONS:
     -h, --headers                     Print only the response headers, shortcut for --print=h
     -b, --body                        Print only the response body, Shortcut for --print=b
     -v, --verbose                     Print the whole request as well as the response
-        --all                         Show any intermediary requests/responses while following redirects with follow
+        --all                         Show any intermediary requests/responses while following redirects with --follow
+    -P, --history-print <FORMAT>      The same as --print but applies only to intermediary requests/responses
     -q, --quiet                       Do not print to stdout or stderr
     -S, --stream                      Always stream the response body
     -o, --output <FILE>               Save output to FILE instead of stdout
@@ -62,7 +63,7 @@ OPTIONS:
         --bearer <TOKEN>              Authenticate with a bearer token
         --ignore-netrc                Do not use credentials from .netrc
         --offline                     Construct HTTP requests without sending them anywhere
-        --check-status                Exit with an error status code if the server replies with an error
+        --check-status                (default) Exit with an error status code if the server replies with an error
     -F, --follow                      Do follow redirects
         --max-redirects <NUM>         Number of redirects to follow, only respected if `follow` is set
         --timeout <SEC>               Connection timeout of the request

@@ -88,6 +88,10 @@ pub struct Cli {
     #[structopt(long)]
     pub all: bool,
 
+    /// The same as --print but applies only to intermediary requests/responses.
+    #[structopt(short = "P", long, value_name = "FORMAT")]
+    pub history_print: Option<Print>,
+
     /// Do not print to stdout or stderr.
     #[structopt(short = "q", long)]
     pub quiet: bool,
@@ -621,7 +625,7 @@ impl Theme {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Print {
     pub request_headers: bool,
     pub request_body: bool,

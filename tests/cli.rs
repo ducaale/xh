@@ -1727,6 +1727,56 @@ fn print_intermediate_requests_and_responses() {
 }
 
 #[test]
+fn history_print() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    server1.mock(|_, then| {
+        then.header("location", &server2.base_url())
+            .status(302)
+            .header("date", "N/A")
+            .body("redirecting...");
+    });
+    server2.mock(|_, then| {
+        then.header("date", "N/A").body("final destination");
+    });
+
+    get_command()
+        .arg(server1.base_url())
+        .arg("--follow")
+        .arg("--print=HhBb")
+        .arg("--history-print=Hh")
+        .arg("--all")
+        .assert()
+        .stdout(formatdoc! {r#"
+            GET / HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, br
+            connection: keep-alive
+            host: http.mock
+            user-agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 302 Found
+            content-length: 14
+            date: N/A
+            location: {url}
+
+
+            GET / HTTP/1.1
+            accept: */*
+            accept-encoding: gzip, br
+            connection: keep-alive
+            host: http.mock
+            user-agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 200 OK
+            content-length: 17
+            date: N/A
+
+            final destination
+        "#, url = server2.base_url() });
+}
+
+#[test]
 fn max_redirects_is_enforced() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
