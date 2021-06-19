@@ -576,7 +576,7 @@ arg_enum! {
     #[allow(non_camel_case_types)]
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Theme {
-        auto, solarized
+        auto, solarized, monokai
     }
 }
 
@@ -585,6 +585,7 @@ impl Theme {
         match self {
             Theme::auto => "ansi",
             Theme::solarized => "solarized",
+            Theme::monokai => "monokai",
         }
     }
 }
