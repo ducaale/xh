@@ -160,7 +160,10 @@ fn main() -> Result<i32> {
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
+            .header(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static("gzip, deflate, br"),
+            )
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
