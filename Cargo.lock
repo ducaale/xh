@@ -531,9 +531,9 @@ dependencies = [
 
 [[package]]
 name = "cookie_store"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ba4e410d33a326cee69c778c761b6a822469ed7c6b82aa7802bef6e12716060"
+checksum = "55b4ac5559dd39f7bdc516f769cb412b151585d8886d216871a8435ed7f862cd"
 dependencies = [
  "cookie 0.15.0",
  "idna",
@@ -1821,9 +1821,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2296f2fac53979e8ccbc4a1136b25dcefd37be9ed7e4a1f6b05a6029c84ff124"
+checksum = "246e9f61b9bb77df069a947682be06e31ac43ea37862e244a69f177694ea6d22"
 dependencies = [
  "async-compression",
  "base64",
@@ -1864,13 +1864,13 @@ dependencies = [
 
 [[package]]
 name = "reqwest_cookie_store"
-version = "0.1.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a81253b4f49eba884e5b555d08617d2b59be9478fcb53875ded9825d957af4a"
+checksum = "48cbf3a2aeeeaa6d10a76db86068c3560320f6265c3a0e2642e0538e11c2d143"
 dependencies = [
  "bytes",
  "cookie 0.15.0",
- "cookie_store 0.14.1",
+ "cookie_store 0.15.0",
  "reqwest",
  "url",
 ]
@@ -2822,7 +2822,7 @@ dependencies = [
  "atty",
  "base64",
  "cookie 0.15.0",
- "cookie_store 0.14.1",
+ "cookie_store 0.15.0",
  "curl",
  "dirs 3.0.2",
  "encoding_rs",
