@@ -197,7 +197,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         accept: application/json, */*;q=0.5
-        accept-encoding: gzip, br
+        accept-encoding: gzip, deflate, br
         connection: keep-alive
         content-length: 9
         content-type: application/json
