@@ -15,7 +15,7 @@ use predicates::prelude::*;
 use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
-pub fn random_string() -> String {
+fn random_string() -> String {
     use rand::Rng;
 
     rand::thread_rng()
