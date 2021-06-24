@@ -106,7 +106,7 @@ pub struct Cli {
 
     /// Create, or reuse and update a session.
     ///
-    /// Within a session, custom headers, auth credential, as well as any cookies sent
+    /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
     /// {n}{n}{n}
     #[structopt(long, value_name = "FILE", parse(from_os_str))]
