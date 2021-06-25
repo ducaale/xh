@@ -3,11 +3,10 @@ use std::convert::TryFrom;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
-use std::mem;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use reqwest::header::{HeaderMap, AUTHORIZATION};
+use reqwest::header::HeaderMap;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +29,7 @@ impl Default for Meta {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct Auth {
     #[serde(rename = "type")]
     auth_type: Option<String>,
@@ -53,27 +52,13 @@ pub struct Cookie {
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
-    #[serde(skip_serializing)]
-    auth: Option<Auth>,
+    auth: Auth,
     cookies: HashMap<String, Cookie>,
     headers: HashMap<String, String>,
 }
 
 impl Content {
     fn migrate(mut self) -> Self {
-        // TODO: support serialising the auth section in a similar fashion to HTTPie
-        let auth = mem::take(&mut self.auth);
-        if let Some(Auth {
-            auth_type: Some(ref auth_type),
-            raw_auth: Some(ref raw_auth),
-        }) = auth
-        {
-            if auth_type.as_str() == "basic" {
-                self.headers
-                    .entry("authorization".into())
-                    .or_insert_with(|| format!("Basic {}", base64::encode(raw_auth)));
-            }
-        }
         self.meta = Meta::default();
         self
     }
@@ -130,13 +115,34 @@ impl Session {
         Ok(())
     }
 
-    pub fn save_auth(&mut self, request_headers: &HeaderMap) -> Result<()> {
-        if let Some(value) = request_headers.get(AUTHORIZATION) {
-            self.content
-                .headers
-                .insert("authorization".into(), value.to_str()?.into());
+    pub fn auth(&self) -> Option<String> {
+        if let Auth {
+            auth_type: Some(ref auth_type),
+            raw_auth: Some(ref raw_auth),
+        } = self.content.auth
+        {
+            if auth_type.as_str() == "basic" {
+                return Some(format!("Basic {}", base64::encode(raw_auth)));
+            } else if auth_type.as_str() == "bearer" {
+                return Some(format!("Bearer {}", raw_auth));
+            }
         }
-        Ok(())
+
+        None
+    }
+
+    pub fn save_bearer_auth(&mut self, token: String) {
+        self.content.auth = Auth {
+            auth_type: Some("bearer".into()),
+            raw_auth: Some(token),
+        }
+    }
+
+    pub fn save_basic_auth(&mut self, username: String, password: Option<String>) {
+        self.content.auth = Auth {
+            auth_type: Some("basic".into()),
+            raw_auth: Some(format!("{}:{}", username, password.unwrap_or("".into()))),
+        }
     }
 
     pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
@@ -255,7 +261,7 @@ mod tests {
                         }
                     },
                     "headers": {
-                        "authorization": "bearer hello"
+                        "hello": "world"
                     }
                 }
             "#},
@@ -268,8 +274,16 @@ mod tests {
         )?;
 
         assert_eq!(
-            session.content.headers.get("authorization"),
-            Some(&"bearer hello".to_string()),
+            session.content.headers.get("hello"),
+            Some(&"world".to_string()),
+        );
+
+        assert_eq!(
+            session.content.auth,
+            Auth {
+                auth_type: None,
+                raw_auth: None
+            },
         );
 
         let expected_cookie = serde_json::from_str::<Cookie>(
@@ -286,44 +300,6 @@ mod tests {
             session.content.cookies.get("__cfduid"),
             Some(&expected_cookie)
         );
-        Ok(())
-    }
-
-    #[test]
-    fn can_deserialize_auth_section() -> Result<()> {
-        let mut path_to_session = std::env::temp_dir();
-        let file_name = random_string();
-        path_to_session.push(file_name);
-        fs::write(
-            &path_to_session,
-            indoc::indoc! {r#"
-                {
-                    "__meta__": {
-                        "about": "HTTPie session file",
-                        "help": "https://httpie.org/doc#sessions",
-                        "httpie": "2.3.0"
-                    },
-                    "auth": {
-                        "type": "basic",
-                        "raw_auth": "user:pass"
-                    },
-                    "cookies": {},
-                    "headers": {}
-                }
-            "#},
-        )?;
-
-        let session = Session::load_session(
-            &Url::parse("http://localhost")?,
-            path_to_session.into(),
-            false,
-        )?;
-
-        assert_eq!(
-            session.content.headers.get("authorization"),
-            Some(&"Basic dXNlcjpwYXNz".to_string()),
-        );
-
         Ok(())
     }
 
@@ -337,8 +313,12 @@ mod tests {
             indoc::indoc! {r#"
                 {
                     "__meta__": {
-                        "about": "HTTPie session file",
-                        "xh": "0.9.2"
+                        "about": "xh session file",
+                        "httpie": "0.10.0"
+                    },
+                    "auth": {
+                        "raw_auth": "secret-token",
+                        "type": "bearer"
                     },
                     "cookies": {
                         "__cfduid": {
@@ -349,7 +329,7 @@ mod tests {
                         }
                     },
                     "headers": {
-                        "authorization": "bearer hello"
+                        "hello": "world"
                     }
                 }
             "#},
@@ -362,8 +342,16 @@ mod tests {
         )?;
 
         assert_eq!(
-            session.content.headers.get("authorization"),
-            Some(&"bearer hello".to_string()),
+            session.content.headers.get("hello"),
+            Some(&"world".to_string()),
+        );
+
+        assert_eq!(
+            session.content.auth,
+            Auth {
+                auth_type: Some("bearer".into()),
+                raw_auth: Some("secret-token".into())
+            },
         );
 
         let expected_cookie = serde_json::from_str::<Cookie>(
@@ -380,7 +368,6 @@ mod tests {
             session.content.cookies.get("__cfduid"),
             Some(&expected_cookie)
         );
-
         Ok(())
     }
 }

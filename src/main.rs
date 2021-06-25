@@ -20,7 +20,8 @@ use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION, CONNECTION, CONTENT_TYPE, COOKIE, RANGE,
+    USER_AGENT,
 };
 use reqwest::redirect::Policy;
 
@@ -171,10 +172,16 @@ fn main() -> Result<i32> {
         None => None,
     };
 
-    if let Some(ref s) = session {
+    if let Some(ref mut s) = session {
         for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert_with(|| value.clone());
         }
+        if let Some(auth) = s.auth() {
+            headers
+                .entry(AUTHORIZATION)
+                .or_insert(HeaderValue::from_str(&auth)?);
+        }
+        s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
@@ -246,21 +253,30 @@ fn main() -> Result<i32> {
 
         if let Some(auth) = args.auth {
             let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
+            if let Some(ref mut s) = session {
+                s.save_basic_auth(username.clone(), password.clone());
+            }
             request_builder = request_builder.basic_auth(username, password);
         } else if !args.ignore_netrc {
             if let Some(host) = url.host_str() {
                 if let Some(netrc) = read_netrc() {
                     if let Some((username, password)) = auth_from_netrc(host, &netrc) {
+                        if let Some(ref mut s) = session {
+                            s.save_basic_auth(username.clone(), password.clone());
+                        }
                         request_builder = request_builder.basic_auth(username, password);
                     }
                 }
             }
         }
         if let Some(token) = args.bearer {
+            if let Some(ref mut s) = session {
+                s.save_bearer_auth(token.clone())
+            }
             request_builder = request_builder.bearer_auth(token);
         }
 
-        let mut request = request_builder.headers(headers.clone()).build()?;
+        let mut request = request_builder.headers(headers).build()?;
 
         headers_to_unset.iter().for_each(|h| {
             request.headers_mut().remove(h);
@@ -268,11 +284,6 @@ fn main() -> Result<i32> {
 
         request
     };
-
-    if let Some(ref mut s) = session {
-        s.save_auth(&request.headers())?;
-        s.save_headers(&headers)?;
-    }
 
     if args.download {
         request

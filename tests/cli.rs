@@ -1364,6 +1364,7 @@ fn named_sessions() {
         .env("XH_TEST_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg(format!("--session={}", random_name))
+        .arg("--bearer=hello")
         .arg("cookie:lang=en")
         .assert()
         .success();
@@ -1390,6 +1391,7 @@ fn named_sessions() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
+            "auth": { "type": "bearer", "raw_auth": "hello" },
             "cookies": {
                 "cook1": { "value": "one", "path": "/" },
                 "lang": { "value": "en" }
@@ -1429,13 +1431,9 @@ fn anonymous_sessions() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
-            "cookies": {
-                "cook1": { "value": "one" }
-            },
-            "headers": {
-                "hello": "world",
-                "authorization": "Basic bWU6cGFzcw=="
-            }
+            "auth": { "type": "basic", "raw_auth": "me:pass" },
+            "cookies": { "cook1": { "value": "one" } },
+            "headers": { "hello": "world" }
         })
     );
 }
@@ -1450,12 +1448,9 @@ fn anonymous_read_only_session() {
     let session_file = tempfile::NamedTempFile::new().unwrap();
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
-        "cookies": {
-            "cookie1": { "value": "one" }
-        },
-        "headers": {
-            "hello": "world"
-        }
+        "auth": { "type": null, "raw_auth": null },
+        "cookies": { "cookie1": { "value": "one" } },
+        "headers": { "hello": "world" }
     });
 
     std::fs::write(&session_file, old_session_content.to_string()).unwrap();
@@ -1507,6 +1502,7 @@ fn session_files_are_created_in_read_only_mode() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "ar" }
             },
@@ -1538,6 +1534,7 @@ fn named_read_only_session() {
     );
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "auth": { "type": null, "raw_auth": null },
         "cookies": {
             "cookie1": { "value": "one" }
         },
@@ -1580,6 +1577,7 @@ fn expired_cookies_are_removed_from_session() {
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "expired_cookie": {
                     "value": "random_string",
@@ -1614,6 +1612,7 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "unexpired_cookie": {
                     "value": "random_string",
@@ -1645,6 +1644,7 @@ fn cookies_override_each_other_in_the_correct_order() {
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "fr" },
                 "cook2": { "value": "three" }
@@ -1673,6 +1673,7 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "en" },
                 "cook1": { "value": "one" },
@@ -1681,6 +1682,74 @@ fn cookies_override_each_other_in_the_correct_order() {
             "headers": {}
         })
     );
+}
+
+#[test]
+fn basic_auth_from_session_is_used() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": "basic", "raw_auth": "user:pass" },
+            "cookies": {},
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn bearer_auth_from_session_is_used() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("authorization", "Bearer secret-token");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": "bearer", "raw_auth": "secret-token" },
+            "cookies": {},
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+
+    mock.assert();
 }
 
 #[test]
