@@ -1,5 +1,6 @@
 # xh
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
+[![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
 `xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
 as possible of [HTTPie's](https://httpie.io/) excellent design.
@@ -181,3 +182,5 @@ xh -d httpbin.org/json -o res.json
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
 - [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
+- [jq](https://github.com/stedolan/jq) - Command-line JSON processor
+- [fx](https://github.com/antonmedv/fx) - Command-line JSON processor and viewer

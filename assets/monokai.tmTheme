@@ -8,7 +8,7 @@
         that this encoding is being used.
         -->
         <key>name</key>
-        <string>Solarized</string>
+        <string>ANSI Dark</string>
         <key>colorSpaceName</key>
         <string>sRGB</string>
         <key>settings</key>
@@ -17,7 +17,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#F5000000</string>
+                    <string>#0F000000</string>
                 </dict>
             </dict>
             <dict>
@@ -28,7 +28,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#25000000</string>
+                    <string>#8D000000</string>
                 </dict>
             </dict>
             <dict>
@@ -39,7 +39,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#A6000000</string>
+                    <string>#51000000</string>
                 </dict>
             </dict>
             <dict>
@@ -50,7 +50,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#25000000</string>
+                    <string>#BA000000</string>
                 </dict>
             </dict>
             <dict>
@@ -61,7 +61,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#EF000000</string>
+                    <string>#F2000000</string>
                 </dict>
             </dict>
             <dict>
@@ -72,7 +72,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#40000000</string>
+                    <string>#F2000000</string>
                 </dict>
             </dict>
             <dict>
@@ -83,7 +83,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#21000000</string>
+                    <string>#C5000000</string>
                 </dict>
             </dict>
             <dict>
@@ -94,7 +94,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#F5000000</string>
+                    <string>#94000000</string>
                 </dict>
             </dict>
             <dict>
@@ -105,7 +105,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#F5000000</string>
+                    <string>#94000000</string>
                 </dict>
             </dict>
             <dict>
@@ -116,7 +116,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#25000000</string>
+                    <string>#BA000000</string>
                 </dict>
             </dict>
             <dict>
@@ -127,7 +127,29 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#21000000</string>
+                    <string>#51000000</string>
+                </dict>
+            </dict>
+            <dict>
+                <key>name</key>
+                <string>HTTP seperator</string>
+                <key>scope</key>
+                <string>punctuation.separator.http</string>
+                <key>settings</key>
+                <dict>
+                    <key>foreground</key>
+                    <string>#C5000000</string>
+                </dict>
+            </dict>
+            <dict>
+                <key>name</key>
+                <string>HTTP version</string>
+                <key>scope</key>
+                <string>constant.numeric.http</string>
+                <key>settings</key>
+                <dict>
+                    <key>foreground</key>
+                    <string>#8D000000</string>
                 </dict>
             </dict>
             <dict>
@@ -138,7 +160,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#88000000</string>
+                    <string>#94000000</string>
                 </dict>
             </dict>
             <dict>
@@ -149,18 +171,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#21000000</string>
-                </dict>
-            </dict>
-            <dict>
-                <key>name</key>
-                <string>HTTP URL</string>
-                <key>scope</key>
-                <string>const.language.http</string>
-                <key>settings</key>
-                <dict>
-                    <key>foreground</key>
-                    <string>#F5000000</string>
+                    <string>#94000000</string>
                 </dict>
             </dict>
             <dict>
@@ -171,7 +182,7 @@
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
-                    <string>#21000000</string>
+                    <string>#C5000000</string>
                 </dict>
             </dict>
         </array>
