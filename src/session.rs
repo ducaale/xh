@@ -61,6 +61,7 @@ struct Content {
 
 impl Content {
     fn migrate(mut self) -> Self {
+        // TODO: support serialising the auth section in a similar fashion to HTTPie
         let auth = mem::take(&mut self.auth);
         if let Some(Auth {
             auth_type: Some(ref auth_type),
