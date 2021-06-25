@@ -116,6 +116,9 @@ impl Session {
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
         for (key, value) in request_headers.iter() {
             let key = key.as_str();
+            // HTTPie ignores headers that are specific to a particular request e.g content-length
+            // see https://github.com/httpie/httpie/commit/e09b74021c9c955fd7c3bab11f22801aaf9dc1b8
+            // we will also ignore cookies as they are taken care of by save_cookies()
             if key != "cookie" && !key.starts_with("content-") && !key.starts_with("if-") {
                 self.content
                     .headers
