@@ -1,5 +1,6 @@
 #![cfg(feature = "integration-tests")]
 use std::{
+    collections::HashSet,
     fs::File,
     fs::{create_dir_all, read_to_string, OpenOptions},
     io::{Seek, SeekFrom, Write},
@@ -8,7 +9,7 @@ use std::{
 };
 
 use assert_cmd::prelude::*;
-use httpmock::{Method::*, MockServer};
+use httpmock::{HttpMockRequest, Method::*, MockServer};
 use indoc::indoc;
 use predicate::str::contains;
 use predicates::prelude::*;
@@ -1329,6 +1330,25 @@ fn can_set_unset_header() {
         "#});
 }
 
+macro_rules! cookie_exists {
+    ($when:ident, $expected_value:expr) => {{
+        $when.matches(|req: &HttpMockRequest| {
+            req.headers
+                .as_ref()
+                .unwrap()
+                .iter()
+                .find(|(key, actual_value)| {
+                    key == "cookie" && {
+                        let expected = $expected_value.split("; ").collect::<HashSet<_>>();
+                        let actual = actual_value.split("; ").collect::<HashSet<_>>();
+                        actual == expected
+                    }
+                })
+                .is_some()
+        });
+    }};
+}
+
 #[test]
 fn named_sessions() {
     let server = MockServer::start();
@@ -1609,8 +1629,11 @@ fn expired_cookies_are_removed_from_session() {
 
 #[test]
 fn cookies_override_each_other_in_the_correct_order() {
+    // Cookies storage priority is: Server response > Command line request > Session file
+    // See https://httpie.io/docs#cookie-storage-behaviour
     let server = MockServer::start();
-    let mock = server.mock(|_, then| {
+    let mock = server.mock(|when, then| {
+        cookie_exists!(when, "lang=fr; cook1=two; cook2=two");
         then.header("set-cookie", "lang=en")
             .header("set-cookie", "cook1=one");
     });
@@ -1638,6 +1661,7 @@ fn cookies_override_each_other_in_the_correct_order() {
             "--session={}",
             session_file.path().to_string_lossy()
         ))
+        .arg("--no-check-status")
         .assert()
         .success();
 
