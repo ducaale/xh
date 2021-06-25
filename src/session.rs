@@ -203,8 +203,8 @@ fn is_path(value: &OsString) -> bool {
 }
 
 fn config_dir() -> Option<PathBuf> {
-    if test_mode() {
-        std::env::var_os("XH_TEST_CONFIG_DIR").map(Into::into)
+    if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
+        Some(dir.into())
     } else {
         dirs::config_dir()
     }

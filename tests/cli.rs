@@ -1361,7 +1361,7 @@ fn named_sessions() {
     let random_name = random_string();
 
     get_command()
-        .env("XH_TEST_CONFIG_DIR", config_dir.path())
+        .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg(format!("--session={}", random_name))
         .arg("--bearer=hello")
@@ -1547,7 +1547,7 @@ fn named_read_only_session() {
     std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
 
     get_command()
-        .env("XH_TEST_CONFIG_DIR", config_dir.path())
+        .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg("goodbye:world")
         .arg(format!("--session-read-only={}", random_name))
