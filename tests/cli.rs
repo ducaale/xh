@@ -1330,6 +1330,8 @@ fn can_set_unset_header() {
         "#});
 }
 
+// httpmock's matches function doesn't accept closures
+// see https://github.com/alexliesenfeld/httpmock/issues/44#issuecomment-840797442
 macro_rules! cookie_exists {
     ($when:ident, $expected_value:expr) => {{
         $when.matches(|req: &HttpMockRequest| {
@@ -1337,14 +1339,13 @@ macro_rules! cookie_exists {
                 .as_ref()
                 .unwrap()
                 .iter()
-                .find(|(key, actual_value)| {
+                .any(|(key, actual_value)| {
                     key == "cookie" && {
                         let expected = $expected_value.split("; ").collect::<HashSet<_>>();
                         let actual = actual_value.split("; ").collect::<HashSet<_>>();
                         actual == expected
                     }
                 })
-                .is_some()
         });
     }};
 }
