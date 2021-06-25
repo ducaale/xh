@@ -37,6 +37,7 @@ struct Auth {
     raw_auth: Option<String>,
 }
 
+// Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cookie {
     value: String,
