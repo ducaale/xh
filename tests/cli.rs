@@ -1282,7 +1282,7 @@ fn can_unset_default_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
 
@@ -1301,7 +1301,7 @@ fn can_unset_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             hello: world
             host: http.mock
@@ -1321,7 +1321,7 @@ fn can_set_unset_header() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             hello: world
             host: http.mock

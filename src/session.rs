@@ -139,9 +139,10 @@ impl Session {
     }
 
     pub fn save_basic_auth(&mut self, username: String, password: Option<String>) {
+        let password = password.unwrap_or_else(|| "".into());
         self.content.auth = Auth {
             auth_type: Some("basic".into()),
-            raw_auth: Some(format!("{}:{}", username, password.unwrap_or("".into()))),
+            raw_auth: Some(format!("{}:{}", username, password)),
         }
     }
 
