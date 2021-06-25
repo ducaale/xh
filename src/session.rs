@@ -38,7 +38,7 @@ struct Auth {
 }
 
 // Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cookie {
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,11 +261,31 @@ mod tests {
             "#},
         )?;
 
-        Session::load_session(
+        let session = Session::load_session(
             &Url::parse("http://localhost")?,
             path_to_session.into(),
             false,
         )?;
+
+        assert_eq!(
+            session.content.headers.get("authorization"),
+            Some(&"bearer hello".to_string()),
+        );
+
+        let expected_cookie = serde_json::from_str::<Cookie>(
+            r#"
+                {
+                    "expires": 1620239688,
+                    "path": "/",
+                    "secure": false,
+                    "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
+                }
+            "#,
+        )?;
+        assert_eq!(
+            session.content.cookies.get("__cfduid"),
+            Some(&expected_cookie)
+        );
         Ok(())
     }
 
@@ -335,11 +355,32 @@ mod tests {
             "#},
         )?;
 
-        Session::load_session(
+        let session = Session::load_session(
             &Url::parse("http://localhost")?,
             path_to_session.into(),
             false,
         )?;
+
+        assert_eq!(
+            session.content.headers.get("authorization"),
+            Some(&"bearer hello".to_string()),
+        );
+
+        let expected_cookie = serde_json::from_str::<Cookie>(
+            r#"
+                {
+                    "expires": 1620239688,
+                    "path": "/",
+                    "secure": false,
+                    "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
+                }
+            "#,
+        )?;
+        assert_eq!(
+            session.content.cookies.get("__cfduid"),
+            Some(&expected_cookie)
+        );
+
         Ok(())
     }
 }
