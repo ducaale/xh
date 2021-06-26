@@ -316,7 +316,7 @@ fn main() -> Result<i32> {
     let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
     if print.request_headers {
-        printer.print_request_headers(&request)?;
+        printer.print_request_headers(&request, cookie_jar.clone())?;
     }
     if print.request_body {
         printer.print_request_body(&mut request)?;

@@ -1,11 +1,13 @@
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::sync::Arc;
 
 use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
+use reqwest::cookie::CookieStore;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
 };
 use termcolor::WriteColor;
 
@@ -262,7 +264,14 @@ impl Printer {
         header_string
     }
 
-    pub fn print_request_headers(&mut self, request: &Request) -> io::Result<()> {
+    pub fn print_request_headers<T>(
+        &mut self,
+        request: &Request,
+        cookie_jar: Arc<T>,
+    ) -> io::Result<()>
+    where
+        T: CookieStore,
+    {
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -272,6 +281,10 @@ impl Printer {
         headers
             .entry(ACCEPT)
             .or_insert_with(|| HeaderValue::from_static("*/*"));
+
+        if let Some(cookie) = cookie_jar.cookies(url) {
+            headers.insert(COOKIE, cookie);
+        }
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
