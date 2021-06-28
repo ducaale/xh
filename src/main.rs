@@ -176,7 +176,7 @@ fn main() -> Result<i32> {
         for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert_with(|| value.clone());
         }
-        if let Some(auth) = s.auth() {
+        if let Some(auth) = s.auth()? {
             headers
                 .entry(AUTHORIZATION)
                 .or_insert(HeaderValue::from_str(&auth)?);

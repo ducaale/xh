@@ -115,20 +115,22 @@ impl Session {
         Ok(())
     }
 
-    pub fn auth(&self) -> Option<String> {
+    pub fn auth(&self) -> Result<Option<String>> {
         if let Auth {
             auth_type: Some(ref auth_type),
             raw_auth: Some(ref raw_auth),
         } = self.content.auth
         {
             if auth_type.as_str() == "basic" {
-                return Some(format!("Basic {}", base64::encode(raw_auth)));
+                return Ok(Some(format!("Basic {}", base64::encode(raw_auth))));
             } else if auth_type.as_str() == "bearer" {
-                return Some(format!("Bearer {}", raw_auth));
+                return Ok(Some(format!("Bearer {}", raw_auth)));
+            } else {
+                return Err(anyhow!("Unknown auth type {}", raw_auth));
             }
         }
 
-        None
+        Ok(None)
     }
 
     pub fn save_bearer_auth(&mut self, token: String) {
