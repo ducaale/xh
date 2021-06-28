@@ -264,9 +264,6 @@ fn main() -> Result<i32> {
             if let Some(host) = url.host_str() {
                 if let Some(netrc) = read_netrc() {
                     if let Some((username, password)) = auth_from_netrc(host, &netrc) {
-                        if let Some(ref mut s) = session {
-                            s.save_basic_auth(username.clone(), password.clone());
-                        }
                         request_builder = request_builder.basic_auth(username, password);
                     }
                 }
