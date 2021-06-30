@@ -24,7 +24,7 @@ use reqwest::redirect::Policy;
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
+use crate::cli::{Cli, Print, Proxy, RequestType, Verify, Version};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
@@ -155,6 +155,13 @@ fn main() -> Result<i32> {
         }?);
     }
 
+    if matches!(
+        args.http_version,
+        Some(Version::Http10) | Some(Version::Http11)
+    ) {
+        client = client.http1_only();
+    }
+
     let client = client.build()?;
 
     let mut request = {
@@ -166,6 +173,15 @@ fn main() -> Result<i32> {
             )
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
+
+        // TODO: don't include headers that are prohibited by HTTP/2.
+        // See https://github.com/ducaale/xh/pull/132
+        request_builder = match args.http_version {
+            Some(Version::Http10) => request_builder.version(reqwest::Version::HTTP_10),
+            Some(Version::Http11) => request_builder.version(reqwest::Version::HTTP_11),
+            Some(Version::Http2) => request_builder.version(reqwest::Version::HTTP_2),
+            None => request_builder,
+        };
 
         request_builder = match body {
             Body::Form(body) => request_builder.form(&body),

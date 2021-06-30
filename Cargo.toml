@@ -37,7 +37,9 @@ termcolor = "1.1.2"
 jsonxf = "1.1.0"
 
 [dependencies.reqwest]
-version = "0.11.4"
+# version = "0.11.4"
+git = "https://github.com/seanmonstar/reqwest"
+branch = "master"
 default-features = false
 features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks"]
 

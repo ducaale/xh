@@ -200,6 +200,9 @@ pub struct Cli {
     #[structopt(long)]
     pub https: bool,
 
+    #[structopt(long)]
+    pub http_version: Option<Version>,
+
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
@@ -794,6 +797,28 @@ pub enum RequestType {
 impl Default for RequestType {
     fn default() -> Self {
         RequestType::Json
+    }
+}
+
+#[derive(Debug)]
+pub enum Version {
+    Http10,
+    Http11,
+    Http2,
+}
+
+impl FromStr for Version {
+    type Err = Error;
+    fn from_str(version: &str) -> Result<Version> {
+        match version {
+            "1.0" => Ok(Version::Http10),
+            "1.1" => Ok(Version::Http11),
+            "2" => Ok(Version::Http2),
+            _ => Err(Error::with_description(
+                &format!("{:?} is not a valid http version", version),
+                ErrorKind::InvalidValue,
+            )),
+        }
     }
 }
 
