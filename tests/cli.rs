@@ -1373,7 +1373,6 @@ fn named_sessions() {
 
     let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
-            "xh",
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
             &format!("{}.json", random_name),

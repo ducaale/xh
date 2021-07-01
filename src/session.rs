@@ -77,7 +77,7 @@ impl Session {
         } else {
             let mut path = config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["xh", "sessions", &path_from_url(url)?].iter().collect());
+                .join::<PathBuf>(["sessions", &path_from_url(url)?].iter().collect());
             name_or_path.push(".json");
             path.push(name_or_path);
             path
@@ -208,7 +208,7 @@ fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
         Some(dir.into())
     } else {
-        dirs::config_dir()
+        dirs::config_dir().map(|dir| dir.join("xh"))
     }
 }
 
