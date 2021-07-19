@@ -1,3 +1,4 @@
+#![allow(clippy::bool_assert_comparison)]
 mod auth;
 mod buffer;
 mod cli;
