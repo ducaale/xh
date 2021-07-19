@@ -270,13 +270,19 @@ pub fn translate(args: Cli) -> Result<Command> {
                     key,
                     file_name,
                     file_type,
+                    file_name_header,
                 } => {
                     cmd.flag("-F", "--form");
+                    let mut val = format!("{}=@{}", key, file_name);
                     if let Some(file_type) = file_type {
-                        cmd.push(format!("{}=@{};type={}", key, file_name, file_type));
-                    } else {
-                        cmd.push(format!("{}=@{}", key, file_name));
+                        val.push_str(";type=");
+                        val.push_str(&file_type);
                     }
+                    if let Some(file_name_header) = file_name_header {
+                        val.push_str(";filename=");
+                        val.push_str(&file_name_header);
+                    }
+                    cmd.push(val);
                 }
                 RequestItem::HttpHeader(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
@@ -320,6 +326,8 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::File {
                 file_name,
                 file_type,
+                file_name_header,
+                // TODO: use file_name_header
             } => {
                 if let Some(file_type) = file_type {
                     cmd.header("content-type", file_type.to_str()?);
