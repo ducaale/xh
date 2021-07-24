@@ -29,6 +29,7 @@ pub enum RequestItem {
         key: String,
         file_name: String,
         file_type: Option<String>,
+        file_name_header: Option<String>,
     },
 }
 
@@ -100,25 +101,17 @@ impl FromStr for RequestItem {
                     })?,
                 )),
                 "@" => {
-                    // Technically there are concerns about escaping but people
-                    // probably don't put ;type= in their filenames often
-                    let with_type: Vec<&str> = value.rsplitn(2, ";type=").collect();
-                    // rsplitn iterates from the right, so it's either
-                    if let Some(&typed_filename) = with_type.get(1) {
-                        // [mimetype, filename]
-                        Ok(RequestItem::FormFile {
-                            key,
-                            file_name: typed_filename.to_owned(),
-                            file_type: Some(with_type[0].to_owned()),
-                        })
-                    } else {
-                        // [filename]
-                        Ok(RequestItem::FormFile {
-                            key,
-                            file_name: value,
-                            file_type: None,
-                        })
-                    }
+                    let PartWithParams {
+                        value,
+                        file_type,
+                        file_name_header,
+                    } = parse_part_params(&value);
+                    Ok(RequestItem::FormFile {
+                        key,
+                        file_name: value,
+                        file_type,
+                        file_name_header,
+                    })
                 }
                 ":" if value.is_empty() => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
@@ -141,6 +134,76 @@ impl FromStr for RequestItem {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct PartWithParams {
+    value: String,
+    file_type: Option<String>,
+    file_name_header: Option<String>,
+}
+
+/// HTTPie's syntax for this is imitating curl's.
+///
+/// curl's syntax is pretty hairy. At the most basic level it's just key-value
+/// pairs separated by semicolons, but:
+/// - Values may be quoted. This stops spaces from being stripped and allows
+///   you to put semicolons in values. (Between quotes, quotes and backslashes
+///   have to be backslash-escaped.)
+/// - If a key is not recognized then it's skipped with a warning.
+///   - Unless it comes right after a mimetype, in which case it's seen as part
+///     of the last value, because mimetypes can use the exact same syntax
+///     (e.g. `text/html; charset=UTF-8`).
+///     `;type=text/plain;filename=foobar` will send Content-Type `text/plain`
+///     and filename `foobar`, but `;type=text/plain;foo=bar` will send
+///     Content-Type `text/plain;foo=bar`.
+///
+/// We'll cut some corners and just split on ";type=" and ";filename=". That should
+/// be good enough for most purposes. (HTTPie only splits on ";type=".)
+fn parse_part_params(mut text: &str) -> PartWithParams {
+    const TYPE_SEP: &str = ";type=";
+    const FNAME_SEP: &str = ";filename=";
+
+    let mut file_type = None;
+    let mut file_name_header = None;
+
+    // Look for parameters starting from the right.
+    // Only look for a parameter as long as it hasn't been found yet.
+    // (There may be a cleaner way, this is the best I could come up with.)
+    let mut delims = vec![TYPE_SEP, FNAME_SEP];
+    while let Some((pre, delim, post)) = rsplit_once_any(text, &delims) {
+        match delim {
+            TYPE_SEP => file_type = Some(post.to_owned()),
+            FNAME_SEP => file_name_header = Some(post.to_owned()),
+            _ => unreachable!(),
+        }
+        delims.retain(|&x| x != delim);
+        text = pre;
+    }
+
+    PartWithParams {
+        value: text.to_owned(),
+        file_type,
+        file_name_header,
+    }
+}
+
+/// Find the rightmost match of any of the delimiters and do a split.
+fn rsplit_once_any<'a, 'b>(
+    text: &'a str,
+    delimiters: &'b [&'static str],
+) -> Option<(&'a str, &'static str, &'a str)> {
+    let mut res = None;
+    let mut best = 0;
+    for &delim in delimiters {
+        if let Some(pos) = text.rfind(delim) {
+            if pos >= best {
+                best = pos;
+                res = Some((&text[..pos], delim, &text[pos + delim.len()..]));
+            }
+        }
+    }
+    res
+}
+
 pub struct RequestItems(pub Vec<RequestItem>);
 
 pub enum Body {
@@ -151,6 +214,7 @@ pub enum Body {
     File {
         file_name: PathBuf,
         file_type: Option<HeaderValue>,
+        file_name_header: Option<String>,
     },
 }
 
@@ -292,10 +356,14 @@ impl RequestItems {
                     key,
                     file_name,
                     file_type,
+                    file_name_header,
                 } => {
                     let mut part = file_to_part(&file_name)?;
                     if let Some(file_type) = file_type {
                         part = part.mime_str(&file_type)?;
+                    }
+                    if let Some(file_name_header) = file_name_header {
+                        part = part.file_name(file_name_header);
                     }
                     form = form.part(key, part);
                 }
@@ -332,6 +400,7 @@ impl RequestItems {
                     key,
                     file_name,
                     file_type,
+                    file_name_header,
                 } => {
                     assert!(key.is_empty());
                     if body.is_some() {
@@ -344,6 +413,7 @@ impl RequestItems {
                             .map(HeaderValue::from_str)
                             .transpose()?,
                         file_name: file_name.into(),
+                        file_name_header,
                     });
                 }
                 RequestItem::HttpHeader(..)
@@ -473,7 +543,8 @@ mod tests {
             FormFile {
                 key: "foo".into(),
                 file_name: "bar".into(),
-                file_type: None
+                file_type: None,
+                file_name_header: None,
             }
         );
         // Typed file
@@ -482,7 +553,8 @@ mod tests {
             FormFile {
                 key: "foo".into(),
                 file_name: "bar".into(),
-                file_type: Some("qux".into())
+                file_type: Some("qux".into()),
+                file_name_header: None,
             },
         );
         // Multi-typed file
@@ -491,7 +563,8 @@ mod tests {
             FormFile {
                 key: "foo".into(),
                 file_name: "bar;type=qux".into(),
-                file_type: Some("qux".into())
+                file_type: Some("qux".into()),
+                file_name_header: None,
             },
         );
         // Empty filename
@@ -501,7 +574,8 @@ mod tests {
             FormFile {
                 key: "foo".into(),
                 file_name: "".into(),
-                file_type: None
+                file_type: None,
+                file_name_header: None,
             }
         );
         // No separator
@@ -518,5 +592,57 @@ mod tests {
         );
         // Empty
         assert_eq!(parse("="), DataField("".into(), "".into()));
+    }
+
+    #[test]
+    fn param_parsing() {
+        assert_eq!(
+            parse_part_params("foo;type=bar;filename=baz"),
+            PartWithParams {
+                value: "foo".into(),
+                file_type: Some("bar".into()),
+                file_name_header: Some("baz".into()),
+            }
+        );
+        assert_eq!(
+            parse_part_params(";type=foo"),
+            PartWithParams {
+                value: "".into(),
+                file_type: Some("foo".into()),
+                file_name_header: None,
+            }
+        );
+        assert_eq!(
+            parse_part_params("foo;type=bar;type=baz;filename=qux"),
+            PartWithParams {
+                value: "foo;type=bar".into(),
+                file_type: Some("baz".into()),
+                file_name_header: Some("qux".into()),
+            }
+        );
+        assert_eq!(
+            parse_part_params("foo;type=bar;filename=qux;type=baz"),
+            PartWithParams {
+                value: "foo;type=bar".into(),
+                file_type: Some("baz".into()),
+                file_name_header: Some("qux".into()),
+            }
+        );
+        assert_eq!(
+            parse_part_params("foo;x=y"),
+            PartWithParams {
+                value: "foo;x=y".into(),
+                file_type: None,
+                file_name_header: None,
+            }
+        );
+        assert_eq!(
+            parse_part_params(""),
+            PartWithParams {
+                value: "".into(),
+                file_type: None,
+                file_name_header: None,
+            }
+        );
     }
 }

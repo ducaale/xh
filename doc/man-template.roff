@@ -38,4 +38,8 @@ Optional key-value pairs to be included in the request.
 \fBheader;\fR to add a header with an empty value
 .IP
 A backslash can be used to escape special characters (e.g. weird\\:key=value).
+.IP
+File uploads can take ';type=' and ';filename=' parameters to set the mimetype and filename, respectively. For example:
+.IP
+  key@filename;type=text/html;filename=document.html
 .SS "Flags"

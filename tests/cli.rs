@@ -1042,6 +1042,51 @@ fn default_json_for_raw_body() {
 }
 
 #[test]
+fn multipart_file_upload() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        // This test may be fragile, it's conceivable that the headers will become
+        // lowercase in the future
+        // (so if this breaks all of a sudden, check that first)
+        when.body_contains("Hello world")
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"x\"; filename=\"input.txt\"\r\n",
+                "\r\n",
+                "Hello world\n"
+            ))
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"y\"; filename=\"foobar.htm\"\r\n",
+                "Content-Type: text/html\r\n",
+                "\r\n",
+                "Hello world\n",
+            ));
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--form")
+        .arg(server.base_url())
+        .arg(format!("x@{}", filename.to_string_lossy()))
+        .arg(format!(
+            "y@{};type=text/html;filename=foobar.htm",
+            filename.to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
 fn body_from_file() {
     let server = MockServer::start();
     let mock = server.mock(|when, _| {
