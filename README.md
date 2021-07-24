@@ -92,7 +92,7 @@ Run `xh help` for more detailed information.
 
 - `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 - `==` for adding query strings.
-- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
 - `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
@@ -182,5 +182,3 @@ xh -d httpbin.org/json -o res.json
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
 - [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
-- [jq](https://github.com/stedolan/jq) - Command-line JSON processor
-- [fx](https://github.com/antonmedv/fx) - Command-line JSON processor and viewer
