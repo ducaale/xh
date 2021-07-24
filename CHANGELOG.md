@@ -1,3 +1,22 @@
+## [Unreleased]
+### Features
+- Support REQUESTS_CA_BUNDLE & CURL_CA_BUNDLE env variables, see #146 (@ducaale)
+- Enable color and wrapping for _--help_, see #151 (@QuarticCat)
+- Add monokai theme, #157 (@ducaale)
+- Support responses compressed in deflate format, see #158 (@ducaale)
+- Support setting the filename for multipart uploads, see #164 (@blyxxyz)
+
+### Bug fixes
+- Do not hardcode /tmp in the install script, see #149 (@blyxxyz)
+
+### Other
+- Re-enable HTTP/2 adaptive window, see #150 (@blyxxyz)
+
+### Breaking changes
+- _--check-status_ is now on by default. You can opt-out of this change by enabling xh's
+  [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode),
+  see #155 (@ducaale)
+
 ## [0.10.0] - 2021-05-17
 ### Features
 - Support reading DataField and JsonField value from a file, see #118 (@ducaale)
