@@ -1,5 +1,6 @@
 # xh
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
+[![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
 `xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
 as possible of [HTTPie's](https://httpie.io/) excellent design.
@@ -93,7 +94,7 @@ Run `xh help` for more detailed information.
 
 - `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 - `==` for adding query strings.
-- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
 - `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).

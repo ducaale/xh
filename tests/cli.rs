@@ -1,5 +1,6 @@
 #![cfg(feature = "integration-tests")]
 use std::{
+    collections::HashSet,
     fs::File,
     fs::{create_dir_all, read_to_string, OpenOptions},
     io::{Seek, SeekFrom, Write},
@@ -15,7 +16,7 @@ use predicates::prelude::*;
 use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
-pub fn random_string() -> String {
+fn random_string() -> String {
     use rand::Rng;
 
     rand::thread_rng()
@@ -207,7 +208,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         accept: application/json, */*;q=0.5
-        accept-encoding: gzip, br
+        accept-encoding: gzip, deflate, br
         connection: keep-alive
         content-length: 9
         content-type: application/json
@@ -1070,6 +1071,51 @@ fn default_json_for_raw_body() {
 }
 
 #[test]
+fn multipart_file_upload() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        // This test may be fragile, it's conceivable that the headers will become
+        // lowercase in the future
+        // (so if this breaks all of a sudden, check that first)
+        when.body_contains("Hello world")
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"x\"; filename=\"input.txt\"\r\n",
+                "\r\n",
+                "Hello world\n"
+            ))
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"y\"; filename=\"foobar.htm\"\r\n",
+                "Content-Type: text/html\r\n",
+                "\r\n",
+                "Hello world\n",
+            ));
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--form")
+        .arg(server.base_url())
+        .arg(format!("x@{}", filename.to_string_lossy()))
+        .arg(format!(
+            "y@{};type=text/html;filename=foobar.htm",
+            filename.to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
 fn body_from_file() {
     let server = MockServer::start();
     let mock = server.mock(|when, _| {
@@ -1299,7 +1345,7 @@ fn can_unset_default_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
 
@@ -1318,7 +1364,7 @@ fn can_unset_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             hello: world
             host: http.mock
@@ -1338,13 +1384,33 @@ fn can_set_unset_header() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             hello: world
             host: http.mock
             user-agent: xh/0.0.0 (test mode)
 
         "#});
+}
+
+// httpmock's matches function doesn't accept closures
+// see https://github.com/alexliesenfeld/httpmock/issues/44#issuecomment-840797442
+macro_rules! cookie_exists {
+    ($when:ident, $expected_value:expr) => {{
+        $when.matches(|req: &HttpMockRequest| {
+            req.headers
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|(key, actual_value)| {
+                    key == "cookie" && {
+                        let expected = $expected_value.split("; ").collect::<HashSet<_>>();
+                        let actual = actual_value.split("; ").collect::<HashSet<_>>();
+                        actual == expected
+                    }
+                })
+        });
+    }};
 }
 
 #[test]
@@ -1358,9 +1424,10 @@ fn named_sessions() {
     let random_name = random_string();
 
     get_command()
-        .env("XH_TEST_CONFIG_DIR", config_dir.path())
+        .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg(format!("--session={}", random_name))
+        .arg("--bearer=hello")
         .arg("cookie:lang=en")
         .assert()
         .success();
@@ -1369,7 +1436,6 @@ fn named_sessions() {
 
     let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
-            "xh",
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
             &format!("{}.json", random_name),
@@ -1387,6 +1453,7 @@ fn named_sessions() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
+            "auth": { "type": "bearer", "raw_auth": "hello" },
             "cookies": {
                 "cook1": { "value": "one", "path": "/" },
                 "lang": { "value": "en" }
@@ -1426,13 +1493,9 @@ fn anonymous_sessions() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
-            "cookies": {
-                "cook1": { "value": "one" }
-            },
-            "headers": {
-                "hello": "world",
-                "authorization": "Basic bWU6cGFzcw=="
-            }
+            "auth": { "type": "basic", "raw_auth": "me:pass" },
+            "cookies": { "cook1": { "value": "one" } },
+            "headers": { "hello": "world" }
         })
     );
 }
@@ -1447,12 +1510,9 @@ fn anonymous_read_only_session() {
     let session_file = tempfile::NamedTempFile::new().unwrap();
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
-        "cookies": {
-            "cookie1": { "value": "one" }
-        },
-        "headers": {
-            "hello": "world"
-        }
+        "auth": { "type": null, "raw_auth": null },
+        "cookies": { "cookie1": { "value": "one" } },
+        "headers": { "hello": "world" }
     });
 
     std::fs::write(&session_file, old_session_content.to_string()).unwrap();
@@ -1504,6 +1564,7 @@ fn session_files_are_created_in_read_only_mode() {
                 "about": "xh session file",
                 "xh": "0.0.0"
             },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "ar" }
             },
@@ -1535,6 +1596,7 @@ fn named_read_only_session() {
     );
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+        "auth": { "type": null, "raw_auth": null },
         "cookies": {
             "cookie1": { "value": "one" }
         },
@@ -1547,7 +1609,7 @@ fn named_read_only_session() {
     std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
 
     get_command()
-        .env("XH_TEST_CONFIG_DIR", config_dir.path())
+        .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg("goodbye:world")
         .arg(format!("--session-read-only={}", random_name))
@@ -1577,6 +1639,7 @@ fn expired_cookies_are_removed_from_session() {
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "expired_cookie": {
                     "value": "random_string",
@@ -1611,6 +1674,7 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "unexpired_cookie": {
                     "value": "random_string",
@@ -1627,8 +1691,11 @@ fn expired_cookies_are_removed_from_session() {
 
 #[test]
 fn cookies_override_each_other_in_the_correct_order() {
+    // Cookies storage priority is: Server response > Command line request > Session file
+    // See https://httpie.io/docs#cookie-storage-behaviour
     let server = MockServer::start();
-    let mock = server.mock(|_, then| {
+    let mock = server.mock(|when, then| {
+        cookie_exists!(when, "lang=fr; cook1=two; cook2=two");
         then.header("set-cookie", "lang=en")
             .header("set-cookie", "cook1=one");
     });
@@ -1639,6 +1706,7 @@ fn cookies_override_each_other_in_the_correct_order() {
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "fr" },
                 "cook2": { "value": "three" }
@@ -1656,6 +1724,7 @@ fn cookies_override_each_other_in_the_correct_order() {
             "--session={}",
             session_file.path().to_string_lossy()
         ))
+        .arg("--no-check-status")
         .assert()
         .success();
 
@@ -1666,6 +1735,7 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
             "cookies": {
                 "lang": { "value": "en" },
                 "cook1": { "value": "one" },
@@ -1674,6 +1744,74 @@ fn cookies_override_each_other_in_the_correct_order() {
             "headers": {}
         })
     );
+}
+
+#[test]
+fn basic_auth_from_session_is_used() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": "basic", "raw_auth": "user:pass" },
+            "cookies": {},
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+
+    mock.assert();
+}
+
+#[test]
+fn bearer_auth_from_session_is_used() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("authorization", "Bearer secret-token");
+    });
+
+    let session_file = tempfile::NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": "bearer", "raw_auth": "secret-token" },
+            "cookies": {},
+            "headers": {}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+
+    mock.assert();
 }
 
 #[test]

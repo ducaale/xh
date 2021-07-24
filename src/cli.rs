@@ -114,7 +114,7 @@ pub struct Cli {
 
     /// Create, or reuse and update a session.
     ///
-    /// Within a session, custom headers, auth credential, as well as any cookies sent
+    /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
     /// {n}{n}{n}
     #[structopt(long, value_name = "FILE", parse(from_os_str))]
@@ -612,7 +612,7 @@ arg_enum! {
     #[allow(non_camel_case_types)]
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Theme {
-        auto, solarized
+        auto, solarized, monokai
     }
 }
 
@@ -621,6 +621,7 @@ impl Theme {
         match self {
             Theme::auto => "ansi",
             Theme::solarized => "solarized",
+            Theme::monokai => "monokai",
         }
     }
 }

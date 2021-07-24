@@ -1,3 +1,4 @@
+#![allow(clippy::bool_assert_comparison)]
 mod auth;
 mod buffer;
 mod cli;
@@ -21,7 +22,8 @@ use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION, CONNECTION, CONTENT_TYPE, COOKIE, RANGE,
+    USER_AGENT,
 };
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
@@ -168,10 +170,16 @@ fn main() -> Result<i32> {
         None => None,
     };
 
-    if let Some(ref s) = session {
+    if let Some(ref mut s) = session {
         for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert_with(|| value.clone());
         }
+        if let Some(auth) = s.auth()? {
+            headers
+                .entry(AUTHORIZATION)
+                .or_insert(HeaderValue::from_str(&auth)?);
+        }
+        s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
@@ -180,7 +188,7 @@ fn main() -> Result<i32> {
                 Err(err) => return Err(err.into()),
             }
         }
-        if let Some(cookie) = headers.get(COOKIE) {
+        if let Some(cookie) = headers.remove(COOKIE) {
             for cookie in cookie.to_str()?.split(';') {
                 cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
@@ -192,7 +200,10 @@ fn main() -> Result<i32> {
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
+            .header(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static("gzip, deflate, br"),
+            )
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
@@ -228,6 +239,10 @@ fn main() -> Result<i32> {
             Body::File {
                 file_name,
                 file_type,
+                // We could turn this into a Content-Disposition header, but
+                // that has no effect, so just ignore it
+                // (Additional precedent: HTTPie ignores file_type here)
+                file_name_header: _,
             } => request_builder.body(File::open(file_name)?).header(
                 CONTENT_TYPE,
                 file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
@@ -243,6 +258,9 @@ fn main() -> Result<i32> {
 
         if let Some(auth) = args.auth {
             let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
+            if let Some(ref mut s) = session {
+                s.save_basic_auth(username.clone(), password.clone());
+            }
             request_builder = request_builder.basic_auth(username, password);
         } else if !args.ignore_netrc {
             if let Some(host) = url.host_str() {
@@ -254,10 +272,13 @@ fn main() -> Result<i32> {
             }
         }
         if let Some(token) = args.bearer {
+            if let Some(ref mut s) = session {
+                s.save_bearer_auth(token.clone())
+            }
             request_builder = request_builder.bearer_auth(token);
         }
 
-        let mut request = request_builder.headers(headers.clone()).build()?;
+        let mut request = request_builder.headers(headers).build()?;
 
         headers_to_unset.iter().for_each(|h| {
             request.headers_mut().remove(h);
@@ -265,11 +286,6 @@ fn main() -> Result<i32> {
 
         request
     };
-
-    if let Some(ref mut s) = session {
-        s.save_auth(&request.headers())?;
-        s.save_headers(&headers)?;
-    }
 
     if args.download {
         request
@@ -298,7 +314,7 @@ fn main() -> Result<i32> {
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
 
-    printer.print_request_headers(&request)?;
+    printer.print_request_headers(&request, cookie_jar.clone())?;
     printer.print_request_body(&mut request)?;
 
     if !args.offline {
@@ -313,7 +329,7 @@ fn main() -> Result<i32> {
                     printer.print_response_headers(&prev_response)?;
                     printer.print_response_body(prev_response)?;
                     printer.print_seperator()?;
-                    printer.print_request_headers(next_request)?;
+                    printer.print_request_headers(next_request, cookie_jar.clone())?;
                     printer.print_request_body(next_request)?;
                     Ok(())
                 });
