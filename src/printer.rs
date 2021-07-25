@@ -285,6 +285,10 @@ impl Printer {
     where
         T: CookieStore,
     {
+        if !self.print.request_headers {
+            return Ok(());
+        }
+
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());

@@ -1837,7 +1837,7 @@ fn print_intermediate_requests_and_responses() {
         .stdout(formatdoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
             user-agent: xh/0.0.0 (test mode)
@@ -1851,7 +1851,7 @@ fn print_intermediate_requests_and_responses() {
 
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
             user-agent: xh/0.0.0 (test mode)
@@ -1888,7 +1888,7 @@ fn history_print() {
         .stdout(formatdoc! {r#"
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
             user-agent: xh/0.0.0 (test mode)
@@ -1901,7 +1901,7 @@ fn history_print() {
 
             GET / HTTP/1.1
             accept: */*
-            accept-encoding: gzip, br
+            accept-encoding: gzip, deflate, br
             connection: keep-alive
             host: http.mock
             user-agent: xh/0.0.0 (test mode)
