@@ -58,8 +58,8 @@ impl Command {
         self.push(format!("{}: {}", name, value));
     }
 
-    fn env(&mut self, var: &'static str, value: String) {
-        self.env.push((var, value));
+    fn env(&mut self, var: &'static str, value: impl Into<String>) {
+        self.env.push((var, value.into()));
     }
 
     fn warn(&mut self, message: String) {
@@ -129,7 +129,9 @@ pub fn translate(args: Cli) -> Result<Command> {
         // showing up right away
         cmd.flag("-N", "--no-buffer");
     }
-    if args.check_status {
+    // Since --fail is bit disruptive than HTTPie's --check-status flag, we will not enable
+    // it unless the user explicitely sets the latter flag
+    if args.check_status.unwrap_or(false) {
         // Suppresses output on failure, unlike us
         cmd.flag("-f", "--fail");
     }
@@ -178,14 +180,14 @@ pub fn translate(args: Cli) -> Result<Command> {
         match proxy {
             crate::cli::Proxy::All(proxy) => {
                 cmd.flag("-x", "--proxy");
-                cmd.push(proxy.into_string());
+                cmd.push(proxy);
             }
             crate::cli::Proxy::Http(proxy) => {
                 // These don't seem to have corresponding flags
-                cmd.env("http_proxy", proxy.into_string());
+                cmd.env("http_proxy", proxy);
             }
             crate::cli::Proxy::Https(proxy) => {
-                cmd.env("https_proxy", proxy.into_string());
+                cmd.env("https_proxy", proxy);
             }
         }
     }
@@ -268,13 +270,19 @@ pub fn translate(args: Cli) -> Result<Command> {
                     key,
                     file_name,
                     file_type,
+                    file_name_header,
                 } => {
                     cmd.flag("-F", "--form");
+                    let mut val = format!("{}=@{}", key, file_name);
                     if let Some(file_type) = file_type {
-                        cmd.push(format!("{}=@{};type={}", key, file_name, file_type));
-                    } else {
-                        cmd.push(format!("{}=@{}", key, file_name));
+                        val.push_str(";type=");
+                        val.push_str(&file_type);
                     }
+                    if let Some(file_name_header) = file_name_header {
+                        val.push_str(";filename=");
+                        val.push_str(&file_name_header);
+                    }
+                    cmd.push(val);
                 }
                 RequestItem::HttpHeader(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
@@ -318,6 +326,7 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::File {
                 file_name,
                 file_type,
+                file_name_header: _,
             } => {
                 if let Some(file_type) = file_type {
                     cmd.header("content-type", file_type.to_str()?);
@@ -418,18 +427,18 @@ mod tests {
             ),
             (
                 "xh -d httpbin.org/get",
-                "curl -L -O 'http://httpbin.org/get'",
-                "curl -L -O http://httpbin.org/get",
+                "curl -f -L -O 'http://httpbin.org/get'",
+                "curl -f -L -O http://httpbin.org/get",
             ),
             (
                 "xh -d -o foobar --continue httpbin.org/get",
-                "curl -L -o foobar -C - 'http://httpbin.org/get'",
-                "curl -L -o foobar -C - http://httpbin.org/get",
+                "curl -f -L -o foobar -C - 'http://httpbin.org/get'",
+                "curl -f -L -o foobar -C - http://httpbin.org/get",
             ),
             (
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
-                "curl --location --output foobar --continue-at - 'http://httpbin.org/get'",
-                "curl --location --output foobar --continue-at - http://httpbin.org/get",
+                "curl --fail --location --output foobar --continue-at - 'http://httpbin.org/get'",
+                "curl --fail --location --output foobar --continue-at - http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post @foo.txt",

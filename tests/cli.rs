@@ -197,7 +197,7 @@ fn verbose() {
         .stdout(indoc! {r#"
         POST / HTTP/1.1
         accept: application/json, */*;q=0.5
-        accept-encoding: gzip, br
+        accept-encoding: gzip, deflate, br
         connection: keep-alive
         content-length: 9
         content-type: application/json
@@ -624,6 +624,36 @@ fn check_status() {
 }
 
 #[test]
+fn check_status_is_implied() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .code(4)
+        .stderr("");
+    mock.assert();
+}
+
+#[test]
+fn check_status_is_not_implied_in_compat_mode() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.status(404);
+    });
+
+    get_command()
+        .env("XH_HTTPIE_COMPAT_MODE", "")
+        .arg(server.base_url())
+        .assert()
+        .code(0);
+    mock.assert();
+}
+
+#[test]
 fn user_password_auth() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
@@ -1008,6 +1038,51 @@ fn default_json_for_raw_body() {
         .stdin(input_file)
         .assert()
         .success();
+    mock.assert();
+}
+
+#[test]
+fn multipart_file_upload() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        // This test may be fragile, it's conceivable that the headers will become
+        // lowercase in the future
+        // (so if this breaks all of a sudden, check that first)
+        when.body_contains("Hello world")
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"x\"; filename=\"input.txt\"\r\n",
+                "\r\n",
+                "Hello world\n"
+            ))
+            .body_contains(concat!(
+                "Content-Disposition: form-data; name=\"y\"; filename=\"foobar.htm\"\r\n",
+                "Content-Type: text/html\r\n",
+                "\r\n",
+                "Hello world\n",
+            ));
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--form")
+        .arg(server.base_url())
+        .arg(format!("x@{}", filename.to_string_lossy()))
+        .arg(format!(
+            "y@{};type=text/html;filename=foobar.htm",
+            filename.to_string_lossy()
+        ))
+        .assert()
+        .success();
+
     mock.assert();
 }
 

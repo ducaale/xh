@@ -46,7 +46,7 @@ OPTIONS:
     -f, --form                       Serialize data items from the command line as form fields
     -m, --multipart                  Like --form, but force a multipart/form-data request even without files
         --pretty <STYLE>             Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>              Output coloring style [possible values: auto, solarized]
+    -s, --style <THEME>              Output coloring style [possible values: auto, solarized, monokai]
     -p, --print <FORMAT>             String specifying what the output should contain
     -h, --headers                    Print only the response headers, shortcut for --print=h
     -b, --body                       Print only the response body, Shortcut for --print=b
@@ -60,7 +60,7 @@ OPTIONS:
         --bearer <TOKEN>             Authenticate with a bearer token
         --ignore-netrc               Do not use credentials from .netrc
         --offline                    Construct HTTP requests without sending them anywhere
-        --check-status               Exit with an error status code if the server replies with an error
+        --check-status               (default) Exit with an error status code if the server replies with an error
     -F, --follow                     Do follow redirects
         --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
         --timeout <SEC>              Connection timeout of the request
@@ -90,7 +90,7 @@ Run `xh help` for more detailed information.
 
 - `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 - `==` for adding query strings.
-- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
 - `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
@@ -120,6 +120,11 @@ cd /path/to/xh && ln -s ./xh ./xhs
 xh httpbin.org/get  # resolves to http://httpbin.org/get
 xhs httpbin.org/get # resolves to https://httpbin.org/get
 ```
+
+### Strict compatibility mode
+
+If `xh` is invoked as `http` or `https` (by renaming the binary), or if the `XH_HTTPIE_COMPAT_MODE` environment variable is set,
+it will run in HTTPie compatibility mode. The only current difference is that `--check-status` is not enabled by default.
 
 ## Examples
 
@@ -163,6 +168,8 @@ xh -d httpbin.org/json -o res.json
 
 ### Other differences
 
+- `--check-status` is enabled unless `xh` is being used in
+  [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
 - `rustls` is used instead of the system's TLS library.
 - Headers are sent and printed in lowercase.
 - JSON keys are not sorted.

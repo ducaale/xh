@@ -1,3 +1,4 @@
+#![allow(clippy::bool_assert_comparison)]
 mod auth;
 mod buffer;
 mod cli;
@@ -9,8 +10,10 @@ mod to_curl;
 mod url;
 mod utils;
 
+use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -78,15 +81,26 @@ fn main() -> Result<i32> {
     };
 
     let mut client = Client::builder()
-        .http2_initial_stream_window_size(4_194_304)
-        .http2_initial_connection_window_size(4_194_304)
+        .http2_adaptive_window(true)
         .timeout(timeout)
         .redirect(redirect);
 
     let mut resume: Option<u64> = None;
 
     if url.scheme() == "https" {
-        client = match args.verify.unwrap_or(Verify::Yes) {
+        let verify = args.verify.unwrap_or_else(|| {
+            // requests library which is used by HTTPie checks for both
+            // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
+            // See https://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
+            if let Some(path) = env::var_os("REQUESTS_CA_BUNDLE") {
+                Verify::CustomCaBundle(PathBuf::from(path))
+            } else if let Some(path) = env::var_os("CURL_CA_BUNDLE") {
+                Verify::CustomCaBundle(PathBuf::from(path))
+            } else {
+                Verify::Yes
+            }
+        });
+        client = match verify {
             Verify::Yes => client,
             Verify::No => client.danger_accept_invalid_certs(true),
             Verify::CustomCaBundle(path) => {
@@ -147,7 +161,10 @@ fn main() -> Result<i32> {
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(ACCEPT_ENCODING, HeaderValue::from_static("gzip, br"))
+            .header(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static("gzip, deflate, br"),
+            )
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
@@ -183,6 +200,10 @@ fn main() -> Result<i32> {
             Body::File {
                 file_name,
                 file_type,
+                // We could turn this into a Content-Disposition header, but
+                // that has no effect, so just ignore it
+                // (Additional precedent: HTTPie ignores file_type here)
+                file_name_header: _,
             } => request_builder.body(File::open(file_name)?).header(
                 CONTENT_TYPE,
                 file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
@@ -261,8 +282,9 @@ fn main() -> Result<i32> {
             printer.print_response_headers(&response)?;
         }
         let status = response.status();
+        let check_status = args.check_status.unwrap_or(!args.httpie_compat_mode);
         let exit_code: i32 = match status.as_u16() {
-            _ if !(args.check_status || args.download) => 0,
+            _ if !(check_status) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
             500..=599 => 5,

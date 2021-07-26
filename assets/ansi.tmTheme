@@ -33,17 +33,6 @@
             </dict>
             <dict>
                 <key>name</key>
-                <string>Floats</string>
-                <key>scope</key>
-                <string>none</string>
-                <key>settings</key>
-                <dict>
-                    <key>foreground</key>
-                    <string>#04000000</string>
-                </dict>
-            </dict>
-            <dict>
-                <key>name</key>
                 <string>Constants</string>
                 <key>scope</key>
                 <string>constant</string>
