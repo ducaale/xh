@@ -1,3 +1,4 @@
+#![allow(clippy::needless_borrow)]
 mod auth;
 mod buffer;
 mod cli;
