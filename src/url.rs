@@ -16,7 +16,7 @@ pub fn construct_url(
     }
     let mut url: Url = if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
-    } else if !regex!("[a-zA-Z0-9]://.+").is_match(&url) {
+    } else if !regex!("[a-zA-Z0-9]://.+").is_match(url) {
         format!("{}{}", default_scheme, url).parse()?
     } else {
         url.parse()?

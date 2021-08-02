@@ -299,7 +299,7 @@ impl Printer {
         }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-        let headers = &self.headers_to_string(&headers, self.sort_headers);
+        let headers = self.headers_to_string(&headers, self.sort_headers);
 
         self.print_headers(&(request_line + &headers))?;
         self.buffer.print("\n\n")?;
@@ -320,7 +320,7 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
-        let content_type = get_content_type(&request.headers());
+        let content_type = get_content_type(request.headers());
         if let Some(body) = request.body_mut() {
             let body = body.buffer()?;
             if body.contains(&b'\0') {
@@ -336,7 +336,7 @@ impl Printer {
     }
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
-        let content_type = get_content_type(&response.headers());
+        let content_type = get_content_type(response.headers());
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is

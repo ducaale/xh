@@ -265,12 +265,12 @@ impl RequestItems {
         for item in &self.0 {
             match item {
                 RequestItem::HttpHeader(key, value) => {
-                    let key = HeaderName::from_bytes(&key.as_bytes())?;
-                    let value = HeaderValue::from_str(&value)?;
+                    let key = HeaderName::from_bytes(key.as_bytes())?;
+                    let value = HeaderValue::from_str(value)?;
                     headers.insert(key, value);
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
-                    let key = HeaderName::from_bytes(&key.as_bytes())?;
+                    let key = HeaderName::from_bytes(key.as_bytes())?;
                     headers_to_unset.push(key);
                 }
                 RequestItem::UrlParam(..) => {}
