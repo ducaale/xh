@@ -13,7 +13,7 @@ use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
+    utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
 
 const BINARY_SUPPRESSOR: &str = concat!(
@@ -385,6 +385,63 @@ impl Printer {
         }
         Ok(())
     }
+}
+
+pub enum ContentType {
+    Json,
+    Html,
+    Xml,
+    JavaScript,
+    Css,
+    Text,
+    UrlencodedForm,
+    Multipart,
+    Unknown,
+}
+
+impl ContentType {
+    pub fn is_text(&self) -> bool {
+        !matches!(
+            self,
+            ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
+        )
+    }
+}
+
+pub fn get_content_type(headers: &HeaderMap) -> ContentType {
+    headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|content_type| {
+            if content_type.contains("json") {
+                Some(ContentType::Json)
+            } else if content_type.contains("html") {
+                Some(ContentType::Html)
+            } else if content_type.contains("xml") {
+                Some(ContentType::Xml)
+            } else if content_type.contains("multipart") {
+                Some(ContentType::Multipart)
+            } else if content_type.contains("x-www-form-urlencoded") {
+                Some(ContentType::UrlencodedForm)
+            } else if content_type.contains("javascript") {
+                Some(ContentType::JavaScript)
+            } else if content_type.contains("css") {
+                Some(ContentType::Css)
+            } else if content_type.contains("text") {
+                // We later check if this one's JSON
+                // HTTPie checks for "json", "javascript" and "text" in one place:
+                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
+                // We have it more spread out but it behaves more or less the same
+                Some(ContentType::Text)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(ContentType::Unknown)
+}
+
+pub fn valid_json(text: &str) -> bool {
+    serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }
 
 /// Decode a streaming response in a way that matches `.text()`.
