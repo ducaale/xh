@@ -47,7 +47,7 @@ fn get_user_agent() -> &'static str {
 
 #[exit_status::main]
 fn main() -> Result<i32> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
 
     if args.curl {
         to_curl::print_curl_translation(args)?;
