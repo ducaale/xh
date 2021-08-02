@@ -187,7 +187,7 @@ pub fn download_file(
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
     } else if test_pretend_term() || atty::is(Stream::Stdout) {
-        let (new_name, handle) = open_new_file(get_file_name(&response, &orig_url).into())?;
+        let (new_name, handle) = open_new_file(get_file_name(&response, orig_url).into())?;
         dest_name = new_name;
         buffer = Box::new(handle);
     } else {
@@ -208,7 +208,7 @@ pub fn download_file(
         total_length = Some(total_for_content_range(header, starting_length)?);
     } else {
         starting_length = 0;
-        total_length = get_content_length(&response.headers());
+        total_length = get_content_length(response.headers());
     }
 
     let starting_time = Instant::now();

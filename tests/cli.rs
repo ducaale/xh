@@ -2062,3 +2062,44 @@ fn request_body_is_buffered_for_307_redirect() {
 
     mock2.assert();
 }
+
+#[test]
+fn read_args_from_config() {
+    let config_dir = tempdir().unwrap();
+    File::create(config_dir.path().join("config.json")).unwrap();
+    std::fs::write(
+        config_dir.path().join("config.json"),
+        serde_json::json!({"default_options": ["--form", "--print=hbHB"]}).to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(":")
+        .arg("--offline")
+        .arg("--print=B") // this should overwrite the value from config.json
+        .arg("sort=asc")
+        .arg("limit=100")
+        .assert()
+        .stdout("sort=asc&limit=100\n\n")
+        .success();
+}
+
+#[test]
+fn warns_if_config_is_invalid() {
+    let config_dir = tempdir().unwrap();
+    File::create(config_dir.path().join("config.json")).unwrap();
+    std::fs::write(
+        config_dir.path().join("config.json"),
+        serde_json::json!({"default_options": "--form"}).to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(":")
+        .arg("--offline")
+        .assert()
+        .stderr(contains("Unable to parse config file"))
+        .success();
+}

@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::env;
 use std::ffi::OsString;
 use std::fmt;
+use std::fs;
 use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
@@ -9,10 +10,11 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use reqwest::{Method, Url};
+use serde::{Deserialize, Serialize};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
-use crate::{buffer::Buffer, request_items::RequestItem};
+use crate::{buffer::Buffer, request_items::RequestItem, utils::config_dir};
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -33,6 +35,7 @@ use crate::{buffer::Buffer, request_items::RequestItem};
         AppSettings::DeriveDisplayOrder,
         AppSettings::UnifiedHelpMessage,
         AppSettings::ColoredHelp,
+        AppSettings::AllArgsOverrideSelf,
     ],
 )]
 pub struct Cli {
@@ -328,8 +331,17 @@ const NEGATION_FLAGS: &[&str] = &[
 ];
 
 impl Cli {
-    pub fn from_args() -> Self {
-        Cli::from_iter(std::env::args_os())
+    pub fn parse() -> Self {
+        if let Some(default_args) = default_cli_args() {
+            let mut args = std::env::args_os();
+            Cli::from_iter(
+                std::iter::once(args.next().unwrap_or_else(|| "xh".into()))
+                    .chain(default_args.into_iter().map(Into::into))
+                    .chain(args),
+            )
+        } else {
+            Cli::from_iter(std::env::args_os())
+        }
     }
 
     pub fn from_iter<I>(iter: I) -> Self
@@ -514,6 +526,39 @@ impl Cli {
             );
         }
         app.after_help("Each option can be reset with a --no-OPTION argument.")
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Config {
+    default_options: Vec<String>,
+}
+
+fn default_cli_args() -> Option<Vec<String>> {
+    let content = match fs::read_to_string(config_dir()?.join("config.json")) {
+        Ok(file) => Some(file),
+        Err(err) => {
+            if err.kind() != std::io::ErrorKind::NotFound {
+                eprintln!(
+                    "\n{}: warning: Unable to read config file: {}\n",
+                    env!("CARGO_PKG_NAME"),
+                    err
+                );
+            }
+            None
+        }
+    }?;
+
+    match serde_json::from_str::<Config>(&content) {
+        Ok(config) => Some(config.default_options),
+        Err(err) => {
+            eprintln!(
+                "\n{}: warning: Unable to parse config file: {}\n",
+                env!("CARGO_PKG_NAME"),
+                err
+            );
+            None
+        }
     }
 }
 

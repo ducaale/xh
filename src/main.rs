@@ -1,5 +1,4 @@
 #![allow(clippy::bool_assert_comparison)]
-#![allow(clippy::needless_borrow)]
 mod auth;
 mod buffer;
 mod cli;
@@ -48,7 +47,7 @@ fn get_user_agent() -> &'static str {
 
 #[exit_status::main]
 fn main() -> Result<i32> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
 
     if args.curl {
         to_curl::print_curl_translation(args)?;
