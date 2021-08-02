@@ -1342,7 +1342,8 @@ fn read_args_from_config() {
         .arg("sort=asc")
         .arg("limit=100")
         .assert()
-        .stdout("sort=asc&limit=100\n\n");
+        .stdout("sort=asc&limit=100\n\n")
+        .success();
 }
 
 #[test]
@@ -1360,5 +1361,6 @@ fn warns_if_config_is_invalid() {
         .arg(":")
         .arg("--offline")
         .assert()
-        .stderr(contains("Unable to parse config file"));
+        .stderr(contains("Unable to parse config file"))
+        .success();
 }
