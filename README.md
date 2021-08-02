@@ -46,7 +46,7 @@ OPTIONS:
     -f, --form                        Serialize data items from the command line as form fields
     -m, --multipart                   Like --form, but force a multipart/form-data request even without files
         --pretty <STYLE>              Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>               Output coloring style [possible values: auto, solarized]
+    -s, --style <THEME>               Output coloring style [possible values: auto, solarized, monokai]
     -p, --print <FORMAT>              String specifying what the output should contain
     -h, --headers                     Print only the response headers, shortcut for --print=h
     -b, --body                        Print only the response body, Shortcut for --print=b
@@ -62,7 +62,7 @@ OPTIONS:
         --bearer <TOKEN>              Authenticate with a bearer token
         --ignore-netrc                Do not use credentials from .netrc
         --offline                     Construct HTTP requests without sending them anywhere
-        --check-status                Exit with an error status code if the server replies with an error
+        --check-status                (default) Exit with an error status code if the server replies with an error
     -F, --follow                      Do follow redirects
         --max-redirects <NUM>         Number of redirects to follow, only respected if `follow` is set
         --timeout <SEC>               Connection timeout of the request

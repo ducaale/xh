@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.11.0] - 2021-07-26
 ### Features
 - Support `REQUESTS_CA_BUNDLE` & `CURL_CA_BUNDLE` env variables, see #146 (@ducaale)
 - Enable color and wrapping for _--help_, see #151 (@QuarticCat)
