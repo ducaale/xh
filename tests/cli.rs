@@ -1323,3 +1323,42 @@ fn accept_encoding_not_modifiable_in_download_mode() {
         .assert();
     mock.assert();
 }
+
+#[test]
+fn read_args_from_config() {
+    let config_dir = tempdir().unwrap();
+    File::create(config_dir.path().join("config.json")).unwrap();
+    std::fs::write(
+        config_dir.path().join("config.json"),
+        serde_json::json!({"default_options": ["--form"]}).to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(":")
+        .arg("--offline")
+        .arg("--print=B")
+        .arg("sort=asc")
+        .arg("limit=100")
+        .assert()
+        .stdout("sort=asc&limit=100\n\n");
+}
+
+#[test]
+fn warns_if_config_is_invalid() {
+    let config_dir = tempdir().unwrap();
+    File::create(config_dir.path().join("config.json")).unwrap();
+    std::fs::write(
+        config_dir.path().join("config.json"),
+        serde_json::json!({"default_options": "--form"}).to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(":")
+        .arg("--offline")
+        .assert()
+        .stderr(contains("Unable to parse config file"));
+}
