@@ -499,14 +499,27 @@ struct Config {
 }
 
 fn default_cli_args() -> Option<Vec<String>> {
-    let content = fs::read_to_string(config_dir()?.join("config.json")).ok()?;
+    let content = match fs::read_to_string(config_dir()?.join("config.json")) {
+        Ok(file) => Some(file),
+        Err(err) => {
+            if err.kind() != std::io::ErrorKind::NotFound {
+                eprintln!(
+                    "\n{}: warning: Unable to read config file: {}\n",
+                    env!("CARGO_PKG_NAME"),
+                    err
+                );
+            }
+            None
+        }
+    }?;
+
     match serde_json::from_str::<Config>(&content) {
         Ok(config) => Some(config.default_options),
-        Err(error) => {
+        Err(err) => {
             eprintln!(
-                "\n{}: warning: Unable to read config file: {}\n",
+                "\n{}: warning: Unable to parse config file: {}\n",
                 env!("CARGO_PKG_NAME"),
-                error
+                err
             );
             None
         }
