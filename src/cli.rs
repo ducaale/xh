@@ -304,7 +304,7 @@ impl Cli {
         if let Some(default_args) = default_cli_args() {
             let mut args = std::env::args_os();
             Cli::from_iter(
-                std::iter::once(args.next().unwrap_or("xh".into()))
+                std::iter::once(args.next().unwrap_or_else(|| "xh".into()))
                     .chain(default_args.iter().map(Into::into))
                     .chain(args),
             )
