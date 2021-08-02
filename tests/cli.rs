@@ -1330,7 +1330,7 @@ fn read_args_from_config() {
     File::create(config_dir.path().join("config.json")).unwrap();
     std::fs::write(
         config_dir.path().join("config.json"),
-        serde_json::json!({"default_options": ["--form"]}).to_string(),
+        serde_json::json!({"default_options": ["--form", "--print=hbHB"]}).to_string(),
     )
     .unwrap();
 
@@ -1338,7 +1338,7 @@ fn read_args_from_config() {
         .env("XH_CONFIG_DIR", config_dir.path())
         .arg(":")
         .arg("--offline")
-        .arg("--print=B")
+        .arg("--print=B") // this should overwrite the value from config.json
         .arg("sort=asc")
         .arg("limit=100")
         .assert()
