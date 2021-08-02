@@ -1,5 +1,5 @@
 complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all colors format none"
-complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized"
+complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized monokai"
 complete -c xh -s p -l print -d 'String specifying what the output should contain'
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout'
 complete -c xh -l session -d 'Create, or reuse and update a session'
@@ -27,7 +27,7 @@ complete -c xh -s d -l download -d 'Download the body to a file instead of print
 complete -c xh -s c -l continue -d 'Resume an interrupted download. Requires --download and --output'
 complete -c xh -l ignore-netrc -d 'Do not use credentials from .netrc'
 complete -c xh -l offline -d 'Construct HTTP requests without sending them anywhere'
-complete -c xh -l check-status -d 'Exit with an error status code if the server replies with an error'
+complete -c xh -l check-status -d '(default) Exit with an error status code if the server replies with an error'
 complete -c xh -s F -l follow -d 'Do follow redirects'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'

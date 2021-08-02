@@ -46,7 +46,7 @@ OPTIONS:
     -f, --form                        Serialize data items from the command line as form fields
     -m, --multipart                   Like --form, but force a multipart/form-data request even without files
         --pretty <STYLE>              Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>               Output coloring style [possible values: auto, solarized]
+    -s, --style <THEME>               Output coloring style [possible values: auto, solarized, monokai]
     -p, --print <FORMAT>              String specifying what the output should contain
     -h, --headers                     Print only the response headers, shortcut for --print=h
     -b, --body                        Print only the response body, Shortcut for --print=b

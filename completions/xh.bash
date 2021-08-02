@@ -32,11 +32,11 @@ _xh() {
                     return 0
                     ;;
                 --style)
-                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "auto solarized monokai" -- "${cur}"))
                     return 0
                     ;;
                     -s)
-                    COMPREPLY=($(compgen -W "auto solarized" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "auto solarized monokai" -- "${cur}"))
                     return 0
                     ;;
                 --print)

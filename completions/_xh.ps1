@@ -64,7 +64,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--continue', 'continue', [CompletionResultType]::ParameterName, 'Resume an interrupted download. Requires --download and --output')
             [CompletionResult]::new('--ignore-netrc', 'ignore-netrc', [CompletionResultType]::ParameterName, 'Do not use credentials from .netrc')
             [CompletionResult]::new('--offline', 'offline', [CompletionResultType]::ParameterName, 'Construct HTTP requests without sending them anywhere')
-            [CompletionResult]::new('--check-status', 'check-status', [CompletionResultType]::ParameterName, 'Exit with an error status code if the server replies with an error')
+            [CompletionResult]::new('--check-status', 'check-status', [CompletionResultType]::ParameterName, '(default) Exit with an error status code if the server replies with an error')
             [CompletionResult]::new('-F', 'F', [CompletionResultType]::ParameterName, 'Do follow redirects')
             [CompletionResult]::new('--follow', 'follow', [CompletionResultType]::ParameterName, 'Do follow redirects')
             [CompletionResult]::new('--https', 'https', [CompletionResultType]::ParameterName, 'Make HTTPS requests if not specified in the URL')

@@ -16,8 +16,8 @@ _xh() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--pretty=[Controls output processing]: :(all colors format none)' \
-'-s+[Output coloring style]: :(auto solarized)' \
-'--style=[Output coloring style]: :(auto solarized)' \
+'-s+[Output coloring style]: :(auto solarized monokai)' \
+'--style=[Output coloring style]: :(auto solarized monokai)' \
 '-p+[String specifying what the output should contain]' \
 '--print=[String specifying what the output should contain]' \
 '-o+[Save output to FILE instead of stdout]' \
@@ -59,7 +59,7 @@ _xh() {
 '--continue[Resume an interrupted download. Requires --download and --output]' \
 '--ignore-netrc[Do not use credentials from .netrc]' \
 '--offline[Construct HTTP requests without sending them anywhere]' \
-'--check-status[Exit with an error status code if the server replies with an error]' \
+'--check-status[(default) Exit with an error status code if the server replies with an error]' \
 '-F[Do follow redirects]' \
 '--follow[Do follow redirects]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
