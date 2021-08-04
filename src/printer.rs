@@ -7,6 +7,7 @@ use reqwest::blocking::{Request, Response};
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
 };
+use reqwest::Version;
 use termcolor::WriteColor;
 
 use crate::{
@@ -241,15 +242,48 @@ impl Printer {
         }
     }
 
-    fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
+    fn headers_to_string(&self, headers: &HeaderMap, version: Version) -> String {
+        let as_titlecase = match version {
+            Version::HTTP_09 | Version::HTTP_10 | Version::HTTP_11 => true,
+            Version::HTTP_2 | Version::HTTP_3 => false,
+            _ => false,
+        };
         let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
-        if sort {
+        if self.sort_headers {
             headers.sort_by_key(|(name, _)| name.as_str());
         }
 
         let mut header_string = String::new();
         for (key, value) in headers {
-            header_string.push_str(key.as_str());
+            if as_titlecase {
+                // Ought to be equivalent to how hyper does it
+                // https://github.com/hyperium/hyper/blob/54b57c4797e1210924d901a665f9d17ae7dd9956/src/proto/h1/role.rs#L1315
+                // Header names are ASCII so it's ok to operate on char instead of u8
+                let mut iter = key.as_str().chars();
+                if let Some(c) = iter.next() {
+                    header_string.push(c.to_ascii_uppercase());
+                }
+                while let Some(c) = iter.next() {
+                    header_string.push(c);
+                    if c == '-' {
+                        if let Some(c) = iter.next() {
+                            header_string.push(c.to_ascii_uppercase());
+                        }
+                    }
+                }
+                // If https://github.com/hyperium/hyper/pull/2613 is released,
+                // switch to this implementation:
+                // let mut prev = '-';
+                // for mut c in key.as_str().chars() {
+                //     if prev == '-' {
+                //         c.make_ascii_uppercase();
+                //     }
+                //     header_string.push(c);
+                //     prev = c;
+                // }
+            } else {
+                header_string.push_str(key.as_str());
+            }
             header_string.push_str(": ");
             match value.to_str() {
                 Ok(value) => header_string.push_str(value),
@@ -299,7 +333,7 @@ impl Printer {
         }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-        let headers = self.headers_to_string(&headers, self.sort_headers);
+        let headers = self.headers_to_string(&headers, version);
 
         self.print_headers(&(request_line + &headers))?;
         self.buffer.print("\n\n")?;
@@ -312,7 +346,7 @@ impl Printer {
         let headers = response.headers();
 
         let status_line = format!("{:?} {}\n", version, status);
-        let headers = self.headers_to_string(headers, self.sort_headers);
+        let headers = self.headers_to_string(headers, version);
 
         self.print_headers(&(status_line + &headers))?;
         self.buffer.print("\n\n")?;
@@ -478,6 +512,8 @@ fn guess_encoding(response: &Response) -> &'static Encoding {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
@@ -563,5 +599,45 @@ mod tests {
         );
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
+    }
+
+    #[test]
+    fn test_header_casing() {
+        let p = Printer {
+            indent_json: false,
+            color: false,
+            theme: Theme::auto,
+            sort_headers: false,
+            stream: false,
+            buffer: Buffer::new(false, None, false, Some(Pretty::none)).unwrap(),
+        };
+        let mut headers = HeaderMap::new();
+        headers.insert("ab-cd", "0".parse().unwrap());
+        headers.insert("-cd", "0".parse().unwrap());
+        headers.insert("-", "0".parse().unwrap());
+        headers.insert("ab-%c", "0".parse().unwrap());
+        headers.insert("A-b--C", "0".parse().unwrap());
+
+        assert_eq!(
+            p.headers_to_string(&headers, reqwest::Version::HTTP_11),
+            indoc! {"
+                Ab-Cd: 0
+                -cd: 0
+                -: 0
+                Ab-%c: 0
+                A-B--c: 0"
+            }
+        );
+
+        assert_eq!(
+            p.headers_to_string(&headers, reqwest::Version::HTTP_2),
+            indoc! {"
+                ab-cd: 0
+                -cd: 0
+                -: 0
+                ab-%c: 0
+                a-b--c: 0"
+            }
+        );
     }
 }
