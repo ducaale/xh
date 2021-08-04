@@ -162,6 +162,7 @@ xh -d httpbin.org/json -o res.json
 
 - Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
 - HTTP/2 cannot be disabled. ([#68](https://github.com/ducaale/xh/issues/68))
+- Headers are not case-sensitive.
 - No plugin system.
 - General immaturity. HTTPie is old and well-tested.
 - Worse documentation.
@@ -171,7 +172,6 @@ xh -d httpbin.org/json -o res.json
 - `--check-status` is enabled unless `xh` is being used in
   [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
 - `rustls` is used instead of the system's TLS library.
-- Headers are sent and printed in lowercase.
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
 

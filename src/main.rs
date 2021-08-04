@@ -81,6 +81,7 @@ fn main() -> Result<i32> {
     };
 
     let mut client = Client::builder()
+        .http1_title_case_headers()
         .http2_adaptive_window(true)
         .timeout(timeout)
         .redirect(redirect);
