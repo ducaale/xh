@@ -512,6 +512,8 @@ fn guess_encoding(response: &Response) -> &'static Encoding {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
@@ -618,20 +620,24 @@ mod tests {
 
         assert_eq!(
             p.headers_to_string(&headers, reqwest::Version::HTTP_11),
-            "Ab-Cd: 0
--cd: 0
--: 0
-Ab-%c: 0
-A-B--c: 0"
+            indoc! {"
+                Ab-Cd: 0
+                -cd: 0
+                -: 0
+                Ab-%c: 0
+                A-B--c: 0"
+            }
         );
 
         assert_eq!(
             p.headers_to_string(&headers, reqwest::Version::HTTP_2),
-            "ab-cd: 0
--cd: 0
--: 0
-ab-%c: 0
-a-b--c: 0"
+            indoc! {"
+                ab-cd: 0
+                -cd: 0
+                -: 0
+                ab-%c: 0
+                a-b--c: 0"
+            }
         );
     }
 }
