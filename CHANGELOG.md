@@ -1,3 +1,8 @@
+## Unreleased
+## Features
+- Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
+- Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz) 
+
 ## [0.11.0] - 2021-07-26
 ### Features
 - Support `REQUESTS_CA_BUNDLE` & `CURL_CA_BUNDLE` env variables, see #146 (@ducaale)
