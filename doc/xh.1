@@ -161,6 +161,17 @@ Example: `\-\-print=Hb`
 .IP
 Save output to FILE instead of stdout
 .HP
+\fB\-\-session\fR <FILE>
+.IP
+Create, or reuse and update a session.
+.IP
+Within a session, custom headers, auth credential, as well as any cookies sent by the server persist between
+requests.
+.HP
+\fB\-\-session\-read\-only\fR <FILE>
+.IP
+Create or read a session without updating it form the request/response exchange
+.HP
 \fB\-a\fR, \fB\-\-auth\fR <USER[:PASS]>
 .IP
 Authenticate as USER with PASS. PASS will be prompted if missing.

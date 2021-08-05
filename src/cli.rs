@@ -107,6 +107,26 @@ pub struct Cli {
     #[structopt(short = "c", long = "continue", name = "continue")]
     pub resume: bool,
 
+    /// Create, or reuse and update a session.
+    ///
+    /// Within a session, custom headers, auth credentials, as well as any cookies sent
+    /// by the server persist between requests.
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "FILE", parse(from_os_str))]
+    pub session: Option<OsString>,
+
+    /// Create or read a session without updating it form the request/response exchange.
+    #[structopt(
+        long,
+        value_name = "FILE",
+        conflicts_with = "session",
+        parse(from_os_str)
+    )]
+    pub session_read_only: Option<OsString>,
+
+    #[structopt(skip)]
+    pub is_session_read_only: bool,
+
     // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
     #[structopt(short = "A", long, possible_values = &AuthType::variants(),
@@ -301,6 +321,8 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-print",
     "--no-proxy",
     "--no-quiet",
+    "--no-session",
+    "--no-session-read-only",
     "--no-stream",
     "--no-style",
     "--no-timeout",
@@ -486,6 +508,10 @@ impl Cli {
             self.request_items.body_type = BodyType::Form;
         } else if self.multipart {
             self.request_items.body_type = BodyType::Multipart;
+        }
+        if self.session_read_only.is_some() {
+            self.is_session_read_only = true;
+            self.session = mem::take(&mut self.session_read_only);
         }
         Ok(())
     }
