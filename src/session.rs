@@ -10,7 +10,7 @@ use reqwest::header::HeaderMap;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::test_mode;
+use crate::utils::{config_dir, test_mode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -200,24 +200,16 @@ impl Session {
     }
 }
 
-fn is_path(value: &OsString) -> bool {
-    value.to_string_lossy().contains(std::path::is_separator)
-}
-
-fn config_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
-        Some(dir.into())
-    } else {
-        dirs::config_dir().map(|dir| dir.join("xh"))
-    }
-}
-
 fn xh_version() -> String {
     if test_mode() {
         "0.0.0".into()
     } else {
         env!("CARGO_PKG_VERSION").into()
     }
+}
+
+fn is_path(value: &OsString) -> bool {
+    value.to_string_lossy().contains(std::path::is_separator)
 }
 
 fn path_from_url(url: &Url) -> Result<String> {

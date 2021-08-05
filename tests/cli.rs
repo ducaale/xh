@@ -128,7 +128,7 @@ fn basic_options() {
         .arg(server.base_url())
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"))
-        .stdout(contains("allow:"));
+        .stdout(contains("Allow:"));
     mock.assert();
 }
 
@@ -207,13 +207,13 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
-        accept: application/json, */*;q=0.5
-        accept-encoding: gzip, deflate, br
-        connection: keep-alive
-        content-length: 9
-        content-type: application/json
-        host: http.mock
-        user-agent: xh/0.0.0 (test mode)
+        Accept: application/json, */*;q=0.5
+        Accept-Encoding: gzip, deflate, br
+        Connection: keep-alive
+        Content-Length: 9
+        Content-Type: application/json
+        Host: http.mock
+        User-Agent: xh/0.0.0 (test mode)
 
         {
             "x": "y"
@@ -222,9 +222,9 @@ fn verbose() {
 
 
         HTTP/1.1 200 OK
-        content-length: 6
-        date: N/A
-        x-foo: Bar
+        Content-Length: 6
+        Date: N/A
+        X-Foo: Bar
 
         a body
         "#});
@@ -1344,10 +1344,10 @@ fn can_unset_default_headers() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
 
         "#});
 }
@@ -1363,12 +1363,12 @@ fn can_unset_headers() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            hello: world
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Hello: world
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
         "#});
 }
@@ -1383,12 +1383,12 @@ fn can_set_unset_header() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            hello: world
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Hello: world
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
         "#});
 }
@@ -1836,29 +1836,29 @@ fn print_intermediate_requests_and_responses() {
         .assert()
         .stdout(formatdoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
-            content-length: 14
-            date: N/A
-            location: {url}
+            Content-Length: 14
+            Date: N/A
+            Location: {url}
 
             redirecting...
 
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
-            content-length: 17
-            date: N/A
+            Content-Length: 17
+            Date: N/A
 
             final destination
         "#, url = server2.base_url() });
@@ -1887,28 +1887,28 @@ fn history_print() {
         .assert()
         .stdout(formatdoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
-            content-length: 14
-            date: N/A
-            location: {url}
+            Content-Length: 14
+            Date: N/A
+            Location: {url}
 
 
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
-            content-length: 17
-            date: N/A
+            Content-Length: 17
+            Date: N/A
 
             final destination
         "#, url = server2.base_url() });
@@ -1946,7 +1946,7 @@ fn method_is_changed_when_following_302_redirect() {
     let server2 = MockServer::start();
     let mock1 = server1.mock(|when, then| {
         when.method(POST)
-            .header_exists("content-length")
+            .header_exists("Content-Length")
             .body(r#"{"name":"ali"}"#);
         then.header("location", &server2.base_url())
             .status(302)
@@ -1958,7 +1958,7 @@ fn method_is_changed_when_following_302_redirect() {
                 .as_ref()
                 .unwrap()
                 .iter()
-                .any(|(key, _)| key == "content-length")
+                .any(|(key, _)| key == "Content-Length")
         });
         then.body("final destination");
     });
@@ -2007,21 +2007,21 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
     let mock1 = server1.mock(|when, then| {
-        when.header_exists("authorization").header_exists("hello");
-        then.header("location", &server2.base_url())
+        when.header_exists("Authorization").header_exists("hello");
+        then.header("Location", &server2.base_url())
             .status(302)
             .body("redirecting...");
     });
     let mock2 = server2.mock(|when, then| {
-        when.header_exists("hello")
+        when.header_exists("Hello")
             .matches(|req: &HttpMockRequest| {
                 !req.headers
                     .as_ref()
                     .unwrap()
                     .iter()
-                    .any(|(key, _)| key == "authorization")
+                    .any(|(key, _)| key == "Authorization")
             });
-        then.header("date", "N/A").body("final destination");
+        then.header("Date", "N/A").body("final destination");
     });
 
     get_command()

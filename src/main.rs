@@ -81,6 +81,7 @@ fn main() -> Result<i32> {
     let timeout = args.timeout.and_then(|t| t.as_duration());
 
     let mut client = Client::builder()
+        .http1_title_case_headers()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout);
