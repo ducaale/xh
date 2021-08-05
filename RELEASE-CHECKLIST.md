@@ -4,7 +4,7 @@
 - Make sure that all options/flags have corresponding negation in the `NEGATION_FLAGS` list found
   in `cli.rs`. The following command should help in getting an up-to-date list.
   ```
-  cargo expand cli | rg -o 'with_name\s*\("([^"]*)"\)' -r '    "--no-$1",' | rg -v 'raw-' | sort
+  cargo expand --all-features cli | rg -o 'with_name\s*\("([^"]*)"\)' -r '    "--no-$1",' | rg -v 'raw-' | sort
   ```
 - Update `CHANGELOG.md` (rename unreleased header to the current date, add any missing changes).
 - Bump up the version in `Cargo.toml` and run `cargo check` to update `Cargo.lock`.

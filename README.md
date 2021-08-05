@@ -70,6 +70,7 @@ OPTIONS:
         --verify <VERIFY>             If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                 Use a client side certificate for SSL
         --cert-key <FILE>             A private key file to use with --cert
+        --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
         --https                       Make HTTPS requests if not specified in the URL
     -I, --ignore-stdin                Do not attempt to read stdin
         --curl                        Print a translation to a `curl` command
