@@ -28,6 +28,7 @@ complete -c xh -l ignore-netrc -d 'Do not use credentials from .netrc'
 complete -c xh -l offline -d 'Construct HTTP requests without sending them anywhere'
 complete -c xh -l check-status -d '(default) Exit with an error status code if the server replies with an error'
 complete -c xh -s F -l follow -d 'Do follow redirects'
+complete -c xh -l native-tls -d 'Use the system TLS library instead of rustls (if enabled at compile time)'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
 complete -c xh -l curl -d 'Print a translation to a `curl` command'
@@ -53,6 +54,7 @@ complete -c xh -l no-ignore-stdin
 complete -c xh -l no-json
 complete -c xh -l no-max-redirects
 complete -c xh -l no-multipart
+complete -c xh -l no-native-tls
 complete -c xh -l no-offline
 complete -c xh -l no-output
 complete -c xh -l no-pretty

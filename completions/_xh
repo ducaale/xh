@@ -61,6 +61,7 @@ _xh() {
 '--check-status[(default) Exit with an error status code if the server replies with an error]' \
 '-F[Do follow redirects]' \
 '--follow[Do follow redirects]' \
+'--native-tls[Use the system TLS library instead of rustls (if enabled at compile time)]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
@@ -87,6 +88,7 @@ _xh() {
 '--no-json[]' \
 '--no-max-redirects[]' \
 '--no-multipart[]' \
+'--no-native-tls[]' \
 '--no-offline[]' \
 '--no-output[]' \
 '--no-pretty[]' \

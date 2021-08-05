@@ -1,4 +1,4 @@
-## Unreleased
+## [0.12.0] - 2021-08-06
 ## Features
 - Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
 - Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz)
