@@ -128,7 +128,7 @@ fn basic_options() {
         .arg(server.base_url())
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"))
-        .stdout(contains("allow:"));
+        .stdout(contains("Allow:"));
     mock.assert();
 }
 
@@ -207,13 +207,13 @@ fn verbose() {
         .assert()
         .stdout(indoc! {r#"
         POST / HTTP/1.1
-        accept: application/json, */*;q=0.5
-        accept-encoding: gzip, deflate, br
-        connection: keep-alive
-        content-length: 9
-        content-type: application/json
-        host: http.mock
-        user-agent: xh/0.0.0 (test mode)
+        Accept: application/json, */*;q=0.5
+        Accept-Encoding: gzip, deflate, br
+        Connection: keep-alive
+        Content-Length: 9
+        Content-Type: application/json
+        Host: http.mock
+        User-Agent: xh/0.0.0 (test mode)
 
         {
             "x": "y"
@@ -222,9 +222,9 @@ fn verbose() {
 
 
         HTTP/1.1 200 OK
-        content-length: 6
-        date: N/A
-        x-foo: Bar
+        Content-Length: 6
+        Date: N/A
+        X-Foo: Bar
 
         a body
         "#});
