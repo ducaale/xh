@@ -46,7 +46,7 @@ fn main() {
     let url = args.url.clone();
     let native_tls = args.native_tls;
 
-    match inner_main(args) {
+    match run(args) {
         Ok(exit_code) => {
             process::exit(exit_code);
         }
@@ -73,7 +73,7 @@ fn main() {
     }
 }
 
-fn inner_main(args: Cli) -> Result<i32> {
+fn run(args: Cli) -> Result<i32> {
     if args.curl {
         to_curl::print_curl_translation(args)?;
         return Ok(0);
