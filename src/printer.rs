@@ -1,11 +1,13 @@
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::sync::Arc;
 
 use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
+use reqwest::cookie::CookieStore;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
 };
 use reqwest::Version;
 use termcolor::WriteColor;
@@ -296,7 +298,14 @@ impl Printer {
         header_string
     }
 
-    pub fn print_request_headers(&mut self, request: &Request) -> io::Result<()> {
+    pub fn print_request_headers<T>(
+        &mut self,
+        request: &Request,
+        cookie_jar: Arc<T>,
+    ) -> io::Result<()>
+    where
+        T: CookieStore,
+    {
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -306,6 +315,10 @@ impl Printer {
         headers
             .entry(ACCEPT)
             .or_insert_with(|| HeaderValue::from_static("*/*"));
+
+        if let Some(cookie) = cookie_jar.cookies(url) {
+            headers.insert(COOKIE, cookie);
+        }
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
@@ -515,6 +528,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
@@ -526,8 +540,9 @@ mod tests {
         Printer::new(pretty, args.style, false, buffer)
     }
 
-    fn temp_path(filename: &str) -> String {
+    fn temp_path() -> String {
         let mut dir = std::env::temp_dir();
+        let filename = random_string();
         dir.push(filename);
         dir.to_str().unwrap().to_owned()
     }
@@ -548,7 +563,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_with_output_file() {
-        let output = temp_path("temp3");
+        let output = temp_path();
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::File(_));
@@ -556,7 +571,7 @@ mod tests {
 
     #[test]
     fn redirect_mode_with_output_file() {
-        let output = temp_path("temp4");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-o", output],
             false,
@@ -581,7 +596,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_download_with_output_file() {
-        let output = temp_path("temp7");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             true,
@@ -592,7 +607,7 @@ mod tests {
 
     #[test]
     fn redirect_mode_download_with_output_file() {
-        let output = temp_path("temp8");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             false,

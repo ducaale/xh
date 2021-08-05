@@ -20,6 +20,17 @@ pub fn test_default_color() -> bool {
     var_os("XH_TEST_MODE_COLOR").is_some()
 }
 
+#[cfg(test)]
+pub fn random_string() -> String {
+    use rand::Rng;
+
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect()
+}
+
 pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
         Some(dir.into())

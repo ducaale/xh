@@ -6,6 +6,7 @@ mod download;
 mod formatting;
 mod printer;
 mod request_items;
+mod session;
 mod to_curl;
 mod url;
 mod utils;
@@ -14,12 +15,14 @@ use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, RANGE, USER_AGENT,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION, CONNECTION, CONTENT_TYPE, COOKIE, RANGE,
+    USER_AGENT,
 };
 use reqwest::redirect::Policy;
 
@@ -29,6 +32,7 @@ use crate::cli::{Cli, Print, Proxy, RequestType, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
+use crate::session::Session;
 use crate::url::construct_url;
 use crate::utils::{test_mode, test_pretend_term};
 
@@ -52,7 +56,7 @@ fn main() -> Result<i32> {
 
     let request_items = RequestItems::new(args.request_items);
     let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers()?;
+    let (mut headers, headers_to_unset) = request_items.headers()?;
     let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
@@ -157,6 +161,44 @@ fn main() -> Result<i32> {
         }?);
     }
 
+    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
+    client = client.cookie_provider(cookie_jar.clone());
+
+    let mut session = match &args.session {
+        Some(name_or_path) => Some(
+            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
+                .with_context(|| {
+                    format!("couldn't load session {:?}", name_or_path.to_string_lossy())
+                })?,
+        ),
+        None => None,
+    };
+
+    if let Some(ref mut s) = session {
+        for (key, value) in s.headers()?.iter() {
+            headers.entry(key).or_insert_with(|| value.clone());
+        }
+        if let Some(auth) = s.auth()? {
+            headers
+                .entry(AUTHORIZATION)
+                .or_insert(HeaderValue::from_str(&auth)?);
+        }
+        s.save_headers(&headers)?;
+
+        let mut cookie_jar = cookie_jar.lock().unwrap();
+        for cookie in s.cookies() {
+            match cookie_jar.insert_raw(&cookie, &url) {
+                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
+                Err(err) => return Err(err.into()),
+            }
+        }
+        if let Some(cookie) = headers.remove(COOKIE) {
+            for cookie in cookie.to_str()?.split(';') {
+                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
+            }
+        }
+    }
+
     let client = client.build()?;
 
     let mut request = {
@@ -220,6 +262,9 @@ fn main() -> Result<i32> {
 
         if let Some(auth) = args.auth {
             let (username, password) = parse_auth(auth, url.host_str().unwrap_or("<host>"))?;
+            if let Some(ref mut s) = session {
+                s.save_basic_auth(username.clone(), password.clone());
+            }
             request_builder = request_builder.basic_auth(username, password);
         } else if !args.ignore_netrc {
             if let Some(host) = url.host_str() {
@@ -231,6 +276,9 @@ fn main() -> Result<i32> {
             }
         }
         if let Some(token) = args.bearer {
+            if let Some(ref mut s) = session {
+                s.save_bearer_auth(token.clone())
+            }
             request_builder = request_builder.bearer_auth(token);
         }
 
@@ -247,7 +295,7 @@ fn main() -> Result<i32> {
         request
             .headers_mut()
             .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
-    };
+    }
 
     let buffer = Buffer::new(
         args.download,
@@ -271,20 +319,18 @@ fn main() -> Result<i32> {
     let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
     if print.request_headers {
-        printer.print_request_headers(&request)?;
+        printer.print_request_headers(&request, cookie_jar.clone())?;
     }
     if print.request_body {
         printer.print_request_body(&mut request)?;
     }
+
+    let mut exit_code: i32 = 0;
     if !args.offline {
-        let orig_url = request.url().clone();
         let response = client.execute(request)?;
-        if print.response_headers {
-            printer.print_response_headers(&response)?;
-        }
         let status = response.status();
         let check_status = args.check_status.unwrap_or(!args.httpie_compat_mode);
-        let exit_code: i32 = match status.as_u16() {
+        exit_code = match status.as_u16() {
             _ if !(check_status) => 0,
             300..=399 if !args.follow => 3,
             400..=499 => 4,
@@ -294,12 +340,16 @@ fn main() -> Result<i32> {
         if is_redirect && exit_code != 0 {
             eprintln!("\n{}: warning: HTTP {}\n", env!("CARGO_PKG_NAME"), status);
         }
+
+        if print.response_headers {
+            printer.print_response_headers(&response)?;
+        }
         if args.download {
             if exit_code == 0 {
                 download_file(
                     response,
                     args.output,
-                    &orig_url,
+                    &url,
                     resume,
                     pretty.color(),
                     args.quiet,
@@ -308,8 +358,20 @@ fn main() -> Result<i32> {
         } else if print.response_body {
             printer.print_response_body(response)?;
         }
-        Ok(exit_code)
-    } else {
-        Ok(0)
     }
+
+    if let Some(ref mut s) = session {
+        let cookie_jar = cookie_jar.lock().unwrap();
+        s.save_cookies(
+            cookie_jar
+                .matches(&url)
+                .into_iter()
+                .map(|c| cookie_crate::Cookie::from(c.clone()))
+                .collect(),
+        );
+        s.persist()
+            .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
+    }
+
+    Ok(exit_code)
 }

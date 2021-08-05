@@ -22,6 +22,8 @@ _xh() {
 '--print=[String specifying what the output should contain]' \
 '-o+[Save output to FILE instead of stdout]' \
 '--output=[Save output to FILE instead of stdout]' \
+'--session=[Create, or reuse and update a session]' \
+'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]' \
 '-A+[Specify the auth mechanism]: :(basic bearer)' \
 '--auth-type=[Specify the auth mechanism]: :(basic bearer)' \
 '-a+[Authenticate as USER with PASS. PASS will be prompted if missing]' \
@@ -91,6 +93,8 @@ _xh() {
 '--no-print[]' \
 '--no-proxy[]' \
 '--no-quiet[]' \
+'--no-session[]' \
+'--no-session-read-only[]' \
 '--no-stream[]' \
 '--no-style[]' \
 '--no-timeout[]' \
