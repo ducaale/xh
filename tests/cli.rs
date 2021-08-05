@@ -745,7 +745,7 @@ fn check_status_warning() {
         .arg(server.base_url())
         .assert()
         .code(5)
-        .stderr("\nxh: warning: HTTP 501 Not Implemented\n\n");
+        .stderr("xh: warning: HTTP 501 Not Implemented\n");
     mock.assert();
 }
 
@@ -836,6 +836,21 @@ fn verify_valid_file() {
         .stderr(predicates::str::is_empty());
 }
 
+// This test may fail if https://github.com/seanmonstar/reqwest/issues/1260 is fixed
+// If that happens make sure to remove the warning, not just this test
+#[cfg(feature = "native-tls")]
+#[test]
+fn verify_valid_file_native_tls() {
+    get_command()
+        .arg("--native-tls")
+        .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stderr(predicates::str::contains(
+            "Custom CA bundles with native-tls are broken",
+        ));
+}
+
 #[test]
 fn cert_without_key() {
     get_command()
@@ -863,6 +878,85 @@ fn cert_with_key() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
         .stdout(predicates::str::contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn cert_with_key_native_tls() {
+    get_command()
+        .arg("--native-tls")
+        .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
+        .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
+        .arg("https://client.badssl.com")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Client certificates are not supported for native-tls",
+        ));
+}
+
+#[cfg(not(feature = "native-tls"))]
+#[test]
+fn native_tls_flag_disabled() {
+    get_command()
+        .arg("--native-tls")
+        .arg(":")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "built without native-tls support",
+        ));
+}
+
+#[cfg(not(feature = "native-tls"))]
+#[test]
+fn improved_https_ip_error_no_support() {
+    get_command()
+        .arg("https://1.1.1.1")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("rustls does not support"))
+        .stderr(predicates::str::contains(
+            "building with the `native-tls` feature",
+        ));
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn native_tls_works() {
+    get_command()
+        .arg("--native-tls")
+        .arg("https://example.org")
+        .assert()
+        .success();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn improved_https_ip_error_with_support() {
+    let server = MockServer::start();
+    let mock = server.mock(|_, then| {
+        then.permanent_redirect("https://1.1.1.1");
+    });
+    get_command()
+        .arg("--follow")
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("rustls does not support"))
+        .stderr(predicates::str::contains("using the --native-tls flag"));
+    mock.assert();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn auto_nativetls() {
+    get_command()
+        .arg("--offline")
+        .arg("https://1.1.1.1")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains("native-tls will be enabled"));
 }
 
 #[test]
