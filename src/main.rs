@@ -152,6 +152,12 @@ fn inner_main(args: Cli) -> Result<i32> {
             Verify::Yes => client,
             Verify::No => client.danger_accept_invalid_certs(true),
             Verify::CustomCaBundle(path) => {
+                if args.native_tls {
+                    // This is not a hard error in case it gets fixed upstream
+                    // https://github.com/seanmonstar/reqwest/issues/1260
+                    warn("Custom CA bundles with native-tls are broken");
+                }
+
                 let mut buffer = Vec::new();
                 let mut file = File::open(&path).with_context(|| {
                     format!("Failed to open the custom CA bundle: {}", path.display())
@@ -173,6 +179,12 @@ fn inner_main(args: Cli) -> Result<i32> {
         };
 
         if let Some(cert) = args.cert {
+            if args.native_tls {
+                // Unlike the --verify case this is advertised to not work, so it's
+                // not an outright bug, but it's still imaginable that it'll start working
+                warn("Client certificates are not supported for native-tls")
+            }
+
             let mut buffer = Vec::new();
             let mut file = File::open(&cert)
                 .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;

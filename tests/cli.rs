@@ -825,6 +825,24 @@ fn verify_valid_file() {
         .stderr(predicates::str::is_empty());
 }
 
+// This test may fail if https://github.com/seanmonstar/reqwest/issues/1260 is fixed
+// If that happens make sure to remove the warning, not just this test
+#[cfg(feature = "native-tls")]
+#[test]
+fn verify_valid_file_native_tls() {
+    get_command()
+        .arg("--native-tls")
+        .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
+        .arg("https://self-signed.badssl.com")
+        .assert()
+        .stdout(predicates::str::contains(
+            "400 No required SSL certificate was sent",
+        ))
+        .stderr(predicates::str::contains(
+            "Custom CA bundles with native-tls are broken",
+        ));
+}
+
 #[test]
 fn cert_without_key() {
     get_command()
@@ -852,6 +870,21 @@ fn cert_with_key() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
         .stdout(predicates::str::contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn cert_with_key_native_tls() {
+    get_command()
+        .arg("--native-tls")
+        .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
+        .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
+        .arg("https://client.badssl.com")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "Client certificates are not supported for native-tls",
+        ));
 }
 
 #[cfg(not(feature = "native-tls"))]
