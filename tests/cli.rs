@@ -846,9 +846,6 @@ fn verify_valid_file_native_tls() {
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
         .arg("https://self-signed.badssl.com")
         .assert()
-        .stdout(predicates::str::contains(
-            "400 No required SSL certificate was sent",
-        ))
         .stderr(predicates::str::contains(
             "Custom CA bundles with native-tls are broken",
         ));
