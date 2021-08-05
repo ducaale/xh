@@ -915,6 +915,16 @@ fn improved_https_ip_error_no_support() {
 
 #[cfg(feature = "native-tls")]
 #[test]
+fn native_tls_works() {
+    get_command()
+        .arg("--native-tls")
+        .arg("https://example.org")
+        .assert()
+        .success();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
 fn improved_https_ip_error_with_support() {
     let server = MockServer::start();
     let mock = server.mock(|_, then| {
