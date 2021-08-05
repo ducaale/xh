@@ -54,7 +54,7 @@ fn main() {
             eprintln!("{}: error: {:?}", bin_name, err);
             if !native_tls && err.root_cause().to_string() == "invalid dnsname" {
                 eprintln!();
-                if utils::requires_native_tls(&url) {
+                if utils::url_requires_native_tls(&url) {
                     eprintln!("rustls does not support HTTPS for IP addresses.");
                 } else {
                     // Maybe we went to https://<IP> after a redirect?
@@ -122,7 +122,7 @@ fn run(args: Cli) -> Result<i32> {
     #[cfg(feature = "native-tls")]
     if args.native_tls {
         client = client.use_native_tls();
-    } else if utils::requires_native_tls(&args.url) {
+    } else if utils::url_requires_native_tls(&args.url) {
         // We should be loud about this to prevent confusion
         warn("rustls does not support HTTPS for IP addresses. native-tls will be enabled. Use --native-tls to silence this warning.");
         client = client.use_native_tls();
