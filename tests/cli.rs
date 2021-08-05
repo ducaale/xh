@@ -1326,10 +1326,10 @@ fn can_unset_default_headers() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            host: http.mock
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
 
         "#});
 }
@@ -1345,12 +1345,12 @@ fn can_unset_headers() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            hello: world
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Hello: world
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
         "#});
 }
@@ -1365,12 +1365,12 @@ fn can_set_unset_header() {
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
-            accept: */*
-            accept-encoding: gzip, deflate, br
-            connection: keep-alive
-            hello: world
-            host: http.mock
-            user-agent: xh/0.0.0 (test mode)
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Hello: world
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
         "#});
 }
@@ -1800,7 +1800,7 @@ fn bearer_auth_from_session_is_used() {
 fn accept_encoding_not_modifiable_in_download_mode() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
-        when.header("accept-encoding", "identity");
+        when.header("Accept-Encoding", "identity");
         then.body(r#"{"ids":[1,2,3]}"#);
     });
 
@@ -1809,7 +1809,7 @@ fn accept_encoding_not_modifiable_in_download_mode() {
         .current_dir(&dir)
         .arg(server.base_url())
         .arg("--download")
-        .arg("accept-encoding:gzip")
+        .arg("Accept-Encoding:gzip")
         .assert();
     mock.assert();
 }
