@@ -60,7 +60,7 @@ tempfile = "3.2.0"
 default = ["integration-tests"]
 
 integration-tests = []
-native-tls = ["reqwest/native-tls"]
+native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }
