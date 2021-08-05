@@ -202,8 +202,9 @@ fn inner_main(args: Cli) -> Result<i32> {
                 })?;
             }
 
+            // We may fail here if we can't parse it but also if we don't have the key
             let identity = reqwest::Identity::from_pem(&buffer)
-                .context("Failed to parse the cert/cert key files")?;
+                .context("Failed to load the cert/cert key files")?;
             client = client.identity(identity);
         };
     }
