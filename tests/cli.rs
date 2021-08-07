@@ -1,4 +1,5 @@
 #![cfg(feature = "integration-tests")]
+#![allow(clippy::bool_assert_comparison)]
 use std::{
     collections::HashSet,
     fs::File,
