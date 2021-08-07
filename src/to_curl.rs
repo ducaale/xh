@@ -1,7 +1,7 @@
 use std::io::{stderr, stdout, Write};
 
 use anyhow::{anyhow, Result};
-use reqwest::Method;
+use reqwest::{tls, Method};
 
 use crate::{
     cli::{Cli, HttpVersion, Verify},
@@ -59,8 +59,8 @@ impl Command {
         self.env.push((var, value.into()));
     }
 
-    fn warn(&mut self, message: String) {
-        self.warnings.push(message);
+    fn warn(&mut self, message: impl Into<String>) {
+        self.warnings.push(message.into());
     }
 }
 
@@ -169,6 +169,31 @@ pub fn translate(args: Cli) -> Result<Command> {
     if let Some(keyfile) = args.cert_key {
         cmd.push("--key");
         cmd.push(keyfile.to_string_lossy());
+    }
+    if let Some(tls_version) = args.ssl {
+        match tls_version {
+            tls::Version::TLS_1_0 => {
+                cmd.push("--tlsv1");
+                cmd.push("--tls-max");
+                cmd.push("1.0");
+            }
+            tls::Version::TLS_1_1 => {
+                cmd.push("--tlsv1.1");
+                cmd.push("--tls-max");
+                cmd.push("1.1");
+            }
+            tls::Version::TLS_1_2 => {
+                cmd.push("--tlsv1.2");
+                cmd.push("--tls-max");
+                cmd.push("1.2");
+            }
+            tls::Version::TLS_1_3 => {
+                cmd.push("--tlsv1.3");
+                cmd.push("--tls-max");
+                cmd.push("1.3");
+            }
+            _ => unreachable!(),
+        }
     }
     for proxy in args.proxy {
         match proxy {

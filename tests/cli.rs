@@ -979,6 +979,46 @@ fn auto_nativetls() {
 }
 
 #[test]
+fn good_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.2")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .success();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn good_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-1.badssl.com:1011/")
+        .assert()
+        .success();
+}
+
+#[test]
+fn bad_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn bad_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[test]
 fn forced_json() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
