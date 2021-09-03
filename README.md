@@ -51,6 +51,8 @@ OPTIONS:
     -h, --headers                     Print only the response headers, shortcut for --print=h
     -b, --body                        Print only the response body, Shortcut for --print=b
     -v, --verbose                     Print the whole request as well as the response
+        --all                         Show any intermediary requests/responses while following redirects with --follow
+    -P, --history-print <FORMAT>      The same as --print but applies only to intermediary requests/responses
     -q, --quiet                       Do not print to stdout or stderr
     -S, --stream                      Always stream the response body
     -o, --output <FILE>               Save output to FILE instead of stdout

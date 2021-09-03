@@ -20,6 +20,8 @@ _xh() {
 '--style=[Output coloring style]: :(auto solarized monokai)' \
 '-p+[String specifying what the output should contain]' \
 '--print=[String specifying what the output should contain]' \
+'-P+[The same as --print but applies only to intermediary requests/responses]' \
+'--history-print=[The same as --print but applies only to intermediary requests/responses]' \
 '-o+[Save output to FILE instead of stdout]' \
 '--output=[Save output to FILE instead of stdout]' \
 '--session=[Create, or reuse and update a session]' \
@@ -48,6 +50,7 @@ _xh() {
 '--body[Print only the response body, Shortcut for --print=b]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
+'--all[Show any intermediary requests/responses while following redirects with --follow]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
@@ -67,6 +70,7 @@ _xh() {
 '--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a `curl` command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
+'--no-all[]' \
 '--no-auth[]' \
 '--no-auth-type[]' \
 '--no-bearer[]' \

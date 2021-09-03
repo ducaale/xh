@@ -87,6 +87,14 @@ pub struct Cli {
     #[structopt(short = "v", long)]
     pub verbose: bool,
 
+    /// Show any intermediary requests/responses while following redirects with --follow.
+    #[structopt(long)]
+    pub all: bool,
+
+    /// The same as --print but applies only to intermediary requests/responses.
+    #[structopt(short = "P", long, value_name = "FORMAT")]
+    pub history_print: Option<Print>,
+
     /// Do not print to stdout or stderr.
     #[structopt(short = "q", long)]
     pub quiet: bool,
@@ -293,6 +301,7 @@ pub struct Cli {
 /// (https://crates.io/crates/cargo-expand, https://crates.io/crates/ripgrep)
 /// But this is fragile, please apply human judgment.
 const NEGATION_FLAGS: &[&str] = &[
+    "--no-all",
     "--no-auth",
     "--no-auth-type",
     "--no-bearer",
@@ -480,8 +489,8 @@ impl Cli {
                 ErrorKind::MissingArgumentOrSubcommand,
             ));
         }
-        if self.download {
-            self.follow = true;
+        if self.verbose {
+            self.all = true;
         }
         if self.curl_long {
             self.curl = true;
@@ -499,6 +508,7 @@ impl Cli {
             (false, false) => None,
         };
         if self.download {
+            self.follow = true;
             self.check_status = Some(true);
         }
         // `overrides_with_all` ensures that only one of these is true
@@ -714,7 +724,7 @@ impl Theme {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Print {
     pub request_headers: bool,
     pub request_body: bool,
