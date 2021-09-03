@@ -108,11 +108,11 @@ Similar to HTTPie, specifying the scheme portion of the request URL is optional.
 omitting `localhost` from the URL as long it starts with colon plus an optional port number. 
 
 ```sh
-xh localhost:3000/users # resolves to http://localhost:3000/users
-xh localhost:3000/users # resolves to http://localhost:3000/users
-xh :3000/users          # resolves to http://localhost:3000/users
-xh :/users              # resolves to http://localhost:80/users
-xh example.com          # resolves to http://example.com
+xh http://localhost:3000/users # resolves to http://localhost:3000/users
+xh localhost:3000/users        # resolves to http://localhost:3000/users
+xh :3000/users                 # resolves to http://localhost:3000/users
+xh :/users                     # resolves to http://localhost:80/users
+xh example.com                 # resolves to http://example.com
 ```
 
 ### Making HTTPS requests by default
