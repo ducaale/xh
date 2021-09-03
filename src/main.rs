@@ -375,7 +375,7 @@ fn run(args: Cli) -> Result<i32> {
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
 
-    printer.print_request_headers(&request, &*cookie_jar.clone())?;
+    printer.print_request_headers(&request, &*cookie_jar)?;
     printer.print_request_body(&mut request)?;
 
     if !args.offline {
@@ -390,7 +390,7 @@ fn run(args: Cli) -> Result<i32> {
                     printer.print_response_headers(&prev_response)?;
                     printer.print_response_body(prev_response)?;
                     printer.print_seperator()?;
-                    printer.print_request_headers(next_request, &*cookie_jar.clone())?;
+                    printer.print_request_headers(next_request, &*cookie_jar)?;
                     printer.print_request_body(next_request)?;
                     Ok(())
                 });
