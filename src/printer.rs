@@ -1,5 +1,4 @@
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
-use std::sync::Arc;
 
 use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -297,11 +296,7 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_request_headers<T>(
-        &mut self,
-        request: &Request,
-        cookie_jar: Arc<T>,
-    ) -> io::Result<()>
+    pub fn print_request_headers<T>(&mut self, request: &Request, cookie_jar: &T) -> io::Result<()>
     where
         T: CookieStore,
     {
