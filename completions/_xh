@@ -20,6 +20,8 @@ _xh() {
 '--style=[Output coloring style]: :(auto solarized monokai)' \
 '-p+[String specifying what the output should contain]' \
 '--print=[String specifying what the output should contain]' \
+'-P+[The same as --print but applies only to intermediary requests/responses]' \
+'--history-print=[The same as --print but applies only to intermediary requests/responses]' \
 '-o+[Save output to FILE instead of stdout]' \
 '--output=[Save output to FILE instead of stdout]' \
 '--session=[Create, or reuse and update a session]' \
@@ -48,7 +50,7 @@ _xh() {
 '--body[Print only the response body, Shortcut for --print=b]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
-'--all[Show any intermediary requests/responses]' \
+'--all[Show any intermediary requests/responses while following redirects with --follow]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
@@ -62,6 +64,7 @@ _xh() {
 '--check-status[(default) Exit with an error status code if the server replies with an error]' \
 '-F[Do follow redirects]' \
 '--follow[Do follow redirects]' \
+'--native-tls[Use the system TLS library instead of rustls (if enabled at compile time)]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
@@ -89,6 +92,7 @@ _xh() {
 '--no-json[]' \
 '--no-max-redirects[]' \
 '--no-multipart[]' \
+'--no-native-tls[]' \
 '--no-offline[]' \
 '--no-output[]' \
 '--no-pretty[]' \

@@ -1,3 +1,10 @@
+## [0.12.0] - 2021-08-06
+## Features
+- Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
+- Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz)
+- Support using the system's TLS library via _--native-tls_ flag, see #154 (@blyxxyz)
+- Support reading args from a config file, see #165 (@ducaale)
+
 ## [0.11.0] - 2021-07-26
 ### Features
 - Support `REQUESTS_CA_BUNDLE` & `CURL_CA_BUNDLE` env variables, see #146 (@ducaale)

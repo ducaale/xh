@@ -267,30 +267,16 @@ impl Printer {
         for (key, value) in headers {
             if as_titlecase {
                 // Ought to be equivalent to how hyper does it
-                // https://github.com/hyperium/hyper/blob/54b57c4797e1210924d901a665f9d17ae7dd9956/src/proto/h1/role.rs#L1315
+                // https://github.com/hyperium/hyper/blob/f46b175bf71b202fbb907c4970b5743881b891e1/src/proto/h1/role.rs#L1332
                 // Header names are ASCII so it's ok to operate on char instead of u8
-                let mut iter = key.as_str().chars();
-                if let Some(c) = iter.next() {
-                    header_string.push(c.to_ascii_uppercase());
-                }
-                while let Some(c) = iter.next() {
-                    header_string.push(c);
-                    if c == '-' {
-                        if let Some(c) = iter.next() {
-                            header_string.push(c.to_ascii_uppercase());
-                        }
+                let mut prev = '-';
+                for mut c in key.as_str().chars() {
+                    if prev == '-' {
+                        c.make_ascii_uppercase();
                     }
+                    header_string.push(c);
+                    prev = c;
                 }
-                // If https://github.com/hyperium/hyper/pull/2613 is released,
-                // switch to this implementation:
-                // let mut prev = '-';
-                // for mut c in key.as_str().chars() {
-                //     if prev == '-' {
-                //         c.make_ascii_uppercase();
-                //     }
-                //     header_string.push(c);
-                //     prev = c;
-                // }
             } else {
                 header_string.push_str(key.as_str());
             }
@@ -668,10 +654,10 @@ mod tests {
             p.headers_to_string(&headers, reqwest::Version::HTTP_11),
             indoc! {"
                 Ab-Cd: 0
-                -cd: 0
+                -Cd: 0
                 -: 0
                 Ab-%c: 0
-                A-B--c: 0"
+                A-B--C: 0"
             }
         );
 

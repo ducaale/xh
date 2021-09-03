@@ -72,6 +72,7 @@ OPTIONS:
         --verify <VERIFY>             If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                 Use a client side certificate for SSL
         --cert-key <FILE>             A private key file to use with --cert
+        --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
         --https                       Make HTTPS requests if not specified in the URL
     -I, --ignore-stdin                Do not attempt to read stdin
         --curl                        Print a translation to a `curl` command
@@ -175,7 +176,7 @@ xh -d httpbin.org/json -o res.json
 
 - `--check-status` is enabled unless `xh` is being used in
   [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
-- `rustls` is used instead of the system's TLS library.
+- `rustls` is used by default instead of the system's TLS library. (If enabled at compile time, the `--native-tls` flag can be used.)
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
 

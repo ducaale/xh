@@ -11,7 +11,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
 use structopt::clap;
 
-use crate::cli::RequestType;
+use crate::cli::BodyType;
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
@@ -205,7 +205,11 @@ fn rsplit_once_any<'a, 'b>(
     res
 }
 
-pub struct RequestItems(pub Vec<RequestItem>);
+#[derive(Default, Debug)]
+pub struct RequestItems {
+    pub items: Vec<RequestItem>,
+    pub body_type: BodyType,
+}
 
 pub enum Body {
     Json(serde_json::Map<String, serde_json::Value>),
@@ -250,12 +254,8 @@ impl Body {
 }
 
 impl RequestItems {
-    pub fn new(request_items: Vec<RequestItem>) -> RequestItems {
-        RequestItems(request_items)
-    }
-
     pub fn has_form_files(&self) -> bool {
-        self.0
+        self.items
             .iter()
             .any(|item| matches!(item, RequestItem::FormFile { .. }))
     }
@@ -264,7 +264,7 @@ impl RequestItems {
         let mut headers = HeaderMap::new();
         #[allow(clippy::mutable_key_type)]
         let mut headers_to_unset = HashSet::new();
-        for item in &self.0 {
+        for item in &self.items {
             match item {
                 RequestItem::HttpHeader(key, value) => {
                     let key = HeaderName::from_bytes(key.as_bytes())?;
@@ -290,7 +290,7 @@ impl RequestItems {
 
     pub fn query(&self) -> Vec<(&str, &str)> {
         let mut query = vec![];
-        for item in &self.0 {
+        for item in &self.items {
             if let RequestItem::UrlParam(key, value) = item {
                 query.push((key.as_str(), value.as_str()));
             }
@@ -300,7 +300,7 @@ impl RequestItems {
 
     fn body_as_json(self) -> Result<Body> {
         let mut body = serde_json::Map::new();
-        for item in self.0 {
+        for item in self.items {
             match item {
                 RequestItem::JsonField(key, value) => {
                     body.insert(key, value);
@@ -325,7 +325,7 @@ impl RequestItems {
 
     fn body_as_form(self) -> Result<Body> {
         let mut text_fields = Vec::<(String, String)>::new();
-        for item in self.0 {
+        for item in self.items {
             match item {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
@@ -345,7 +345,7 @@ impl RequestItems {
 
     fn body_as_multipart(self) -> Result<Body> {
         let mut form = multipart::Form::new();
-        for item in self.0 {
+        for item in self.items {
             match item {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
@@ -382,7 +382,7 @@ impl RequestItems {
     fn body_from_file(self) -> Result<Body> {
         let mut body = None;
         if self
-            .0
+            .items
             .iter()
             .any(|item| matches!(item, RequestItem::FormFile {key, ..} if !key.is_empty()))
         {
@@ -390,7 +390,7 @@ impl RequestItems {
                 "Can't use file fields in JSON mode (perhaps you meant --form?)"
             ));
         }
-        for item in self.0 {
+        for item in self.items {
             match item {
                 RequestItem::DataField(..)
                 | RequestItem::JsonField(..)
@@ -429,24 +429,24 @@ impl RequestItems {
         Ok(body)
     }
 
-    pub fn body(self, request_type: RequestType) -> Result<Body> {
-        match request_type {
-            RequestType::Multipart => self.body_as_multipart(),
-            RequestType::Form if self.has_form_files() => self.body_as_multipart(),
-            RequestType::Form => self.body_as_form(),
-            RequestType::Json if self.has_form_files() => self.body_from_file(),
-            RequestType::Json => self.body_as_json(),
+    pub fn body(self) -> Result<Body> {
+        match self.body_type {
+            BodyType::Multipart => self.body_as_multipart(),
+            BodyType::Form if self.has_form_files() => self.body_as_multipart(),
+            BodyType::Form => self.body_as_form(),
+            BodyType::Json if self.has_form_files() => self.body_from_file(),
+            BodyType::Json => self.body_as_json(),
         }
     }
 
     /// Determine whether a multipart request should be used.
     ///
     /// This duplicates logic in `body()` for the benefit of `to_curl`.
-    pub fn is_multipart(&self, request_type: RequestType) -> bool {
-        match request_type {
-            RequestType::Multipart => true,
-            RequestType::Form => self.has_form_files(),
-            RequestType::Json => false,
+    pub fn is_multipart(&self) -> bool {
+        match self.body_type {
+            BodyType::Multipart => true,
+            BodyType::Form => self.has_form_files(),
+            BodyType::Json => false,
         }
     }
 
@@ -455,11 +455,11 @@ impl RequestItems {
     /// It's better to use `Body::pick_method`, if possible. This method is
     /// for the benefit of `to_curl`, which sometimes has to process the
     /// request items itself.
-    pub fn pick_method(&self, request_type: RequestType) -> Method {
-        if request_type == RequestType::Multipart {
+    pub fn pick_method(&self) -> Method {
+        if self.body_type == BodyType::Multipart {
             return Method::POST;
         }
-        for item in &self.0 {
+        for item in &self.items {
             match item {
                 RequestItem::HttpHeader(..)
                 | RequestItem::HttpHeaderToUnset(..)
