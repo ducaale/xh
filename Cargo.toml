@@ -61,11 +61,30 @@ httpmock = "0.5.5"
 curl = { version = "0.4.34", features = ["static-ssl"] }
 tempfile = "3.2.0"
 
+[build-dependencies]
+syntect = { version = "4.4", default-features = false }
+
 [features]
 default = ["integration-tests"]
-
 integration-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 
-[build-dependencies]
-syntect = { version = "4.4", default-features = false }
+[package.metadata.deb]
+features = []
+section = "web"
+maintainer-scripts = "debian"
+assets = [
+  ["target/release/xh", "usr/bin/", "755"],
+  ["LICENSE", "usr/share/doc/xh/", "644"],
+  ["CHANGELOG.md", "usr/share/doc/xh/CHANGELOG", "644"],
+  ["README.md", "usr/share/doc/xh/README", "644"],
+  ["doc/xh.1", "usr/share/man/man1/xh.1", "644"],
+  ["completions/xh.bash", "usr/share/bash-completion/completions/xh", "644"],
+  ["completions/xh.fish", "usr/share/fish/vendor_completions.d/xh.fish", "644"],
+  ["completions/_xh", "usr/share/zsh/vendor-completions/", "644"],
+]
+extended-description = """\
+xh is a friendly and fast tool for sending HTTP requests.
+It reimplements as much as possible of HTTPie's excellent design, with a focus
+on improved performance.
+"""
