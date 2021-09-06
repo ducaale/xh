@@ -103,6 +103,14 @@ jobs:
             tar czvf "$staging.tar.gz" $staging
           fi
 
+      - name: Package (debian)
+        if: matrix.job.target == 'x86_64-unknown-linux-musl'
+        shell: bash
+        run: |
+          cargo install --git https://github.com/blyxxyz/cargo-deb --branch xh-patches cargo-deb
+          cargo deb --no-build --target ${{ matrix.job.target }}
+          cp "target/${{ matrix.job.target }}/debian"/*.deb ./
+
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
