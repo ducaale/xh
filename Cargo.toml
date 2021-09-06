@@ -72,6 +72,7 @@ native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 [package.metadata.deb]
 features = []
 section = "web"
+license-file = "LICENSE"
 preserve-symlinks = true
 assets = [
   ["target/release/xh", "usr/bin/", "755"],
