@@ -72,9 +72,10 @@ native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 [package.metadata.deb]
 features = []
 section = "web"
-maintainer-scripts = "debian"
+preserve-symlinks = true
 assets = [
   ["target/release/xh", "usr/bin/", "755"],
+  ["assets/xhs", "usr/bin/", "777"],
   ["LICENSE", "usr/share/doc/xh/", "644"],
   ["CHANGELOG.md", "usr/share/doc/xh/CHANGELOG", "644"],
   ["README.md", "usr/share/doc/xh/README", "644"],

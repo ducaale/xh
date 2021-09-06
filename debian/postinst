@@ -1,4 +1,0 @@
-#!/bin/sh
-
-set -e
-ln -sf /usr/bin/xh /usr/bin/xhs
