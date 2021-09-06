@@ -77,8 +77,7 @@ preserve-symlinks = true
 assets = [
   ["target/release/xh", "usr/bin/", "755"],
   ["assets/xhs", "usr/bin/", "777"],
-  ["LICENSE", "usr/share/doc/xh/", "644"],
-  ["CHANGELOG.md", "usr/share/doc/xh/CHANGELOG", "644"],
+  ["CHANGELOG.md", "usr/share/doc/xh/NEWS", "644"],
   ["README.md", "usr/share/doc/xh/README", "644"],
   ["doc/xh.1", "usr/share/man/man1/xh.1", "644"],
   ["completions/xh.bash", "usr/share/bash-completion/completions/xh", "644"],
