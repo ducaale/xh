@@ -80,6 +80,7 @@ assets = [
   ["CHANGELOG.md", "usr/share/doc/xh/NEWS", "644"],
   ["README.md", "usr/share/doc/xh/README", "644"],
   ["doc/xh.1", "usr/share/man/man1/xh.1", "644"],
+  ["assets/xhs.1.gz", "usr/share/man/man1/xhs.1.gz", "777"],
   ["completions/xh.bash", "usr/share/bash-completion/completions/xh", "644"],
   ["completions/xh.fish", "usr/share/fish/vendor_completions.d/xh.fish", "644"],
   ["completions/_xh", "usr/share/zsh/vendor-completions/", "644"],
