@@ -295,7 +295,7 @@ impl Printer {
     // except for print_response_body. We are using this function when we have
     // something to print after the response body.
     pub fn print_separator(&mut self) -> io::Result<()> {
-        if self.print.request_body {
+        if self.print.response_body {
             self.buffer.print("\n")?;
         }
         Ok(())
