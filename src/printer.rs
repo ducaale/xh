@@ -291,8 +291,13 @@ impl Printer {
         header_string
     }
 
-    pub fn print_seperator(&mut self) -> io::Result<()> {
-        self.buffer.print("\n")?;
+    // Each of the print_* functions adds an extra line separator at the end
+    // except for print_response_body. We are using this function when we have
+    // something to print after the response body.
+    pub fn print_separator(&mut self) -> io::Result<()> {
+        if self.print.response_body {
+            self.buffer.print("\n")?;
+        }
         Ok(())
     }
 

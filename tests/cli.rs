@@ -1992,7 +1992,6 @@ fn history_print() {
             Date: N/A
             Location: {url}
 
-
             GET / HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br
