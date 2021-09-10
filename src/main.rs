@@ -389,7 +389,7 @@ fn run(args: Cli) -> Result<i32> {
                 client.on_redirect(|prev_response, next_request| {
                     printer.print_response_headers(&prev_response)?;
                     printer.print_response_body(prev_response)?;
-                    printer.print_seperator()?;
+                    printer.print_separator()?;
                     printer.print_request_headers(next_request, &*cookie_jar)?;
                     printer.print_request_body(next_request)?;
                     Ok(())

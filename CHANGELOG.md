@@ -54,7 +54,7 @@
 - Prevent mitsuhiko/indicatif#144 in narrow terminals, see #114 (@blyxxyz)
 
 ### Other
-- JSON records are now seperated by double newlines, see #109 (@blyxxyz)
+- JSON records are now separated by double newlines, see #109 (@blyxxyz)
 - Writing to a redirect or a file now doesn't stream unless you use --stream, like HTTPie,
   and it properly decodes the response when it needs to, see #111 (@blyxxyz)
 - Writing formatted JSON to a file is now significantly faster, see #111 (@blyxxyz)
