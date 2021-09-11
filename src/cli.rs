@@ -724,7 +724,7 @@ impl Theme {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Print {
     pub request_headers: bool,
     pub request_body: bool,

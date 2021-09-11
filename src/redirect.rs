@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{
     HeaderMap, AUTHORIZATION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, LOCATION,
@@ -7,22 +6,22 @@ use reqwest::header::{
 };
 use reqwest::{Method, StatusCode, Url};
 
-pub struct RedirectFollower<'a, T>
+use crate::middleware::{Middleware, Next};
+
+pub struct RedirectFollower<T>
 where
     T: FnMut(Response, &mut Request) -> Result<()>,
 {
-    client: &'a Client,
     max_redirects: usize,
     callback: Option<T>,
 }
 
-impl<'a, T> RedirectFollower<'a, T>
+impl<T> RedirectFollower<T>
 where
     T: FnMut(Response, &mut Request) -> Result<()>,
 {
-    pub fn new(client: &'a Client, max_redirects: usize) -> Self {
+    pub fn new(max_redirects: usize) -> Self {
         RedirectFollower {
-            client,
             max_redirects,
             callback: None,
         }
@@ -31,12 +30,17 @@ where
     pub fn on_redirect(&mut self, callback: T) {
         self.callback = Some(callback);
     }
+}
 
-    pub fn execute(&mut self, mut first_request: Request) -> Result<Response> {
+impl<T> Middleware for RedirectFollower<T>
+where
+    T: FnMut(Response, &mut Request) -> Result<()>,
+{
+    fn handle(&mut self, mut first_request: Request, mut next: Next) -> Result<Response> {
         // This buffers the body in case we need it again later
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
         let mut request = clone_request(&mut first_request)?;
-        let mut response = self.client.execute(first_request)?;
+        let mut response = next.run(first_request)?;
         let mut remaining_redirects = self.max_redirects - 1;
 
         while let Some(mut next_request) = get_next_request(request, &response) {
@@ -52,7 +56,7 @@ where
                 callback(response, &mut next_request)?;
             }
             request = clone_request(&mut next_request)?;
-            response = self.client.execute(next_request)?;
+            response = next.run(next_request)?;
         }
 
         Ok(response)

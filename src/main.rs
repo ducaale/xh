@@ -4,6 +4,7 @@ mod buffer;
 mod cli;
 mod download;
 mod formatting;
+mod middleware;
 mod printer;
 mod redirect;
 mod request_items;
@@ -20,6 +21,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
+use redirect::RedirectFollower;
 use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION, CONNECTION, CONTENT_TYPE, COOKIE, RANGE,
@@ -30,6 +32,7 @@ use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
 use crate::cli::{BodyType, Cli, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
+use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
@@ -373,30 +376,41 @@ fn run(args: Cli) -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
+    let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
-    printer.print_request_headers(&request, &*cookie_jar)?;
-    printer.print_request_body(&mut request)?;
+    if print.request_headers {
+        printer.print_request_headers(&request, &*cookie_jar)?;
+    }
+    if print.request_body {
+        printer.print_request_body(&mut request)?;
+    }
 
     if !args.offline {
-        let response = if args.follow {
-            let mut client =
-                redirect::RedirectFollower::new(&client, args.max_redirects.unwrap_or(10));
-            if let Some(history_print) = args.history_print {
-                printer.print = history_print;
+        let response = {
+            let history_print = args.history_print.unwrap_or(print);
+            let mut client = ClientWithMiddleware::new(&client);
+            if args.follow {
+                let mut redirect_follower = RedirectFollower::new(args.max_redirects.unwrap_or(10));
+                if args.all {
+                    redirect_follower.on_redirect(|prev_response, next_request| {
+                        if history_print.response_headers {
+                            printer.print_response_headers(&prev_response)?;
+                        }
+                        if history_print.response_body {
+                            printer.print_response_body(prev_response)?;
+                            printer.print_separator()?;
+                        }
+                        if history_print.request_headers {
+                            printer.print_request_headers(next_request, &*cookie_jar)?;
+                        }
+                        if history_print.request_body {
+                            printer.print_request_body(next_request)?;
+                        }
+                        Ok(())
+                    });
+                }
+                client = client.with(redirect_follower);
             }
-            if args.all {
-                client.on_redirect(|prev_response, next_request| {
-                    printer.print_response_headers(&prev_response)?;
-                    printer.print_response_body(prev_response)?;
-                    printer.print_separator()?;
-                    printer.print_request_headers(next_request, &*cookie_jar)?;
-                    printer.print_request_body(next_request)?;
-                    Ok(())
-                });
-            }
-            client.execute(request)?
-        } else {
             client.execute(request)?
         };
 
@@ -413,8 +427,9 @@ fn run(args: Cli) -> Result<i32> {
             warn(&format!("HTTP {}", status));
         }
 
-        printer.print = print;
-        printer.print_response_headers(&response)?;
+        if print.response_headers {
+            printer.print_response_headers(&response)?;
+        }
         if args.download {
             if exit_code == 0 {
                 download_file(
@@ -426,7 +441,7 @@ fn run(args: Cli) -> Result<i32> {
                     args.quiet,
                 )?;
             }
-        } else {
+        } else if print.response_body {
             printer.print_response_body(response)?;
         }
     }
