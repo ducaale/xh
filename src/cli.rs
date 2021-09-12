@@ -814,6 +814,10 @@ impl FromStr for Version {
             "1.0" => Ok(Version::Http10),
             "1" | "1.1" => Ok(Version::Http11),
             "2" => Ok(Version::Http2),
+            "0.9" | "3" => Err(Error::with_description(
+                &format!("http version {:?} is not supported", version),
+                ErrorKind::InvalidValue,
+            )),
             _ => Err(Error::with_description(
                 &format!("{:?} is not a valid http version", version),
                 ErrorKind::InvalidValue,
