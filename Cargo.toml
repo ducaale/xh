@@ -1,6 +1,6 @@
 [package]
 name = "xh"
-version = "0.10.0"
+version = "0.12.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -13,35 +13,40 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+base64 = "0.13"
+cookie_crate = { version = "0.15", package = "cookie" }
+cookie_store = { version = "0.15.0" }
+reqwest_cookie_store = { version = "0.2.0" }
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
-exit_status = "0.1.0"
 humantime = "2.1.0"
 indicatif = "0.15.0"
 lazy_static = "1.4.0"
-memchr = "2.3.4"
 mime = "0.3.16"
 mime_guess = "2.0"
 mime2ext = "0.1.0"
 netrc-rs = "0.1.2"
 pem = "0.8.2"
+rand = "0.8.3"
 regex = "1"
 rpassword = "5.0.0"
 serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
 shell-escape = "0.1.5"
-structopt = { version = "0.3", features = ["wrap_help"] }
+structopt = { version = "0.3.2", features = ["wrap_help"] }
 termcolor = "1.1.2"
+time = "0.2.26"
 jsonxf = "1.1.0"
+url = "2.2.2"
 
 [dependencies.reqwest]
 # version = "0.11.4"
 git = "https://github.com/seanmonstar/reqwest"
 branch = "master"
 default-features = false
-features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks"]
+features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"
@@ -58,10 +63,32 @@ httpmock = "0.5.5"
 curl = { version = "0.4.34", features = ["static-ssl"] }
 tempfile = "3.2.0"
 
-[features]
-default = ["integration-tests"]
-
-integration-tests = []
-
 [build-dependencies]
 syntect = { version = "4.4", default-features = false }
+
+[features]
+default = ["integration-tests"]
+integration-tests = []
+native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
+
+[package.metadata.deb]
+features = []
+section = "web"
+license-file = "LICENSE"
+preserve-symlinks = true
+assets = [
+  ["target/release/xh", "usr/bin/", "755"],
+  ["assets/xhs", "usr/bin/", "777"],
+  ["CHANGELOG.md", "usr/share/doc/xh/NEWS", "644"],
+  ["README.md", "usr/share/doc/xh/README", "644"],
+  ["doc/xh.1", "usr/share/man/man1/xh.1", "644"],
+  ["assets/xhs.1.gz", "usr/share/man/man1/xhs.1.gz", "777"],
+  ["completions/xh.bash", "usr/share/bash-completion/completions/xh", "644"],
+  ["completions/xh.fish", "usr/share/fish/vendor_completions.d/xh.fish", "644"],
+  ["completions/_xh", "usr/share/zsh/vendor-completions/", "644"],
+]
+extended-description = """\
+xh is a friendly and fast tool for sending HTTP requests.
+It reimplements as much as possible of HTTPie's excellent design, with a focus
+on improved performance.
+"""

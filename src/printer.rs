@@ -4,16 +4,18 @@ use encoding_rs::{Encoding, UTF_8};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
+use reqwest::cookie::CookieStore;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
 };
+use reqwest::Version;
 use termcolor::WriteColor;
 
 use crate::{
     buffer::Buffer,
-    cli::{Pretty, Theme},
+    cli::{Pretty, Print, Theme},
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, get_content_type, test_mode, valid_json, ContentType, BUFFER_SIZE},
+    utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
 
 const BINARY_SUPPRESSOR: &str = concat!(
@@ -64,6 +66,7 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
 }
 
 pub struct Printer {
+    pub print: Print,
     indent_json: bool,
     color: bool,
     theme: Theme,
@@ -73,10 +76,17 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
+    pub fn new(
+        print: Print,
+        pretty: Pretty,
+        theme: Option<Theme>,
+        stream: bool,
+        buffer: Buffer,
+    ) -> Self {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
+            print,
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
             color: pretty.color() && (cfg!(test) || buffer.supports_color()),
@@ -241,15 +251,34 @@ impl Printer {
         }
     }
 
-    fn headers_to_string(&self, headers: &HeaderMap, sort: bool) -> String {
+    fn headers_to_string(&self, headers: &HeaderMap, version: Version) -> String {
+        let as_titlecase = match version {
+            Version::HTTP_09 | Version::HTTP_10 | Version::HTTP_11 => true,
+            Version::HTTP_2 | Version::HTTP_3 => false,
+            _ => false,
+        };
         let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
-        if sort {
+        if self.sort_headers {
             headers.sort_by_key(|(name, _)| name.as_str());
         }
 
         let mut header_string = String::new();
         for (key, value) in headers {
-            header_string.push_str(key.as_str());
+            if as_titlecase {
+                // Ought to be equivalent to how hyper does it
+                // https://github.com/hyperium/hyper/blob/f46b175bf71b202fbb907c4970b5743881b891e1/src/proto/h1/role.rs#L1332
+                // Header names are ASCII so it's ok to operate on char instead of u8
+                let mut prev = '-';
+                for mut c in key.as_str().chars() {
+                    if prev == '-' {
+                        c.make_ascii_uppercase();
+                    }
+                    header_string.push(c);
+                    prev = c;
+                }
+            } else {
+                header_string.push_str(key.as_str());
+            }
             header_string.push_str(": ");
             match value.to_str() {
                 Ok(value) => header_string.push_str(value),
@@ -262,7 +291,24 @@ impl Printer {
         header_string
     }
 
-    pub fn print_request_headers(&mut self, request: &Request) -> io::Result<()> {
+    // Each of the print_* functions adds an extra line separator at the end
+    // except for print_response_body. We are using this function when we have
+    // something to print after the response body.
+    pub fn print_separator(&mut self) -> io::Result<()> {
+        if self.print.response_body {
+            self.buffer.print("\n")?;
+        }
+        Ok(())
+    }
+
+    pub fn print_request_headers<T>(&mut self, request: &Request, cookie_jar: &T) -> io::Result<()>
+    where
+        T: CookieStore,
+    {
+        if !self.print.request_headers {
+            return Ok(());
+        }
+
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -272,6 +318,10 @@ impl Printer {
         headers
             .entry(ACCEPT)
             .or_insert_with(|| HeaderValue::from_static("*/*"));
+
+        if let Some(cookie) = cookie_jar.cookies(url) {
+            headers.insert(COOKIE, cookie);
+        }
 
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
@@ -299,7 +349,7 @@ impl Printer {
         }
 
         let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-        let headers = &self.headers_to_string(&headers, self.sort_headers);
+        let headers = self.headers_to_string(&headers, version);
 
         self.print_headers(&(request_line + &headers))?;
         self.buffer.print("\n\n")?;
@@ -307,12 +357,16 @@ impl Printer {
     }
 
     pub fn print_response_headers(&mut self, response: &Response) -> io::Result<()> {
+        if !self.print.response_headers {
+            return Ok(());
+        }
+
         let version = response.version();
         let status = response.status();
         let headers = response.headers();
 
         let status_line = format!("{:?} {}\n", version, status);
-        let headers = self.headers_to_string(headers, self.sort_headers);
+        let headers = self.headers_to_string(headers, version);
 
         self.print_headers(&(status_line + &headers))?;
         self.buffer.print("\n\n")?;
@@ -320,7 +374,11 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
-        let content_type = get_content_type(&request.headers());
+        if !self.print.request_body {
+            return Ok(());
+        }
+
+        let content_type = get_content_type(request.headers());
         if let Some(body) = request.body_mut() {
             let body = body.buffer()?;
             if body.contains(&b'\0') {
@@ -336,7 +394,11 @@ impl Printer {
     }
 
     pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
-        let content_type = get_content_type(&response.headers());
+        if !self.print.response_body {
+            return Ok(());
+        }
+
+        let content_type = get_content_type(response.headers());
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is
@@ -387,6 +449,63 @@ impl Printer {
     }
 }
 
+pub enum ContentType {
+    Json,
+    Html,
+    Xml,
+    JavaScript,
+    Css,
+    Text,
+    UrlencodedForm,
+    Multipart,
+    Unknown,
+}
+
+impl ContentType {
+    pub fn is_text(&self) -> bool {
+        !matches!(
+            self,
+            ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
+        )
+    }
+}
+
+pub fn get_content_type(headers: &HeaderMap) -> ContentType {
+    headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|content_type| {
+            if content_type.contains("json") {
+                Some(ContentType::Json)
+            } else if content_type.contains("html") {
+                Some(ContentType::Html)
+            } else if content_type.contains("xml") {
+                Some(ContentType::Xml)
+            } else if content_type.contains("multipart") {
+                Some(ContentType::Multipart)
+            } else if content_type.contains("x-www-form-urlencoded") {
+                Some(ContentType::UrlencodedForm)
+            } else if content_type.contains("javascript") {
+                Some(ContentType::JavaScript)
+            } else if content_type.contains("css") {
+                Some(ContentType::Css)
+            } else if content_type.contains("text") {
+                // We later check if this one's JSON
+                // HTTPie checks for "json", "javascript" and "text" in one place:
+                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
+                // We have it more spread out but it behaves more or less the same
+                Some(ContentType::Text)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(ContentType::Unknown)
+}
+
+pub fn valid_json(text: &str) -> bool {
+    serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
+}
+
 /// Decode a streaming response in a way that matches `.text()`.
 ///
 /// Note that in practice this seems to behave like String::from_utf8_lossy(),
@@ -421,7 +540,10 @@ fn guess_encoding(response: &Response) -> &'static Encoding {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
+    use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
     use assert_matches::assert_matches;
 
@@ -430,11 +552,12 @@ mod tests {
         let buffer =
             Buffer::new(args.download, args.output.as_deref(), is_stdout_tty, None).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, args.style, false, buffer)
+        Printer::new("hHbB".parse().unwrap(), pretty, args.style, false, buffer)
     }
 
-    fn temp_path(filename: &str) -> String {
+    fn temp_path() -> String {
         let mut dir = std::env::temp_dir();
+        let filename = random_string();
         dir.push(filename);
         dir.to_str().unwrap().to_owned()
     }
@@ -455,7 +578,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_with_output_file() {
-        let output = temp_path("temp3");
+        let output = temp_path();
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
         assert_matches!(p.buffer, Buffer::File(_));
@@ -463,7 +586,7 @@ mod tests {
 
     #[test]
     fn redirect_mode_with_output_file() {
-        let output = temp_path("temp4");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-o", output],
             false,
@@ -488,7 +611,7 @@ mod tests {
 
     #[test]
     fn terminal_mode_download_with_output_file() {
-        let output = temp_path("temp7");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             true,
@@ -499,12 +622,54 @@ mod tests {
 
     #[test]
     fn redirect_mode_download_with_output_file() {
-        let output = temp_path("temp8");
+        let output = temp_path();
         let p = run_cmd(
             vec_of_strings!["xh", "httpbin.org/get", "-d", "-o", output],
             false,
         );
         assert_eq!(p.color, true);
         assert_matches!(p.buffer, Buffer::Stderr(..));
+    }
+
+    #[test]
+    fn test_header_casing() {
+        let p = Printer {
+            print: "hHbB".parse().unwrap(),
+            indent_json: false,
+            color: false,
+            theme: Theme::auto,
+            sort_headers: false,
+            stream: false,
+            buffer: Buffer::new(false, None, false, Some(Pretty::none)).unwrap(),
+        };
+
+        let mut headers = HeaderMap::new();
+        headers.insert("ab-cd", "0".parse().unwrap());
+        headers.insert("-cd", "0".parse().unwrap());
+        headers.insert("-", "0".parse().unwrap());
+        headers.insert("ab-%c", "0".parse().unwrap());
+        headers.insert("A-b--C", "0".parse().unwrap());
+
+        assert_eq!(
+            p.headers_to_string(&headers, reqwest::Version::HTTP_11),
+            indoc! {"
+                Ab-Cd: 0
+                -Cd: 0
+                -: 0
+                Ab-%c: 0
+                A-B--C: 0"
+            }
+        );
+
+        assert_eq!(
+            p.headers_to_string(&headers, reqwest::Version::HTTP_2),
+            indoc! {"
+                ab-cd: 0
+                -cd: 0
+                -: 0
+                ab-%c: 0
+                a-b--c: 0"
+            }
+        );
     }
 }

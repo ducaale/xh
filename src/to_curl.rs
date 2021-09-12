@@ -5,10 +5,7 @@ use reqwest::Method;
 
 use crate::{
     cli::{Cli, Verify},
-    request_items::{
-        Body, RequestItem, RequestItems, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE,
-    },
-    url::construct_url,
+    request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE},
 };
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
@@ -92,10 +89,7 @@ impl std::fmt::Display for Command {
 }
 
 pub fn translate(args: Cli) -> Result<Command> {
-    let request_items = RequestItems::new(args.request_items);
-    let query = request_items.query();
-    let (headers, headers_to_unset) = request_items.headers()?;
-    let url = construct_url(&args.url, args.default_scheme.as_deref(), query)?;
+    let (headers, headers_to_unset) = args.request_items.headers()?;
 
     let mut cmd = Command::new(args.curl_long);
 
@@ -205,10 +199,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         // But this is a hack that actually fails if data is sent.
         // See discussion on https://lornajane.net/posts/2014/view-only-headers-with-curl
 
-        let request_type = args.request_type; // For the borrow checker
-        let method = args
-            .method
-            .unwrap_or_else(|| request_items.pick_method(request_type));
+        let method = match args.method {
+            Some(method) => method,
+            // unwrap_or_else causes borrowing issues
+            None => args.request_items.pick_method(),
+        };
         cmd.flag("-I", "--head");
         cmd.flag("-X", "--request");
         cmd.push(method.to_string());
@@ -225,7 +220,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     // We assume that curl's automatic detection of when to do a POST matches
     // ours so we can ignore the None case
 
-    cmd.push(url.to_string());
+    cmd.push(args.url.to_string());
 
     // Payload
     for (header, value) in headers.iter() {
@@ -250,10 +245,10 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push(token);
     }
 
-    if request_items.is_multipart(args.request_type) {
+    if args.request_items.is_multipart() {
         // We can't use .body() here because we can't look inside the multipart
         // form after construction and we don't want to actually read the files
-        for item in request_items.0 {
+        for item in args.request_items.items {
             match item {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
@@ -270,13 +265,19 @@ pub fn translate(args: Cli) -> Result<Command> {
                     key,
                     file_name,
                     file_type,
+                    file_name_header,
                 } => {
                     cmd.flag("-F", "--form");
+                    let mut val = format!("{}=@{}", key, file_name);
                     if let Some(file_type) = file_type {
-                        cmd.push(format!("{}=@{};type={}", key, file_name, file_type));
-                    } else {
-                        cmd.push(format!("{}=@{}", key, file_name));
+                        val.push_str(";type=");
+                        val.push_str(&file_type);
                     }
+                    if let Some(file_name_header) = file_name_header {
+                        val.push_str(";filename=");
+                        val.push_str(&file_name_header);
+                    }
+                    cmd.push(val);
                 }
                 RequestItem::HttpHeader(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
@@ -284,7 +285,7 @@ pub fn translate(args: Cli) -> Result<Command> {
             }
         }
     } else {
-        match request_items.body(args.request_type)? {
+        match args.request_items.body()? {
             Body::Form(items) => {
                 if items.is_empty() {
                     // Force the header
@@ -320,6 +321,7 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::File {
                 file_name,
                 file_type,
+                file_name_header: _,
             } => {
                 if let Some(file_type) = file_type {
                     cmd.header("content-type", file_type.to_str()?);

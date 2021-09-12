@@ -132,7 +132,7 @@
             </dict>
             <dict>
                 <key>name</key>
-                <string>HTTP seperator</string>
+                <string>HTTP separator</string>
                 <key>scope</key>
                 <string>punctuation.separator.http</string>
                 <key>settings</key>

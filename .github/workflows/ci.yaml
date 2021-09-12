@@ -16,10 +16,13 @@ jobs:
         job:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            flags: --all-features
           - target: x86_64-apple-darwin
             os: macos-latest
+            flags: --all-features
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            flags: --all-features
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             use-cross: true
@@ -58,10 +61,16 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: -- --check
 
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
+
+      - name: Clippy (all features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features -- -D warnings

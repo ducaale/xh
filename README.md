@@ -42,38 +42,43 @@ USAGE:
     xh [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
 OPTIONS:
-    -j, --json                       (default) Serialize data items from the command line as a JSON object
-    -f, --form                       Serialize data items from the command line as form fields
-    -m, --multipart                  Like --form, but force a multipart/form-data request even without files
-        --pretty <STYLE>             Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>              Output coloring style [possible values: auto, solarized]
-    -p, --print <FORMAT>             String specifying what the output should contain
-    -h, --headers                    Print only the response headers, shortcut for --print=h
-    -b, --body                       Print only the response body, Shortcut for --print=b
-    -v, --verbose                    Print the whole request as well as the response
-    -q, --quiet                      Do not print to stdout or stderr
-    -S, --stream                     Always stream the response body
-    -o, --output <FILE>              Save output to FILE instead of stdout
-    -d, --download                   Download the body to a file instead of printing it
-    -c, --continue                   Resume an interrupted download. Requires --download and --output
-    -a, --auth <USER[:PASS]>         Authenticate as USER with PASS. PASS will be prompted if missing
-        --bearer <TOKEN>             Authenticate with a bearer token
-        --ignore-netrc               Do not use credentials from .netrc
-        --offline                    Construct HTTP requests without sending them anywhere
-        --check-status               Exit with an error status code if the server replies with an error
-    -F, --follow                     Do follow redirects
-        --max-redirects <NUM>        Number of redirects to follow, only respected if `follow` is set
-        --timeout <SEC>              Connection timeout of the request
-        --proxy <PROTOCOL:URL>...    Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
-        --verify <VERIFY>            If "no", skip SSL verification. If a file path, use it as a CA bundle
-        --cert <FILE>                Use a client side certificate for SSL
-        --cert-key <FILE>            A private key file to use with --cert
-        --https                      Make HTTPS requests if not specified in the URL
-    -I, --ignore-stdin               Do not attempt to read stdin
-        --curl                       Print a translation to a `curl` command
-        --curl-long                  Use the long versions of curl's flags
-        --help                       Prints help information
-    -V, --version                    Prints version information
+    -j, --json                        (default) Serialize data items from the command line as a JSON object
+    -f, --form                        Serialize data items from the command line as form fields
+    -m, --multipart                   Like --form, but force a multipart/form-data request even without files
+        --pretty <STYLE>              Controls output processing [possible values: all, colors, format, none]
+    -s, --style <THEME>               Output coloring style [possible values: auto, solarized, monokai]
+    -p, --print <FORMAT>              String specifying what the output should contain
+    -h, --headers                     Print only the response headers, shortcut for --print=h
+    -b, --body                        Print only the response body, Shortcut for --print=b
+    -v, --verbose                     Print the whole request as well as the response
+        --all                         Show any intermediary requests/responses while following redirects with --follow
+    -P, --history-print <FORMAT>      The same as --print but applies only to intermediary requests/responses
+    -q, --quiet                       Do not print to stdout or stderr
+    -S, --stream                      Always stream the response body
+    -o, --output <FILE>               Save output to FILE instead of stdout
+    -d, --download                    Download the body to a file instead of printing it
+    -c, --continue                    Resume an interrupted download. Requires --download and --output
+        --session <FILE>              Create, or reuse and update a session
+        --session-read-only <FILE>    Create or read a session without updating it form the request/response exchange
+    -a, --auth <USER[:PASS]>          Authenticate as USER with PASS. PASS will be prompted if missing
+        --bearer <TOKEN>              Authenticate with a bearer token
+        --ignore-netrc                Do not use credentials from .netrc
+        --offline                     Construct HTTP requests without sending them anywhere
+        --check-status                (default) Exit with an error status code if the server replies with an error
+    -F, --follow                      Do follow redirects
+        --max-redirects <NUM>         Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>               Connection timeout of the request
+        --proxy <PROTOCOL:URL>...     Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
+        --verify <VERIFY>             If "no", skip SSL verification. If a file path, use it as a CA bundle
+        --cert <FILE>                 Use a client side certificate for SSL
+        --cert-key <FILE>             A private key file to use with --cert
+        --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
+        --https                       Make HTTPS requests if not specified in the URL
+    -I, --ignore-stdin                Do not attempt to read stdin
+        --curl                        Print a translation to a `curl` command
+        --curl-long                   Use the long versions of curl's flags
+        --help                        Prints help information
+    -V, --version                     Prints version information
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method
@@ -90,7 +95,7 @@ Run `xh help` for more detailed information.
 
 - `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 - `==` for adding query strings.
-- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg`.
+- `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
 - `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
@@ -103,11 +108,11 @@ Similar to HTTPie, specifying the scheme portion of the request URL is optional.
 omitting `localhost` from the URL as long it starts with colon plus an optional port number. 
 
 ```sh
-xh localhost:3000/users # resolves to http://localhost:3000/users
-xh localhost:3000/users # resolves to http://localhost:3000/users
-xh :3000/users          # resolves to http://localhost:3000/users
-xh :/users              # resolves to http://localhost:80/users
-xh example.com          # resolves to http://example.com
+xh http://localhost:3000/users # resolves to http://localhost:3000/users
+xh localhost:3000/users        # resolves to http://localhost:3000/users
+xh :3000/users                 # resolves to http://localhost:3000/users
+xh :/users                     # resolves to http://localhost:80/users
+xh example.com                 # resolves to http://example.com
 ```
 
 ### Making HTTPS requests by default
@@ -161,6 +166,7 @@ xh -d httpbin.org/json -o res.json
 ### Disadvantages
 
 - Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
+- Header names are not case-sensitive.
 - No plugin system.
 - General immaturity. HTTPie is old and well-tested.
 - Worse documentation.
@@ -169,8 +175,7 @@ xh -d httpbin.org/json -o res.json
 
 - `--check-status` is enabled unless `xh` is being used in
   [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode).
-- `rustls` is used instead of the system's TLS library.
-- Headers are sent and printed in lowercase.
+- `rustls` is used by default instead of the system's TLS library. (If enabled at compile time, the `--native-tls` flag can be used.)
 - JSON keys are not sorted.
 - Formatted output is always UTF-8.
 
@@ -179,5 +184,3 @@ xh -d httpbin.org/json -o res.json
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
 - [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
-- [jq](https://github.com/stedolan/jq) - Command-line JSON processor
-- [fx](https://github.com/antonmedv/fx) - Command-line JSON processor and viewer

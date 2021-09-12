@@ -1,3 +1,29 @@
+## [0.12.0] - 2021-08-06
+## Features
+- Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
+- Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz)
+- Support using the system's TLS library via _--native-tls_ flag, see #154 (@blyxxyz)
+- Support reading args from a config file, see #165 (@ducaale)
+
+## [0.11.0] - 2021-07-26
+### Features
+- Support `REQUESTS_CA_BUNDLE` & `CURL_CA_BUNDLE` env variables, see #146 (@ducaale)
+- Enable color and wrapping for _--help_, see #151 (@QuarticCat)
+- Add monokai theme, #157 (@ducaale)
+- handle responses compressed in deflate format, see #158 (@ducaale)
+- Support setting the filename for multipart uploads, see #164 (@blyxxyz)
+
+### Bug fixes
+- Do not hardcode `/tmp` in the install script, see #149 (@blyxxyz)
+
+### Other
+- Re-enable HTTP/2 adaptive window, see #150 (@blyxxyz)
+
+### Breaking changes
+- _--check-status_ is now on by default. You can opt-out of this change by enabling xh's
+  [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode),
+  see #155 (@ducaale)
+
 ## [0.10.0] - 2021-05-17
 ### Features
 - Support reading DataField and JsonField value from a file, see #118 (@ducaale)
@@ -28,7 +54,7 @@
 - Prevent mitsuhiko/indicatif#144 in narrow terminals, see #114 (@blyxxyz)
 
 ### Other
-- JSON records are now seperated by double newlines, see #109 (@blyxxyz)
+- JSON records are now separated by double newlines, see #109 (@blyxxyz)
 - Writing to a redirect or a file now doesn't stream unless you use --stream, like HTTPie,
   and it properly decodes the response when it needs to, see #111 (@blyxxyz)
 - Writing formatted JSON to a file is now significantly faster, see #111 (@blyxxyz)

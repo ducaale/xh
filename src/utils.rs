@@ -1,9 +1,10 @@
 use std::{
     env::var_os,
     io::{self, Write},
+    path::PathBuf,
 };
 
-use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use url::{Host, Url};
 
 /// Whether to make some things more deterministic for the benefit of tests
 pub fn test_mode() -> bool {
@@ -21,57 +22,23 @@ pub fn test_default_color() -> bool {
     var_os("XH_TEST_MODE_COLOR").is_some()
 }
 
-pub enum ContentType {
-    Json,
-    Html,
-    Xml,
-    JavaScript,
-    Css,
-    Text,
-    UrlencodedForm,
-    Multipart,
-    Unknown,
+#[cfg(test)]
+pub fn random_string() -> String {
+    use rand::Rng;
+
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect()
 }
 
-impl ContentType {
-    pub fn is_text(&self) -> bool {
-        !matches!(
-            self,
-            ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
-        )
+pub fn config_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
+        Some(dir.into())
+    } else {
+        dirs::config_dir().map(|dir| dir.join("xh"))
     }
-}
-
-pub fn get_content_type(headers: &HeaderMap) -> ContentType {
-    headers
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|content_type| {
-            if content_type.contains("json") {
-                Some(ContentType::Json)
-            } else if content_type.contains("html") {
-                Some(ContentType::Html)
-            } else if content_type.contains("xml") {
-                Some(ContentType::Xml)
-            } else if content_type.contains("multipart") {
-                Some(ContentType::Multipart)
-            } else if content_type.contains("x-www-form-urlencoded") {
-                Some(ContentType::UrlencodedForm)
-            } else if content_type.contains("javascript") {
-                Some(ContentType::JavaScript)
-            } else if content_type.contains("css") {
-                Some(ContentType::Css)
-            } else if content_type.contains("text") {
-                // We later check if this one's JSON
-                // HTTPie checks for "json", "javascript" and "text" in one place:
-                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
-                // We have it more spread out but it behaves more or less the same
-                Some(ContentType::Text)
-            } else {
-                None
-            }
-        })
-        .unwrap_or(ContentType::Unknown)
 }
 
 // https://stackoverflow.com/a/45145246/5915221
@@ -122,6 +89,6 @@ pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io:
     }
 }
 
-pub fn valid_json(text: &str) -> bool {
-    serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
+pub(crate) fn url_requires_native_tls(url: &Url) -> bool {
+    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
 }
