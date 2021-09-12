@@ -320,6 +320,7 @@ fn run(args: Cli) -> Result<i32> {
             }
         }
 
+        // TODO: handle digest auth
         if let Some(auth) = args.auth {
             let (username, password) = parse_auth(auth, args.url.host_str().unwrap_or("<host>"))?;
             if let Some(ref mut s) = session {

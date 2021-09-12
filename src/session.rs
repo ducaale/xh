@@ -115,6 +115,7 @@ impl Session {
         Ok(())
     }
 
+    // TODO: handle digest auth
     pub fn auth(&self) -> Result<Option<String>> {
         if let Auth {
             auth_type: Some(ref auth_type),
