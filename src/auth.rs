@@ -1,11 +1,27 @@
 use std::env;
+use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use crate::regex;
+use anyhow::Result;
 use dirs::home_dir;
 use netrc_rs::Netrc;
-use std::fs;
+use reqwest::blocking::{Request, Response};
+use reqwest::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
+use reqwest::StatusCode;
+
+use crate::middleware::{Middleware, Next};
+use crate::regex;
+
+// TODO: move this to utils.rs
+fn clone_request(request: &mut Request) -> Result<Request> {
+    if let Some(b) = request.body_mut().as_mut() {
+        b.buffer()?;
+    }
+    // This doesn't copy the contents of the buffer, cloning requests is cheap
+    // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
+    Ok(request.try_clone().unwrap()) // guaranteed to not fail if body is already buffered
+}
 
 pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
@@ -80,6 +96,39 @@ pub fn auth_from_netrc(machine: &str, netrc: &str) -> Option<(String, Option<Str
     }
 
     None
+}
+
+pub struct DigestAuth<'a> {
+    username: &'a str,
+    password: &'a str,
+}
+
+impl<'a> DigestAuth<'a> {
+    pub fn new(username: &'a str, password: &'a str) -> Self {
+        DigestAuth { username, password }
+    }
+}
+
+impl<'a> Middleware for DigestAuth<'a> {
+    fn handle(&mut self, mut request: Request, mut next: Next) -> Result<Response> {
+        let response = next.run(clone_request(&mut request)?)?;
+        match response.headers().get(WWW_AUTHENTICATE) {
+            Some(wwwauth) if response.status() == StatusCode::UNAUTHORIZED => {
+                let context = digest_auth::AuthContext::new(
+                    self.username,
+                    self.password,
+                    request.url().path(),
+                );
+                let mut prompt = digest_auth::parse(wwwauth.to_str()?)?;
+                let answer = prompt.respond(&context)?.to_header_string();
+                request
+                    .headers_mut()
+                    .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
+                Ok(next.run(request)?)
+            }
+            _ => Ok(response),
+        }
+    }
 }
 
 #[cfg(test)]

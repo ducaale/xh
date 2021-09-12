@@ -28,7 +28,7 @@ use reqwest::header::{
     USER_AGENT,
 };
 
-use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
+use crate::auth::{auth_from_netrc, parse_auth, read_netrc, DigestAuth};
 use crate::buffer::Buffer;
 use crate::cli::{BodyType, Cli, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
@@ -411,6 +411,10 @@ fn run(args: Cli) -> Result<i32> {
                 }
                 client = client.with(redirect_follower);
             }
+            // TODO:
+            // 1. get username and password from user
+            // 2. print intermediate intermediary requests/responses if --all flag is used
+            client = client.with(DigestAuth::new("username", "password"));
             client.execute(request)?
         };
 
