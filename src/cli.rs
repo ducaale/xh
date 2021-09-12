@@ -812,7 +812,7 @@ impl FromStr for Version {
     fn from_str(version: &str) -> Result<Version> {
         match version {
             "1.0" => Ok(Version::Http10),
-            "1.1" => Ok(Version::Http11),
+            "1" | "1.1" => Ok(Version::Http11),
             "2" => Ok(Version::Http2),
             _ => Err(Error::with_description(
                 &format!("{:?} is not a valid http version", version),
