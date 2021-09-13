@@ -274,11 +274,16 @@ fn run(args: Cli) -> Result<i32> {
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
             )
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
 
-        // TODO: don't include headers that are prohibited by HTTP/2.
-        // See https://github.com/ducaale/xh/pull/132
+        if matches!(
+            args.http_version,
+            Some(Version::Http10) | Some(Version::Http11)
+        ) {
+            request_builder =
+                request_builder.header(CONNECTION, HeaderValue::from_static("keep-alive"));
+        }
+
         request_builder = match args.http_version {
             Some(Version::Http10) => request_builder.version(reqwest::Version::HTTP_10),
             Some(Version::Http11) => request_builder.version(reqwest::Version::HTTP_11),
