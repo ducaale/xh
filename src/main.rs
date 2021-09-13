@@ -278,7 +278,7 @@ fn run(args: Cli) -> Result<i32> {
 
         if matches!(
             args.http_version,
-            Some(Version::Http10) | Some(Version::Http11)
+            Some(Version::Http10) | Some(Version::Http11) | None
         ) {
             request_builder =
                 request_builder.header(CONNECTION, HeaderValue::from_static("keep-alive"));
