@@ -1853,40 +1853,6 @@ dependencies = [
 [[package]]
 name = "reqwest"
 version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "246e9f61b9bb77df069a947682be06e31ac43ea37862e244a69f177694ea6d22"
-dependencies = [
- "base64",
- "bytes",
- "cookie 0.14.4",
- "cookie_store 0.12.0",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "hyper",
- "ipnet",
- "js-sys",
- "lazy_static",
- "log",
- "mime",
- "percent-encoding",
- "pin-project-lite",
- "serde",
- "serde_urlencoded",
- "time",
- "tokio",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winreg",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.11.4"
 source = "git+https://github.com/seanmonstar/reqwest?branch=master#2767071cac0cc33d51349cfcf26f2d4aa3831462"
 dependencies = [
  "async-compression",
@@ -1927,19 +1893,6 @@ dependencies = [
  "web-sys",
  "webpki-roots",
  "winreg",
-]
-
-[[package]]
-name = "reqwest_cookie_store"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48cbf3a2aeeeaa6d10a76db86068c3560320f6265c3a0e2642e0538e11c2d143"
-dependencies = [
- "bytes",
- "cookie 0.15.1",
- "cookie_store 0.15.0",
- "reqwest 0.11.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "url",
 ]
 
 [[package]]
@@ -2906,6 +2859,7 @@ dependencies = [
  "assert_matches",
  "atty",
  "base64",
+ "bytes",
  "cookie 0.15.1",
  "cookie_store 0.15.0",
  "curl",
@@ -2926,8 +2880,7 @@ dependencies = [
  "predicates 1.0.8",
  "rand",
  "regex",
- "reqwest 0.11.4 (git+https://github.com/seanmonstar/reqwest?branch=master)",
- "reqwest_cookie_store",
+ "reqwest",
  "rpassword",
  "serde",
  "serde_json",

@@ -10,6 +10,7 @@ mod request_items;
 mod session;
 mod to_curl;
 mod utils;
+mod vendored;
 
 use std::env;
 use std::fs::File;
@@ -34,6 +35,7 @@ use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
 use crate::utils::{test_mode, test_pretend_term};
+use crate::vendored::reqwest_cookie_store;
 
 fn get_user_agent() -> &'static str {
     if test_mode() {
