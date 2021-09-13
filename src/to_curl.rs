@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use reqwest::Method;
 
 use crate::{
-    cli::{Cli, Verify},
+    cli::{Cli, Verify, Version},
     request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE},
 };
 
@@ -183,6 +183,13 @@ pub fn translate(args: Cli) -> Result<Command> {
             crate::cli::Proxy::Https(proxy) => {
                 cmd.env("https_proxy", proxy);
             }
+        }
+    }
+    if let Some(http_version) = args.http_version {
+        match http_version {
+            Version::Http10 => cmd.push("--http1.0"),
+            Version::Http11 => cmd.push("--http1.1"),
+            Version::Http2 => cmd.push("--http2"),
         }
     }
 
