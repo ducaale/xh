@@ -52,7 +52,7 @@ pub fn config_dir() -> Option<PathBuf> {
 
 pub fn get_home_dir() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
-    if let Some(path) = env::var_os("XH_TEST_MODE_WIN_HOME_DIR") {
+    if let Some(path) = std::env::var_os("XH_TEST_MODE_WIN_HOME_DIR") {
         return Some(PathBuf::from(path));
     }
 
