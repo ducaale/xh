@@ -7,6 +7,7 @@ use reqwest::header::{
 use reqwest::{Method, StatusCode, Url};
 
 use crate::middleware::{Middleware, Next};
+use crate::utils::clone_request;
 
 pub struct RedirectFollower<T>
 where
@@ -61,15 +62,6 @@ where
 
         Ok(response)
     }
-}
-
-fn clone_request(request: &mut Request) -> Result<Request> {
-    if let Some(b) = request.body_mut().as_mut() {
-        b.buffer()?;
-    }
-    // This doesn't copy the contents of the buffer, cloning requests is cheap
-    // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
-    Ok(request.try_clone().unwrap()) // guaranteed to not fail if body is already buffered
 }
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607

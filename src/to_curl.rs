@@ -3,10 +3,8 @@ use std::io::{stderr, stdout, Write};
 use anyhow::{anyhow, Result};
 use reqwest::Method;
 
-use crate::{
-    cli::{Cli, Verify},
-    request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE},
-};
+use crate::cli::{AuthType, Cli, Verify};
+use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
@@ -236,13 +234,24 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push(format!("{}:", header));
     }
     if let Some(auth) = args.auth {
-        // curl implements this flag the same way, including password prompt
-        cmd.flag("-u", "--user");
-        cmd.push(auth);
-    }
-    if let Some(token) = args.bearer {
-        cmd.push("--oauth2-bearer");
-        cmd.push(token);
+        match args.auth_type.unwrap_or_default() {
+            AuthType::basic => {
+                cmd.push("--basic");
+                // curl implements this flag the same way, including password prompt
+                cmd.flag("-u", "--user");
+                cmd.push(auth);
+            }
+            AuthType::digest => {
+                cmd.push("--digest");
+                // curl implements this flag the same way, including password prompt
+                cmd.flag("-u", "--user");
+                cmd.push(auth);
+            }
+            AuthType::bearer => {
+                cmd.push("--oauth2-bearer");
+                cmd.push(auth);
+            }
+        }
     }
 
     if args.request_items.is_multipart() {

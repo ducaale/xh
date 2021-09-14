@@ -24,11 +24,10 @@ use atty::Stream;
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
 use reqwest::header::{
-    HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION, CONNECTION, CONTENT_TYPE, COOKIE, RANGE,
-    USER_AGENT,
+    HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
 
-use crate::auth::{auth_from_netrc, parse_auth, read_netrc, DigestAuth};
+use crate::auth::{read_netrc, Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
 use crate::cli::{BodyType, Cli, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
@@ -138,6 +137,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut exit_code: i32 = 0;
     let mut resume: Option<u64> = None;
+    let mut auth = None;
 
     if args.url.scheme() == "https" {
         let verify = args.verify.unwrap_or_else(|| {
@@ -235,13 +235,9 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     if let Some(ref mut s) = session {
+        auth = s.auth()?;
         for (key, value) in s.headers()?.iter() {
             headers.entry(key).or_insert_with(|| value.clone());
-        }
-        if let Some(auth) = s.auth()? {
-            headers
-                .entry(AUTHORIZATION)
-                .or_insert(HeaderValue::from_str(&auth)?);
         }
         s.save_headers(&headers)?;
 
@@ -320,27 +316,30 @@ fn run(args: Cli) -> Result<i32> {
             }
         }
 
-        // TODO: handle digest auth
-        if let Some(auth) = args.auth {
-            let (username, password) = parse_auth(auth, args.url.host_str().unwrap_or("<host>"))?;
-            if let Some(ref mut s) = session {
-                s.save_basic_auth(username.clone(), password.clone());
-            }
-            request_builder = request_builder.basic_auth(username, password);
+        let auth_type = args.auth_type.unwrap_or_default();
+        if let Some(auth_from_arg) = args.auth {
+            auth = Some(Auth::from_str(
+                &auth_from_arg,
+                auth_type,
+                args.url.host_str().unwrap_or("<host>"),
+            )?);
         } else if !args.ignore_netrc {
-            if let Some(host) = args.url.host_str() {
-                if let Some(netrc) = read_netrc() {
-                    if let Some((username, password)) = auth_from_netrc(host, &netrc) {
-                        request_builder = request_builder.basic_auth(username, password);
-                    }
-                }
+            if let (Some(host), Some(netrc)) = (args.url.host_str(), read_netrc()) {
+                auth = Auth::from_netrc(&netrc, auth_type, host);
             }
         }
-        if let Some(token) = args.bearer {
+
+        if let Some(auth) = &auth {
             if let Some(ref mut s) = session {
-                s.save_bearer_auth(token.clone())
+                s.save_auth(auth);
             }
-            request_builder = request_builder.bearer_auth(token);
+            request_builder = match auth {
+                Auth::Basic(username, password) => {
+                    request_builder.basic_auth(username, password.as_ref())
+                }
+                Auth::Bearer(token) => request_builder.bearer_auth(token),
+                Auth::Digest(..) => request_builder,
+            }
         }
 
         let mut request = request_builder.headers(headers).build()?;
@@ -412,10 +411,10 @@ fn run(args: Cli) -> Result<i32> {
                 }
                 client = client.with(redirect_follower);
             }
-            // TODO:
-            // 1. get username and password from user
-            // 2. print intermediate intermediary requests/responses if --all flag is used
-            client = client.with(DigestAuth::new("username", "password"));
+            if let Some(Auth::Digest(username, password)) = &auth {
+                // TODO: print intermediate intermediary requests/responses if --all flag is used
+                client = client.with(DigestAuthMiddleware::new(username, password));
+            }
             client.execute(request)?
         };
 

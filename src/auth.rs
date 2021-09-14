@@ -4,26 +4,62 @@ use std::io;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use dirs::home_dir;
 use netrc_rs::Netrc;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use reqwest::StatusCode;
 
+use crate::cli::AuthType;
 use crate::middleware::{Middleware, Next};
 use crate::regex;
+use crate::utils::{clone_request, get_home_dir};
 
-// TODO: move this to utils.rs
-fn clone_request(request: &mut Request) -> Result<Request> {
-    if let Some(b) = request.body_mut().as_mut() {
-        b.buffer()?;
-    }
-    // This doesn't copy the contents of the buffer, cloning requests is cheap
-    // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
-    Ok(request.try_clone().unwrap()) // guaranteed to not fail if body is already buffered
+#[derive(Debug, PartialEq, Eq)]
+pub enum Auth {
+    Bearer(String),
+    Basic(String, Option<String>),
+    Digest(String, String),
 }
 
-pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String>)> {
+impl Auth {
+    pub fn from_str(auth: &str, auth_type: AuthType, host: &str) -> Result<Auth> {
+        match auth_type {
+            AuthType::basic => {
+                let (username, password) = parse_auth(auth, host)?;
+                Ok(Auth::Basic(username, password))
+            }
+            AuthType::digest => {
+                let (username, password) = parse_auth(auth, host)?;
+                Ok(Auth::Digest(username, password.unwrap_or("".to_string())))
+            }
+            AuthType::bearer => Ok(Auth::Bearer(auth.to_string())),
+        }
+    }
+
+    pub fn from_netrc(netrc: &str, auth_type: AuthType, host: &str) -> Option<Auth> {
+        Netrc::parse_borrow(&netrc, false)
+            .ok()?
+            .machines
+            .into_iter()
+            .filter_map(|machine| match machine.name {
+                Some(name) if name == host => {
+                    let username = machine.login.unwrap_or_else(|| "".to_string());
+                    let password = machine.password;
+                    match auth_type {
+                        AuthType::basic => Some(Auth::Basic(username, password)),
+                        AuthType::digest => {
+                            Some(Auth::Digest(username, password.unwrap_or("".to_string())))
+                        }
+                        AuthType::bearer => None,
+                    }
+                }
+                _ => None,
+            })
+            .last()
+    }
+}
+
+pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
         Ok((cap[1].to_string(), None))
     } else if let Some(cap) = regex!(r"^(.+?):(.+)$").captures(&auth) {
@@ -31,85 +67,47 @@ pub fn parse_auth(auth: String, host: &str) -> io::Result<(String, Option<String
         let password = cap[2].to_string();
         Ok((username, Some(password)))
     } else {
-        let username = auth;
+        let username = auth.to_string();
         let prompt = format!("http: password for {}@{}: ", username, host);
         let password = rpassword::read_password_from_tty(Some(&prompt))?;
         Ok((username, Some(password)))
     }
 }
 
-fn get_home_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    if let Some(path) = env::var_os("XH_TEST_MODE_WIN_HOME_DIR") {
-        return Some(PathBuf::from(path));
-    }
-
-    home_dir()
-}
-
-fn netrc_path() -> Option<PathBuf> {
-    match env::var_os("NETRC") {
+pub fn read_netrc() -> Option<String> {
+    let netrc_path = match env::var_os("NETRC") {
         Some(path) => {
-            let pth = PathBuf::from(path);
-            if pth.exists() {
-                Some(pth)
+            let path = PathBuf::from(path);
+            if path.exists() {
+                Some(path)
             } else {
                 None
             }
         }
         None => {
-            if let Some(hd_path) = get_home_dir() {
-                [".netrc", "_netrc"]
-                    .iter()
-                    .map(|f| hd_path.join(f))
-                    .find(|p| p.exists())
-            } else {
-                None
-            }
+            let home_dir = get_home_dir()?;
+            [".netrc", "_netrc"]
+                .iter()
+                .map(|f| home_dir.join(f))
+                .find(|p| p.exists())
         }
-    }
+    }?;
+
+    fs::read_to_string(netrc_path).ok()
 }
 
-pub fn read_netrc() -> Option<String> {
-    if let Some(netrc_path) = netrc_path() {
-        if let Ok(result) = fs::read_to_string(netrc_path) {
-            return Some(result);
-        }
-    };
-
-    None
-}
-
-pub fn auth_from_netrc(machine: &str, netrc: &str) -> Option<(String, Option<String>)> {
-    if let Ok(netrc) = Netrc::parse_borrow(&netrc, false) {
-        return netrc
-            .machines
-            .into_iter()
-            .filter_map(|mach| match mach.name {
-                Some(name) if name == machine => {
-                    let user = mach.login.unwrap_or_else(|| "".to_string());
-                    Some((user, mach.password))
-                }
-                _ => None,
-            })
-            .last();
-    }
-
-    None
-}
-
-pub struct DigestAuth<'a> {
+pub struct DigestAuthMiddleware<'a> {
     username: &'a str,
     password: &'a str,
 }
 
-impl<'a> DigestAuth<'a> {
+impl<'a> DigestAuthMiddleware<'a> {
     pub fn new(username: &'a str, password: &'a str) -> Self {
-        DigestAuth { username, password }
+        DigestAuthMiddleware { username, password }
     }
 }
 
-impl<'a> Middleware for DigestAuth<'a> {
+impl<'a> Middleware for DigestAuthMiddleware<'a> {
     fn handle(&mut self, mut request: Request, mut next: Next) -> Result<Response> {
         let response = next.run(clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
@@ -144,7 +142,7 @@ mod tests {
             (":", ("", None)),
         ];
         for (input, output) in expected {
-            let (user, pass) = parse_auth(input.to_string(), "").unwrap();
+            let (user, pass) = parse_auth(input, "").unwrap();
             assert_eq!(output, (user.as_str(), pass.as_deref()));
         }
     }
@@ -160,24 +158,24 @@ mod tests {
             (
                 "example.com",
                 good_netrc,
-                Some(("user".to_string(), Some("pass".to_string()))),
+                Some(Auth::Basic("user".to_string(), Some("pass".to_string()))),
             ),
             ("example.org", good_netrc, None),
             ("example.com", malformed_netrc, None),
             (
                 "example.com",
                 missing_login,
-                Some(("".to_string(), Some("pass".to_string()))),
+                Some(Auth::Basic("".to_string(), Some("pass".to_string()))),
             ),
             (
                 "example.com",
                 missing_pass,
-                Some(("user".to_string(), None)),
+                Some(Auth::Basic("user".to_string(), None)),
             ),
         ];
 
         for (machine, netrc, output) in expected {
-            assert_eq!(output, auth_from_netrc(machine, netrc));
+            assert_eq!(output, Auth::from_netrc(netrc, AuthType::basic, machine));
         }
     }
 }
