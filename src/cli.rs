@@ -135,7 +135,6 @@ pub struct Cli {
     #[structopt(skip)]
     pub is_session_read_only: bool,
 
-    // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
     #[structopt(short = "A", long, possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,

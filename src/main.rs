@@ -412,7 +412,7 @@ fn run(args: Cli) -> Result<i32> {
                 client = client.with(redirect_follower);
             }
             if let Some(Auth::Digest(username, password)) = &auth {
-                // TODO: print intermediate intermediary requests/responses if --all flag is used
+                // TODO: print intermediary requests/responses if --all flag is used
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
             client.execute(request)?
