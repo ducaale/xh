@@ -131,7 +131,7 @@ impl Session {
                     let (username, password) = auth::parse_auth(raw_auth, "")?;
                     Ok(Some(auth::Auth::Digest(
                         username,
-                        password.unwrap_or("".into()),
+                        password.unwrap_or_else(|| "".into()),
                     )))
                 }
                 "bearer" => Ok(Some(auth::Auth::Bearer(raw_auth.into()))),
@@ -145,7 +145,7 @@ impl Session {
     pub fn save_auth(&mut self, auth: &auth::Auth) {
         match auth {
             auth::Auth::Basic(username, password) => {
-                let password = password.as_deref().unwrap_or_else(|| "");
+                let password = password.as_deref().unwrap_or("");
                 self.content.auth = Auth {
                     auth_type: Some("basic".into()),
                     raw_auth: Some(format!("{}:{}", username, password)),

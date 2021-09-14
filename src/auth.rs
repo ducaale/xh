@@ -30,9 +30,12 @@ impl Auth {
             }
             AuthType::digest => {
                 let (username, password) = parse_auth(auth, host)?;
-                Ok(Auth::Digest(username, password.unwrap_or("".to_string())))
+                Ok(Auth::Digest(
+                    username,
+                    password.unwrap_or_else(|| "".into()),
+                ))
             }
-            AuthType::bearer => Ok(Auth::Bearer(auth.to_string())),
+            AuthType::bearer => Ok(Auth::Bearer(auth.into())),
         }
     }
 
@@ -43,13 +46,14 @@ impl Auth {
             .into_iter()
             .filter_map(|machine| match machine.name {
                 Some(name) if name == host => {
-                    let username = machine.login.unwrap_or_else(|| "".to_string());
+                    let username = machine.login.unwrap_or_else(|| "".into());
                     let password = machine.password;
                     match auth_type {
                         AuthType::basic => Some(Auth::Basic(username, password)),
-                        AuthType::digest => {
-                            Some(Auth::Digest(username, password.unwrap_or("".to_string())))
-                        }
+                        AuthType::digest => Some(Auth::Digest(
+                            username,
+                            password.unwrap_or_else(|| "".into()),
+                        )),
                         AuthType::bearer => None,
                     }
                 }
@@ -60,9 +64,9 @@ impl Auth {
 }
 
 pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)> {
-    if let Some(cap) = regex!(r"^([^:]*):$").captures(&auth) {
+    if let Some(cap) = regex!(r"^([^:]*):$").captures(auth) {
         Ok((cap[1].to_string(), None))
-    } else if let Some(cap) = regex!(r"^(.+?):(.+)$").captures(&auth) {
+    } else if let Some(cap) = regex!(r"^(.+?):(.+)$").captures(auth) {
         let username = cap[1].to_string();
         let password = cap[2].to_string();
         Ok((username, Some(password)))
