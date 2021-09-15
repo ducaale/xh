@@ -3,7 +3,8 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
 `xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
-as possible of [HTTPie's](https://httpie.io/) excellent design.
+as possible of [HTTPie's](https://httpie.io/) excellent design, with a focus
+on improved performance.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
