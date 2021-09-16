@@ -51,6 +51,7 @@ complete -c xh -l no-download
 complete -c xh -l no-follow
 complete -c xh -l no-form
 complete -c xh -l no-headers
+complete -c xh -l no-history-print
 complete -c xh -l no-https
 complete -c xh -l no-ignore-netrc
 complete -c xh -l no-ignore-stdin

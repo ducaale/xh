@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.13.0] - 2021-09-16
 ### Features
 - Add _--all_ flag for printing intermediate requests and responses, see #137 (@ducaale)
 - Support customising what sections are printed from intermediary requests and responses
