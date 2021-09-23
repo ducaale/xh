@@ -9,6 +9,7 @@ documentation = "https://github.com/ducaale/xh"
 homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
+exclude = ["assets/xhs", "assets/xhs.1.gz"]
 
 [dependencies]
 anyhow = "1.0.38"
