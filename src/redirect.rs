@@ -9,34 +9,17 @@ use reqwest::{Method, StatusCode, Url};
 use crate::middleware::{Middleware, Next};
 use crate::utils::clone_request;
 
-pub struct RedirectFollower<T>
-where
-    T: FnMut(Response, &mut Request) -> Result<()>,
-{
+pub struct RedirectFollower {
     max_redirects: usize,
-    callback: Option<T>,
 }
 
-impl<T> RedirectFollower<T>
-where
-    T: FnMut(Response, &mut Request) -> Result<()>,
-{
+impl RedirectFollower {
     pub fn new(max_redirects: usize) -> Self {
-        RedirectFollower {
-            max_redirects,
-            callback: None,
-        }
-    }
-
-    pub fn on_redirect(&mut self, callback: T) {
-        self.callback = Some(callback);
+        RedirectFollower { max_redirects }
     }
 }
 
-impl<T> Middleware for RedirectFollower<T>
-where
-    T: FnMut(Response, &mut Request) -> Result<()>,
-{
+impl Middleware for RedirectFollower {
     fn handle(&mut self, mut first_request: Request, mut next: Next) -> Result<Response> {
         // This buffers the body in case we need it again later
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
@@ -53,8 +36,8 @@ where
                     self.max_redirects
                 ));
             }
-            if let Some(ref mut callback) = self.callback {
-                callback(response, &mut next_request)?;
+            if let Some(ref mut printer) = next.printer {
+                printer(response, &mut next_request)?;
             }
             request = clone_request(&mut next_request)?;
             response = next.run(next_request)?;

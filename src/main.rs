@@ -389,30 +389,28 @@ fn run(args: Cli) -> Result<i32> {
         let response = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
+            if args.all {
+                client = client.with_printer(|prev_response, next_request| {
+                    if history_print.response_headers {
+                        printer.print_response_headers(&prev_response)?;
+                    }
+                    if history_print.response_body {
+                        printer.print_response_body(prev_response)?;
+                        printer.print_separator()?;
+                    }
+                    if history_print.request_headers {
+                        printer.print_request_headers(next_request, &*cookie_jar)?;
+                    }
+                    if history_print.request_body {
+                        printer.print_request_body(next_request)?;
+                    }
+                    Ok(())
+                });
+            }
             if args.follow {
-                let mut redirect_follower = RedirectFollower::new(args.max_redirects.unwrap_or(10));
-                if args.all {
-                    redirect_follower.on_redirect(|prev_response, next_request| {
-                        if history_print.response_headers {
-                            printer.print_response_headers(&prev_response)?;
-                        }
-                        if history_print.response_body {
-                            printer.print_response_body(prev_response)?;
-                            printer.print_separator()?;
-                        }
-                        if history_print.request_headers {
-                            printer.print_request_headers(next_request, &*cookie_jar)?;
-                        }
-                        if history_print.request_body {
-                            printer.print_request_body(next_request)?;
-                        }
-                        Ok(())
-                    });
-                }
-                client = client.with(redirect_follower);
+                client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
-                // TODO: print intermediary requests/responses if --all flag is used
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
             client.execute(request)?

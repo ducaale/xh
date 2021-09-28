@@ -126,6 +126,9 @@ impl<'a> Middleware for DigestAuthMiddleware<'a> {
                 request
                     .headers_mut()
                     .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
+                if let Some(ref mut printer) = next.printer {
+                    printer(response, &mut request)?;
+                }
                 Ok(next.run(request)?)
             }
             _ => Ok(response),
