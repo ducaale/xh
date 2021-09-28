@@ -1022,29 +1022,6 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn auth() {
-    //     let cli = parse(&["--auth=user:pass", ":"]).unwrap();
-    //     assert_eq!(cli.auth.as_deref(), Some("user:pass"));
-    //     assert_eq!(cli.bearer, None);
-
-    //     let cli = parse(&["--auth=user:pass", "--auth-type=basic", ":"]).unwrap();
-    //     assert_eq!(cli.auth.as_deref(), Some("user:pass"));
-    //     assert_eq!(cli.bearer, None);
-
-    //     let cli = parse(&["--auth=token", "--auth-type=bearer", ":"]).unwrap();
-    //     assert_eq!(cli.auth, None);
-    //     assert_eq!(cli.bearer.as_deref(), Some("token"));
-
-    //     let cli = parse(&["--bearer=token", "--auth-type=bearer", ":"]).unwrap();
-    //     assert_eq!(cli.auth, None);
-    //     assert_eq!(cli.bearer.as_deref(), Some("token"));
-
-    //     let cli = parse(&["--auth-type=bearer", ":"]).unwrap();
-    //     assert_eq!(cli.auth, None);
-    //     assert_eq!(cli.bearer, None);
-    // }
-
     #[test]
     fn request_type_overrides() {
         let cli = parse(&["--form", "--json", ":"]).unwrap();
