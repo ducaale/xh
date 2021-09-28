@@ -46,9 +46,9 @@ where
     middlewares: Vec<Box<dyn Middleware + 'a>>,
 }
 
-impl<'a, T: 'a> ClientWithMiddleware<'a, T>
+impl<'a, T> ClientWithMiddleware<'a, T>
 where
-    T: FnMut(Response, &mut Request) -> Result<()>,
+    T: FnMut(Response, &mut Request) -> Result<()> + 'a,
 {
     pub fn new(client: &'a Client) -> Self {
         ClientWithMiddleware {
