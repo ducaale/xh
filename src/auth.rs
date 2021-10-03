@@ -116,16 +116,22 @@ impl<'a> Middleware for DigestAuthMiddleware<'a> {
         let response = next.run(clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
             Some(wwwauth) if response.status() == StatusCode::UNAUTHORIZED => {
-                let context = digest_auth::AuthContext::new(
+                let mut context = digest_auth::AuthContext::new(
                     self.username,
                     self.password,
                     request.url().path(),
                 );
+                if let Some(cnonc) = std::env::var_os("XH_TEST_DIGEST_AUTH_CNONCE") {
+                    context.set_custom_cnonce(cnonc.to_string_lossy().to_string());
+                }
                 let mut prompt = digest_auth::parse(wwwauth.to_str()?)?;
                 let answer = prompt.respond(&context)?.to_header_string();
                 request
                     .headers_mut()
                     .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
+                if let Some(url) = std::env::var_os("XH_TEST_DIGEST_AUTH_URL") {
+                    *request.url_mut() = reqwest::Url::parse(&url.to_string_lossy())?;
+                }
                 if let Some(ref mut printer) = next.printer {
                     printer(response, &mut request)?;
                 }
