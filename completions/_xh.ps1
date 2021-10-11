@@ -91,6 +91,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--no-follow', 'no-follow', [CompletionResultType]::ParameterName, 'no-follow')
             [CompletionResult]::new('--no-form', 'no-form', [CompletionResultType]::ParameterName, 'no-form')
             [CompletionResult]::new('--no-headers', 'no-headers', [CompletionResultType]::ParameterName, 'no-headers')
+            [CompletionResult]::new('--no-history-print', 'no-history-print', [CompletionResultType]::ParameterName, 'no-history-print')
             [CompletionResult]::new('--no-https', 'no-https', [CompletionResultType]::ParameterName, 'no-https')
             [CompletionResult]::new('--no-ignore-netrc', 'no-ignore-netrc', [CompletionResultType]::ParameterName, 'no-ignore-netrc')
             [CompletionResult]::new('--no-ignore-stdin', 'no-ignore-stdin', [CompletionResultType]::ParameterName, 'no-ignore-stdin')

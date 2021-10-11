@@ -1,6 +1,6 @@
 [package]
 name = "xh"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -9,6 +9,7 @@ documentation = "https://github.com/ducaale/xh"
 homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
+exclude = ["assets/xhs", "assets/xhs.1.gz"]
 
 [dependencies]
 anyhow = "1.0.38"
@@ -90,3 +91,6 @@ xh is a friendly and fast tool for sending HTTP requests.
 It reimplements as much as possible of HTTPie's excellent design, with a focus
 on improved performance.
 """
+
+[profile.release]
+lto = true

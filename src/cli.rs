@@ -320,6 +320,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-follow",
     "--no-form",
     "--no-headers",
+    "--no-history-print",
     "--no-https",
     "--no-ignore-netrc",
     "--no-ignore-stdin",

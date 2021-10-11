@@ -3,7 +3,8 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
 `xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
-as possible of [HTTPie's](https://httpie.io/) excellent design.
+as possible of [HTTPie's](https://httpie.io/) excellent design, with a focus
+on improved performance.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
@@ -17,18 +18,21 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### via a package manager
 
-| OS             | Method     | Command                 |
-|----------------|------------|-------------------------|
-| Any            | Cargo\*    | `cargo install xh`      |
-| Any            | [Huber]    | `huber install xh`      |
-| Arch Linux     | Pacman     | `pacman -S xh`          |
-| FreeBSD        | FreshPorts | `pkg install xh`        |
-| Linux & macOS  | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
-| Linux & macOS  | Homebrew   | `brew install xh`       |
-| macOS          | MacPorts   | `sudo port install xh`  |
-| Windows        | Scoop      | `scoop install xh`      |
+| OS              | Method     | Command                 |
+|---------------- |------------|-------------------------|
+| Any             | Cargo\*    | `cargo install xh`      |
+| Any             | [Huber]    | `huber install xh`      |
+| Arch Linux      | Pacman     | `pacman -S xh`          |
+| Debian & Ubuntu | Apt**      | `sudo apt install xh`   |
+| FreeBSD         | FreshPorts | `pkg install xh`        |
+| Linux & macOS   | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
+| Linux & macOS   | Homebrew   | `brew install xh`       |
+| macOS           | MacPorts   | `sudo port install xh`  |
+| Windows         | Scoop      | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.46 or later installed
+
+\*\* You will need to add the apt repository from https://apt.cli.rs/
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 
@@ -98,7 +102,7 @@ Run `xh help` for more detailed information.
 - `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
-- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
+- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=@` for strings and `:=@` for other JSON types).
 
 The request body can also be read from standard input, or from a file using `@filename`.
 
