@@ -1909,6 +1909,53 @@ fn bearer_auth_from_session_is_used() {
 }
 
 #[test]
+fn auth_netrc_is_not_persisted_in_session() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+    assert_eq!(path_to_session.exists(), false);
+
+    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    writeln!(
+        netrc,
+        "machine {}\nlogin user\npassword pass",
+        server.host()
+    )
+    .unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .arg("hello:world")
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+
+    let session_content = read_to_string(path_to_session).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": {},
+            "headers": {
+                "hello": "world"
+            }
+        })
+    );
+}
+
+#[test]
 fn print_intermediate_requests_and_responses() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();

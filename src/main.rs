@@ -138,6 +138,7 @@ fn run(args: Cli) -> Result<i32> {
     let mut exit_code: i32 = 0;
     let mut resume: Option<u64> = None;
     let mut auth = None;
+    let mut save_auth_in_session = true;
 
     if args.url.scheme() == "https" {
         let verify = args.verify.unwrap_or_else(|| {
@@ -326,12 +327,15 @@ fn run(args: Cli) -> Result<i32> {
         } else if !args.ignore_netrc {
             if let (Some(host), Some(netrc)) = (args.url.host_str(), read_netrc()) {
                 auth = Auth::from_netrc(&netrc, auth_type, host);
+                save_auth_in_session = false;
             }
         }
 
         if let Some(auth) = &auth {
             if let Some(ref mut s) = session {
-                s.save_auth(auth);
+                if save_auth_in_session {
+                    s.save_auth(auth);
+                }
             }
             request_builder = match auth {
                 Auth::Basic(username, password) => {
