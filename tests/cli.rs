@@ -800,6 +800,7 @@ fn bearer_auth() {
 // This intersects with both #41 and #59
 
 #[test]
+#[ignore = "https://self-signed.badssl.com cert has expired"]
 fn verify_default_yes() {
     get_command()
         .arg("-v")
@@ -813,6 +814,7 @@ fn verify_default_yes() {
 }
 
 #[test]
+#[ignore = "https://self-signed.badssl.com cert has expired"]
 fn verify_explicit_yes() {
     get_command()
         .arg("-v")
@@ -841,6 +843,7 @@ fn verify_no() {
 }
 
 #[test]
+#[ignore = "https://self-signed.badssl.com cert has expired"]
 fn verify_valid_file() {
     get_command()
         .arg("-v")
