@@ -29,7 +29,7 @@ use reqwest::header::{
 
 use crate::auth::{auth_from_netrc, parse_auth, read_netrc};
 use crate::buffer::Buffer;
-use crate::cli::{BodyType, Cli, Print, Proxy, Verify, Version};
+use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
@@ -222,7 +222,7 @@ fn run(args: Cli) -> Result<i32> {
 
     if matches!(
         args.http_version,
-        Some(Version::Http10) | Some(Version::Http11)
+        Some(HttpVersion::Http10) | Some(HttpVersion::Http11)
     ) {
         client = client.http1_only();
     }
@@ -278,16 +278,16 @@ fn run(args: Cli) -> Result<i32> {
 
         if matches!(
             args.http_version,
-            Some(Version::Http10) | Some(Version::Http11) | None
+            Some(HttpVersion::Http10) | Some(HttpVersion::Http11) | None
         ) {
             request_builder =
                 request_builder.header(CONNECTION, HeaderValue::from_static("keep-alive"));
         }
 
         request_builder = match args.http_version {
-            Some(Version::Http10) => request_builder.version(reqwest::Version::HTTP_10),
-            Some(Version::Http11) => request_builder.version(reqwest::Version::HTTP_11),
-            Some(Version::Http2) => request_builder.version(reqwest::Version::HTTP_2),
+            Some(HttpVersion::Http10) => request_builder.version(reqwest::Version::HTTP_10),
+            Some(HttpVersion::Http11) => request_builder.version(reqwest::Version::HTTP_11),
+            Some(HttpVersion::Http2) => request_builder.version(reqwest::Version::HTTP_2),
             None => request_builder,
         };
 
