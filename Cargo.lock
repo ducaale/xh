@@ -1852,8 +1852,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.4"
-source = "git+https://github.com/seanmonstar/reqwest?branch=master#2767071cac0cc33d51349cfcf26f2d4aa3831462"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51c732d463dd300362ffb44b7b125f299c23d2990411a4253824630ebc7467fb"
 dependencies = [
  "async-compression",
  "base64",
@@ -2711,8 +2712,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e68338db6becec24d3c7977b5bf8a48be992c934b5d07177e3931f5dc9b076c"
 dependencies = [
  "cfg-if",
- "serde",
- "serde_json",
  "wasm-bindgen-macro",
 ]
 
