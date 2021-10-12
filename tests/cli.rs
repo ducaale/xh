@@ -2196,3 +2196,39 @@ fn warns_if_config_is_invalid() {
         .stderr(contains("Unable to parse config file"))
         .success();
 }
+
+#[test]
+fn http1_0() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=1.0")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/1.0"))
+        .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
+}
+
+#[test]
+fn http1_1() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=1.1")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+}
+
+#[test]
+fn http2() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=2")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/2.0"))
+        .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
+}
