@@ -2206,6 +2206,8 @@ fn http1_0() {
         .assert()
         .success()
         .stdout(predicates::str::contains("GET / HTTP/1.0"))
+        // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
+        // Fortunately, https://www.google.com is not one of those.
         .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
 }
 
