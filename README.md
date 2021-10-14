@@ -78,6 +78,7 @@ OPTIONS:
         --cert-key <FILE>             A private key file to use with --cert
         --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
         --https                       Make HTTPS requests if not specified in the URL
+        --http-version <VERSION>      HTTP version to use [possible values: 1, 1.0, 1.1, 2]
     -I, --ignore-stdin                Do not attempt to read stdin
         --curl                        Print a translation to a `curl` command
         --curl-long                   Use the long versions of curl's flags
@@ -170,7 +171,6 @@ xh -d httpbin.org/json -o res.json
 ### Disadvantages
 
 - Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
-- HTTP/2 cannot be disabled. ([#68](https://github.com/ducaale/xh/issues/68))
 - Header names are not case-sensitive.
 - No plugin system.
 - General immaturity. HTTPie is old and well-tested.

@@ -312,7 +312,7 @@ impl Printer {
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
-        let version = reqwest::Version::HTTP_11;
+        let version = request.version();
         let mut headers = request.headers().clone();
 
         headers

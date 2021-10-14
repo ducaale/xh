@@ -15,9 +15,9 @@ exclude = ["assets/xhs", "assets/xhs.1.gz"]
 anyhow = "1.0.38"
 atty = "0.2"
 base64 = "0.13"
+bytes = "1.0.1"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
-reqwest_cookie_store = { version = "0.2.0" }
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
@@ -43,7 +43,7 @@ jsonxf = "1.1.0"
 url = "2.2.2"
 
 [dependencies.reqwest]
-version = "0.11.4"
+version = "0.11.5"
 default-features = false
 features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
 

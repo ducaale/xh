@@ -235,6 +235,10 @@ pub struct Cli {
     #[structopt(long)]
     pub https: bool,
 
+    /// HTTP version to use
+    #[structopt(long, value_name = "VERSION", possible_values = &["1", "1.0", "1.1", "2"])]
+    pub http_version: Option<HttpVersion>,
+
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
     pub ignore_stdin: bool,
@@ -319,6 +323,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-headers",
     "--no-history-print",
     "--no-https",
+    "--no-http-version",
     "--no-ignore-netrc",
     "--no-ignore-stdin",
     "--no-json",
@@ -929,6 +934,25 @@ pub enum BodyType {
 impl Default for BodyType {
     fn default() -> Self {
         BodyType::Json
+    }
+}
+
+#[derive(Debug)]
+pub enum HttpVersion {
+    Http10,
+    Http11,
+    Http2,
+}
+
+impl FromStr for HttpVersion {
+    type Err = Error;
+    fn from_str(version: &str) -> Result<HttpVersion> {
+        match version {
+            "1.0" => Ok(HttpVersion::Http10),
+            "1" | "1.1" => Ok(HttpVersion::Http11),
+            "2" => Ok(HttpVersion::Http2),
+            _ => unreachable!(),
+        }
     }
 }
 
