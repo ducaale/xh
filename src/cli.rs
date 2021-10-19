@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -209,7 +209,7 @@ pub struct Cli {
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
     /// {n}{n}{n}
-    #[structopt(long, value_name = "VERIFY")]
+    #[structopt(long, value_name = "VERIFY", parse(from_os_str))]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
@@ -903,14 +903,16 @@ pub enum Verify {
     CustomCaBundle(PathBuf),
 }
 
-impl FromStr for Verify {
-    type Err = Error;
-    fn from_str(verify: &str) -> Result<Verify> {
-        match verify.to_lowercase().as_str() {
-            "no" | "false" => Ok(Verify::No),
-            "yes" | "true" => Ok(Verify::Yes),
-            path => Ok(Verify::CustomCaBundle(PathBuf::from(path))),
+impl From<&OsStr> for Verify {
+    fn from(verify: &OsStr) -> Verify {
+        if let Some(text) = verify.to_str() {
+            match text.to_lowercase().as_str() {
+                "no" | "false" => return Verify::No,
+                "yes" | "true" => return Verify::Yes,
+                _ => (),
+            }
         }
+        Verify::CustomCaBundle(PathBuf::from(verify))
     }
 }
 
