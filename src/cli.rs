@@ -433,19 +433,18 @@ impl Cli {
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
-        let raw_url;
-        match parse_method(&cli.raw_method_or_url) {
+        let raw_url = match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                raw_url = rest_args.next().ok_or_else(|| {
+                rest_args.next().ok_or_else(|| {
                     Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
-                })?;
+                })?
             }
             None => {
                 cli.method = None;
-                raw_url = mem::take(&mut cli.raw_method_or_url);
+                mem::take(&mut cli.raw_method_or_url)
             }
-        }
+        };
         for request_item in rest_args {
             cli.request_items.items.push(request_item.parse()?);
         }
