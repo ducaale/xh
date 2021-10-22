@@ -2,7 +2,7 @@
 name = "xh"
 version = "0.13.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -10,6 +10,7 @@ homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
 exclude = ["assets/xhs", "assets/xhs.1.gz"]
+rust-version = "1.56"
 
 [dependencies]
 anyhow = "1.0.38"
@@ -50,7 +51,7 @@ features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blo
 [dependencies.syntect]
 version = "4.4"
 default-features = false
-features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+features = ["parsing", "html", "yaml-load", "dump-load", "regex-onig"]
 
 [dev-dependencies]
 # Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
@@ -62,8 +63,10 @@ httpmock = "0.5.5"
 curl = { version = "0.4.34", features = ["static-ssl"] }
 tempfile = "3.2.0"
 
-[build-dependencies]
-syntect = { version = "4.4", default-features = false }
+[build-dependencies.syntect]
+version = "4.4"
+default-features = false
+features = ["parsing", "dump-create", "yaml-load", "regex-onig"]
 
 [features]
 default = ["integration-tests"]

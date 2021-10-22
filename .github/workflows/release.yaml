@@ -31,7 +31,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.46.0 # minimum supported rust version
+          toolchain: 1.56.0 # minimum supported rust version
           target: ${{ matrix.job.target }}
           override: true
       - uses: actions-rs/cargo@v1
