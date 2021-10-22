@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
 use encoding_rs::{Encoding, UTF_8};
@@ -393,12 +394,20 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
+    pub fn print_response_body(
+        &mut self,
+        mut response: Response,
+        encoding: Option<&str>,
+    ) -> anyhow::Result<()> {
         if !self.print.response_body {
             return Ok(());
         }
 
         let content_type = get_content_type(response.headers());
+        let encoding = encoding
+            .and_then(|e| Encoding::for_label(e.as_bytes()))
+            .unwrap_or_else(|| guess_encoding(&response));
+
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is
@@ -414,9 +423,12 @@ impl Printer {
                 // Unconditionally decoding is not an option because the body
                 // might not be text at all
                 if self.stream {
-                    self.print_body_stream(content_type, &mut decode_stream(&mut response))?;
+                    self.print_body_stream(
+                        content_type,
+                        &mut decode_stream(&mut response, encoding),
+                    )?;
                 } else {
-                    let text = response.text()?;
+                    let text = decode(response, encoding)?;
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
@@ -426,7 +438,8 @@ impl Printer {
                 self.buffer.print(&body)?;
             }
         } else if self.stream {
-            match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
+            match self.print_body_stream(content_type, &mut decode_stream(&mut response, encoding))
+            {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -436,8 +449,8 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            // Note that .text() behaves like String::from_utf8_lossy()
-            let text = response.text()?;
+            // Note that decode() behaves like String::from_utf8_lossy()
+            let text = decode(response, encoding)?;
             if text.contains('\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
                 return Ok(());
@@ -506,15 +519,29 @@ pub fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }
 
+/// This is identical to `.text_with_charset()`, except the `charset` parameter
+/// of `Content-Type` header is ignored.
+/// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
+fn decode(response: Response, encoding: &'static Encoding) -> anyhow::Result<String> {
+    let bytes = response.bytes()?;
+    let (text, _, _) = encoding.decode(&bytes);
+    if let Cow::Owned(s) = text {
+        return Ok(s);
+    }
+    unsafe {
+        // decoding returned Cow::Borrowed, meaning these bytes
+        // are already valid utf8
+        Ok(String::from_utf8_unchecked(bytes.to_vec()))
+    }
+}
+
 /// Decode a streaming response in a way that matches `.text()`.
 ///
 /// Note that in practice this seems to behave like String::from_utf8_lossy(),
 /// but it makes no guarantees about outputting valid UTF-8 if the input is
 /// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
 /// that's going to the terminal, and don't trust its output.
-fn decode_stream(response: &mut Response) -> impl Read + '_ {
-    let encoding = guess_encoding(response);
-
+fn decode_stream<'a>(response: &'a mut Response, encoding: &'static Encoding) -> impl Read + 'a {
     DecodeReaderBytesBuilder::new()
         .encoding(Some(encoding))
         .build(response)

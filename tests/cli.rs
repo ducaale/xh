@@ -397,6 +397,23 @@ fn decode() {
 }
 
 #[test]
+fn override_response_charset() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=utf-8")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--response-charset=latin1")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
+    mock.assert();
+}
+
+#[test]
 fn proxy_all_proxy() {
     let server = MockServer::start();
 

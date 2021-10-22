@@ -397,6 +397,7 @@ fn run(args: Cli) -> Result<i32> {
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
+    let response_charset = args.response_charset.as_deref();
 
     printer.print_request_headers(&request, &*cookie_jar)?;
     printer.print_request_body(&mut request)?;
@@ -411,7 +412,7 @@ fn run(args: Cli) -> Result<i32> {
             if args.all {
                 client.on_redirect(|prev_response, next_request| {
                     printer.print_response_headers(&prev_response)?;
-                    printer.print_response_body(prev_response)?;
+                    printer.print_response_body(prev_response, response_charset)?;
                     printer.print_separator()?;
                     printer.print_request_headers(next_request, &*cookie_jar)?;
                     printer.print_request_body(next_request)?;
@@ -450,7 +451,7 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else {
-            printer.print_response_body(response)?;
+            printer.print_response_body(response, response_charset)?;
         }
     }
 

@@ -65,6 +65,13 @@ pub struct Cli {
     #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
     pub style: Option<Theme>,
 
+    /// Override the response encoding for terminal display purposes.
+    ///
+    /// Example: `--response-charset=latin1`
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "ENCODING")]
+    pub response_charset: Option<String>,
+
     /// String specifying what the output should contain.
     ///
     /// Use `H` and `B` for request header and body respectively,
