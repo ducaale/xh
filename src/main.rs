@@ -85,10 +85,7 @@ fn run(args: Cli) -> Result<i32> {
         return Ok(0);
     }
 
-    let warn = {
-        let bin_name = &args.bin_name;
-        move |msg| eprintln!("{}: warning: {}", bin_name, msg)
-    };
+    let warn = |msg| eprintln!("{}: warning: {}", args.bin_name, msg);
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
 
