@@ -904,14 +904,11 @@ pub enum Verify {
 
 impl From<&OsStr> for Verify {
     fn from(verify: &OsStr) -> Verify {
-        if let Some(text) = verify.to_str() {
-            match text.to_lowercase().as_str() {
-                "no" | "false" => return Verify::No,
-                "yes" | "true" => return Verify::Yes,
-                _ => (),
-            }
+        match verify.to_ascii_lowercase().to_str() {
+            Some("no" | "false") => Verify::No,
+            Some("yes" | "true") => Verify::Yes,
+            _ => Verify::CustomCaBundle(PathBuf::from(verify)),
         }
-        Verify::CustomCaBundle(PathBuf::from(verify))
     }
 }
 
