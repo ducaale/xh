@@ -219,7 +219,7 @@ fn run(args: Cli) -> Result<i32> {
 
     if matches!(
         args.http_version,
-        Some(HttpVersion::Http10) | Some(HttpVersion::Http11)
+        Some(HttpVersion::Http10 | HttpVersion::Http11)
     ) {
         client = client.http1_only();
     }
@@ -275,7 +275,7 @@ fn run(args: Cli) -> Result<i32> {
 
         if matches!(
             args.http_version,
-            Some(HttpVersion::Http10) | Some(HttpVersion::Http11) | None
+            Some(HttpVersion::Http10 | HttpVersion::Http11) | None
         ) {
             request_builder =
                 request_builder.header(CONNECTION, HeaderValue::from_static("keep-alive"));

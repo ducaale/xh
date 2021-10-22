@@ -214,9 +214,7 @@ fn is_path(value: &OsString) -> bool {
 
 fn path_from_url(url: &Url) -> Result<String> {
     match (url.host_str(), url.port()) {
-        (Some("."), _) | (Some(".."), _) | (None, _) => {
-            Err(anyhow!("couldn't extract host from url"))
-        }
+        (Some("." | "..") | None, _) => Err(anyhow!("couldn't extract host from url")),
         (Some(host), Some(port)) => Ok(format!("{}_{}", host, port)),
         (Some(host), None) => Ok(host.into()),
     }

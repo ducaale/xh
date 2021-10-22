@@ -90,5 +90,5 @@ pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io:
 }
 
 pub(crate) fn url_requires_native_tls(url: &Url) -> bool {
-    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
+    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..) | Host::Ipv6(..)))
 }
