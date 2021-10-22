@@ -2359,3 +2359,41 @@ fn digest_auth_with_redirection() {
     mock1.assert();
     mock2.assert();
 }
+
+#[test]
+fn http1_0() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=1.0")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/1.0"))
+        // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
+        // Fortunately, https://www.google.com is not one of those.
+        .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
+}
+
+#[test]
+fn http1_1() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=1.1")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/1.1"))
+        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+}
+
+#[test]
+fn http2() {
+    get_command()
+        .arg("--print=hH")
+        .arg("--http-version=2")
+        .arg("https://www.google.com")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("GET / HTTP/2.0"))
+        .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
+}

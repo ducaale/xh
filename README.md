@@ -3,7 +3,8 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
 `xh` is a friendly and fast tool for sending HTTP requests. It reimplements as much
-as possible of [HTTPie's](https://httpie.io/) excellent design.
+as possible of [HTTPie's](https://httpie.io/) excellent design, with a focus
+on improved performance.
 
 [![asciicast](/assets/xh-demo.gif)](https://asciinema.org/a/390748)
 
@@ -17,18 +18,21 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 
 ### via a package manager
 
-| OS             | Method     | Command                 |
-|----------------|------------|-------------------------|
-| Any            | Cargo\*    | `cargo install xh`      |
-| Any            | [Huber]    | `huber install xh`      |
-| Arch Linux     | Pacman     | `pacman -S xh`          |
-| FreeBSD        | FreshPorts | `pkg install xh`        |
-| Linux & macOS  | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
-| Linux & macOS  | Homebrew   | `brew install xh`       |
-| macOS          | MacPorts   | `sudo port install xh`  |
-| Windows        | Scoop      | `scoop install xh`      |
+| OS              | Method     | Command                 |
+|---------------- |------------|-------------------------|
+| Any             | Cargo\*    | `cargo install xh`      |
+| Any             | [Huber]    | `huber install xh`      |
+| Arch Linux      | Pacman     | `pacman -S xh`          |
+| Debian & Ubuntu | Apt**      | `sudo apt install xh`   |
+| FreeBSD         | FreshPorts | `pkg install xh`        |
+| Linux & macOS   | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
+| Linux & macOS   | Homebrew   | `brew install xh`       |
+| macOS           | MacPorts   | `sudo port install xh`  |
+| Windows         | Scoop      | `scoop install xh`      |
 
 \* Make sure that you have Rust 1.46 or later installed
+
+\*\* You will need to add the apt repository from https://apt.cli.rs/
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 
@@ -74,6 +78,7 @@ OPTIONS:
         --cert-key <FILE>             A private key file to use with --cert
         --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
         --https                       Make HTTPS requests if not specified in the URL
+        --http-version <VERSION>      HTTP version to use [possible values: 1, 1.0, 1.1, 2]
     -I, --ignore-stdin                Do not attempt to read stdin
         --curl                        Print a translation to a `curl` command
         --curl-long                   Use the long versions of curl's flags
@@ -98,7 +103,7 @@ Run `xh help` for more detailed information.
 - `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
-- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=` for strings and `:=` for other JSON types).
+- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=@` for strings and `:=@` for other JSON types).
 
 The request body can also be read from standard input, or from a file using `@filename`.
 
@@ -166,7 +171,6 @@ xh -d httpbin.org/json -o res.json
 ### Disadvantages
 
 - Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
-- HTTP/2 cannot be disabled. ([#68](https://github.com/ducaale/xh/issues/68))
 - Header names are not case-sensitive.
 - No plugin system.
 - General immaturity. HTTPie is old and well-tested.

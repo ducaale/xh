@@ -3,7 +3,7 @@ use std::io::{stderr, stdout, Write};
 use anyhow::{anyhow, Result};
 use reqwest::Method;
 
-use crate::cli::{AuthType, Cli, Verify};
+use crate::cli::{AuthType, Cli, HttpVersion, Verify};
 use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
@@ -181,6 +181,13 @@ pub fn translate(args: Cli) -> Result<Command> {
             crate::cli::Proxy::Https(proxy) => {
                 cmd.env("https_proxy", proxy);
             }
+        }
+    }
+    if let Some(http_version) = args.http_version {
+        match http_version {
+            HttpVersion::Http10 => cmd.push("--http1.0"),
+            HttpVersion::Http11 => cmd.push("--http1.1"),
+            HttpVersion::Http2 => cmd.push("--http2"),
         }
     }
 

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -207,7 +207,7 @@ pub struct Cli {
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
     /// {n}{n}{n}
-    #[structopt(long, value_name = "VERIFY")]
+    #[structopt(long, value_name = "VERIFY", parse(from_os_str))]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
@@ -232,6 +232,10 @@ pub struct Cli {
     /// Make HTTPS requests if not specified in the URL.
     #[structopt(long)]
     pub https: bool,
+
+    /// HTTP version to use
+    #[structopt(long, value_name = "VERSION", possible_values = &["1", "1.0", "1.1", "2"])]
+    pub http_version: Option<HttpVersion>,
 
     /// Do not attempt to read stdin.
     #[structopt(short = "I", long)]
@@ -315,7 +319,9 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-follow",
     "--no-form",
     "--no-headers",
+    "--no-history-print",
     "--no-https",
+    "--no-http-version",
     "--no-ignore-netrc",
     "--no-ignore-stdin",
     "--no-json",
@@ -425,19 +431,18 @@ impl Cli {
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
-        let raw_url;
-        match parse_method(&cli.raw_method_or_url) {
+        let raw_url = match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                raw_url = rest_args.next().ok_or_else(|| {
+                rest_args.next().ok_or_else(|| {
                     Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
-                })?;
+                })?
             }
             None => {
                 cli.method = None;
-                raw_url = mem::take(&mut cli.raw_method_or_url);
+                mem::take(&mut cli.raw_method_or_url)
             }
-        }
+        };
         for request_item in rest_args {
             cli.request_items.items.push(request_item.parse()?);
         }
@@ -902,14 +907,16 @@ pub enum Verify {
     CustomCaBundle(PathBuf),
 }
 
-impl FromStr for Verify {
-    type Err = Error;
-    fn from_str(verify: &str) -> Result<Verify> {
-        match verify.to_lowercase().as_str() {
-            "no" | "false" => Ok(Verify::No),
-            "yes" | "true" => Ok(Verify::Yes),
-            path => Ok(Verify::CustomCaBundle(PathBuf::from(path))),
+impl From<&OsStr> for Verify {
+    fn from(verify: &OsStr) -> Verify {
+        if let Some(text) = verify.to_str() {
+            match text.to_lowercase().as_str() {
+                "no" | "false" => return Verify::No,
+                "yes" | "true" => return Verify::Yes,
+                _ => (),
+            }
         }
+        Verify::CustomCaBundle(PathBuf::from(verify))
     }
 }
 
@@ -933,6 +940,25 @@ pub enum BodyType {
 impl Default for BodyType {
     fn default() -> Self {
         BodyType::Json
+    }
+}
+
+#[derive(Debug)]
+pub enum HttpVersion {
+    Http10,
+    Http11,
+    Http2,
+}
+
+impl FromStr for HttpVersion {
+    type Err = Error;
+    fn from_str(version: &str) -> Result<HttpVersion> {
+        match version {
+            "1.0" => Ok(HttpVersion::Http10),
+            "1" | "1.1" => Ok(HttpVersion::Http11),
+            "2" => Ok(HttpVersion::Http2),
+            _ => unreachable!(),
+        }
     }
 }
 

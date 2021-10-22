@@ -1,6 +1,6 @@
 [package]
 name = "xh"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -9,13 +9,15 @@ documentation = "https://github.com/ducaale/xh"
 homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
+exclude = ["assets/xhs", "assets/xhs.1.gz"]
 
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+base64 = "0.13"
+bytes = "1.0.1"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
-reqwest_cookie_store = { version = "0.2.0" }
 digest_auth = "0.3.0"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
@@ -42,7 +44,7 @@ jsonxf = "1.1.0"
 url = "2.2.2"
 
 [dependencies.reqwest]
-version = "0.11.4"
+version = "0.11.5"
 default-features = false
 features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
 
@@ -90,3 +92,6 @@ xh is a friendly and fast tool for sending HTTP requests.
 It reimplements as much as possible of HTTPie's excellent design, with a focus
 on improved performance.
 """
+
+[profile.release]
+lto = true

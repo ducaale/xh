@@ -1,5 +1,18 @@
+## [0.13.0] - 2021-09-16
+### Features
+- Add _--all_ flag for printing intermediate requests and responses, see #137 (@ducaale)
+- Support customising what sections are printed from intermediary requests and responses
+  via the _--history-print_ flag, see #137 (@ducaale)
+
+### Bug fixes
+- Apply header title case for consecutive dashes, see #170 (@blyxxyz)
+- Avoid printing unnecessary line separators when _--all_ flag is used, see #174 (@ducaale)
+
+### Other
+- Include Debian package in release artifacts, see #172 (@ducaale)
+
 ## [0.12.0] - 2021-08-06
-## Features
+### Features
 - Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
 - Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz)
 - Support using the system's TLS library via _--native-tls_ flag, see #154 (@blyxxyz)

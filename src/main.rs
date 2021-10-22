@@ -11,6 +11,7 @@ mod request_items;
 mod session;
 mod to_curl;
 mod utils;
+mod vendored;
 
 use std::env;
 use std::fs::File;
@@ -29,13 +30,14 @@ use reqwest::header::{
 
 use crate::auth::{read_netrc, Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{BodyType, Cli, Print, Proxy, Verify};
+use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
 use crate::utils::{test_mode, test_pretend_term};
+use crate::vendored::reqwest_cookie_store;
 
 fn get_user_agent() -> &'static str {
     if test_mode() {
@@ -222,8 +224,17 @@ fn run(args: Cli) -> Result<i32> {
         }?);
     }
 
+    if matches!(
+        args.http_version,
+        Some(HttpVersion::Http10) | Some(HttpVersion::Http11)
+    ) {
+        client = client.http1_only();
+    }
+
     let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
+
+    let client = client.build()?;
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
@@ -256,8 +267,6 @@ fn run(args: Cli) -> Result<i32> {
         }
     }
 
-    let client = client.build()?;
-
     let mut request = {
         let mut request_builder = client
             .request(method, args.url.clone())
@@ -265,8 +274,22 @@ fn run(args: Cli) -> Result<i32> {
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
             )
-            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
             .header(USER_AGENT, get_user_agent());
+
+        if matches!(
+            args.http_version,
+            Some(HttpVersion::Http10) | Some(HttpVersion::Http11) | None
+        ) {
+            request_builder =
+                request_builder.header(CONNECTION, HeaderValue::from_static("keep-alive"));
+        }
+
+        request_builder = match args.http_version {
+            Some(HttpVersion::Http10) => request_builder.version(reqwest::Version::HTTP_10),
+            Some(HttpVersion::Http11) => request_builder.version(reqwest::Version::HTTP_11),
+            Some(HttpVersion::Http2) => request_builder.version(reqwest::Version::HTTP_2),
+            None => request_builder,
+        };
 
         request_builder = match body {
             Body::Form(body) => request_builder.form(&body),
