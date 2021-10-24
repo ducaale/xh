@@ -398,12 +398,15 @@ impl Printer {
         &mut self,
         mut response: Response,
         encoding: Option<&str>,
+        mime: Option<&str>,
     ) -> anyhow::Result<()> {
         if !self.print.response_body {
             return Ok(());
         }
 
-        let content_type = get_content_type(response.headers());
+        let content_type = mime
+            .map(ContentType::from)
+            .unwrap_or_else(|| get_content_type(response.headers()));
         let encoding = encoding
             .and_then(|e| Encoding::for_label(e.as_bytes()))
             .unwrap_or_else(|| guess_encoding(&response));
@@ -483,35 +486,39 @@ impl ContentType {
     }
 }
 
+impl From<&str> for ContentType {
+    fn from(content_type: &str) -> Self {
+        if content_type.contains("json") {
+            ContentType::Json
+        } else if content_type.contains("html") {
+            ContentType::Html
+        } else if content_type.contains("xml") {
+            ContentType::Xml
+        } else if content_type.contains("multipart") {
+            ContentType::Multipart
+        } else if content_type.contains("x-www-form-urlencoded") {
+            ContentType::UrlencodedForm
+        } else if content_type.contains("javascript") {
+            ContentType::JavaScript
+        } else if content_type.contains("css") {
+            ContentType::Css
+        } else if content_type.contains("text") {
+            // We later check if this one's JSON
+            // HTTPie checks for "json", "javascript" and "text" in one place:
+            // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
+            // We have it more spread out but it behaves more or less the same
+            ContentType::Text
+        } else {
+            ContentType::Unknown
+        }
+    }
+}
+
 pub fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .and_then(|content_type| {
-            if content_type.contains("json") {
-                Some(ContentType::Json)
-            } else if content_type.contains("html") {
-                Some(ContentType::Html)
-            } else if content_type.contains("xml") {
-                Some(ContentType::Xml)
-            } else if content_type.contains("multipart") {
-                Some(ContentType::Multipart)
-            } else if content_type.contains("x-www-form-urlencoded") {
-                Some(ContentType::UrlencodedForm)
-            } else if content_type.contains("javascript") {
-                Some(ContentType::JavaScript)
-            } else if content_type.contains("css") {
-                Some(ContentType::Css)
-            } else if content_type.contains("text") {
-                // We later check if this one's JSON
-                // HTTPie checks for "json", "javascript" and "text" in one place:
-                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
-                // We have it more spread out but it behaves more or less the same
-                Some(ContentType::Text)
-            } else {
-                None
-            }
-        })
+        .map(ContentType::from)
         .unwrap_or(ContentType::Unknown)
 }
 

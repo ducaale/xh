@@ -72,6 +72,13 @@ pub struct Cli {
     #[structopt(long, value_name = "ENCODING")]
     pub response_charset: Option<String>,
 
+    /// Override the response mime type for coloring and formatting for the terminal
+    ///
+    /// Example: `--response-mime=application/json`
+    /// {n}{n}{n}
+    #[structopt(long, value_name = "MIME_TYPE")]
+    pub response_mime: Option<String>,
+
     /// String specifying what the output should contain.
     ///
     /// Use `H` and `B` for request header and body respectively,
