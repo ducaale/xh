@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
 use encoding_rs::{Encoding, UTF_8};
@@ -431,7 +430,8 @@ impl Printer {
                         &mut decode_stream(&mut response, encoding),
                     )?;
                 } else {
-                    let text = decode(response, encoding)?;
+                    let bytes = response.bytes()?;
+                    let (text, _, _) = encoding.decode(&bytes);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
@@ -452,8 +452,9 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            // Note that decode() behaves like String::from_utf8_lossy()
-            let text = decode(response, encoding)?;
+            // Note that .decode() behaves like String::from_utf8_lossy()
+            let bytes = response.bytes()?;
+            let (text, _, _) = encoding.decode(&bytes);
             if text.contains('\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
                 return Ok(());
@@ -524,22 +525,6 @@ pub fn get_content_type(headers: &HeaderMap) -> ContentType {
 
 pub fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
-}
-
-/// This is identical to `.text_with_charset()`, except the `charset` parameter
-/// of `Content-Type` header is ignored.
-/// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
-fn decode(response: Response, encoding: &'static Encoding) -> anyhow::Result<String> {
-    let bytes = response.bytes()?;
-    let (text, _, _) = encoding.decode(&bytes);
-    if let Cow::Owned(s) = text {
-        return Ok(s);
-    }
-    unsafe {
-        // decoding returned Cow::Borrowed, meaning these bytes
-        // are already valid utf8
-        Ok(String::from_utf8_unchecked(bytes.to_vec()))
-    }
 }
 
 /// Decode a streaming response in a way that matches `.text()`.
