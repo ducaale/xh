@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
+use encoding_rs::Encoding;
 use reqwest::{Method, Url};
 use serde::{Deserialize, Serialize};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
@@ -69,8 +70,8 @@ pub struct Cli {
     ///
     /// Example: `--response-charset=latin1`
     /// {n}{n}{n}
-    #[structopt(long, value_name = "ENCODING")]
-    pub response_charset: Option<String>,
+    #[structopt(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
+    pub response_charset: Option<&'static Encoding>,
 
     /// Override the response mime type for coloring and formatting for the terminal
     ///
@@ -971,6 +972,52 @@ impl FromStr for HttpVersion {
     }
 }
 
+// HTTPie recognizes some encoding names that encoding_rs doesn't e.g utf16 has to spelled as utf-16.
+// There are also some encodings which encoding_rs doesn't support but HTTPie does e.g utf-7.
+// See https://github.com/ducaale/xh/pull/184#pullrequestreview-787528027
+fn parse_encoding(encoding: &str) -> Result<&'static Encoding> {
+    let normalized_encoding = encoding.to_lowercase().replace(
+        |c: char| (!c.is_alphanumeric() && c != '_' && c != '-' && c != ':'),
+        "",
+    );
+
+    match normalized_encoding.as_str() {
+        "u8" | "utf" => return Ok(encoding_rs::UTF_8),
+        "u16" => return Ok(encoding_rs::UTF_16LE),
+        _ => (),
+    }
+
+    for encoding in &[
+        &normalized_encoding,
+        &normalized_encoding.replace(&['-', '_'][..], ""),
+        &normalized_encoding.replace('_', "-"),
+        &normalized_encoding.replace('-', "_"),
+    ] {
+        if let Some(encoding) = Encoding::for_label(encoding.as_bytes()) {
+            return Ok(encoding);
+        }
+    }
+
+    {
+        let mut encoding = normalized_encoding.replace(&['-', '_'][..], "");
+        if let Some(first_digit_index) = encoding.find(|c: char| c.is_digit(10)) {
+            encoding.insert(first_digit_index, '-');
+            if let Some(encoding) = Encoding::for_label(encoding.as_bytes()) {
+                return Ok(encoding);
+            }
+        }
+    }
+
+    Err(Error::with_description(
+        &format!(
+            "{} is not a supported encoding, please refer to https://encoding.spec.whatwg.org/#names-and-labels\
+             for supported encodings",
+            encoding
+        ),
+        ErrorKind::InvalidValue,
+    ))
+}
+
 /// Based on the function used by clap to abort
 fn safe_exit() -> ! {
     let _ = std::io::stdout().lock().flush();
@@ -1296,5 +1343,20 @@ mod tests {
 
         let cli = parse(&["--no-check-status", "--check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(true));
+    }
+
+    #[test]
+    fn parse_encoding_label() {
+        assert_eq!(
+            parse_encoding("~~~~UtF////16@@").unwrap(),
+            encoding_rs::UTF_16LE
+        );
+        assert_eq!(parse_encoding("utf_8").unwrap(), encoding_rs::UTF_8);
+        assert_eq!(parse_encoding("utf8").unwrap(), encoding_rs::UTF_8);
+        assert_eq!(parse_encoding("utf-8").unwrap(), encoding_rs::UTF_8);
+        assert_eq!(
+            parse_encoding("iso8859_6").unwrap(),
+            encoding_rs::ISO_8859_6
+        );
     }
 }

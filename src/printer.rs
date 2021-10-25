@@ -396,7 +396,7 @@ impl Printer {
     pub fn print_response_body(
         &mut self,
         mut response: Response,
-        encoding: Option<&str>,
+        encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
         if !self.print.response_body {
@@ -406,9 +406,7 @@ impl Printer {
         let content_type = mime
             .map(ContentType::from)
             .unwrap_or_else(|| get_content_type(response.headers()));
-        let encoding = encoding
-            .and_then(|e| Encoding::for_label(e.as_bytes()))
-            .unwrap_or_else(|| guess_encoding(&response));
+        let encoding = encoding.unwrap_or_else(|| guess_encoding(&response));
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {

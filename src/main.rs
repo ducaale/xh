@@ -398,7 +398,7 @@ fn run(args: Cli) -> Result<i32> {
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(print.clone(), pretty, args.style, args.stream, buffer);
 
-    let response_charset = args.response_charset.as_deref();
+    let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();
 
     printer.print_request_headers(&request, &*cookie_jar)?;
