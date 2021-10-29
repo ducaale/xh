@@ -1344,16 +1344,27 @@ mod tests {
 
     #[test]
     fn parse_encoding_label() {
-        assert_eq!(
-            parse_encoding("~~~~UtF////16@@").unwrap(),
-            encoding_rs::UTF_16LE
-        );
-        assert_eq!(parse_encoding("utf_8").unwrap(), encoding_rs::UTF_8);
-        assert_eq!(parse_encoding("utf8").unwrap(), encoding_rs::UTF_8);
-        assert_eq!(parse_encoding("utf-8").unwrap(), encoding_rs::UTF_8);
-        assert_eq!(
-            parse_encoding("iso8859_6").unwrap(),
-            encoding_rs::ISO_8859_6
-        );
+        let test_cases = vec![
+            ("~~~~UtF////16@@", encoding_rs::UTF_16LE),
+            ("utf16", encoding_rs::UTF_16LE),
+            ("utf_16_be", encoding_rs::UTF_16BE),
+            ("utf16be", encoding_rs::UTF_16BE),
+            ("utf-16-be", encoding_rs::UTF_16BE),
+            ("utf_8", encoding_rs::UTF_8),
+            ("utf8", encoding_rs::UTF_8),
+            ("utf-8", encoding_rs::UTF_8),
+            ("u8", encoding_rs::UTF_8),
+            ("iso8859_6", encoding_rs::ISO_8859_6),
+            ("iso_8859-2:1987", encoding_rs::ISO_8859_2),
+            ("l1", encoding_rs::WINDOWS_1252),
+            ("elot-928", encoding_rs::ISO_8859_7),
+        ];
+
+        for (input, output) in test_cases {
+            assert_eq!(parse_encoding(input).unwrap(), output)
+        }
+
+        assert_eq!(parse_encoding("notreal").is_err(), true);
+        assert_eq!(parse_encoding("").is_err(), true);
     }
 }
