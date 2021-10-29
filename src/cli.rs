@@ -975,7 +975,7 @@ impl FromStr for HttpVersion {
 // HTTPie recognizes some encoding names that encoding_rs doesn't e.g utf16 has to spelled as utf-16.
 // There are also some encodings which encoding_rs doesn't support but HTTPie does e.g utf-7.
 // See https://github.com/ducaale/xh/pull/184#pullrequestreview-787528027
-fn parse_encoding(encoding: &str) -> Result<&'static Encoding> {
+fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
     let normalized_encoding = encoding.to_lowercase().replace(
         |c: char| (!c.is_alphanumeric() && c != '_' && c != '-' && c != ':'),
         "",
@@ -1008,13 +1008,10 @@ fn parse_encoding(encoding: &str) -> Result<&'static Encoding> {
         }
     }
 
-    Err(Error::with_description(
-        &format!(
-            "{} is not a supported encoding, please refer to https://encoding.spec.whatwg.org/#names-and-labels\
-             for supported encodings",
-            encoding
-        ),
-        ErrorKind::InvalidValue,
+    Err(anyhow::anyhow!(
+        "{} is not a supported encoding, please refer to https://encoding.spec.whatwg.org/#names-and-labels \
+         for supported encodings",
+        encoding
     ))
 }
 
