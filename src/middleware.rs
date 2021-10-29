@@ -1,40 +1,50 @@
 use anyhow::Result;
 use reqwest::blocking::{Client, Request, Response};
 
-// TODO: come up with a more suitable name than "Next"
-// maybe "Handler"??
-pub struct Next<'a, 'b> {
+pub struct Context<'a, 'b> {
     client: &'a Client,
-    pub printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
+    printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
-impl<'a, 'b> Next<'a, 'b> {
+impl<'a, 'b> Context<'a, 'b> {
     fn new(
         client: &'a Client,
         printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
-        Next {
+        Context {
             client,
             printer,
             middlewares,
         }
     }
 
-    pub fn run(&mut self, request: Request) -> Result<Response> {
+    fn execute(&mut self, request: Request) -> Result<Response> {
         match self.middlewares {
             [] => Ok(self.client.execute(request)?),
             [ref mut head, tail @ ..] => head.handle(
+                Context::new(self.client, self.printer.as_deref_mut(), tail),
                 request,
-                Next::new(self.client, self.printer.as_deref_mut(), tail),
             ),
         }
     }
 }
 
 pub trait Middleware {
-    fn handle(&mut self, request: Request, next: Next) -> Result<Response>;
+    fn handle(&mut self, ctx: Context, request: Request) -> Result<Response>;
+
+    fn next(&self, ctx: &mut Context, request: Request) -> Result<Response> {
+        ctx.execute(request)
+    }
+
+    fn print(&self, ctx: &mut Context, response: Response, request: &mut Request) -> Result<()> {
+        if let Some(ref mut printer) = ctx.printer {
+            printer(response, request)?
+        }
+
+        Ok(())
+    }
 }
 
 pub struct ClientWithMiddleware<'a, T>
@@ -69,13 +79,13 @@ where
     }
 
     pub fn execute(&mut self, request: Request) -> Result<Response> {
-        let mut next = Next::new(
+        let mut ctx = Context::new(
             self.client,
             self.printer
                 .as_mut()
                 .map(|p| p as &mut dyn FnMut(Response, &mut Request) -> Result<()>),
             &mut self.middlewares[..],
         );
-        next.run(request)
+        ctx.execute(request)
     }
 }
