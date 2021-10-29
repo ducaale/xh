@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use encoding_rs::Encoding;
 use reqwest::{Method, Url};
 use serde::{Deserialize, Serialize};
@@ -808,8 +809,8 @@ impl Print {
 }
 
 impl FromStr for Print {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Print> {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> anyhow::Result<Print> {
         let mut request_headers = false;
         let mut request_body = false;
         let mut response_headers = false;
@@ -821,12 +822,7 @@ impl FromStr for Print {
                 'B' => request_body = true,
                 'h' => response_headers = true,
                 'b' => response_body = true,
-                char => {
-                    return Err(Error::with_description(
-                        &format!("{:?} is not a valid value", char),
-                        ErrorKind::InvalidValue,
-                    ))
-                }
+                char => return Err(anyhow!("{:?} is not a valid value", char)),
             }
         }
 
@@ -850,17 +846,12 @@ impl Timeout {
 }
 
 impl FromStr for Timeout {
-    type Err = Error;
+    type Err = anyhow::Error;
 
-    fn from_str(sec: &str) -> Result<Timeout> {
+    fn from_str(sec: &str) -> anyhow::Result<Timeout> {
         let pos_sec: f64 = match sec.parse::<f64>() {
             Ok(sec) if sec.is_sign_positive() => sec,
-            _ => {
-                return Err(Error::with_description(
-                    "Invalid seconds as connection timeout",
-                    ErrorKind::InvalidValue,
-                ))
-            }
+            _ => return Err(anyhow!("Invalid seconds as connection timeout")),
         };
 
         let dur = Duration::from_secs_f64(pos_sec);
@@ -876,19 +867,18 @@ pub enum Proxy {
 }
 
 impl FromStr for Proxy {
-    type Err = Error;
+    type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         let split_arg: Vec<&str> = s.splitn(2, ':').collect();
         match split_arg[..] {
             [protocol, url] => {
                 let url = reqwest::Url::try_from(url).map_err(|e| {
-                    Error::with_description(
-                        &format!(
-                            "Invalid proxy URL '{}' for protocol '{}': {}",
-                            url, protocol, e
-                        ),
-                        ErrorKind::InvalidValue,
+                    anyhow!(
+                        "Invalid proxy URL '{}' for protocol '{}': {}",
+                        url,
+                        protocol,
+                        e
                     )
                 })?;
 
@@ -896,15 +886,11 @@ impl FromStr for Proxy {
                     "http" => Ok(Proxy::Http(url)),
                     "https" => Ok(Proxy::Https(url)),
                     "all" => Ok(Proxy::All(url)),
-                    _ => Err(Error::with_description(
-                        &format!("Unknown protocol to set a proxy for: {}", protocol),
-                        ErrorKind::InvalidValue,
-                    )),
+                    _ => Err(anyhow!("Unknown protocol to set a proxy for: {}", protocol)),
                 }
             }
-            _ => Err(Error::with_description(
-                "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>",
-                ErrorKind::InvalidValue,
+            _ => Err(anyhow!(
+                "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>"
             )),
         }
     }
