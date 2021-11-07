@@ -76,10 +76,10 @@ fn basic_json_post() {
         .arg("name=ali")
         .assert()
         .stdout(indoc! {r#"
-        {
-            "got": "name",
-            "status": "ok"
-        }
+            {
+                "got": "name",
+                "status": "ok"
+            }
 
 
         "#});
@@ -95,9 +95,7 @@ fn basic_get() {
     });
 
     get_command()
-        .arg("--print=b")
-        .arg("get")
-        .arg(server.base_url())
+        .args(&["--print=b", "get", &server.base_url()])
         .assert()
         .stdout("foobar\n\n");
     mock.assert();
@@ -110,7 +108,7 @@ fn basic_head() {
         when.method(HEAD);
     });
 
-    get_command().arg("head").arg(server.base_url()).assert();
+    get_command().args(&["head", &server.base_url()]).assert();
     mock.assert();
 }
 
@@ -123,9 +121,7 @@ fn basic_options() {
     });
 
     get_command()
-        .arg("-h")
-        .arg("options")
-        .arg(server.base_url())
+        .args(&["-h", "options", &server.base_url()])
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"))
         .stdout(contains("Allow:"));
@@ -140,10 +136,7 @@ fn multiline_value() {
     });
 
     get_command()
-        .arg("--form")
-        .arg("post")
-        .arg(server.base_url())
-        .arg("foo=bar\nbaz")
+        .args(&["--form", "post", &server.base_url(), "foo=bar\nbaz"])
         .assert();
     mock.assert();
 }
@@ -155,8 +148,7 @@ fn header() {
         when.header("X-Foo", "Bar");
     });
     get_command()
-        .arg(server.base_url())
-        .arg("x-foo:Bar")
+        .args(&[&server.base_url(), "x-foo:Bar"])
         .assert();
     mock.assert();
 }
@@ -168,8 +160,7 @@ fn query_param() {
         when.query_param("foo", "bar");
     });
     get_command()
-        .arg(server.base_url())
-        .arg("foo==bar")
+        .args(&[&server.base_url(), "foo==bar"])
         .assert();
     mock.assert();
 }
@@ -181,8 +172,7 @@ fn json_param() {
         when.json_body(json!({"foo": [1, 2, 3]}));
     });
     get_command()
-        .arg(server.base_url())
-        .arg("foo:=[1,2,3]")
+        .args(&[&server.base_url(), "foo:=[1,2,3]"])
         .assert();
     mock.assert();
 }
@@ -201,32 +191,30 @@ fn verbose() {
             .header("X-Foo", "Bar");
     });
     get_command()
-        .arg("--verbose")
-        .arg(server.base_url())
-        .arg("x=y")
+        .args(&["--verbose", &server.base_url(), "x=y"])
         .assert()
         .stdout(indoc! {r#"
-        POST / HTTP/1.1
-        Accept: application/json, */*;q=0.5
-        Accept-Encoding: gzip, deflate, br
-        Connection: keep-alive
-        Content-Length: 9
-        Content-Type: application/json
-        Host: http.mock
-        User-Agent: xh/0.0.0 (test mode)
+            POST / HTTP/1.1
+            Accept: application/json, */*;q=0.5
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Content-Length: 9
+            Content-Type: application/json
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
-        {
-            "x": "y"
-        }
+            {
+                "x": "y"
+            }
 
 
 
-        HTTP/1.1 200 OK
-        Content-Length: 6
-        Date: N/A
-        X-Foo: Bar
+            HTTP/1.1 200 OK
+            Content-Length: 6
+            Date: N/A
+            X-Foo: Bar
 
-        a body
+            a body
         "#});
     mock.assert();
 }
@@ -261,9 +249,7 @@ fn accept_encoding_not_modifiable_in_download_mode() {
     let dir = tempdir().unwrap();
     get_command()
         .current_dir(&dir)
-        .arg(server.base_url())
-        .arg("--download")
-        .arg("accept-encoding:gzip")
+        .args(&[&server.base_url(), "--download", "accept-encoding:gzip"])
         .assert();
     mock.assert();
 }
@@ -274,8 +260,7 @@ fn get_proxy_command(
     proxy_url: &str,
 ) -> Command {
     let mut cmd = get_command();
-    cmd.arg("--pretty=format")
-        .arg("--check-status")
+    cmd.arg("--check-status")
         .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
         .arg("GET")
         .arg(format!("{}://example.test/get", protocol_to_request));
@@ -323,14 +308,12 @@ fn download_generated_filename() {
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.url("/foo/bar/"))
+        .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
         .assert();
 
     get_command()
-        .arg("--download")
-        .arg(server.url("/foo/bar/"))
+        .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
         .assert();
 
@@ -351,8 +334,7 @@ fn download_supplied_filename() {
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.base_url())
+        .args(&["--download", &server.base_url()])
         .current_dir(&dir)
         .assert();
     mock.assert();
@@ -369,8 +351,7 @@ fn download_supplied_unquoted_filename() {
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.base_url())
+        .args(&["--download", &server.base_url()])
         .current_dir(&dir)
         .assert();
     mock.assert();
@@ -389,8 +370,7 @@ fn decode() {
     });
 
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout("é\n");
     mock.assert();
@@ -426,9 +406,7 @@ fn streaming_decode() {
     });
 
     get_command()
-        .arg("--print=b")
-        .arg("--stream")
-        .arg(server.base_url())
+        .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
         .stdout("é\n");
     mock.assert();
@@ -461,8 +439,7 @@ fn do_decode_if_formatted() {
     });
 
     redirecting_command()
-        .arg("--pretty=all")
-        .arg(server.base_url())
+        .args(&["--pretty=all", &server.base_url()])
         .assert()
         .stdout("é");
     mock.assert();
@@ -478,8 +455,7 @@ fn never_decode_if_binary() {
     });
 
     let output = redirecting_command()
-        .arg("--pretty=all")
-        .arg(server.base_url())
+        .args(&["--pretty=all", &server.base_url()])
         .assert()
         .get_output()
         .stdout
@@ -496,13 +472,12 @@ fn binary_detection() {
     });
 
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
         "#});
     mock.assert();
@@ -516,14 +491,12 @@ fn streaming_binary_detection() {
     });
 
     get_command()
-        .arg("--print=b")
-        .arg("--stream")
-        .arg(server.base_url())
+        .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
         "#});
     mock.assert();
@@ -535,15 +508,13 @@ fn request_binary_detection() {
     binary_file.write_all(b"foo\0bar").unwrap();
     binary_file.seek(SeekFrom::Start(0)).unwrap();
     redirecting_command()
-        .arg("--print=B")
-        .arg("--offline")
-        .arg(":")
+        .args(&["--print=B", "--offline", ":"])
         .stdin(binary_file)
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
 
         "#});
@@ -557,8 +528,7 @@ fn timeout() {
     });
 
     get_command()
-        .arg("--timeout=0.1")
-        .arg(server.base_url())
+        .args(&["--timeout=0.1", &server.base_url()])
         .assert()
         .failure()
         .stderr(predicates::str::contains("operation timed out"));
@@ -574,8 +544,7 @@ fn timeout_no_limit() {
     });
 
     get_command()
-        .arg("--timeout=0")
-        .arg(server.base_url())
+        .args(&["--timeout=0", &server.base_url()])
         .assert()
         .success();
 
@@ -585,9 +554,7 @@ fn timeout_no_limit() {
 #[test]
 fn timeout_invalid() {
     get_command()
-        .arg("--timeout=-0.01")
-        .arg("--offline")
-        .arg(":")
+        .args(&["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
         .stderr(predicates::str::contains(
@@ -626,7 +593,6 @@ fn last_supplied_proxy_wins() {
 fn proxy_multiple_valid_proxies() {
     let mut cmd = get_command();
     cmd.arg("--offline")
-        .arg("--pretty=format")
         .arg("--proxy=http:https://127.0.0.1:8000")
         .arg("--proxy=https:socks5://127.0.0.1:8000")
         .arg("--proxy=all:http://127.0.0.1:8000")
@@ -644,8 +610,7 @@ fn check_status() {
     });
 
     get_command()
-        .arg("--check-status")
-        .arg(server.base_url())
+        .args(&["--check-status", &server.base_url()])
         .assert()
         .code(4)
         .stderr("");
@@ -690,8 +655,7 @@ fn user_password_auth() {
     });
 
     get_command()
-        .arg("--auth=user:pass")
-        .arg(server.base_url())
+        .args(&["--auth=user:pass", &server.base_url()])
         .assert();
     mock.assert();
 }
@@ -759,8 +723,7 @@ fn check_status_warning() {
     });
 
     redirecting_command()
-        .arg("--check-status")
-        .arg(server.base_url())
+        .args(&["--check-status", &server.base_url()])
         .assert()
         .code(5)
         .stderr("xh: warning: HTTP 501 Not Implemented\n");
@@ -775,8 +738,7 @@ fn user_auth() {
     });
 
     get_command()
-        .arg("--auth=user:")
-        .arg(server.base_url())
+        .args(&["--auth=user:", &server.base_url()])
         .assert();
     mock.assert();
 }
@@ -789,8 +751,7 @@ fn bearer_auth() {
     });
 
     get_command()
-        .arg("--bearer=SomeToken")
-        .arg(server.base_url())
+        .args(&["--bearer=SomeToken", &server.base_url()])
         .assert();
     mock.assert();
 }
@@ -802,10 +763,7 @@ fn bearer_auth() {
 #[test]
 fn verify_default_yes() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "https://self-signed.badssl.com"])
         .assert()
         .failure()
         .stdout(predicates::str::contains("GET / HTTP/1.1"))
@@ -815,11 +773,7 @@ fn verify_default_yes() {
 #[test]
 fn verify_explicit_yes() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("--verify=yes")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
         .failure()
         .stdout(predicates::str::contains("GET / HTTP/1.1"))
@@ -829,11 +783,7 @@ fn verify_explicit_yes() {
 #[test]
 fn verify_no() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("--verify=no")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "--verify=no", "https://self-signed.badssl.com"])
         .assert()
         .stdout(predicates::str::contains("GET / HTTP/1.1"))
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
@@ -844,9 +794,7 @@ fn verify_no() {
 fn verify_valid_file() {
     get_command()
         .arg("-v")
-        .arg("--pretty=format")
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
-        .arg("get")
         .arg("https://self-signed.badssl.com")
         .assert()
         .stdout(predicates::str::contains("GET / HTTP/1.1"))
@@ -872,10 +820,7 @@ fn verify_valid_file_native_tls() {
 #[test]
 fn cert_without_key() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("get")
-        .arg("https://client.badssl.com")
+        .args(&["-v", "https://client.badssl.com"])
         .assert()
         .stdout(predicates::str::contains(
             "400 No required SSL certificate was sent",
@@ -887,10 +832,8 @@ fn cert_without_key() {
 fn cert_with_key() {
     get_command()
         .arg("-v")
-        .arg("--pretty=format")
         .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
         .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
-        .arg("get")
         .arg("https://client.badssl.com")
         .assert()
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
@@ -917,8 +860,7 @@ fn cert_with_key_native_tls() {
 #[test]
 fn native_tls_flag_disabled() {
     get_command()
-        .arg("--native-tls")
-        .arg(":")
+        .args(&["--native-tls", ":"])
         .assert()
         .failure()
         .stderr(predicates::str::contains(
@@ -943,8 +885,7 @@ fn improved_https_ip_error_no_support() {
 #[test]
 fn native_tls_works() {
     get_command()
-        .arg("--native-tls")
-        .arg("https://example.org")
+        .args(&["--native-tls", "https://example.org"])
         .assert()
         .success();
 }
@@ -957,8 +898,7 @@ fn improved_https_ip_error_with_support() {
         then.permanent_redirect("https://1.1.1.1");
     });
     get_command()
-        .arg("--follow")
-        .arg(server.base_url())
+        .args(&["--follow", &server.base_url()])
         .assert()
         .failure()
         .stderr(predicates::str::contains("rustls does not support"))
@@ -970,8 +910,7 @@ fn improved_https_ip_error_with_support() {
 #[test]
 fn auto_nativetls() {
     get_command()
-        .arg("--offline")
-        .arg("https://1.1.1.1")
+        .args(&["--offline", "https://1.1.1.1"])
         .assert()
         .success()
         .stderr(predicates::str::contains("native-tls will be enabled"));
@@ -986,8 +925,7 @@ fn forced_json() {
             .header("accept", "application/json, */*;q=0.5");
     });
     get_command()
-        .arg("--json")
-        .arg(server.base_url())
+        .args(&["--json", &server.base_url()])
         .assert()
         .success();
     mock.assert();
@@ -1001,8 +939,7 @@ fn forced_form() {
             .header("content-type", "application/x-www-form-urlencoded");
     });
     get_command()
-        .arg("--form")
-        .arg(server.base_url())
+        .args(&["--form", &server.base_url()])
         .assert()
         .success();
     mock.assert();
@@ -1015,8 +952,7 @@ fn forced_multipart() {
         when.method(POST).header_exists("content-type").body("");
     });
     get_command()
-        .arg("--multipart")
-        .arg(server.base_url())
+        .args(&["--multipart", &server.base_url()])
         .assert()
         .success();
     mock.assert();
@@ -1030,13 +966,12 @@ fn formatted_json_output() {
             .body(r#"{"":0}"#);
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
@@ -1050,13 +985,12 @@ fn inferred_json_output() {
         then.header("content-type", "text/plain").body(r#"{"":0}"#);
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
@@ -1071,13 +1005,12 @@ fn inferred_json_javascript_output() {
             .body(r#"{"":0}"#);
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
@@ -1092,11 +1025,10 @@ fn inferred_nonjson_output() {
         then.header("content-type", "text/plain").body(r#"{"":0,}"#);
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {"":0,}
+            {"":0,}
         "#});
     mock.assert();
 }
@@ -1110,11 +1042,10 @@ fn noninferred_json_output() {
             .body(r#"{"":0}"#);
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {"":0}
+            {"":0}
         "#});
     mock.assert();
 }
@@ -1123,9 +1054,7 @@ fn noninferred_json_output() {
 fn mixed_stdin_request_items() {
     let input_file = tempfile().unwrap();
     redirecting_command()
-        .arg("--offline")
-        .arg(":")
-        .arg("x=3")
+        .args(&["--offline", ":", "x=3"])
         .stdin(input_file)
         .assert()
         .failure()
@@ -1138,9 +1067,7 @@ fn mixed_stdin_request_items() {
 fn multipart_stdin() {
     let input_file = tempfile().unwrap();
     redirecting_command()
-        .arg("--offline")
-        .arg("--multipart")
-        .arg(":")
+        .args(&["--offline", "--multipart", ":"])
         .stdin(input_file)
         .assert()
         .failure()
@@ -1293,9 +1220,7 @@ fn body_from_file_with_fallback_mimetype() {
 #[test]
 fn no_double_file_body() {
     get_command()
-        .arg(":")
-        .arg("@foo")
-        .arg("@bar")
+        .args(&[":", "@foo", "@bar"])
         .assert()
         .failure()
         .stderr(predicate::str::contains(
@@ -1327,8 +1252,7 @@ fn print_body_from_file() {
 #[test]
 fn colored_headers() {
     color_command()
-        .arg("--offline")
-        .arg(":")
+        .args(&["--offline", ":"])
         .assert()
         .success()
         // Color
@@ -1340,9 +1264,7 @@ fn colored_headers() {
 #[test]
 fn colored_body() {
     color_command()
-        .arg("--offline")
-        .arg(":")
-        .arg("x:=3")
+        .args(&["--offline", ":", "x:=3"])
         .assert()
         .success()
         .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
@@ -1369,10 +1291,7 @@ fn request_json_keys_order_is_preserved() {
     });
 
     get_command()
-        .arg("get")
-        .arg(server.base_url())
-        .arg("name=ali")
-        .arg("age:=24")
+        .args(&["get", &server.base_url(), "name=ali", "age:=24"])
         .assert();
     mock.assert();
 }
@@ -1432,9 +1351,7 @@ fn json_field_from_file() {
 #[test]
 fn can_unset_default_headers() {
     get_command()
-        .arg(":")
-        .arg("user-agent:")
-        .arg("--offline")
+        .args(&[":", "user-agent:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1449,11 +1366,7 @@ fn can_unset_default_headers() {
 #[test]
 fn can_unset_headers() {
     get_command()
-        .arg(":")
-        .arg("hello:world")
-        .arg("goodby:world")
-        .arg("goodby:")
-        .arg("--offline")
+        .args(&[":", "hello:world", "goodby:world", "goodby:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1470,10 +1383,7 @@ fn can_unset_headers() {
 #[test]
 fn can_set_unset_header() {
     get_command()
-        .arg(":")
-        .arg("hello:")
-        .arg("hello:world")
-        .arg("--offline")
+        .args(&[":", "hello:", "hello:world", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1923,10 +1833,7 @@ fn print_intermediate_requests_and_responses() {
     });
 
     get_command()
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("--verbose")
-        .arg("--all")
+        .args(&[&server1.base_url(), "--follow", "--verbose", "--all"])
         .assert()
         .stdout(formatdoc! {r#"
             GET / HTTP/1.1
@@ -2023,9 +1930,7 @@ fn max_redirects_is_enforced() {
     });
 
     get_command()
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("--max-redirects=5")
+        .args(&[&server1.base_url(), "--follow", "--max-redirects=5"])
         .assert()
         .stderr(predicate::str::contains(
             "Too many redirects (--max-redirects=5)",
@@ -2057,10 +1962,7 @@ fn method_is_changed_when_following_302_redirect() {
     });
 
     get_command()
-        .arg("post")
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("name=ali")
+        .args(&["post", &server1.base_url(), "--follow", "name=ali"])
         .assert()
         .success();
 
@@ -2084,10 +1986,7 @@ fn method_is_not_changed_when_following_307_redirect() {
     });
 
     get_command()
-        .arg("post")
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("name=ali")
+        .args(&["post", &server1.base_url(), "--follow", "name=ali"])
         .assert()
         .success();
 
@@ -2190,8 +2089,7 @@ fn warns_if_config_is_invalid() {
 
     get_command()
         .env("XH_CONFIG_DIR", config_dir.path())
-        .arg(":")
-        .arg("--offline")
+        .args(&[":", "--offline"])
         .assert()
         .stderr(contains("Unable to parse config file"))
         .success();
@@ -2200,9 +2098,7 @@ fn warns_if_config_is_invalid() {
 #[test]
 fn http1_0() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=1.0")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=1.0", "https://www.google.com"])
         .assert()
         .success()
         .stdout(predicates::str::contains("GET / HTTP/1.0"))
@@ -2214,9 +2110,7 @@ fn http1_0() {
 #[test]
 fn http1_1() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=1.1")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=1.1", "https://www.google.com"])
         .assert()
         .success()
         .stdout(predicates::str::contains("GET / HTTP/1.1"))
@@ -2226,9 +2120,7 @@ fn http1_1() {
 #[test]
 fn http2() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=2")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=2", "https://www.google.com"])
         .assert()
         .success()
         .stdout(predicates::str::contains("GET / HTTP/2.0"))
