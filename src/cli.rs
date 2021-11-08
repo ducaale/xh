@@ -34,6 +34,7 @@ use crate::utils::config_dir;
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
+    version = concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES")),
     settings = &[
         AppSettings::DeriveDisplayOrder,
         AppSettings::UnifiedHelpMessage,
