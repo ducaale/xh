@@ -8,10 +8,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use tokio::sync::oneshot;
-
-pub use http::Response;
+use hyper::service::{make_service_fn, service_fn};
 use tokio::runtime;
+use tokio::sync::oneshot;
 
 pub struct Server {
     addr: net::SocketAddr,
@@ -59,15 +58,19 @@ where
         let srv = {
             let call_counter = call_counter.clone();
             rt.block_on(async move {
-                let make_service = hyper::service::make_service_fn(move |_| {
+                let make_service = make_service_fn(move |_| {
                     let func = func.clone();
                     let call_counter = call_counter.clone();
                     async move {
-                        Ok::<_, Infallible>(hyper::service::service_fn(move |req| {
-                            let mut num = call_counter.lock().unwrap();
-                            *num += 1;
+                        Ok::<_, Infallible>(service_fn(move |req| {
                             let fut = func(req);
-                            async move { Ok::<_, Infallible>(fut.await) }
+                            let call_counter = call_counter.clone();
+                            async move {
+                                let res = fut.await;
+                                let mut num = call_counter.lock().unwrap();
+                                *num += 1;
+                                Ok::<_, Infallible>(res)
+                            }
                         }))
                     }
                 });
