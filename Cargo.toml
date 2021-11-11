@@ -67,8 +67,9 @@ tempfile = "3.2.0"
 syntect = { version = "4.4", default-features = false }
 
 [features]
-default = ["integration-tests"]
+default = ["integration-tests", "online-tests"]
 integration-tests = []
+online-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 
 [package.metadata.deb]

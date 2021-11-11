@@ -827,6 +827,7 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_default_yes() {
     get_command()
@@ -837,6 +838,7 @@ fn verify_default_yes() {
         .stderr(predicates::str::contains("UnknownIssuer"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_explicit_yes() {
     get_command()
@@ -847,6 +849,7 @@ fn verify_explicit_yes() {
         .stderr(predicates::str::contains("UnknownIssuer"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_no() {
     get_command()
@@ -857,6 +860,7 @@ fn verify_no() {
         .stderr(predicates::str::is_empty());
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_valid_file() {
     get_command()
@@ -871,7 +875,7 @@ fn verify_valid_file() {
 
 // This test may fail if https://github.com/seanmonstar/reqwest/issues/1260 is fixed
 // If that happens make sure to remove the warning, not just this test
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn verify_valid_file_native_tls() {
     get_command()
@@ -884,6 +888,7 @@ fn verify_valid_file_native_tls() {
         ));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn cert_without_key() {
     get_command()
@@ -895,6 +900,7 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn cert_with_key() {
     get_command()
@@ -908,7 +914,7 @@ fn cert_with_key() {
         .stderr(predicates::str::is_empty());
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn cert_with_key_native_tls() {
     get_command()
@@ -935,7 +941,7 @@ fn native_tls_flag_disabled() {
         ));
 }
 
-#[cfg(not(feature = "native-tls"))]
+#[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_no_support() {
     get_command()
@@ -948,7 +954,7 @@ fn improved_https_ip_error_no_support() {
         ));
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn native_tls_works() {
     get_command()
@@ -957,7 +963,7 @@ fn native_tls_works() {
         .success();
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_with_support() {
     let server = server::http(|_req| async move {
@@ -2218,6 +2224,7 @@ fn warns_if_config_is_invalid() {
         .success();
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http1_0() {
     get_command()
@@ -2230,6 +2237,7 @@ fn http1_0() {
         .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http1_1() {
     get_command()
@@ -2240,6 +2248,7 @@ fn http1_1() {
         .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http2() {
     get_command()
