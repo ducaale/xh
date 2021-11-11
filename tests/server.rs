@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 
 pub struct Server {
     addr: net::SocketAddr,
-    hits_counter: Arc<Mutex<u8>>,
+    hits: Arc<Mutex<u8>>,
     panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -37,7 +37,7 @@ impl Server {
     }
 
     pub fn assert_hits(&self, hits: u8) {
-        assert_eq!(*self.hits_counter.lock().unwrap(), hits);
+        assert_eq!(*self.hits.lock().unwrap(), hits);
     }
 }
 
@@ -111,7 +111,7 @@ where
 
         Server {
             addr,
-            hits_counter,
+            hits: hits_counter,
             panic_rx,
             shutdown_tx: Some(shutdown_tx),
         }
