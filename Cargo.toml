@@ -53,17 +53,14 @@ default-features = false
 features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
 
 [dev-dependencies]
-# Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
 assert_cmd = "1.0"
 assert_matches = "1.4.0"
 form_urlencoded = "1.0.1"
 indoc = "1.0"
 predicates = "1.0.7"
-httpmock = "0.5.5"
 http = "0.2"
 hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
-curl = { version = "0.4.34", features = ["static-ssl"] }
 tempfile = "3.2.0"
 
 [build-dependencies]
