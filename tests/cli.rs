@@ -1,12 +1,13 @@
 #![cfg(feature = "integration-tests")]
-use std::{
-    collections::HashSet,
-    fs::File,
-    fs::{create_dir_all, read_to_string, OpenOptions},
-    io::{Seek, SeekFrom, Write},
-    process::Command,
-    time::Duration,
-};
+mod server;
+
+use std::collections::{HashMap, HashSet};
+use std::fs::{create_dir_all, read_to_string, File, OpenOptions};
+use std::future::Future;
+use std::io::{Seek, SeekFrom, Write};
+use std::pin::Pin;
+use std::process::Command;
+use std::time::Duration;
 
 use assert_cmd::prelude::*;
 use httpmock::{HttpMockRequest, Method::*, MockServer};
@@ -15,6 +16,41 @@ use predicate::str::contains;
 use predicates::prelude::*;
 use serde_json::json;
 use tempfile::{tempdir, tempfile};
+
+pub trait RequestExt {
+    fn query_params(&self) -> HashMap<String, String>;
+    fn body(self) -> Pin<Box<dyn Future<Output = Vec<u8>> + Send>>;
+    fn body_as_string(self) -> Pin<Box<dyn Future<Output = String> + Send>>;
+}
+
+impl<T> RequestExt for hyper::Request<T>
+where
+    T: hyper::body::HttpBody + Send + 'static,
+    T::Data: Send,
+    T::Error: std::fmt::Debug,
+{
+    fn query_params(&self) -> HashMap<String, String> {
+        form_urlencoded::parse(&self.uri().query().unwrap().as_bytes())
+            .into_owned()
+            .collect::<HashMap<String, String>>()
+    }
+
+    fn body(self) -> Pin<Box<dyn Future<Output = Vec<u8>> + Send>> {
+        let fut = async {
+            hyper::body::to_bytes(self)
+                .await
+                .unwrap()
+                .as_ref()
+                .to_owned()
+        };
+        Box::pin(fut)
+    }
+
+    fn body_as_string(self) -> Pin<Box<dyn Future<Output = String> + Send>> {
+        let fut = async { String::from_utf8(self.body().await).unwrap() };
+        Box::pin(fut)
+    }
+}
 
 fn random_string() -> String {
     use rand::Rng;

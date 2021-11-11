@@ -14,18 +14,30 @@ use tokio::sync::oneshot;
 
 pub struct Server {
     addr: net::SocketAddr,
-    call_counter: Arc<Mutex<u8>>,
+    hits_counter: Arc<Mutex<u8>>,
     panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
 impl Server {
-    pub fn addr(&self) -> String {
-        self.addr.to_string()
+    pub fn base_url(&self) -> String {
+        format!("http://{}", self.addr.to_string())
     }
 
-    pub fn assert_called_once(&self) {
-        assert_eq!(*self.call_counter.lock().unwrap(), 1);
+    pub fn url(&self, path: &str) -> String {
+        format!("http://{}{}", self.addr.to_string(), path)
+    }
+
+    pub fn host(&self) -> String {
+        String::from("127.0.0.1")
+    }
+
+    pub fn port(&self) -> u16 {
+        self.addr.port()
+    }
+
+    pub fn assert_hits(&self, hits: u8) {
+        assert_eq!(*self.hits_counter.lock().unwrap(), hits);
     }
 }
 
@@ -50,24 +62,24 @@ where
 {
     //Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
-        let call_counter = Arc::new(Mutex::new(0));
+        let hits_counter = Arc::new(Mutex::new(0));
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("new rt");
         let srv = {
-            let call_counter = call_counter.clone();
+            let hits_counter = hits_counter.clone();
             rt.block_on(async move {
                 let make_service = make_service_fn(move |_| {
                     let func = func.clone();
-                    let call_counter = call_counter.clone();
+                    let hits_counter = hits_counter.clone();
                     async move {
                         Ok::<_, Infallible>(service_fn(move |req| {
                             let fut = func(req);
-                            let call_counter = call_counter.clone();
+                            let hits_counter = hits_counter.clone();
                             async move {
                                 let res = fut.await;
-                                let mut num = call_counter.lock().unwrap();
+                                let mut num = hits_counter.lock().unwrap();
                                 *num += 1;
                                 Ok::<_, Infallible>(res)
                             }
@@ -99,7 +111,7 @@ where
 
         Server {
             addr,
-            call_counter,
+            hits_counter,
             panic_rx,
             shutdown_tx: Some(shutdown_tx),
         }

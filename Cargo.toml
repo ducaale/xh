@@ -56,6 +56,7 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 # Some are only needed for the `integration-tests` feature, but dev-dependencies can't be optional
 assert_cmd = "1.0"
 assert_matches = "1.4.0"
+form_urlencoded = "1.0.1"
 indoc = "1.0"
 predicates = "1.0.7"
 httpmock = "0.5.5"
