@@ -2258,3 +2258,45 @@ fn http2() {
         .stdout(predicates::str::contains("GET / HTTP/2.0"))
         .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
 }
+
+#[test]
+fn override_response_charset() {
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--response-charset=latin1")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
+    server.assert_hits(1);
+}
+
+#[test]
+fn override_response_mime() {
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body("{\"status\": \"ok\"}".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--response-mime=application/json")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "status": "ok"
+        }
+
+
+        "#});
+    server.assert_hits(1);
+}

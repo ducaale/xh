@@ -16,20 +16,18 @@ pub fn get_json_formatter() -> jsonxf::Formatter {
     fmt
 }
 
-lazy_static::lazy_static! {
-    static ref TS: ThemeSet = from_binary(include_bytes!(concat!(
+static TS: once_cell::sync::Lazy<ThemeSet> = once_cell::sync::Lazy::new(|| {
+    from_binary(include_bytes!(concat!(
         env!("OUT_DIR"),
         "/themepack.themedump"
-    )));
-    static ref PS_BASIC: SyntaxSet = from_binary(include_bytes!(concat!(
-        env!("OUT_DIR"),
-        "/basic.packdump"
-    )));
-    static ref PS_LARGE: SyntaxSet = from_binary(include_bytes!(concat!(
-        env!("OUT_DIR"),
-        "/large.packdump"
-    )));
-}
+    )))
+});
+static PS_BASIC: once_cell::sync::Lazy<SyntaxSet> = once_cell::sync::Lazy::new(|| {
+    from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/basic.packdump")))
+});
+static PS_LARGE: once_cell::sync::Lazy<SyntaxSet> = once_cell::sync::Lazy::new(|| {
+    from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/large.packdump")))
+});
 
 pub struct Highlighter<'a> {
     highlighter: HighlightLines<'static>,
