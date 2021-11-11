@@ -296,52 +296,6 @@ fn accept_encoding_not_modifiable_in_download_mode() {
     server.assert_hits(1);
 }
 
-fn get_proxy_command(
-    protocol_to_request: &str,
-    protocol_to_proxy: &str,
-    proxy_url: &str,
-) -> Command {
-    let mut cmd = get_command();
-    cmd.arg("--check-status")
-        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
-        .arg("GET")
-        .arg(format!("{}://example.test/get", protocol_to_request));
-    cmd
-}
-
-#[test]
-fn proxy_http_proxy() {
-    let server = server::http(|req| async move {
-        assert_eq!(req.method(), "GET");
-        assert_eq!(req.headers()["host"], "example.test");
-        http::Response::default()
-    });
-
-    get_proxy_command("http", "http", &server.base_url())
-        .assert()
-        .success();
-
-    server.assert_hits(1);
-}
-
-#[test]
-fn proxy_https_proxy() {
-    let server = server::http(|req| async move {
-        assert_eq!(req.method(), "CONNECT");
-        http::Response::builder()
-            .status(502)
-            .body("".into())
-            .unwrap()
-    });
-
-    get_proxy_command("https", "https", &server.base_url())
-        .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
-        .failure();
-
-    server.assert_hits(1);
-}
-
 #[test]
 fn download_generated_filename() {
     let dir = tempdir().unwrap();
@@ -408,6 +362,10 @@ fn download_supplied_unquoted_filename() {
     );
 }
 
+// TODO: test implicit download filenames
+// For this we have to pretend the output is a tty
+// This intersects with both #41 and #59
+
 #[test]
 fn decode() {
     let server = server::http(|_req| async move {
@@ -421,30 +379,6 @@ fn decode() {
         .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout("é\n");
-    server.assert_hits(1);
-}
-
-#[test]
-fn proxy_all_proxy() {
-    let server = server::http(|req| async move {
-        assert_eq!(req.method(), "CONNECT");
-        http::Response::builder()
-            .status(502)
-            .body("".into())
-            .unwrap()
-    });
-
-    get_proxy_command("https", "all", &server.base_url())
-        .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
-        .failure();
-
-    server.assert_hits(1);
-
-    get_proxy_command("http", "all", &server.base_url())
-        .assert()
-        .failure();
-
     server.assert_hits(1);
 }
 
@@ -617,51 +551,6 @@ fn timeout_invalid() {
 }
 
 #[test]
-fn last_supplied_proxy_wins() {
-    let first_server = server::http(|req| async move {
-        assert_eq!(req.headers()["host"], "example.test");
-        http::Response::builder()
-            .status(500)
-            .body("".into())
-            .unwrap()
-    });
-
-    let second_server = server::http(|req| async move {
-        assert_eq!(req.headers()["host"], "example.test");
-        http::Response::builder()
-            .status(200)
-            .body("".into())
-            .unwrap()
-    });
-
-    let mut cmd = get_command();
-    cmd.args(&[
-        format!("--proxy=http:{}", first_server.base_url()).as_str(),
-        format!("--proxy=http:{}", second_server.base_url()).as_str(),
-        "GET",
-        "http://example.test",
-    ])
-    .assert()
-    .success();
-
-    first_server.assert_hits(0);
-    second_server.assert_hits(1);
-}
-
-#[test]
-fn proxy_multiple_valid_proxies() {
-    let mut cmd = get_command();
-    cmd.arg("--offline")
-        .arg("--proxy=http:https://127.0.0.1:8000")
-        .arg("--proxy=https:socks5://127.0.0.1:8000")
-        .arg("--proxy=all:http://127.0.0.1:8000")
-        .arg("GET")
-        .arg("http://httpbin.org/get");
-
-    cmd.assert().success();
-}
-
-#[test]
 fn check_status() {
     let server = server::http(|_req| async move {
         http::Response::builder()
@@ -675,6 +564,23 @@ fn check_status() {
         .assert()
         .code(4)
         .stderr("");
+    server.assert_hits(1);
+}
+
+#[test]
+fn check_status_warning() {
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(501)
+            .body("".into())
+            .unwrap()
+    });
+
+    redirecting_command()
+        .args(&["--check-status", &server.base_url()])
+        .assert()
+        .code(5)
+        .stderr("xh: warning: HTTP 501 Not Implemented\n");
     server.assert_hits(1);
 }
 
@@ -721,6 +627,32 @@ fn user_password_auth() {
 
     get_command()
         .args(&["--auth=user:pass", &server.base_url()])
+        .assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn user_auth() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Basic dXNlcjo=");
+        http::Response::default()
+    });
+
+    get_command()
+        .args(&["--auth=user:", &server.base_url()])
+        .assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn bearer_auth() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Bearer SomeToken");
+        http::Response::default()
+    });
+
+    get_command()
+        .args(&["--bearer=SomeToken", &server.base_url()])
         .assert();
     server.assert_hits(1);
 }
@@ -780,52 +712,120 @@ fn netrc_file_user_password_auth() {
     }
 }
 
+fn get_proxy_command(
+    protocol_to_request: &str,
+    protocol_to_proxy: &str,
+    proxy_url: &str,
+) -> Command {
+    let mut cmd = get_command();
+    cmd.arg("--check-status")
+        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
+        .arg("GET")
+        .arg(format!("{}://example.test/get", protocol_to_request));
+    cmd
+}
+
 #[test]
-fn check_status_warning() {
-    let server = server::http(|_req| async move {
+fn proxy_http_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::default()
+    });
+
+    get_proxy_command("http", "http", &server.base_url())
+        .assert()
+        .success();
+
+    server.assert_hits(1);
+}
+
+#[test]
+fn proxy_https_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "CONNECT");
         http::Response::builder()
-            .status(501)
+            .status(502)
             .body("".into())
             .unwrap()
     });
 
-    redirecting_command()
-        .args(&["--check-status", &server.base_url()])
+    get_proxy_command("https", "https", &server.base_url())
         .assert()
-        .code(5)
-        .stderr("xh: warning: HTTP 501 Not Implemented\n");
+        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .failure();
+
     server.assert_hits(1);
 }
 
 #[test]
-fn user_auth() {
+fn proxy_all_proxy() {
     let server = server::http(|req| async move {
-        assert_eq!(req.headers()["Authorization"], "Basic dXNlcjo=");
-        http::Response::default()
+        assert_eq!(req.method(), "CONNECT");
+        http::Response::builder()
+            .status(502)
+            .body("".into())
+            .unwrap()
     });
 
-    get_command()
-        .args(&["--auth=user:", &server.base_url()])
-        .assert();
+    get_proxy_command("https", "all", &server.base_url())
+        .assert()
+        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .failure();
+
+    server.assert_hits(1);
+
+    get_proxy_command("http", "all", &server.base_url())
+        .assert()
+        .failure();
+
     server.assert_hits(1);
 }
 
 #[test]
-fn bearer_auth() {
-    let server = server::http(|req| async move {
-        assert_eq!(req.headers()["Authorization"], "Bearer SomeToken");
-        http::Response::default()
+fn last_supplied_proxy_wins() {
+    let first_server = server::http(|req| async move {
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::builder()
+            .status(500)
+            .body("".into())
+            .unwrap()
     });
 
-    get_command()
-        .args(&["--bearer=SomeToken", &server.base_url()])
-        .assert();
-    server.assert_hits(1);
+    let second_server = server::http(|req| async move {
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::builder()
+            .status(200)
+            .body("".into())
+            .unwrap()
+    });
+
+    let mut cmd = get_command();
+    cmd.args(&[
+        format!("--proxy=http:{}", first_server.base_url()).as_str(),
+        format!("--proxy=http:{}", second_server.base_url()).as_str(),
+        "GET",
+        "http://example.test",
+    ])
+    .assert()
+    .success();
+
+    first_server.assert_hits(0);
+    second_server.assert_hits(1);
 }
 
-// TODO: test implicit download filenames
-// For this we have to pretend the output is a tty
-// This intersects with both #41 and #59
+#[test]
+fn proxy_multiple_valid_proxies() {
+    let mut cmd = get_command();
+    cmd.arg("--offline")
+        .arg("--proxy=http:https://127.0.0.1:8000")
+        .arg("--proxy=https:socks5://127.0.0.1:8000")
+        .arg("--proxy=all:http://127.0.0.1:8000")
+        .arg("GET")
+        .arg("http://httpbin.org/get");
+
+    cmd.assert().success();
+}
 
 #[test]
 fn verify_default_yes() {
