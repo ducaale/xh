@@ -15,6 +15,8 @@ use tokio::sync::oneshot;
 pub struct Server {
     addr: net::SocketAddr,
     hits: Arc<Mutex<u8>>,
+    // The panic_rx channel is to make sure the test fails if the server panics.
+    // If the server panics, the message is not sent and the recv call panics.
     panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -86,6 +88,8 @@ where
                         }))
                     }
                 });
+                // Port 0 is used to obtain a dynamically assigned port.
+                // See https://networkengineering.stackexchange.com/a/64784
                 hyper::Server::bind(&([127, 0, 0, 1], 0).into()).serve(make_service)
             })
         };
