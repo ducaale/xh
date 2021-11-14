@@ -147,7 +147,7 @@ pub struct Cli {
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
-    #[structopt(long, value_name = "TOKEN")]
+    #[structopt(long, value_name = "TOKEN", hidden = true)]
     pub bearer: Option<String>,
 
     /// Do not use credentials from .netrc
