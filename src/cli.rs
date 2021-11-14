@@ -156,11 +156,14 @@ pub struct Cli {
     #[structopt(short = "A", long, possible_values = &AuthType::variants(), case_insensitive = true)]
     pub auth_type: Option<AuthType>,
 
-    /// Authenticate as USER with PASS. PASS will be prompted if missing.
+    /// Authenticate as USER with PASS or with token.
     ///
-    /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+    /// PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`)
+    /// to authenticate with just a username.
+    ///
+    /// if --auth-type=bearer then --auth expects a token
     /// {n}{n}{n}
-    #[structopt(short = "a", long, value_name = "USER[:PASS]")]
+    #[structopt(short = "a", long, value_name = "USER[:PASS] | token")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
