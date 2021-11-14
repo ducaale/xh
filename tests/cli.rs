@@ -1017,6 +1017,35 @@ fn bad_tls_version_nativetls() {
         .failure();
 }
 
+#[cfg(feature = "native-tls")]
+#[test]
+fn unsupported_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("--native-tls")
+        .arg("https://example.org")
+        .assert()
+        .failure()
+        .stderr(contains("invalid minimum TLS version"))
+        .stderr(contains("running without the --native-tls"));
+}
+
+#[test]
+fn unsupported_tls_version_rustls() {
+    #[cfg(feature = "native-tls")]
+    const MSG: &str = "native-tls will be enabled";
+    #[cfg(not(feature = "native-tls"))]
+    const MSG: &str = "Consider building with the `native-tls` feature enabled";
+
+    get_command()
+        .arg("--offline")
+        .arg("--ssl=tls1.1")
+        .arg(":")
+        .assert()
+        .stderr(contains("rustls does not support older TLS versions"))
+        .stderr(contains(MSG));
+}
+
 #[test]
 fn forced_json() {
     let server = MockServer::start();
