@@ -2417,3 +2417,43 @@ fn http2() {
         .stdout(predicates::str::contains("GET / HTTP/2.0"))
         .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
 }
+
+#[test]
+fn override_response_charset() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/plain; charset=utf-8")
+            .body(b"\xe9");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--response-charset=latin1")
+        .arg(server.base_url())
+        .assert()
+        .stdout("é\n");
+    mock.assert();
+}
+
+#[test]
+fn override_response_mime() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("Content-Type", "text/html; charset=utf-8")
+            .body("{\"status\": \"ok\"}");
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("--response-mime=application/json")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        {
+            "status": "ok"
+        }
+
+
+        "#});
+    mock.assert();
+}

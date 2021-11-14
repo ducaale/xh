@@ -70,14 +70,12 @@ macro_rules! vec_of_strings {
 #[macro_export]
 macro_rules! regex {
     ($name:ident = $($re:expr)+) => {
-        lazy_static::lazy_static! {
-            static ref $name: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
-        }
+        static $name: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(concat!($($re,)+)).unwrap());
     };
     ($($re:expr)+) => {{
-        lazy_static::lazy_static! {
-            static ref RE: regex::Regex = regex::Regex::new(concat!($($re,)+)).unwrap();
-        }
+        static RE: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(concat!($($re,)+)).unwrap());
         &RE
     }};
 }

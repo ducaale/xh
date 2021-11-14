@@ -14,6 +14,23 @@ fn build_syntax(dir: &str, out: &str) {
     dump_to_file(&ss, Path::new(&out_dir).join(out)).unwrap();
 }
 
+fn feature_status(feature: &str) -> String {
+    if env::var_os(format!(
+        "CARGO_FEATURE_{}",
+        feature.to_uppercase().replace("-", "_")
+    ))
+    .is_some()
+    {
+        format!("+{}", feature)
+    } else {
+        format!("-{}", feature)
+    }
+}
+
+fn features() -> String {
+    feature_status("native-tls")
+}
+
 fn main() {
     for dir in &["assets", "assets/basic", "assets/large"] {
         println!("cargo:rerun-if-changed={}", dir);
@@ -31,4 +48,6 @@ fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let ts = ThemeSet::load_from_folder("assets").unwrap();
     dump_to_file(&ts, Path::new(&out_dir).join("themepack.themedump")).unwrap();
+
+    println!("cargo:rustc-env=XH_FEATURES={}", features());
 }

@@ -368,8 +368,17 @@ impl Printer {
         Ok(())
     }
 
-    pub fn print_response_body(&mut self, mut response: Response) -> anyhow::Result<()> {
-        let content_type = get_content_type(response.headers());
+    pub fn print_response_body(
+        &mut self,
+        mut response: Response,
+        encoding: Option<&'static Encoding>,
+        mime: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let content_type = mime
+            .map(ContentType::from)
+            .unwrap_or_else(|| get_content_type(response.headers()));
+        let encoding = encoding.unwrap_or_else(|| guess_encoding(&response));
+
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is
@@ -385,9 +394,13 @@ impl Printer {
                 // Unconditionally decoding is not an option because the body
                 // might not be text at all
                 if self.stream {
-                    self.print_body_stream(content_type, &mut decode_stream(&mut response))?;
+                    self.print_body_stream(
+                        content_type,
+                        &mut decode_stream(&mut response, encoding),
+                    )?;
                 } else {
-                    let text = response.text()?;
+                    let bytes = response.bytes()?;
+                    let (text, _, _) = encoding.decode(&bytes);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
@@ -397,7 +410,8 @@ impl Printer {
                 self.buffer.print(&body)?;
             }
         } else if self.stream {
-            match self.print_body_stream(content_type, &mut decode_stream(&mut response)) {
+            match self.print_body_stream(content_type, &mut decode_stream(&mut response, encoding))
+            {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -407,8 +421,9 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            // Note that .text() behaves like String::from_utf8_lossy()
-            let text = response.text()?;
+            // Note that .decode() behaves like String::from_utf8_lossy()
+            let bytes = response.bytes()?;
+            let (text, _, _) = encoding.decode(&bytes);
             if text.contains('\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
                 return Ok(());
@@ -441,35 +456,39 @@ impl ContentType {
     }
 }
 
+impl From<&str> for ContentType {
+    fn from(content_type: &str) -> Self {
+        if content_type.contains("json") {
+            ContentType::Json
+        } else if content_type.contains("html") {
+            ContentType::Html
+        } else if content_type.contains("xml") {
+            ContentType::Xml
+        } else if content_type.contains("multipart") {
+            ContentType::Multipart
+        } else if content_type.contains("x-www-form-urlencoded") {
+            ContentType::UrlencodedForm
+        } else if content_type.contains("javascript") {
+            ContentType::JavaScript
+        } else if content_type.contains("css") {
+            ContentType::Css
+        } else if content_type.contains("text") {
+            // We later check if this one's JSON
+            // HTTPie checks for "json", "javascript" and "text" in one place:
+            // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
+            // We have it more spread out but it behaves more or less the same
+            ContentType::Text
+        } else {
+            ContentType::Unknown
+        }
+    }
+}
+
 pub fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .and_then(|content_type| {
-            if content_type.contains("json") {
-                Some(ContentType::Json)
-            } else if content_type.contains("html") {
-                Some(ContentType::Html)
-            } else if content_type.contains("xml") {
-                Some(ContentType::Xml)
-            } else if content_type.contains("multipart") {
-                Some(ContentType::Multipart)
-            } else if content_type.contains("x-www-form-urlencoded") {
-                Some(ContentType::UrlencodedForm)
-            } else if content_type.contains("javascript") {
-                Some(ContentType::JavaScript)
-            } else if content_type.contains("css") {
-                Some(ContentType::Css)
-            } else if content_type.contains("text") {
-                // We later check if this one's JSON
-                // HTTPie checks for "json", "javascript" and "text" in one place:
-                // https://github.com/httpie/httpie/blob/a32ad344dd/httpie/output/formatters/json.py#L14
-                // We have it more spread out but it behaves more or less the same
-                Some(ContentType::Text)
-            } else {
-                None
-            }
-        })
+        .map(ContentType::from)
         .unwrap_or(ContentType::Unknown)
 }
 
@@ -483,9 +502,7 @@ pub fn valid_json(text: &str) -> bool {
 /// but it makes no guarantees about outputting valid UTF-8 if the input is
 /// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
 /// that's going to the terminal, and don't trust its output.
-fn decode_stream(response: &mut Response) -> impl Read + '_ {
-    let encoding = guess_encoding(response);
-
+fn decode_stream<'a>(response: &'a mut Response, encoding: &'static Encoding) -> impl Read + 'a {
     DecodeReaderBytesBuilder::new()
         .encoding(Some(encoding))
         .build(response)

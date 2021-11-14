@@ -405,6 +405,9 @@ fn run(args: Cli) -> Result<i32> {
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
     let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
 
+    let response_charset = args.response_charset;
+    let response_mime = args.response_mime.as_deref();
+
     if print.request_headers {
         printer.print_request_headers(&request, &*cookie_jar)?;
     }
@@ -422,7 +425,11 @@ fn run(args: Cli) -> Result<i32> {
                         printer.print_response_headers(&prev_response)?;
                     }
                     if history_print.response_body {
-                        printer.print_response_body(prev_response)?;
+                        printer.print_response_body(
+                            prev_response,
+                            response_charset,
+                            response_mime,
+                        )?;
                         printer.print_separator()?;
                     }
                     if history_print.request_headers {
@@ -470,8 +477,8 @@ fn run(args: Cli) -> Result<i32> {
                     args.quiet,
                 )?;
             }
-        } else if print.response_body {
-            printer.print_response_body(response)?;
+        } else {
+            printer.print_response_body(response, response_charset, response_mime)?;
         }
     }
 
