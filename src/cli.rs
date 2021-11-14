@@ -245,10 +245,10 @@ pub struct Cli {
     /// "auto" or "ssl2.3" gives the default behavior of negotiating a version
     /// with the server.
     #[structopt(long, value_name = "VERSION", parse(from_str = parse_tls_version),
-      possible_values = &["auto", "ssl2.3", "tls1", "tls1.1", "tls1.2", "tls1.3"],
-      default_value = "auto")]
-    // An explicit path to Option disables structopt magic we don't want here
-    pub ssl: std::option::Option<tls::Version>,
+      possible_values = &["auto", "ssl2.3", "tls1", "tls1.1", "tls1.2", "tls1.3"])]
+    // The nested option is weird, but parse_tls_version can return None.
+    // If the inner option doesn't use a qualified path structopt gets confused.
+    pub ssl: Option<std::option::Option<tls::Version>>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
     #[structopt(long)]

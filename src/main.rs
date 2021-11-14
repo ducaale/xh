@@ -127,7 +127,7 @@ fn run(args: Cli) -> Result<i32> {
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout);
 
-    if let Some(tls_version) = args.ssl {
+    if let Some(Some(tls_version)) = args.ssl {
         client = client
             .min_tls_version(tls_version)
             .max_tls_version(tls_version);

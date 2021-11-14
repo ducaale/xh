@@ -170,7 +170,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push("--key");
         cmd.push(keyfile.to_string_lossy());
     }
-    if let Some(tls_version) = args.ssl {
+    if let Some(Some(tls_version)) = args.ssl {
         match tls_version {
             tls::Version::TLS_1_0 => {
                 cmd.push("--tlsv1");
