@@ -521,7 +521,7 @@ fn timeout() {
         .args(&["--timeout=0.1", &server.base_url()])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("operation timed out"));
+        .stderr(contains("operation timed out"));
 }
 
 #[test]
@@ -545,9 +545,7 @@ fn timeout_invalid() {
         .args(&["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "Invalid seconds as connection timeout",
-        ));
+        .stderr(contains("Invalid seconds as connection timeout"));
 }
 
 #[test]
@@ -893,7 +891,7 @@ fn proxy_https_proxy() {
 
     get_proxy_command("https", "https", &server.base_url())
         .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .stderr(contains("unsuccessful tunnel"))
         .failure();
 
     server.assert_hits(1);
@@ -911,7 +909,7 @@ fn proxy_all_proxy() {
 
     get_proxy_command("https", "all", &server.base_url())
         .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .stderr(contains("unsuccessful tunnel"))
         .failure();
 
     server.assert_hits(1);
@@ -975,8 +973,8 @@ fn verify_default_yes() {
         .args(&["-v", "https://self-signed.badssl.com"])
         .assert()
         .failure()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stderr(predicates::str::contains("UnknownIssuer"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stderr(contains("UnknownIssuer"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -986,8 +984,8 @@ fn verify_explicit_yes() {
         .args(&["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
         .failure()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stderr(predicates::str::contains("UnknownIssuer"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stderr(contains("UnknownIssuer"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -996,8 +994,8 @@ fn verify_no() {
     get_command()
         .args(&["-v", "--verify=no", "https://self-signed.badssl.com"])
         .assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"))
         .stderr(predicates::str::is_empty());
 }
 
@@ -1009,8 +1007,8 @@ fn verify_valid_file() {
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
         .arg("https://self-signed.badssl.com")
         .assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"))
         .stderr(predicates::str::is_empty());
 }
 
@@ -1024,9 +1022,7 @@ fn verify_valid_file_native_tls() {
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
         .arg("https://self-signed.badssl.com")
         .assert()
-        .stderr(predicates::str::contains(
-            "Custom CA bundles with native-tls are broken",
-        ));
+        .stderr(contains("Custom CA bundles with native-tls are broken"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -1035,9 +1031,7 @@ fn cert_without_key() {
     get_command()
         .args(&["-v", "https://client.badssl.com"])
         .assert()
-        .stdout(predicates::str::contains(
-            "400 No required SSL certificate was sent",
-        ))
+        .stdout(contains("400 No required SSL certificate was sent"))
         .stderr(predicates::str::is_empty());
 }
 
@@ -1050,8 +1044,8 @@ fn cert_with_key() {
         .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
         .arg("https://client.badssl.com")
         .assert()
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
-        .stdout(predicates::str::contains("client-authenticated"))
+        .stdout(contains("HTTP/1.1 200 OK"))
+        .stdout(contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
 }
 
@@ -1065,7 +1059,7 @@ fn cert_with_key_native_tls() {
         .arg("https://client.badssl.com")
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
+        .stderr(contains(
             "Client certificates are not supported for native-tls",
         ));
 }
@@ -1077,9 +1071,7 @@ fn native_tls_flag_disabled() {
         .args(&["--native-tls", ":"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "built without native-tls support",
-        ));
+        .stderr(contains("built without native-tls support"));
 }
 
 #[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
@@ -1089,10 +1081,8 @@ fn improved_https_ip_error_no_support() {
         .arg("https://1.1.1.1")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("rustls does not support"))
-        .stderr(predicates::str::contains(
-            "building with the `native-tls` feature",
-        ));
+        .stderr(contains("rustls does not support"))
+        .stderr(contains("building with the `native-tls` feature"));
 }
 
 #[cfg(all(feature = "native-tls", feature = "online-tests"))]
@@ -1118,8 +1108,8 @@ fn improved_https_ip_error_with_support() {
         .args(&["--follow", &server.base_url()])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("rustls does not support"))
-        .stderr(predicates::str::contains("using the --native-tls flag"));
+        .stderr(contains("rustls does not support"))
+        .stderr(contains("using the --native-tls flag"));
     server.assert_hits(1);
 }
 
@@ -1130,9 +1120,10 @@ fn auto_nativetls() {
         .args(&["--offline", "https://1.1.1.1"])
         .assert()
         .success()
-        .stderr(predicates::str::contains("native-tls will be enabled"));
+        .stderr(contains("native-tls will be enabled"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn good_tls_version() {
     get_command()
@@ -1142,7 +1133,7 @@ fn good_tls_version() {
         .success();
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn good_tls_version_nativetls() {
     get_command()
@@ -2317,8 +2308,8 @@ fn method_is_changed_when_following_302_redirect() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("POST /first_page HTTP/1.1"))
-        .stdout(predicates::str::contains("GET /second_page HTTP/1.1"));
+        .stdout(contains("POST /first_page HTTP/1.1"))
+        .stdout(contains("GET /second_page HTTP/1.1"));
 
     server.assert_hits(2);
 }
@@ -2357,8 +2348,8 @@ fn method_is_not_changed_when_following_307_redirect() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("POST /first_page HTTP/1.1"))
-        .stdout(predicates::str::contains("POST /second_page HTTP/1.1"));
+        .stdout(contains("POST /first_page HTTP/1.1"))
+        .stdout(contains("POST /second_page HTTP/1.1"));
 
     server.assert_hits(2);
 }
@@ -2430,7 +2421,7 @@ fn request_body_is_buffered_for_307_redirect() {
         .arg(format!("@{}", file.path().to_string_lossy()))
         .assert()
         .success()
-        .stdout(predicates::str::contains("POST /second_page HTTP/1.1"));
+        .stdout(contains("POST /second_page HTTP/1.1"));
 
     server.assert_hits(2);
 }
@@ -2475,16 +2466,17 @@ fn warns_if_config_is_invalid() {
         .success();
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http1_0() {
     get_command()
         .args(&["--print=hH", "--http-version=1.0", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/1.0"))
+        .stdout(contains("GET / HTTP/1.0"))
         // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
         // Fortunately, https://www.google.com is not one of those.
-        .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
+        .stdout(contains("HTTP/1.0 200 OK"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -2494,8 +2486,8 @@ fn http1_1() {
         .args(&["--print=hH", "--http-version=1.1", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -2505,8 +2497,8 @@ fn http2() {
         .args(&["--print=hH", "--http-version=2", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/2.0"))
-        .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
+        .stdout(contains("GET / HTTP/2.0"))
+        .stdout(contains("HTTP/2.0 200 OK"));
 }
 
 #[test]
