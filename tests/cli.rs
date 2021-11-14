@@ -1,4 +1,5 @@
 #![cfg(feature = "integration-tests")]
+#![allow(clippy::bool_assert_comparison)]
 use std::{
     collections::HashSet,
     fs::File,
@@ -11,8 +12,7 @@ use std::{
 use assert_cmd::prelude::*;
 use httpmock::{HttpMockRequest, Method::*, MockServer};
 use indoc::{formatdoc, indoc};
-use predicate::str::contains;
-use predicates::prelude::*;
+use predicates::str::contains;
 use serde_json::json;
 use tempfile::{tempdir, tempfile};
 
@@ -309,7 +309,7 @@ fn proxy_https_proxy() {
 
     get_proxy_command("https", "https", &server.base_url())
         .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .stderr(contains("unsuccessful tunnel"))
         .failure();
     mock.assert();
 }
@@ -407,7 +407,7 @@ fn proxy_all_proxy() {
 
     get_proxy_command("https", "all", &server.base_url())
         .assert()
-        .stderr(predicate::str::contains("unsuccessful tunnel"))
+        .stderr(contains("unsuccessful tunnel"))
         .failure();
     mock.assert();
 
@@ -978,6 +978,75 @@ fn auto_nativetls() {
 }
 
 #[test]
+fn good_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.2")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .success();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn good_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-1.badssl.com:1011/")
+        .assert()
+        .success();
+}
+
+#[test]
+fn bad_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn bad_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn unsupported_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("--native-tls")
+        .arg("https://example.org")
+        .assert()
+        .failure()
+        .stderr(contains("invalid minimum TLS version"))
+        .stderr(contains("running without the --native-tls"));
+}
+
+#[test]
+fn unsupported_tls_version_rustls() {
+    #[cfg(feature = "native-tls")]
+    const MSG: &str = "native-tls will be enabled";
+    #[cfg(not(feature = "native-tls"))]
+    const MSG: &str = "Consider building with the `native-tls` feature enabled";
+
+    get_command()
+        .arg("--offline")
+        .arg("--ssl=tls1.1")
+        .arg(":")
+        .assert()
+        .stderr(contains("rustls does not support older TLS versions"))
+        .stderr(contains(MSG));
+}
+
+#[test]
 fn forced_json() {
     let server = MockServer::start();
     let mock = server.mock(|when, _then| {
@@ -1129,7 +1198,7 @@ fn mixed_stdin_request_items() {
         .stdin(input_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
+        .stderr(contains(
             "Request body (from stdin) and request data (key=value) cannot be mixed",
         ));
 }
@@ -1144,9 +1213,7 @@ fn multipart_stdin() {
         .stdin(input_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "Cannot build a multipart request body from stdin",
-        ));
+        .stderr(contains("Cannot build a multipart request body from stdin"));
 }
 
 #[test]
@@ -1298,9 +1365,7 @@ fn no_double_file_body() {
         .arg("@bar")
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "Can't read request from multiple files",
-        ));
+        .stderr(contains("Can't read request from multiple files"));
 }
 
 #[test]
@@ -1321,7 +1386,7 @@ fn print_body_from_file() {
         .arg(format!("@{}", filename.to_string_lossy()))
         .assert()
         .success()
-        .stdout(predicate::str::contains("Hello world"));
+        .stdout(contains("Hello world"));
 }
 
 #[test]
@@ -1332,9 +1397,9 @@ fn colored_headers() {
         .assert()
         .success()
         // Color
-        .stdout(predicate::str::contains("\x1b[4m"))
+        .stdout(contains("\x1b[4m"))
         // Reset
-        .stdout(predicate::str::contains("\x1b[0m"));
+        .stdout(contains("\x1b[0m"));
 }
 
 #[test]
@@ -1345,7 +1410,7 @@ fn colored_body() {
         .arg("x:=3")
         .assert()
         .success()
-        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
+        .stdout(contains("\x1b[34m3\x1b[0m"));
 }
 
 #[test]
@@ -1358,7 +1423,7 @@ fn force_color_pipe() {
         .arg("x:=3")
         .assert()
         .success()
-        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
+        .stdout(contains("\x1b[34m3\x1b[0m"));
 }
 
 #[test]
@@ -2074,9 +2139,7 @@ fn max_redirects_is_enforced() {
         .arg("--follow")
         .arg("--max-redirects=5")
         .assert()
-        .stderr(predicate::str::contains(
-            "Too many redirects (--max-redirects=5)",
-        ))
+        .stderr(contains("Too many redirects (--max-redirects=5)"))
         .failure();
 }
 

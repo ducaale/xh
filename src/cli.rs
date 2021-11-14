@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use encoding_rs::Encoding;
-use reqwest::{Method, Url};
+use reqwest::{tls, Method, Url};
 use serde::{Deserialize, Serialize};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -241,6 +241,16 @@ pub struct Cli {
     #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub cert_key: Option<PathBuf>,
 
+    /// Force a particular TLS version.
+    ///
+    /// "auto" or "ssl2.3" gives the default behavior of negotiating a version
+    /// with the server.
+    #[structopt(long, value_name = "VERSION", parse(from_str = parse_tls_version),
+      possible_values = &["auto", "ssl2.3", "tls1", "tls1.1", "tls1.2", "tls1.3"])]
+    // The nested option is weird, but parse_tls_version can return None.
+    // If the inner option doesn't use a qualified path structopt gets confused.
+    pub ssl: Option<std::option::Option<tls::Version>>,
+
     /// Use the system TLS library instead of rustls (if enabled at compile time).
     #[structopt(long)]
     pub native_tls: bool,
@@ -356,6 +366,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-quiet",
     "--no-session",
     "--no-session-read-only",
+    "--no-ssl",
     "--no-stream",
     "--no-style",
     "--no-timeout",
@@ -723,6 +734,19 @@ arg_enum! {
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Pretty {
         all, colors, format, none
+    }
+}
+
+/// The caller must check in advance if the string is valid. (structopt does this.)
+fn parse_tls_version(text: &str) -> Option<tls::Version> {
+    match text {
+        // ssl2.3 is not a real version but it's how HTTPie spells "auto"
+        "auto" | "ssl2.3" => None,
+        "tls1" => Some(tls::Version::TLS_1_0),
+        "tls1.1" => Some(tls::Version::TLS_1_1),
+        "tls1.2" => Some(tls::Version::TLS_1_2),
+        "tls1.3" => Some(tls::Version::TLS_1_3),
+        _ => unreachable!(),
     }
 }
 

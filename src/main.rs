@@ -27,6 +27,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
+use reqwest::tls;
 
 use crate::auth::{read_netrc, Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -60,7 +61,8 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{}: error: {:?}", bin_name, err);
-            if !native_tls && err.root_cause().to_string() == "invalid dnsname" {
+            let msg = err.root_cause().to_string();
+            if !native_tls && msg == "invalid dnsname" {
                 eprintln!();
                 if utils::url_requires_native_tls(&url) {
                     eprintln!("rustls does not support HTTPS for IP addresses.");
@@ -75,6 +77,10 @@ fn main() {
                 } else {
                     eprintln!("Consider building with the `native-tls` feature enabled.");
                 }
+            }
+            if native_tls && msg == "invalid minimum TLS version for backend" {
+                eprintln!();
+                eprintln!("Try running without the --native-tls flag.");
             }
             process::exit(1);
         }
@@ -122,6 +128,23 @@ fn run(args: Cli) -> Result<i32> {
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout);
+
+    if let Some(Some(tls_version)) = args.ssl {
+        client = client
+            .min_tls_version(tls_version)
+            .max_tls_version(tls_version);
+
+        #[cfg(feature = "native-tls")]
+        if !args.native_tls && tls_version < tls::Version::TLS_1_2 {
+            warn("rustls does not support older TLS versions. native-tls will be enabled. Use --native-tls to silence this warning.");
+            client = client.use_native_tls();
+        }
+
+        #[cfg(not(feature = "native-tls"))]
+        if tls_version < tls::Version::TLS_1_2 {
+            warn("rustls does not support older TLS versions. Consider building with the `native-tls` feature enabled.");
+        }
+    }
 
     #[cfg(feature = "native-tls")]
     if args.native_tls {
