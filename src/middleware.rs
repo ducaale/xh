@@ -81,9 +81,7 @@ where
     pub fn execute(&mut self, request: Request) -> Result<Response> {
         let mut ctx = Context::new(
             self.client,
-            self.printer
-                .as_mut()
-                .map(|p| p as &mut dyn FnMut(Response, &mut Request) -> Result<()>),
+            self.printer.as_mut().map(|p| p as _),
             &mut self.middlewares[..],
         );
         ctx.execute(request)
