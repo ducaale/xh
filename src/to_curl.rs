@@ -1,12 +1,10 @@
 use std::io::{stderr, stdout, Write};
 
 use anyhow::{anyhow, Result};
-use reqwest::Method;
+use reqwest::{tls, Method};
 
-use crate::{
-    cli::{Cli, HttpVersion, Verify},
-    request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE},
-};
+use crate::cli::{AuthType, Cli, HttpVersion, Verify};
+use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
@@ -59,8 +57,8 @@ impl Command {
         self.env.push((var, value.into()));
     }
 
-    fn warn(&mut self, message: String) {
-        self.warnings.push(message);
+    fn warn(&mut self, message: impl Into<String>) {
+        self.warnings.push(message.into());
     }
 }
 
@@ -170,6 +168,31 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push("--key");
         cmd.push(keyfile.to_string_lossy());
     }
+    if let Some(Some(tls_version)) = args.ssl {
+        match tls_version {
+            tls::Version::TLS_1_0 => {
+                cmd.push("--tlsv1.0");
+                cmd.push("--tls-max");
+                cmd.push("1.0");
+            }
+            tls::Version::TLS_1_1 => {
+                cmd.push("--tlsv1.1");
+                cmd.push("--tls-max");
+                cmd.push("1.1");
+            }
+            tls::Version::TLS_1_2 => {
+                cmd.push("--tlsv1.2");
+                cmd.push("--tls-max");
+                cmd.push("1.2");
+            }
+            tls::Version::TLS_1_3 => {
+                cmd.push("--tlsv1.3");
+                cmd.push("--tls-max");
+                cmd.push("1.3");
+            }
+            _ => unreachable!(),
+        }
+    }
     for proxy in args.proxy {
         match proxy {
             crate::cli::Proxy::All(proxy) => {
@@ -243,13 +266,24 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.push(format!("{}:", header));
     }
     if let Some(auth) = args.auth {
-        // curl implements this flag the same way, including password prompt
-        cmd.flag("-u", "--user");
-        cmd.push(auth);
-    }
-    if let Some(token) = args.bearer {
-        cmd.push("--oauth2-bearer");
-        cmd.push(token);
+        match args.auth_type.unwrap_or_default() {
+            AuthType::basic => {
+                cmd.push("--basic");
+                // curl implements this flag the same way, including password prompt
+                cmd.flag("-u", "--user");
+                cmd.push(auth);
+            }
+            AuthType::digest => {
+                cmd.push("--digest");
+                // curl implements this flag the same way, including password prompt
+                cmd.flag("-u", "--user");
+                cmd.push(auth);
+            }
+            AuthType::bearer => {
+                cmd.push("--oauth2-bearer");
+                cmd.push(auth);
+            }
+        }
     }
 
     if args.request_items.is_multipart() {

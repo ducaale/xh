@@ -10,6 +10,7 @@ use reqwest::header::HeaderMap;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
+use crate::auth;
 use crate::utils::{config_dir, test_mode};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -115,36 +116,53 @@ impl Session {
         Ok(())
     }
 
-    pub fn auth(&self) -> Result<Option<String>> {
+    pub fn auth(&self) -> Result<Option<auth::Auth>> {
         if let Auth {
-            auth_type: Some(ref auth_type),
-            raw_auth: Some(ref raw_auth),
-        } = self.content.auth
+            auth_type: Some(auth_type),
+            raw_auth: Some(raw_auth),
+        } = &self.content.auth
         {
-            if auth_type.as_str() == "basic" {
-                return Ok(Some(format!("Basic {}", base64::encode(raw_auth))));
-            } else if auth_type.as_str() == "bearer" {
-                return Ok(Some(format!("Bearer {}", raw_auth)));
-            } else {
-                return Err(anyhow!("Unknown auth type {}", raw_auth));
+            match auth_type.as_str() {
+                "basic" => {
+                    let (username, password) = auth::parse_auth(raw_auth, "")?;
+                    Ok(Some(auth::Auth::Basic(username, password)))
+                }
+                "digest" => {
+                    let (username, password) = auth::parse_auth(raw_auth, "")?;
+                    Ok(Some(auth::Auth::Digest(
+                        username,
+                        password.unwrap_or_else(|| "".into()),
+                    )))
+                }
+                "bearer" => Ok(Some(auth::Auth::Bearer(raw_auth.into()))),
+                _ => Err(anyhow!("Unknown auth type {}", raw_auth)),
             }
-        }
-
-        Ok(None)
-    }
-
-    pub fn save_bearer_auth(&mut self, token: String) {
-        self.content.auth = Auth {
-            auth_type: Some("bearer".into()),
-            raw_auth: Some(token),
+        } else {
+            Ok(None)
         }
     }
 
-    pub fn save_basic_auth(&mut self, username: String, password: Option<String>) {
-        let password = password.unwrap_or_else(|| "".into());
-        self.content.auth = Auth {
-            auth_type: Some("basic".into()),
-            raw_auth: Some(format!("{}:{}", username, password)),
+    pub fn save_auth(&mut self, auth: &auth::Auth) {
+        match auth {
+            auth::Auth::Basic(username, password) => {
+                let password = password.as_deref().unwrap_or("");
+                self.content.auth = Auth {
+                    auth_type: Some("basic".into()),
+                    raw_auth: Some(format!("{}:{}", username, password)),
+                }
+            }
+            auth::Auth::Digest(username, password) => {
+                self.content.auth = Auth {
+                    auth_type: Some("digest".into()),
+                    raw_auth: Some(format!("{}:{}", username, password)),
+                }
+            }
+            auth::Auth::Bearer(token) => {
+                self.content.auth = Auth {
+                    auth_type: Some("bearer".into()),
+                    raw_auth: Some(token.into()),
+                }
+            }
         }
     }
 

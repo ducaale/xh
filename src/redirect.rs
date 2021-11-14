@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use reqwest::blocking::Client;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{
     HeaderMap, AUTHORIZATION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, LOCATION,
@@ -7,36 +6,25 @@ use reqwest::header::{
 };
 use reqwest::{Method, StatusCode, Url};
 
-pub struct RedirectFollower<'a, T>
-where
-    T: FnMut(Response, &mut Request) -> Result<()>,
-{
-    client: &'a Client,
+use crate::middleware::{Context, Middleware};
+use crate::utils::clone_request;
+
+pub struct RedirectFollower {
     max_redirects: usize,
-    callback: Option<T>,
 }
 
-impl<'a, T> RedirectFollower<'a, T>
-where
-    T: FnMut(Response, &mut Request) -> Result<()>,
-{
-    pub fn new(client: &'a Client, max_redirects: usize) -> Self {
-        RedirectFollower {
-            client,
-            max_redirects,
-            callback: None,
-        }
+impl RedirectFollower {
+    pub fn new(max_redirects: usize) -> Self {
+        RedirectFollower { max_redirects }
     }
+}
 
-    pub fn on_redirect(&mut self, callback: T) {
-        self.callback = Some(callback);
-    }
-
-    pub fn execute(&mut self, mut first_request: Request) -> Result<Response> {
+impl Middleware for RedirectFollower {
+    fn handle(&mut self, mut ctx: Context, mut first_request: Request) -> Result<Response> {
         // This buffers the body in case we need it again later
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
         let mut request = clone_request(&mut first_request)?;
-        let mut response = self.client.execute(first_request)?;
+        let mut response = self.next(&mut ctx, first_request)?;
         let mut remaining_redirects = self.max_redirects - 1;
 
         while let Some(mut next_request) = get_next_request(request, &response) {
@@ -48,24 +36,13 @@ where
                     self.max_redirects
                 ));
             }
-            if let Some(ref mut callback) = self.callback {
-                callback(response, &mut next_request)?;
-            }
+            self.print(&mut ctx, response, &mut next_request)?;
             request = clone_request(&mut next_request)?;
-            response = self.client.execute(next_request)?;
+            response = self.next(&mut ctx, next_request)?;
         }
 
         Ok(response)
     }
-}
-
-fn clone_request(request: &mut Request) -> Result<Request> {
-    if let Some(b) = request.body_mut().as_mut() {
-        b.buffer()?;
-    }
-    // This doesn't copy the contents of the buffer, cloning requests is cheap
-    // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
-    Ok(request.try_clone().unwrap()) // guaranteed to not fail if body is already buffered
 }
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607

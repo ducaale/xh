@@ -248,19 +248,16 @@ pub fn download_file(
             copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
-            let time_taken = starting_time.elapsed().as_secs();
-            if let Some(speed) = downloaded_length.checked_div(time_taken) {
+            let time_taken = starting_time.elapsed();
+            if time_taken != Duration::from_nanos(0) {
                 eprintln!(
                     "Done. {} in {} ({}/s)",
                     HumanBytes(downloaded_length),
-                    humantime::format_duration(Duration::from_secs(time_taken)),
-                    HumanBytes(speed)
+                    humantime::format_duration(time_taken),
+                    HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
                 );
             } else {
-                eprintln!(
-                    "Done. {} in less than a second",
-                    HumanBytes(downloaded_length)
-                );
+                eprintln!("Done. {}", HumanBytes(downloaded_length));
             }
         }
         None => {

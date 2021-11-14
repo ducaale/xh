@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use encoding_rs::Encoding;
-use reqwest::{Method, Url};
+use reqwest::{tls, Method, Url};
 use serde::{Deserialize, Serialize};
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
@@ -36,7 +36,7 @@ use crate::utils::config_dir;
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
-    version = concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES")),
+    long_version = long_version(),
     settings = &[
         AppSettings::DeriveDisplayOrder,
         AppSettings::UnifiedHelpMessage,
@@ -152,21 +152,22 @@ pub struct Cli {
     #[structopt(skip)]
     pub is_session_read_only: bool,
 
-    // Currently deprecated in favor of --bearer, un-hide if new auth types are introduced
     /// Specify the auth mechanism.
-    #[structopt(short = "A", long, possible_values = &AuthType::variants(),
-                default_value = "basic", case_insensitive = true, hidden = true)]
-    pub auth_type: AuthType,
+    #[structopt(short = "A", long, possible_values = &AuthType::variants(), case_insensitive = true)]
+    pub auth_type: Option<AuthType>,
 
-    /// Authenticate as USER with PASS. PASS will be prompted if missing.
+    /// Authenticate as USER with PASS or with TOKEN.
     ///
-    /// Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+    /// PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`)
+    /// to authenticate with just a username.
+    ///
+    /// TOKEN is expected if `--auth-type=bearer`.
     /// {n}{n}{n}
-    #[structopt(short = "a", long, value_name = "USER[:PASS]")]
+    #[structopt(short = "a", long, value_name = "USER[:PASS] | token")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
-    #[structopt(long, value_name = "TOKEN")]
+    #[structopt(long, value_name = "TOKEN", hidden = true)]
     pub bearer: Option<String>,
 
     /// Do not use credentials from .netrc
@@ -239,6 +240,16 @@ pub struct Cli {
     /// {n}{n}{n}
     #[structopt(long, value_name = "FILE", parse(from_os_str))]
     pub cert_key: Option<PathBuf>,
+
+    /// Force a particular TLS version.
+    ///
+    /// "auto" or "ssl2.3" gives the default behavior of negotiating a version
+    /// with the server.
+    #[structopt(long, value_name = "VERSION", parse(from_str = parse_tls_version),
+      possible_values = &["auto", "ssl2.3", "tls1", "tls1.1", "tls1.2", "tls1.3"])]
+    // The nested option is weird, but parse_tls_version can return None.
+    // If the inner option doesn't use a qualified path structopt gets confused.
+    pub ssl: Option<std::option::Option<tls::Version>>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
     #[structopt(long)]
@@ -355,6 +366,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-quiet",
     "--no-session",
     "--no-session-read-only",
+    "--no-ssl",
     "--no-stream",
     "--no-style",
     "--no-timeout",
@@ -520,8 +532,9 @@ impl Cli {
         if self.https {
             self.default_scheme = Some("https".to_string());
         }
-        if self.auth_type == AuthType::bearer && self.auth.is_some() {
-            self.bearer = self.auth.take();
+        if self.bearer.is_some() {
+            self.auth_type = Some(AuthType::bearer);
+            self.auth = self.bearer.take();
         }
         self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
             (true, true) => unreachable!(),
@@ -705,7 +718,13 @@ arg_enum! {
     #[allow(non_camel_case_types)]
     #[derive(Debug, PartialEq)]
     pub enum AuthType {
-        basic, bearer
+        basic, bearer, digest
+    }
+}
+
+impl Default for AuthType {
+    fn default() -> Self {
+        AuthType::basic
     }
 }
 
@@ -715,6 +734,19 @@ arg_enum! {
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub enum Pretty {
         all, colors, format, none
+    }
+}
+
+/// The caller must check in advance if the string is valid. (structopt does this.)
+fn parse_tls_version(text: &str) -> Option<tls::Version> {
+    match text {
+        // ssl2.3 is not a real version but it's how HTTPie spells "auto"
+        "auto" | "ssl2.3" => None,
+        "tls1" => Some(tls::Version::TLS_1_0),
+        "tls1.1" => Some(tls::Version::TLS_1_1),
+        "tls1.2" => Some(tls::Version::TLS_1_2),
+        "tls1.3" => Some(tls::Version::TLS_1_3),
+        _ => unreachable!(),
     }
 }
 
@@ -746,7 +778,7 @@ impl Theme {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Print {
     pub request_headers: bool,
     pub request_body: bool,
@@ -1009,6 +1041,11 @@ fn safe_exit() -> ! {
     std::process::exit(0);
 }
 
+#[inline]
+fn long_version() -> &'static str {
+    concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1086,29 +1123,6 @@ mod tests {
             cli.request_items.items,
             vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
         );
-    }
-
-    #[test]
-    fn auth() {
-        let cli = parse(&["--auth=user:pass", ":"]).unwrap();
-        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
-        assert_eq!(cli.bearer, None);
-
-        let cli = parse(&["--auth=user:pass", "--auth-type=basic", ":"]).unwrap();
-        assert_eq!(cli.auth.as_deref(), Some("user:pass"));
-        assert_eq!(cli.bearer, None);
-
-        let cli = parse(&["--auth=token", "--auth-type=bearer", ":"]).unwrap();
-        assert_eq!(cli.auth, None);
-        assert_eq!(cli.bearer.as_deref(), Some("token"));
-
-        let cli = parse(&["--bearer=token", "--auth-type=bearer", ":"]).unwrap();
-        assert_eq!(cli.auth, None);
-        assert_eq!(cli.bearer.as_deref(), Some("token"));
-
-        let cli = parse(&["--auth-type=bearer", ":"]).unwrap();
-        assert_eq!(cli.auth, None);
-        assert_eq!(cli.bearer, None);
     }
 
     #[test]
@@ -1308,7 +1322,7 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(cli.bearer, None);
-        assert_eq!(cli.auth_type, AuthType::basic);
+        assert_eq!(cli.auth_type, None);
     }
 
     #[test]

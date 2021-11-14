@@ -1,4 +1,5 @@
 #![cfg(feature = "integration-tests")]
+#![allow(clippy::bool_assert_comparison)]
 mod server;
 
 use std::collections::{HashMap, HashSet};
@@ -12,8 +13,7 @@ use std::time::Duration;
 
 use assert_cmd::prelude::*;
 use indoc::indoc;
-use predicate::str::contains;
-use predicates::prelude::*;
+use predicates::str::contains;
 use tempfile::{tempdir, tempfile};
 
 pub trait RequestExt {
@@ -658,6 +658,147 @@ fn bearer_auth() {
 }
 
 #[test]
+fn digest_auth() {
+    let server = server::http(|req| async move {
+        if req.headers().get("Authorization").is_none() {
+            http::Response::builder()
+                .status(401)
+                .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
+                .body("".into())
+                .unwrap()
+        } else {
+            http::Response::builder()
+                .body("authenticated".into())
+                .unwrap()
+        }
+    });
+
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg(server.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+
+    server.assert_hits(2);
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn successful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn unsuccessful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:wrongpass")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 401 Unauthorized"));
+}
+
+#[test]
+fn digest_auth_with_redirection() {
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/login_page" => {
+                if req.headers().get("Authorization").is_none() {
+                    http::Response::builder()
+                        .status(401)
+                        .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
+                        .header("date", "N/A")
+                        .body("".into())
+                        .unwrap()
+                } else {
+                    http::Response::builder()
+                        .status(302)
+                        .header("location", "/admin_page")
+                        .header("date", "N/A")
+                        .body("authentication successful, redirecting...".into())
+                        .unwrap()
+                }
+            }
+            "/admin_page" => {
+                if req.headers().get("Authorization").is_none() {
+                    http::Response::builder()
+                        .header("date", "N/A")
+                        .body("admin page".into())
+                        .unwrap()
+                } else {
+                    http::Response::builder()
+                        .status(401)
+                        .body("unauthorized".into())
+                        .unwrap()
+                }
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .env("XH_TEST_DIGEST_AUTH_CNONCE", "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ")
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("--follow")
+        .arg("--verbose")
+        .arg(server.url("/login_page"))
+        .assert()
+        .stdout(indoc! {r#"
+            GET /login_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 401 Unauthorized
+            Content-Length: 0
+            Date: N/A
+            Www-Authenticate: Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE
+
+
+
+            GET /login_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/login_page", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="894fd5ee1dcc702df7e4a6abed37fd56", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 302 Found
+            Content-Length: 41
+            Date: N/A
+            Location: /admin_page
+
+            authentication successful, redirecting...
+
+            GET /admin_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 200 OK
+            Content-Length: 10
+            Date: N/A
+
+            admin page
+        "#});
+
+    server.assert_hits(3);
+}
+
+#[test]
 fn netrc_env_user_password_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
@@ -993,6 +1134,75 @@ fn auto_nativetls() {
 }
 
 #[test]
+fn good_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.2")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .success();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn good_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-1.badssl.com:1011/")
+        .assert()
+        .success();
+}
+
+#[test]
+fn bad_tls_version() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn bad_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.1")
+        .arg("--native-tls")
+        .arg("https://tls-v1-2.badssl.com:1012/")
+        .assert()
+        .failure();
+}
+
+#[cfg(feature = "native-tls")]
+#[test]
+fn unsupported_tls_version_nativetls() {
+    get_command()
+        .arg("--ssl=tls1.3")
+        .arg("--native-tls")
+        .arg("https://example.org")
+        .assert()
+        .failure()
+        .stderr(contains("invalid minimum TLS version"))
+        .stderr(contains("running without the --native-tls"));
+}
+
+#[test]
+fn unsupported_tls_version_rustls() {
+    #[cfg(feature = "native-tls")]
+    const MSG: &str = "native-tls will be enabled";
+    #[cfg(not(feature = "native-tls"))]
+    const MSG: &str = "Consider building with the `native-tls` feature enabled";
+
+    get_command()
+        .arg("--offline")
+        .arg("--ssl=tls1.1")
+        .arg(":")
+        .assert()
+        .stderr(contains("rustls does not support older TLS versions"))
+        .stderr(contains(MSG));
+}
+
+#[test]
 fn forced_json() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["content-type"], "application/json");
@@ -1145,7 +1355,7 @@ fn mixed_stdin_request_items() {
         .stdin(input_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
+        .stderr(contains(
             "Request body (from stdin) and request data (key=value) cannot be mixed",
         ));
 }
@@ -1158,9 +1368,7 @@ fn multipart_stdin() {
         .stdin(input_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "Cannot build a multipart request body from stdin",
-        ));
+        .stderr(contains("Cannot build a multipart request body from stdin"));
 }
 
 #[test]
@@ -1312,9 +1520,7 @@ fn no_double_file_body() {
         .args(&[":", "@foo", "@bar"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "Can't read request from multiple files",
-        ));
+        .stderr(contains("Can't read request from multiple files"));
 }
 
 #[test]
@@ -1335,7 +1541,7 @@ fn print_body_from_file() {
         .arg(format!("@{}", filename.to_string_lossy()))
         .assert()
         .success()
-        .stdout(predicate::str::contains("Hello world"));
+        .stdout(contains("Hello world"));
 }
 
 #[test]
@@ -1345,9 +1551,9 @@ fn colored_headers() {
         .assert()
         .success()
         // Color
-        .stdout(predicate::str::contains("\x1b[4m"))
+        .stdout(contains("\x1b[4m"))
         // Reset
-        .stdout(predicate::str::contains("\x1b[0m"));
+        .stdout(contains("\x1b[0m"));
 }
 
 #[test]
@@ -1356,7 +1562,7 @@ fn colored_body() {
         .args(&["--offline", ":", "x:=3"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
+        .stdout(contains("\x1b[34m3\x1b[0m"));
 }
 
 #[test]
@@ -1369,7 +1575,7 @@ fn force_color_pipe() {
         .arg("x:=3")
         .assert()
         .success()
-        .stdout(predicate::str::contains("\x1b[34m3\x1b[0m"));
+        .stdout(contains("\x1b[34m3\x1b[0m"));
 }
 
 #[test]
@@ -1908,6 +2114,53 @@ fn bearer_auth_from_session_is_used() {
 }
 
 #[test]
+fn auth_netrc_is_not_persisted_in_session() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["authorization"], "Basic dXNlcjpwYXNz");
+        hyper::Response::default()
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+    assert_eq!(path_to_session.exists(), false);
+
+    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    writeln!(
+        netrc,
+        "machine {}\nlogin user\npassword pass",
+        server.host()
+    )
+    .unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .arg("hello:world")
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .assert()
+        .success();
+
+    server.assert_hits(1);
+
+    let session_content = read_to_string(path_to_session).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": {},
+            "headers": {
+                "hello": "world"
+            }
+        })
+    );
+}
+
+#[test]
 fn print_intermediate_requests_and_responses() {
     let server = server::http(|req| async move {
         match req.uri().path() {
@@ -2025,9 +2278,7 @@ fn max_redirects_is_enforced() {
     get_command()
         .args(&[&server.base_url(), "--follow", "--max-redirects=5"])
         .assert()
-        .stderr(predicate::str::contains(
-            "Too many redirects (--max-redirects=5)",
-        ))
+        .stderr(contains("Too many redirects (--max-redirects=5)"))
         .failure();
 }
 
@@ -2224,7 +2475,6 @@ fn warns_if_config_is_invalid() {
         .success();
 }
 
-#[cfg(feature = "online-tests")]
 #[test]
 fn http1_0() {
     get_command()
