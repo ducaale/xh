@@ -13,7 +13,7 @@ use termcolor::WriteColor;
 
 use crate::{
     buffer::Buffer,
-    cli::{Pretty, Print, Theme},
+    cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
     utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
@@ -66,7 +66,6 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
 }
 
 pub struct Printer {
-    pub print: Print,
     indent_json: bool,
     color: bool,
     theme: Theme,
@@ -76,17 +75,10 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn new(
-        print: Print,
-        pretty: Pretty,
-        theme: Option<Theme>,
-        stream: bool,
-        buffer: Buffer,
-    ) -> Self {
+    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
         let theme = theme.unwrap_or(Theme::auto);
 
         Printer {
-            print,
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
             color: pretty.color() && (cfg!(test) || buffer.supports_color()),
@@ -291,13 +283,8 @@ impl Printer {
         header_string
     }
 
-    // Each of the print_* functions adds an extra line separator at the end
-    // except for print_response_body. We are using this function when we have
-    // something to print after the response body.
     pub fn print_separator(&mut self) -> io::Result<()> {
-        if self.print.response_body {
-            self.buffer.print("\n")?;
-        }
+        self.buffer.print("\n")?;
         Ok(())
     }
 
@@ -305,10 +292,6 @@ impl Printer {
     where
         T: CookieStore,
     {
-        if !self.print.request_headers {
-            return Ok(());
-        }
-
         let method = request.method();
         let url = request.url();
         let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
@@ -357,10 +340,6 @@ impl Printer {
     }
 
     pub fn print_response_headers(&mut self, response: &Response) -> io::Result<()> {
-        if !self.print.response_headers {
-            return Ok(());
-        }
-
         let version = response.version();
         let status = response.status();
         let headers = response.headers();
@@ -374,10 +353,6 @@ impl Printer {
     }
 
     pub fn print_request_body(&mut self, request: &mut Request) -> anyhow::Result<()> {
-        if !self.print.request_body {
-            return Ok(());
-        }
-
         let content_type = get_content_type(request.headers());
         if let Some(body) = request.body_mut() {
             let body = body.buffer()?;
@@ -399,10 +374,6 @@ impl Printer {
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
-        if !self.print.response_body {
-            return Ok(());
-        }
-
         let content_type = mime
             .map(ContentType::from)
             .unwrap_or_else(|| get_content_type(response.headers()));
@@ -569,7 +540,7 @@ mod tests {
         let buffer =
             Buffer::new(args.download, args.output.as_deref(), is_stdout_tty, None).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new("hHbB".parse().unwrap(), pretty, args.style, false, buffer)
+        Printer::new(pretty, args.style, false, buffer)
     }
 
     fn temp_path() -> String {
@@ -651,7 +622,6 @@ mod tests {
     #[test]
     fn test_header_casing() {
         let p = Printer {
-            print: "hHbB".parse().unwrap(),
             indent_json: false,
             color: false,
             theme: Theme::auto,

@@ -1909,6 +1909,53 @@ fn bearer_auth_from_session_is_used() {
 }
 
 #[test]
+fn auth_netrc_is_not_persisted_in_session() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, _| {
+        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+    assert_eq!(path_to_session.exists(), false);
+
+    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    writeln!(
+        netrc,
+        "machine {}\nlogin user\npassword pass",
+        server.host()
+    )
+    .unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .arg("hello:world")
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .assert()
+        .success();
+
+    mock.assert();
+
+    let session_content = read_to_string(path_to_session).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": {},
+            "headers": {
+                "hello": "world"
+            }
+        })
+    );
+}
+
+#[test]
 fn print_intermediate_requests_and_responses() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
@@ -2195,6 +2242,142 @@ fn warns_if_config_is_invalid() {
         .assert()
         .stderr(contains("Unable to parse config file"))
         .success();
+}
+
+#[test]
+fn digest_auth() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    let mock1 = server1.mock(|when, then| {
+        when.matches(|req: &HttpMockRequest| {
+            !req.headers
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|(key, _)| key == "Authorization")
+        });
+        then.status(401).header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#);
+    });
+    let mock2 = server2.mock(|when, then| {
+        when.header_exists("Authorization");
+        then.body("authenticated");
+    });
+
+    get_command()
+        .env("XH_TEST_DIGEST_AUTH_URL", server2.base_url())
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg(server1.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+
+    mock1.assert();
+    mock2.assert();
+}
+
+#[test]
+fn successful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[test]
+fn unsuccessful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:wrongpass")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 401 Unauthorized"));
+}
+
+#[test]
+fn digest_auth_with_redirection() {
+    let server1 = MockServer::start();
+    let server2 = MockServer::start();
+    let server3 = MockServer::start();
+    let mock1 = server1.mock(|when, then| {
+        when.matches(|req: &HttpMockRequest| {
+            !req.headers
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|(key, _)| key == "Authorization")
+        });
+        then.status(401)
+            .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
+            .header("date", "N/A");
+    });
+    let mock2 = server2.mock(|when, then| {
+        when.header_exists("Authorization");
+        then.status(302)
+            .header("location", &server3.base_url())
+            .header("date", "N/A")
+            .body("authentication successful, redirecting...");
+    });
+    server3.mock(|_, then| {
+        then.header("date", "N/A").body("final destination");
+    });
+
+    get_command()
+        .env("XH_TEST_DIGEST_AUTH_URL", server2.base_url())
+        .env("XH_TEST_DIGEST_AUTH_CNONCE", "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ")
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("--follow")
+        .arg("--verbose")
+        .arg(server1.base_url())
+        .assert()
+        .stdout(formatdoc! {r#"
+            GET / HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 401 Unauthorized
+            Content-Length: 0
+            Date: N/A
+            Www-Authenticate: Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE
+
+
+
+            GET / HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="1e96c9808de24d5dd36e9e4865ffca7d", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 302 Found
+            Content-Length: 41
+            Date: N/A
+            Location: {redirect_url}
+
+            authentication successful, redirecting...
+
+            GET / HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 200 OK
+            Content-Length: 17
+            Date: N/A
+
+            final destination
+        "#, redirect_url = server3.base_url()});
+
+    mock1.assert();
+    mock2.assert();
 }
 
 #[test]

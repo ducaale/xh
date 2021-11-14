@@ -18,6 +18,7 @@ base64 = "0.13"
 bytes = "1.0.1"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
+digest_auth = "0.3.0"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
