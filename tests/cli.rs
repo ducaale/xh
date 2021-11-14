@@ -2276,6 +2276,26 @@ fn digest_auth() {
 }
 
 #[test]
+fn successful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[test]
+fn unsuccessful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:wrongpass")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 401 Unauthorized"));
+}
+
+#[test]
 fn digest_auth_with_redirection() {
     let server1 = MockServer::start();
     let server2 = MockServer::start();
