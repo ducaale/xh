@@ -173,7 +173,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     if let Some(Some(tls_version)) = args.ssl {
         match tls_version {
             tls::Version::TLS_1_0 => {
-                cmd.push("--tlsv1");
+                cmd.push("--tlsv1.0");
                 cmd.push("--tls-max");
                 cmd.push("1.0");
             }
