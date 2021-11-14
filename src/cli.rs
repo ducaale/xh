@@ -36,7 +36,7 @@ use crate::utils::config_dir;
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
-    version = concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES")),
+    long_version = long_version(),
     settings = &[
         AppSettings::DeriveDisplayOrder,
         AppSettings::UnifiedHelpMessage,
@@ -1007,6 +1007,11 @@ fn safe_exit() -> ! {
     let _ = std::io::stdout().lock().flush();
     let _ = std::io::stderr().lock().flush();
     std::process::exit(0);
+}
+
+#[inline]
+fn long_version() -> &'static str {
+    concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES"))
 }
 
 #[cfg(test)]
