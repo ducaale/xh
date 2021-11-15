@@ -32,7 +32,8 @@ use crate::utils::config_dir;
 
 /// xh is a friendly and fast tool for sending HTTP requests.
 ///
-/// It reimplements as much as possible of HTTPie's excellent design.
+/// It reimplements as much as possible of HTTPie's excellent design, with a focus
+/// on improved performance.
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
@@ -163,7 +164,7 @@ pub struct Cli {
     ///
     /// TOKEN is expected if `--auth-type=bearer`.
     /// {n}{n}{n}
-    #[structopt(short = "a", long, value_name = "USER[:PASS] | token")]
+    #[structopt(short = "a", long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
