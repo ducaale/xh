@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.14.0] - 2021-11-15
 ### Features
 - Add `--http-version` for forcing a specific http version, see #161 (@ducaale)
 - Support overwriting response's mime and charset via `--response-mime` and `--response-charset`
