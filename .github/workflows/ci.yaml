@@ -14,6 +14,9 @@ jobs:
     strategy:
       matrix:
         job:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            flags: --all-features
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --all-features
