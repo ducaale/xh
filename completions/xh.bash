@@ -20,7 +20,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts=" -j -f -m -h -b -v -q -S -d -c -F -I -V -s -p -P -o -A -a  --json --form --multipart --headers --body --verbose --all --quiet --stream --download --continue --ignore-netrc --offline --check-status --follow --native-tls --https --ignore-stdin --curl --curl-long --no-all --no-auth --no-auth-type --no-bearer --no-body --no-cert --no-cert-key --no-check-status --no-continue --no-curl --no-curl-long --no-default-scheme --no-download --no-follow --no-form --no-headers --no-history-print --no-https --no-ignore-netrc --no-ignore-stdin --no-json --no-max-redirects --no-multipart --no-native-tls --no-offline --no-output --no-pretty --no-print --no-proxy --no-quiet --no-session --no-session-read-only --no-stream --no-style --no-timeout --no-verbose --no-verify --help --version --pretty --style --print --history-print --output --session --session-read-only --auth-type --auth --bearer --max-redirects --timeout --proxy --verify --cert --cert-key --default-scheme  <[METHOD] URL> <REQUEST_ITEM>... "
+            opts=" -j -f -m -h -b -v -q -S -d -c -F -I -V -s -p -P -o -A -a  --json --form --multipart --headers --body --verbose --all --quiet --stream --download --continue --ignore-netrc --offline --check-status --follow --native-tls --https --ignore-stdin --curl --curl-long --no-all --no-auth --no-auth-type --no-bearer --no-body --no-cert --no-cert-key --no-check-status --no-continue --no-curl --no-curl-long --no-default-scheme --no-download --no-follow --no-form --no-headers --no-history-print --no-http-version --no-https --no-ignore-netrc --no-ignore-stdin --no-json --no-max-redirects --no-multipart --no-native-tls --no-offline --no-output --no-pretty --no-print --no-proxy --no-quiet --no-response-charset --no-response-mime --no-session --no-session-read-only --no-ssl --no-stream --no-style --no-timeout --no-verbose --no-verify --help --version --pretty --style --response-charset --response-mime --print --history-print --output --session --session-read-only --auth-type --auth --bearer --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --default-scheme --http-version  <[METHOD] URL> <REQUEST_ITEM>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -37,6 +37,14 @@ _xh() {
                     ;;
                     -s)
                     COMPREPLY=($(compgen -W "auto solarized monokai" -- "${cur}"))
+                    return 0
+                    ;;
+                --response-charset)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --response-mime)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --print)
@@ -72,11 +80,11 @@ _xh() {
                     return 0
                     ;;
                 --auth-type)
-                    COMPREPLY=($(compgen -W "basic bearer" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "basic bearer digest" -- "${cur}"))
                     return 0
                     ;;
                     -A)
-                    COMPREPLY=($(compgen -W "basic bearer" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "basic bearer digest" -- "${cur}"))
                     return 0
                     ;;
                 --auth)
@@ -115,8 +123,16 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --ssl)
+                    COMPREPLY=($(compgen -W "auto ssl2.3 tls1 tls1.1 tls1.2 tls1.3" -- "${cur}"))
+                    return 0
+                    ;;
                 --default-scheme)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --http-version)
+                    COMPREPLY=($(compgen -W "1 1.0 1.1 2" -- "${cur}"))
                     return 0
                     ;;
                 *)

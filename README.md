@@ -46,44 +46,47 @@ USAGE:
     xh [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
 
 OPTIONS:
-    -j, --json                        (default) Serialize data items from the command line as a JSON object
-    -f, --form                        Serialize data items from the command line as form fields
-    -m, --multipart                   Like --form, but force a multipart/form-data request even without files
-        --pretty <STYLE>              Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>               Output coloring style [possible values: auto, solarized, monokai]
-    -p, --print <FORMAT>              String specifying what the output should contain
-    -h, --headers                     Print only the response headers, shortcut for --print=h
-    -b, --body                        Print only the response body, Shortcut for --print=b
-    -v, --verbose                     Print the whole request as well as the response
-        --all                         Show any intermediary requests/responses while following redirects with --follow
-    -P, --history-print <FORMAT>      The same as --print but applies only to intermediary requests/responses
-    -q, --quiet                       Do not print to stdout or stderr
-    -S, --stream                      Always stream the response body
-    -o, --output <FILE>               Save output to FILE instead of stdout
-    -d, --download                    Download the body to a file instead of printing it
-    -c, --continue                    Resume an interrupted download. Requires --download and --output
-        --session <FILE>              Create, or reuse and update a session
-        --session-read-only <FILE>    Create or read a session without updating it form the request/response exchange
-    -a, --auth <USER[:PASS]>          Authenticate as USER with PASS. PASS will be prompted if missing
-        --bearer <TOKEN>              Authenticate with a bearer token
-        --ignore-netrc                Do not use credentials from .netrc
-        --offline                     Construct HTTP requests without sending them anywhere
-        --check-status                (default) Exit with an error status code if the server replies with an error
-    -F, --follow                      Do follow redirects
-        --max-redirects <NUM>         Number of redirects to follow, only respected if `follow` is set
-        --timeout <SEC>               Connection timeout of the request
-        --proxy <PROTOCOL:URL>...     Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
-        --verify <VERIFY>             If "no", skip SSL verification. If a file path, use it as a CA bundle
-        --cert <FILE>                 Use a client side certificate for SSL
-        --cert-key <FILE>             A private key file to use with --cert
-        --native-tls                  Use the system TLS library instead of rustls (if enabled at compile time)
-        --https                       Make HTTPS requests if not specified in the URL
-        --http-version <VERSION>      HTTP version to use [possible values: 1, 1.0, 1.1, 2]
-    -I, --ignore-stdin                Do not attempt to read stdin
-        --curl                        Print a translation to a `curl` command
-        --curl-long                   Use the long versions of curl's flags
-        --help                        Prints help information
-    -V, --version                     Prints version information
+    -j, --json                           (default) Serialize data items from the command line as a JSON object
+    -f, --form                           Serialize data items from the command line as form fields
+    -m, --multipart                      Like --form, but force a multipart/form-data request even without files
+        --pretty <STYLE>                 Controls output processing [possible values: all, colors, format, none]
+    -s, --style <THEME>                  Output coloring style [possible values: auto, solarized, monokai]
+        --response-charset <ENCODING>    Override the response encoding for terminal display purposes
+        --response-mime <MIME_TYPE>      Override the response mime type for coloring and formatting for the terminal
+    -p, --print <FORMAT>                 String specifying what the output should contain
+    -h, --headers                        Print only the response headers, shortcut for --print=h
+    -b, --body                           Print only the response body, Shortcut for --print=b
+    -v, --verbose                        Print the whole request as well as the response
+        --all                            Show any intermediary requests/responses while following redirects with --follow
+    -P, --history-print <FORMAT>         The same as --print but applies only to intermediary requests/responses
+    -q, --quiet                          Do not print to stdout or stderr
+    -S, --stream                         Always stream the response body
+    -o, --output <FILE>                  Save output to FILE instead of stdout
+    -d, --download                       Download the body to a file instead of printing it
+    -c, --continue                       Resume an interrupted download. Requires --download and --output
+        --session <FILE>                 Create, or reuse and update a session
+        --session-read-only <FILE>       Create or read a session without updating it form the request/response exchange
+    -A, --auth-type <auth-type>          Specify the auth mechanism [possible values: basic, bearer, digest]
+    -a, --auth <USER[:PASS] | TOKEN>     Authenticate as USER with PASS or with TOKEN
+        --ignore-netrc                   Do not use credentials from .netrc
+        --offline                        Construct HTTP requests without sending them anywhere
+        --check-status                   (default) Exit with an error status code if the server replies with an error
+    -F, --follow                         Do follow redirects
+        --max-redirects <NUM>            Number of redirects to follow, only respected if `follow` is set
+        --timeout <SEC>                  Connection timeout of the request
+        --proxy <PROTOCOL:URL>...        Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
+        --verify <VERIFY>                If "no", skip SSL verification. If a file path, use it as a CA bundle
+        --cert <FILE>                    Use a client side certificate for SSL
+        --cert-key <FILE>                A private key file to use with --cert
+        --ssl <VERSION>                  Force a particular TLS version [possible values: auto, ssl2.3, tls1, tls1.1, tls1.2, tls1.3]
+        --native-tls                     Use the system TLS library instead of rustls (if enabled at compile time)
+        --https                          Make HTTPS requests if not specified in the URL
+        --http-version <VERSION>         HTTP version to use [possible values: 1, 1.0, 1.1, 2]
+    -I, --ignore-stdin                   Do not attempt to read stdin
+        --curl                           Print a translation to a `curl` command
+        --curl-long                      Use the long versions of curl's flags
+        --help                           Prints help information
+    -V, --version                        Prints version information
 
 ARGS:
     <[METHOD] URL>       The request URL, preceded by an optional HTTP method

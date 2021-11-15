@@ -1,12 +1,14 @@
 complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all colors format none"
 complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized monokai"
+complete -c xh -l response-charset -d 'Override the response encoding for terminal display purposes'
+complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal'
 complete -c xh -s p -l print -d 'String specifying what the output should contain'
 complete -c xh -s P -l history-print -d 'The same as --print but applies only to intermediary requests/responses'
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout'
 complete -c xh -l session -d 'Create, or reuse and update a session'
 complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange'
-complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic bearer"
-complete -c xh -s a -l auth -d 'Authenticate as USER with PASS. PASS will be prompted if missing'
+complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic bearer digest"
+complete -c xh -s a -l auth -d 'Authenticate as USER with PASS or with TOKEN'
 complete -c xh -l bearer -d 'Authenticate with a bearer token'
 complete -c xh -l max-redirects -d 'Number of redirects to follow, only respected if `follow` is set'
 complete -c xh -l timeout -d 'Connection timeout of the request'
@@ -14,7 +16,9 @@ complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: `--proxy ht
 complete -c xh -l verify -d 'If "no", skip SSL verification. If a file path, use it as a CA bundle'
 complete -c xh -l cert -d 'Use a client side certificate for SSL'
 complete -c xh -l cert-key -d 'A private key file to use with --cert'
+complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "auto ssl2.3 tls1 tls1.1 tls1.2 tls1.3"
 complete -c xh -l default-scheme -d 'The default scheme to use if not specified in the URL'
+complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "1 1.0 1.1 2"
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
 complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
@@ -52,6 +56,7 @@ complete -c xh -l no-follow
 complete -c xh -l no-form
 complete -c xh -l no-headers
 complete -c xh -l no-history-print
+complete -c xh -l no-http-version
 complete -c xh -l no-https
 complete -c xh -l no-ignore-netrc
 complete -c xh -l no-ignore-stdin
@@ -65,8 +70,11 @@ complete -c xh -l no-pretty
 complete -c xh -l no-print
 complete -c xh -l no-proxy
 complete -c xh -l no-quiet
+complete -c xh -l no-response-charset
+complete -c xh -l no-response-mime
 complete -c xh -l no-session
 complete -c xh -l no-session-read-only
+complete -c xh -l no-ssl
 complete -c xh -l no-stream
 complete -c xh -l no-style
 complete -c xh -l no-timeout
