@@ -1041,7 +1041,6 @@ fn safe_exit() -> ! {
     std::process::exit(0);
 }
 
-#[inline]
 fn long_version() -> &'static str {
     concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES"))
 }
