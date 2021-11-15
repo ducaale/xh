@@ -14,9 +14,6 @@ jobs:
     strategy:
       matrix:
         job:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            flags: --all-features
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --all-features
@@ -29,7 +26,7 @@ jobs:
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-latest
             use-cross: true
-            flags: --features=online-tests --no-default-features # Integration tests don't work with cross
+            flags: --no-default-features # Integration tests don't work in ARM
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
