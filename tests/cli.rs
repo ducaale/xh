@@ -1137,9 +1137,9 @@ fn good_tls_version() {
 #[test]
 fn good_tls_version_nativetls() {
     get_command()
-        .arg("--ssl=tls1.1")
+        .arg("--ssl=tls1.2")
         .arg("--native-tls")
-        .arg("https://tls-v1-1.badssl.com:1011/")
+        .arg("https://tls-v1-2.badssl.com:1011/")
         .assert()
         .success();
 }
