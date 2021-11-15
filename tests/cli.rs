@@ -61,8 +61,28 @@ fn random_string() -> String {
         .collect()
 }
 
+/// Cargo-cross for ARM runs tests using qemu.
+///
+/// It sets an environment variable like this:
+/// CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm
+fn find_runner() -> Option<String> {
+    for (key, value) in std::env::vars() {
+        if key.starts_with("CARGO_TARGET_") && key.ends_with("_RUNNER") && !value.is_empty() {
+            return Some(value);
+        }
+    }
+    None
+}
+
 fn get_base_command() -> Command {
-    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    let mut cmd;
+    let path = assert_cmd::cargo::cargo_bin("xh");
+    if let Some(runner) = find_runner() {
+        cmd = Command::new(runner);
+        cmd.arg(path);
+    } else {
+        cmd = Command::new(path);
+    }
     cmd.env("HOME", "");
     #[cfg(target_os = "windows")]
     cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
