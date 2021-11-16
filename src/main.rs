@@ -297,7 +297,10 @@ fn run(args: Cli) -> Result<i32> {
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
             )
-            .header(USER_AGENT, get_user_agent());
+            .header(
+                USER_AGENT,
+                args.user_agent.unwrap_or(get_user_agent().to_string()),
+            );
 
         if matches!(
             args.http_version,

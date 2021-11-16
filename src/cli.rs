@@ -292,6 +292,10 @@ pub struct Cli {
     #[structopt(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
+    /// The user agent to make the request with.
+    #[structopt(long, short = "u")]
+    pub user_agent: Option<String>,
+
     /// Optional key-value pairs to be included in the request
     ///
     ///   - key==value to add a parameter to the URL
