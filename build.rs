@@ -35,10 +35,11 @@ fn main() {
     for dir in &["assets", "assets/basic", "assets/large"] {
         println!("cargo:rerun-if-changed={}", dir);
         for entry in read_dir(dir).unwrap() {
-            println!(
-                "cargo:rerun-if-changed={}",
-                entry.unwrap().path().to_str().unwrap()
-            );
+            let path = entry.unwrap().path();
+            let path = path.to_str().unwrap();
+            if path.ends_with(".sublime-syntax") || path.ends_with(".tmTheme") {
+                println!("cargo:rerun-if-changed={}", path);
+            }
         }
     }
 
