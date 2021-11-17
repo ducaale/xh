@@ -159,6 +159,9 @@ xh put httpbin.org/put id:=49 age:=25 | less
 
 # Download and save to res.json
 xh -d httpbin.org/json -o res.json
+
+# Make a request with a custom user agent
+xh httpbin.org/get user-agent:foobar
 ```
 
 ## How xh compares to HTTPie
