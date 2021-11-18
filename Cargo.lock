@@ -2166,8 +2166,6 @@ dependencies = [
  "assert_cmd",
  "assert_matches",
  "atty",
- "base64",
- "bytes",
  "cookie",
  "cookie_store",
  "digest_auth",
