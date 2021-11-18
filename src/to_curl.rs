@@ -100,12 +100,31 @@ pub fn translate(args: Cli) -> Result<Command> {
     let mut cmd = Command::new(args.curl_long);
 
     let ignored = &[
-        (args.offline, "--offline"),          // No equivalent
-        (args.body, "-b/--body"),             // Already the default
-        (args.print.is_some(), "-p/--print"), // No straightforward equivalent
-        (args.quiet, "-q/--quiet"),           // No equivalent, -s/--silent suppresses other stuff
-        (args.pretty.is_some(), "--pretty"),  // No equivalent
-        (args.style.is_some(), "-s/--style"), // No equivalent
+        // No equivalent
+        (args.offline, "--offline"),
+        // Already the default
+        (args.body, "-b/--body"),
+        // No straightforward equivalent
+        (args.print.is_some(), "-p/--print"),
+        // No equivalent, -s/--silent suppresses other stuff
+        (args.quiet, "-q/--quiet"),
+        // No equivalent
+        (args.pretty.is_some(), "--pretty"),
+        // No equivalent
+        (args.style.is_some(), "-s/--style"),
+        // No equivalent
+        (args.response_charset.is_some(), "--response-charset"),
+        // No equivalent
+        (args.response_mime.is_some(), "--response-mime"),
+        // Already the default
+        (args.all, "--all"),
+        // No (straightforward?) equivalent
+        (args.history_print.is_some(), "-P/--history-print"),
+        // Might be possible to emulate with --cookie-jar but tricky
+        (args.session.is_some(), "--session"),
+        // Already the default (usually, depends on compile time options)
+        // Unclear if you can even change this at runtime
+        (args.native_tls, "--native-tls"),
     ];
 
     for (present, flag) in ignored {
@@ -129,9 +148,9 @@ pub fn translate(args: Cli) -> Result<Command> {
         // showing up right away
         cmd.opt("-N", "--no-buffer");
     }
-    // Since --fail is bit disruptive than HTTPie's --check-status flag, we will not enable
+    // Since --fail is more disruptive than HTTPie's --check-status flag, we will not enable
     // it unless the user explicitely sets the latter flag
-    if args.check_status.unwrap_or(false) {
+    if args.check_status == Some(true) {
         // Suppresses output on failure, unlike us
         cmd.opt("-f", "--fail");
     }
@@ -141,7 +160,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.opt("-L", "--location");
     }
     if let Some(num) = args.max_redirects {
-        cmd.long("--max-redirects");
+        cmd.long("--max-redirs");
         cmd.arg(num.to_string());
     }
     if let Some(filename) = args.output {
@@ -213,6 +232,10 @@ pub fn translate(args: Cli) -> Result<Command> {
             }
         }
     }
+    if let Some(timeout) = args.timeout.and_then(|t| t.as_duration()) {
+        cmd.long("--connect-timeout");
+        cmd.arg(timeout.as_secs_f64().to_string());
+    }
     if let Some(http_version) = args.http_version {
         match http_version {
             HttpVersion::Http10 => cmd.long("--http1.0"),
@@ -269,6 +292,10 @@ pub fn translate(args: Cli) -> Result<Command> {
     for header in headers_to_unset {
         cmd.opt("-H", "--header");
         cmd.arg(format!("{}:", header));
+    }
+    if args.ignore_netrc {
+        // Already the default, so a bit questionable
+        cmd.long("--no-netrc");
     }
     if let Some(auth) = args.auth {
         match args.auth_type.unwrap_or_default() {
