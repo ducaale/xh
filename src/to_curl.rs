@@ -1,7 +1,9 @@
 use std::io::{stderr, stdout, Write};
 
 use anyhow::{anyhow, Result};
+use os_display::Quotable;
 use reqwest::{tls, Method};
+use std::ffi::OsString;
 
 use crate::cli::{AuthType, Cli, HttpVersion, Verify};
 use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
@@ -19,9 +21,17 @@ pub fn print_curl_translation(args: Cli) -> Result<()> {
     Ok(())
 }
 
+// Options shouldn't be quoted, Args may be.
+// On Windows os_display quotes arguments that look like options,
+// because PowerShell pays attention to that.
+pub enum Arg {
+    Option(&'static str),
+    Arg(OsString),
+}
+
 pub struct Command {
     pub long: bool,
-    pub args: Vec<String>,
+    pub args: Vec<Arg>,
     pub env: Vec<(&'static str, String)>,
     pub warnings: Vec<String>,
 }
@@ -36,21 +46,25 @@ impl Command {
         }
     }
 
-    fn flag(&mut self, short: &'static str, long: &'static str) {
+    fn long(&mut self, opt: &'static str) {
+        self.args.push(Arg::Option(opt));
+    }
+
+    fn opt(&mut self, short: &'static str, long: &'static str) {
         if self.long {
-            self.args.push(long.to_string());
+            self.args.push(Arg::Option(long));
         } else {
-            self.args.push(short.to_string());
+            self.args.push(Arg::Option(short));
         }
     }
 
-    fn push(&mut self, arg: impl Into<String>) {
-        self.args.push(arg.into());
+    fn arg(&mut self, arg: impl Into<OsString>) {
+        self.args.push(Arg::Arg(arg.into()));
     }
 
     fn header(&mut self, name: &str, value: &str) {
-        self.flag("-H", "--header");
-        self.push(format!("{}: {}", name, value));
+        self.opt("-H", "--header");
+        self.arg(format!("{}: {}", name, value));
     }
 
     fn env(&mut self, var: &'static str, value: impl Into<String>) {
@@ -64,23 +78,17 @@ impl Command {
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let escape = if f.alternate() {
-            // If formatted with `{:#}`, use cmd.exe-style formatting
-            // This is currently not exposed
-            shell_escape::windows::escape
-        } else {
-            // By default, use Unix-style formatting regardless of platform
-            // This is also more suitable for Powershell
-            shell_escape::unix::escape
-        };
         for (key, value) in &self.env {
             // This is wrong for Windows, but there doesn't seem to be a
             // right way
-            write!(f, "{}={} ", key, escape(value.into()))?;
+            write!(f, "{}={} ", key, value.maybe_quote())?;
         }
         write!(f, "curl")?;
         for arg in &self.args {
-            write!(f, " {}", escape(arg.into()))?;
+            match arg {
+                Arg::Arg(arg) => write!(f, " {}", arg.maybe_quote())?,
+                Arg::Option(opt) => write!(f, " {}", opt)?,
+            }
         }
         Ok(())
     }
@@ -114,81 +122,78 @@ pub fn translate(args: Cli) -> Result<Command> {
     // Output options
     if args.verbose {
         // Far from an exact match, but it does print the request headers
-        cmd.flag("-v", "--verbose");
+        cmd.opt("-v", "--verbose");
     }
     if args.stream {
         // curl sorta streams by default, but its buffer stops it from
         // showing up right away
-        cmd.flag("-N", "--no-buffer");
+        cmd.opt("-N", "--no-buffer");
     }
     // Since --fail is bit disruptive than HTTPie's --check-status flag, we will not enable
     // it unless the user explicitely sets the latter flag
     if args.check_status.unwrap_or(false) {
         // Suppresses output on failure, unlike us
-        cmd.flag("-f", "--fail");
+        cmd.opt("-f", "--fail");
     }
 
     // HTTP options
     if args.follow {
-        cmd.flag("-L", "--location");
+        cmd.opt("-L", "--location");
     }
     if let Some(num) = args.max_redirects {
-        cmd.push("--max-redirects");
-        cmd.push(num.to_string());
+        cmd.long("--max-redirects");
+        cmd.arg(num.to_string());
     }
     if let Some(filename) = args.output {
         let filename = filename.to_str().ok_or_else(|| anyhow!("Invalid UTF-8"))?;
-        cmd.flag("-o", "--output");
-        cmd.push(filename);
+        cmd.opt("-o", "--output");
+        cmd.arg(filename);
     } else if args.download {
-        cmd.flag("-O", "--remote-name");
+        cmd.opt("-O", "--remote-name");
     }
     if args.resume {
-        cmd.flag("-C", "--continue-at");
-        cmd.push("-"); // Tell curl to guess, like we do
+        cmd.opt("-C", "--continue-at");
+        cmd.long("-"); // Tell curl to guess, like we do
     }
     match args.verify.unwrap_or(Verify::Yes) {
         Verify::CustomCaBundle(filename) => {
-            cmd.push("--cacert");
-            // TODO: maybe filename should be as bytes?
-            // (does the way we have structopt set up even accept non-unicode?)
-            cmd.push(filename.to_string_lossy());
+            cmd.long("--cacert");
+            cmd.arg(filename);
         }
         Verify::No => {
-            cmd.flag("-k", "--insecure");
+            cmd.opt("-k", "--insecure");
         }
         Verify::Yes => {}
     }
     if let Some(cert) = args.cert {
-        cmd.flag("-E", "--cert");
-        // TODO: as bytes?
-        cmd.push(cert.to_string_lossy());
+        cmd.opt("-E", "--cert");
+        cmd.arg(cert);
     }
     if let Some(keyfile) = args.cert_key {
-        cmd.push("--key");
-        cmd.push(keyfile.to_string_lossy());
+        cmd.long("--key");
+        cmd.arg(keyfile);
     }
     if let Some(Some(tls_version)) = args.ssl {
         match tls_version {
             tls::Version::TLS_1_0 => {
-                cmd.push("--tlsv1.0");
-                cmd.push("--tls-max");
-                cmd.push("1.0");
+                cmd.long("--tlsv1.0");
+                cmd.long("--tls-max");
+                cmd.arg("1.0");
             }
             tls::Version::TLS_1_1 => {
-                cmd.push("--tlsv1.1");
-                cmd.push("--tls-max");
-                cmd.push("1.1");
+                cmd.long("--tlsv1.1");
+                cmd.long("--tls-max");
+                cmd.arg("1.1");
             }
             tls::Version::TLS_1_2 => {
-                cmd.push("--tlsv1.2");
-                cmd.push("--tls-max");
-                cmd.push("1.2");
+                cmd.long("--tlsv1.2");
+                cmd.long("--tls-max");
+                cmd.arg("1.2");
             }
             tls::Version::TLS_1_3 => {
-                cmd.push("--tlsv1.3");
-                cmd.push("--tls-max");
-                cmd.push("1.3");
+                cmd.long("--tlsv1.3");
+                cmd.long("--tls-max");
+                cmd.arg("1.3");
             }
             _ => unreachable!(),
         }
@@ -196,8 +201,8 @@ pub fn translate(args: Cli) -> Result<Command> {
     for proxy in args.proxy {
         match proxy {
             crate::cli::Proxy::All(proxy) => {
-                cmd.flag("-x", "--proxy");
-                cmd.push(proxy);
+                cmd.opt("-x", "--proxy");
+                cmd.arg(String::from(proxy));
             }
             crate::cli::Proxy::Http(proxy) => {
                 // These don't seem to have corresponding flags
@@ -210,19 +215,19 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
     if let Some(http_version) = args.http_version {
         match http_version {
-            HttpVersion::Http10 => cmd.push("--http1.0"),
-            HttpVersion::Http11 => cmd.push("--http1.1"),
-            HttpVersion::Http2 => cmd.push("--http2"),
+            HttpVersion::Http10 => cmd.long("--http1.0"),
+            HttpVersion::Http11 => cmd.long("--http1.1"),
+            HttpVersion::Http2 => cmd.long("--http2"),
         }
     }
 
     if args.method == Some(Method::HEAD) {
-        cmd.flag("-I", "--head");
+        cmd.opt("-I", "--head");
     } else if args.method == Some(Method::OPTIONS) {
         // If you're sending an OPTIONS you almost certainly want to see the headers
-        cmd.flag("-i", "--include");
-        cmd.flag("-X", "--request");
-        cmd.push("OPTIONS");
+        cmd.opt("-i", "--include");
+        cmd.opt("-X", "--request");
+        cmd.arg("OPTIONS");
     } else if args.headers {
         // The best option for printing just headers seems to be to use -I
         // but with an explicit method as an override.
@@ -234,9 +239,9 @@ pub fn translate(args: Cli) -> Result<Command> {
             // unwrap_or_else causes borrowing issues
             None => args.request_items.pick_method(),
         };
-        cmd.flag("-I", "--head");
-        cmd.flag("-X", "--request");
-        cmd.push(method.to_string());
+        cmd.opt("-I", "--head");
+        cmd.opt("-X", "--request");
+        cmd.arg(method.to_string());
         if method != Method::GET {
             cmd.warn(
                 "-I/--head is incompatible with sending data. Consider omitting -h/--headers."
@@ -244,44 +249,44 @@ pub fn translate(args: Cli) -> Result<Command> {
             );
         }
     } else if let Some(method) = args.method {
-        cmd.flag("-X", "--request");
-        cmd.push(method.to_string());
+        cmd.opt("-X", "--request");
+        cmd.arg(method.to_string());
     }
     // We assume that curl's automatic detection of when to do a POST matches
     // ours so we can ignore the None case
 
-    cmd.push(args.url.to_string());
+    cmd.arg(args.url.to_string());
 
     // Payload
     for (header, value) in headers.iter() {
-        cmd.flag("-H", "--header");
+        cmd.opt("-H", "--header");
         if value.is_empty() {
-            cmd.push(format!("{};", header));
+            cmd.arg(format!("{};", header));
         } else {
-            cmd.push(format!("{}: {}", header, value.to_str()?));
+            cmd.arg(format!("{}: {}", header, value.to_str()?));
         }
     }
     for header in headers_to_unset {
-        cmd.flag("-H", "--header");
-        cmd.push(format!("{}:", header));
+        cmd.opt("-H", "--header");
+        cmd.arg(format!("{}:", header));
     }
     if let Some(auth) = args.auth {
         match args.auth_type.unwrap_or_default() {
             AuthType::basic => {
-                cmd.push("--basic");
+                cmd.long("--basic");
                 // curl implements this flag the same way, including password prompt
-                cmd.flag("-u", "--user");
-                cmd.push(auth);
+                cmd.opt("-u", "--user");
+                cmd.arg(auth);
             }
             AuthType::digest => {
-                cmd.push("--digest");
+                cmd.long("--digest");
                 // curl implements this flag the same way, including password prompt
-                cmd.flag("-u", "--user");
-                cmd.push(auth);
+                cmd.opt("-u", "--user");
+                cmd.arg(auth);
             }
             AuthType::bearer => {
-                cmd.push("--oauth2-bearer");
-                cmd.push(auth);
+                cmd.long("--oauth2-bearer");
+                cmd.arg(auth);
             }
         }
     }
@@ -295,12 +300,12 @@ pub fn translate(args: Cli) -> Result<Command> {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField(key, value) => {
-                    cmd.flag("-F", "--form");
-                    cmd.push(format!("{}={}", key, value));
+                    cmd.opt("-F", "--form");
+                    cmd.arg(format!("{}={}", key, value));
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
-                    cmd.flag("-F", "--form");
-                    cmd.push(format!("{}=<{}", key, value));
+                    cmd.opt("-F", "--form");
+                    cmd.arg(format!("{}=<{}", key, value));
                 }
                 RequestItem::FormFile {
                     key,
@@ -308,7 +313,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     file_type,
                     file_name_header,
                 } => {
-                    cmd.flag("-F", "--form");
+                    cmd.opt("-F", "--form");
                     let mut val = format!("{}=@{}", key, file_name);
                     if let Some(file_type) = file_type {
                         val.push_str(";type=");
@@ -318,7 +323,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                         val.push_str(";filename=");
                         val.push_str(&file_name_header);
                     }
-                    cmd.push(val);
+                    cmd.arg(val);
                 }
                 RequestItem::HttpHeader(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
@@ -336,12 +341,12 @@ pub fn translate(args: Cli) -> Result<Command> {
                     // More faithful than -F, but doesn't have a short version
                     // New in curl 7.18.0 (January 28 2008), *probably* old enough
                     // Otherwise passing --multipart helps
-                    cmd.push("--data-urlencode");
+                    cmd.long("--data-urlencode");
                     // Encoding this is tricky: --data-urlencode expects name
                     // to be encoded but not value and doesn't take strings
                     let mut encoded = serde_urlencoded::to_string(&[(key, "")])?;
                     encoded.push_str(&value);
-                    cmd.push(encoded);
+                    cmd.arg(encoded);
                 }
             }
             Body::Json(map) if !map.is_empty() => {
@@ -349,8 +354,8 @@ pub fn translate(args: Cli) -> Result<Command> {
                 cmd.header("accept", JSON_ACCEPT);
 
                 let json_string = serde_json::Value::from(map).to_string();
-                cmd.flag("-d", "--data");
-                cmd.push(json_string);
+                cmd.opt("-d", "--data");
+                cmd.arg(json_string);
             }
             Body::Json(..) if args.json => {
                 cmd.header("content-type", JSON_CONTENT_TYPE);
@@ -369,8 +374,10 @@ pub fn translate(args: Cli) -> Result<Command> {
                 } else {
                     cmd.header("content-type", JSON_CONTENT_TYPE);
                 }
-                cmd.push("--data-binary");
-                cmd.push(format!("@{}", file_name.to_string_lossy()));
+                cmd.long("--data-binary");
+                let mut arg = OsString::from("@");
+                arg.push(file_name);
+                cmd.arg(arg);
             }
         }
     }
@@ -385,118 +392,91 @@ mod tests {
     #[test]
     fn examples() {
         let expected = vec![
-            ("xh httpbin.org/get", "curl 'http://httpbin.org/get'", "curl http://httpbin.org/get"),
+            ("xh httpbin.org/get", "curl http://httpbin.org/get"),
             (
                 "xh httpbin.org/post x=3",
-                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":"3"}'"#,
-                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5" -d "{\"x\":\"3\"}""#,
+                r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":"3"}'"#,
             ),
             (
                 "xh --form httpbin.org/post x\\=y=z=w",
-                "curl 'http://httpbin.org/post' --data-urlencode 'x%3Dy=z=w'",
-                "curl http://httpbin.org/post --data-urlencode x%3Dy=z=w",
+                "curl http://httpbin.org/post --data-urlencode 'x%3Dy=z=w'",
             ),
             (
                 "xh put httpbin.org/put",
-                "curl -X PUT 'http://httpbin.org/put'",
                 "curl -X PUT http://httpbin.org/put",
             ),
             (
                 "xh --https httpbin.org/get x==3",
                 "curl 'https://httpbin.org/get?x=3'",
-                "curl https://httpbin.org/get?x=3",
             ),
             (
                 "xhs httpbin.org/get x==3",
                 "curl 'https://httpbin.org/get?x=3'",
-                "curl https://httpbin.org/get?x=3",
             ),
             (
                 "xh -h httpbin.org/get",
-                "curl -I -X GET 'http://httpbin.org/get'",
                 "curl -I -X GET http://httpbin.org/get",
             ),
             (
                 "xh options httpbin.org/get",
-                "curl -i -X OPTIONS 'http://httpbin.org/get'",
                 "curl -i -X OPTIONS http://httpbin.org/get",
             ),
             (
                 "xh --proxy http:localhost:1080 httpbin.org/get",
-                "http_proxy='localhost:1080' curl 'http://httpbin.org/get'",
                 "http_proxy=localhost:1080 curl http://httpbin.org/get",
             ),
             (
                 "xh --proxy all:localhost:1080 httpbin.org/get",
-                "curl -x 'localhost:1080' 'http://httpbin.org/get'",
                 "curl -x localhost:1080 http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post x:=[3]",
-                r#"curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":[3]}'"#,
-                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5" -d "{\"x\":[3]}""#,
+                r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":[3]}'"#,
             ),
             (
                 "xh --json httpbin.org/post",
-                "curl 'http://httpbin.org/post' -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5'",
-                r#"curl http://httpbin.org/post -H "content-type: application/json" -H "accept: application/json, */*;q=0.5""#,
+                "curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5'",
             ),
             (
                 "xh --form httpbin.org/post x@/dev/null",
-                "curl 'http://httpbin.org/post' -F 'x=@/dev/null'",
-                "curl http://httpbin.org/post -F x=@/dev/null",
+                "curl http://httpbin.org/post -F 'x=@/dev/null'",
             ),
             (
                 "xh --form httpbin.org/post",
-                "curl 'http://httpbin.org/post' -H 'content-type: application/x-www-form-urlencoded'",
-                r#"curl http://httpbin.org/post -H "content-type: application/x-www-form-urlencoded""#,
+                "curl http://httpbin.org/post -H 'content-type: application/x-www-form-urlencoded'",
             ),
             (
                 "xh --bearer foobar post httpbin.org/post",
-                "curl -X POST 'http://httpbin.org/post' --oauth2-bearer foobar",
                 "curl -X POST http://httpbin.org/post --oauth2-bearer foobar",
             ),
             (
                 "xh httpbin.org/get foo:Bar baz; user-agent:",
-                "curl 'http://httpbin.org/get' -H 'foo: Bar' -H 'baz;' -H 'user-agent:'",
-                r#"curl http://httpbin.org/get -H "foo: Bar" -H baz; -H user-agent:"#,
+                "curl http://httpbin.org/get -H 'foo: Bar' -H 'baz;' -H user-agent:",
             ),
             (
                 "xh -d httpbin.org/get",
-                "curl -f -L -O 'http://httpbin.org/get'",
                 "curl -f -L -O http://httpbin.org/get",
             ),
             (
                 "xh -d -o foobar --continue httpbin.org/get",
-                "curl -f -L -o foobar -C - 'http://httpbin.org/get'",
                 "curl -f -L -o foobar -C - http://httpbin.org/get",
             ),
             (
                 "xh --curl-long -d -o foobar --continue httpbin.org/get",
-                "curl --fail --location --output foobar --continue-at - 'http://httpbin.org/get'",
                 "curl --fail --location --output foobar --continue-at - http://httpbin.org/get",
             ),
             (
                 "xh httpbin.org/post @foo.txt",
-                "curl 'http://httpbin.org/post' -H 'content-type: text/plain' --data-binary '@foo.txt'",
-                r#"curl http://httpbin.org/post -H "content-type: text/plain" --data-binary @foo.txt"#,
+                #[cfg(not(windows))]
+                "curl http://httpbin.org/post -H 'content-type: text/plain' --data-binary @foo.txt",
+                #[cfg(windows)]
+                "curl http://httpbin.org/post -H 'content-type: text/plain' --data-binary '@foo.txt'",
             ),
         ];
-        for (input, output_unix, output_windows) in expected {
+        for (input, output) in expected {
             let cli = Cli::from_iter_safe(input.split_whitespace()).unwrap();
             let cmd = translate(cli).unwrap();
-            assert_eq!(
-                cmd.to_string(),
-                output_unix,
-                "Wrong Unix output for {:?}",
-                input
-            );
-            assert_eq!(
-                format!("{:#}", cmd),
-                output_windows,
-                "Wrong Windows output for {:?}",
-                input
-            );
+            assert_eq!(cmd.to_string(), output, "Wrong output for {:?}", input);
         }
     }
 }
