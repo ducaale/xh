@@ -28,7 +28,7 @@ where
     T::Error: std::fmt::Debug,
 {
     fn query_params(&self) -> HashMap<String, String> {
-        form_urlencoded::parse(&self.uri().query().unwrap().as_bytes())
+        form_urlencoded::parse(self.uri().query().unwrap().as_bytes())
             .into_owned()
             .collect::<HashMap<String, String>>()
     }
@@ -1990,8 +1990,8 @@ fn expired_cookies_are_removed_from_session() {
 }
 
 fn cookies_are_equal(c1: &str, c2: &str) -> bool {
-    HashSet::<_>::from_iter(c1.split(";").map(|c| c.trim()))
-        == HashSet::<_>::from_iter(c2.split(";").map(|c| c.trim()))
+    HashSet::<_>::from_iter(c1.split(';').map(|c| c.trim()))
+        == HashSet::<_>::from_iter(c2.split(';').map(|c| c.trim()))
 }
 
 #[test]
