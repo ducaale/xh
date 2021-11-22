@@ -500,7 +500,7 @@ fn run(args: Cli) -> Result<i32> {
                     args.quiet,
                 )?;
             }
-        } else {
+        } else if print.response_body {
             printer.print_response_body(response, response_charset, response_mime)?;
         }
     }
