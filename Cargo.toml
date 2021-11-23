@@ -14,6 +14,7 @@ exclude = ["assets/xhs", "assets/xhs.1.gz"]
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+chardetng = "0.1.15"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
 digest_auth = "0.3.0"
@@ -23,6 +24,7 @@ encoding_rs_io = "0.1.7"
 humantime = "2.1.0"
 indicatif = "0.16.2"
 jsonxf = "1.1.0"
+memchr = "2.4.1"
 mime = "0.3.16"
 mime2ext = "0.1.0"
 mime_guess = "2.0"
