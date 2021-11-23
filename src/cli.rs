@@ -724,7 +724,7 @@ fn generate_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
 
 arg_enum! {
     #[allow(non_camel_case_types)]
-    #[derive(Debug, PartialEq)]
+    #[derive(Copy, Clone, Debug, PartialEq)]
     pub enum AuthType {
         basic, bearer, digest
     }
