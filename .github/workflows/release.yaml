@@ -13,6 +13,7 @@ jobs:
         job:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            flags: --features=native-tls
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --features=native-tls
@@ -25,7 +26,6 @@ jobs:
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-latest
             use-cross: true
-            flags: --no-default-features # Integration tests don't work with cross
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1

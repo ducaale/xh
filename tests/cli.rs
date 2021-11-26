@@ -1,20 +1,54 @@
-#![cfg(feature = "integration-tests")]
 #![allow(clippy::bool_assert_comparison)]
-use std::{
-    collections::HashSet,
-    fs::File,
-    fs::{create_dir_all, read_to_string, OpenOptions},
-    io::{Seek, SeekFrom, Write},
-    process::Command,
-    time::Duration,
-};
+mod server;
+
+use std::collections::{HashMap, HashSet};
+use std::fs::{create_dir_all, read_to_string, File, OpenOptions};
+use std::future::Future;
+use std::io::{Seek, SeekFrom, Write};
+use std::iter::FromIterator;
+use std::pin::Pin;
+use std::process::Command;
+use std::time::Duration;
 
 use assert_cmd::prelude::*;
-use httpmock::{HttpMockRequest, Method::*, MockServer};
-use indoc::{formatdoc, indoc};
+use indoc::indoc;
 use predicates::str::contains;
-use serde_json::json;
 use tempfile::{tempdir, tempfile};
+
+pub trait RequestExt {
+    fn query_params(&self) -> HashMap<String, String>;
+    fn body(self) -> Pin<Box<dyn Future<Output = Vec<u8>> + Send>>;
+    fn body_as_string(self) -> Pin<Box<dyn Future<Output = String> + Send>>;
+}
+
+impl<T> RequestExt for hyper::Request<T>
+where
+    T: hyper::body::HttpBody + Send + 'static,
+    T::Data: Send,
+    T::Error: std::fmt::Debug,
+{
+    fn query_params(&self) -> HashMap<String, String> {
+        form_urlencoded::parse(&self.uri().query().unwrap().as_bytes())
+            .into_owned()
+            .collect::<HashMap<String, String>>()
+    }
+
+    fn body(self) -> Pin<Box<dyn Future<Output = Vec<u8>> + Send>> {
+        let fut = async {
+            hyper::body::to_bytes(self)
+                .await
+                .unwrap()
+                .as_ref()
+                .to_owned()
+        };
+        Box::pin(fut)
+    }
+
+    fn body_as_string(self) -> Pin<Box<dyn Future<Output = String> + Send>> {
+        let fut = async { String::from_utf8(self.body().await).unwrap() };
+        Box::pin(fut)
+    }
+}
 
 fn random_string() -> String {
     use rand::Rng;
@@ -26,8 +60,28 @@ fn random_string() -> String {
         .collect()
 }
 
+/// Cargo-cross for ARM runs tests using qemu.
+///
+/// It sets an environment variable like this:
+/// CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm
+fn find_runner() -> Option<String> {
+    for (key, value) in std::env::vars() {
+        if key.starts_with("CARGO_TARGET_") && key.ends_with("_RUNNER") && !value.is_empty() {
+            return Some(value);
+        }
+    }
+    None
+}
+
 fn get_base_command() -> Command {
-    let mut cmd = Command::cargo_bin("xh").expect("binary should be present");
+    let mut cmd;
+    let path = assert_cmd::cargo::cargo_bin("xh");
+    if let Some(runner) = find_runner() {
+        cmd = Command::new(runner);
+        cmd.arg(path);
+    } else {
+        cmd = Command::new(path);
+    }
     cmd.env("HOME", "");
     #[cfg(target_os = "windows")]
     cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
@@ -59,15 +113,16 @@ fn color_command() -> Command {
 
 #[test]
 fn basic_json_post() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.method(POST)
-            .header("Content-Type", "application/json")
-            .json_body(json!({"name": "ali"}));
-        then.header("Content-Type", "application/json")
-            .json_body(json!({"got": "name", "status": "ok"}));
-    });
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.headers()["Content-Type"], "application/json");
+        assert_eq!(req.body_as_string().await, "{\"name\":\"ali\"}");
 
+        http::Response::builder()
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body(r#"{"got":"name","status":"ok"}"#.into())
+            .unwrap()
+    });
     get_command()
         .arg("--print=b")
         .arg("--pretty=format")
@@ -76,167 +131,160 @@ fn basic_json_post() {
         .arg("name=ali")
         .assert()
         .stdout(indoc! {r#"
-        {
-            "got": "name",
-            "status": "ok"
-        }
+            {
+                "got": "name",
+                "status": "ok"
+            }
 
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn basic_get() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.method(GET);
-        then.body("foobar\n");
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        http::Response::builder().body("foobar\n".into()).unwrap()
     });
-
     get_command()
-        .arg("--print=b")
-        .arg("get")
-        .arg(server.base_url())
+        .args(&["--print=b", "get", &server.base_url()])
         .assert()
         .stdout("foobar\n\n");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn basic_head() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.method(HEAD);
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "HEAD");
+        http::Response::default()
     });
-
-    get_command().arg("head").arg(server.base_url()).assert();
-    mock.assert();
+    get_command()
+        .args(&["head", &server.base_url()])
+        .assert()
+        .success();
+    server.assert_hits(1);
 }
 
 #[test]
 fn basic_options() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.method(OPTIONS);
-        then.header("Allow", "GET, HEAD, OPTIONS");
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "OPTIONS");
+        http::Response::builder()
+            .header("Allow", "GET, HEAD, OPTIONS")
+            .body("".into())
+            .unwrap()
     });
-
     get_command()
-        .arg("-h")
-        .arg("options")
-        .arg(server.base_url())
+        .args(&["-h", "options", &server.base_url()])
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"))
         .stdout(contains("Allow:"));
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn multiline_value() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.method(POST).body("foo=bar%0Abaz");
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.body_as_string().await, "foo=bar%0Abaz");
+        http::Response::default()
     });
 
     get_command()
-        .arg("--form")
-        .arg("post")
-        .arg(server.base_url())
-        .arg("foo=bar\nbaz")
+        .args(&["--form", "post", &server.base_url(), "foo=bar\nbaz"])
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn header() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("X-Foo", "Bar");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["X-Foo"], "Bar");
+        http::Response::default()
     });
     get_command()
-        .arg(server.base_url())
-        .arg("x-foo:Bar")
+        .args(&[&server.base_url(), "x-foo:Bar"])
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn query_param() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.query_param("foo", "bar");
+    let server = server::http(|req| async move {
+        assert_eq!(req.query_params()["foo"], "bar");
+        http::Response::default()
     });
     get_command()
-        .arg(server.base_url())
-        .arg("foo==bar")
-        .assert();
-    mock.assert();
+        .args(&[&server.base_url(), "foo==bar"])
+        .assert()
+        .success();
+    server.assert_hits(1);
 }
 
 #[test]
 fn json_param() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.json_body(json!({"foo": [1, 2, 3]}));
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, "{\"foo\":[1,2,3]}");
+        http::Response::default()
     });
     get_command()
-        .arg(server.base_url())
-        .arg("foo:=[1,2,3]")
+        .args(&[&server.base_url(), "foo:=[1,2,3]"])
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn verbose() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.header("Connection", "keep-alive")
-            .header("Content-Type", "application/json")
-            .header("Content-Length", "9")
-            .header("User-Agent", "xh/0.0.0 (test mode)")
-            .json_body(json!({"x": "y"}));
-        then.body("a body")
-            .header("date", "N/A")
-            .header("X-Foo", "Bar");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Connection"], "keep-alive");
+        assert_eq!(req.headers()["Content-Type"], "application/json");
+        assert_eq!(req.headers()["Content-Length"], "9");
+        assert_eq!(req.headers()["User-Agent"], "xh/0.0.0 (test mode)");
+        assert_eq!(req.body_as_string().await, "{\"x\":\"y\"}");
+        http::Response::builder()
+            .header("X-Foo", "Bar")
+            .header("Date", "N/A")
+            .body("a body".into())
+            .unwrap()
     });
     get_command()
-        .arg("--verbose")
-        .arg(server.base_url())
-        .arg("x=y")
+        .args(&["--verbose", &server.base_url(), "x=y"])
         .assert()
         .stdout(indoc! {r#"
-        POST / HTTP/1.1
-        Accept: application/json, */*;q=0.5
-        Accept-Encoding: gzip, deflate, br
-        Connection: keep-alive
-        Content-Length: 9
-        Content-Type: application/json
-        Host: http.mock
-        User-Agent: xh/0.0.0 (test mode)
+            POST / HTTP/1.1
+            Accept: application/json, */*;q=0.5
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Content-Length: 9
+            Content-Type: application/json
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
 
-        {
-            "x": "y"
-        }
+            {
+                "x": "y"
+            }
 
 
 
-        HTTP/1.1 200 OK
-        Content-Length: 6
-        Date: N/A
-        X-Foo: Bar
+            HTTP/1.1 200 OK
+            Content-Length: 6
+            Date: N/A
+            X-Foo: Bar
 
-        a body
+            a body
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn download() {
     let dir = tempdir().unwrap();
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.body("file contents\n");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .body("file contents\n".into())
+            .unwrap()
     });
 
     let outfile = dir.path().join("outfile");
@@ -246,91 +294,44 @@ fn download() {
         .arg(&outfile)
         .arg(server.base_url())
         .assert();
-    mock.assert();
+    server.assert_hits(1);
     assert_eq!(read_to_string(&outfile).unwrap(), "file contents\n");
 }
 
 #[test]
 fn accept_encoding_not_modifiable_in_download_mode() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.header("accept-encoding", "identity");
-        then.body(r#"{"ids":[1,2,3]}"#);
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["accept-encoding"], "identity");
+        http::Response::builder()
+            .body(r#"{"ids":[1,2,3]}"#.into())
+            .unwrap()
     });
 
     let dir = tempdir().unwrap();
     get_command()
         .current_dir(&dir)
-        .arg(server.base_url())
-        .arg("--download")
-        .arg("accept-encoding:gzip")
+        .args(&[&server.base_url(), "--download", "accept-encoding:gzip"])
         .assert();
-    mock.assert();
-}
-
-fn get_proxy_command(
-    protocol_to_request: &str,
-    protocol_to_proxy: &str,
-    proxy_url: &str,
-) -> Command {
-    let mut cmd = get_command();
-    cmd.arg("--pretty=format")
-        .arg("--check-status")
-        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
-        .arg("GET")
-        .arg(format!("{}://example.test/get", protocol_to_request));
-    cmd
-}
-
-#[test]
-fn proxy_http_proxy() {
-    let server = MockServer::start();
-
-    let mock = server.mock(|when, then| {
-        when.method(GET).header("host", "example.test");
-        then.status(200);
-    });
-
-    get_proxy_command("http", "http", &server.base_url())
-        .assert()
-        .success();
-
-    mock.assert();
-}
-
-#[test]
-fn proxy_https_proxy() {
-    let server = MockServer::start();
-
-    let mock = server.mock(|when, then| {
-        when.method(CONNECT);
-        then.status(502);
-    });
-
-    get_proxy_command("https", "https", &server.base_url())
-        .assert()
-        .stderr(contains("unsuccessful tunnel"))
-        .failure();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn download_generated_filename() {
     let dir = tempdir().unwrap();
-    let server = MockServer::start();
-    server.mock(|_when, then| {
-        then.header("Content-Type", "application/json").body("file");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "application/json")
+            .body("file".into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.url("/foo/bar/"))
+        .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
         .assert();
 
     get_command()
-        .arg("--download")
-        .arg(server.url("/foo/bar/"))
+        .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
         .assert();
 
@@ -344,102 +345,85 @@ fn download_generated_filename() {
 #[test]
 fn download_supplied_filename() {
     let dir = tempdir().unwrap();
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Disposition", r#"attachment; filename="foo.bar""#)
-            .body("file");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Disposition", r#"attachment; filename="foo.bar""#)
+            .body("file".into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.base_url())
+        .args(&["--download", &server.base_url()])
         .current_dir(&dir)
         .assert();
-    mock.assert();
+    server.assert_hits(1);
     assert_eq!(read_to_string(dir.path().join("foo.bar")).unwrap(), "file");
 }
 
 #[test]
 fn download_supplied_unquoted_filename() {
     let dir = tempdir().unwrap();
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Disposition", r#"attachment; filename=foo bar baz"#)
-            .body("file");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Disposition", r#"attachment; filename=foo bar baz"#)
+            .body("file".into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--download")
-        .arg(server.base_url())
+        .args(&["--download", &server.base_url()])
         .current_dir(&dir)
         .assert();
-    mock.assert();
+    server.assert_hits(1);
     assert_eq!(
         read_to_string(dir.path().join("foo bar baz")).unwrap(),
         "file"
     );
 }
 
+// TODO: test implicit download filenames
+// For this we have to pretend the output is a tty
+// This intersects with both #41 and #59
+
 #[test]
 fn decode() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/plain; charset=latin1")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout("é\n");
-    mock.assert();
-}
-
-#[test]
-fn proxy_all_proxy() {
-    let server = MockServer::start();
-
-    let mock = server.mock(|when, then| {
-        when.method(CONNECT);
-        then.status(502);
-    });
-
-    get_proxy_command("https", "all", &server.base_url())
-        .assert()
-        .stderr(contains("unsuccessful tunnel"))
-        .failure();
-    mock.assert();
-
-    get_proxy_command("http", "all", &server.base_url())
-        .assert()
-        .failure();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn streaming_decode() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/plain; charset=latin1")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--print=b")
-        .arg("--stream")
-        .arg(server.base_url())
+        .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
         .stdout("é\n");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn only_decode_for_terminal() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/plain; charset=latin1")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
 
     let output = redirecting_command()
@@ -449,84 +433,82 @@ fn only_decode_for_terminal() {
         .stdout
         .clone();
     assert_eq!(&output, b"\xe9"); // .stdout() doesn't support byte slices
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn do_decode_if_formatted() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/plain; charset=latin1")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
-
     redirecting_command()
-        .arg("--pretty=all")
-        .arg(server.base_url())
+        .args(&["--pretty=all", &server.base_url()])
         .assert()
         .stdout("é");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn never_decode_if_binary() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        // this mimetype with a charset may actually be incoherent
-        then.header("Content-Type", "application/octet-stream; charset=latin1")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            // this mimetype with a charset may actually be incoherent
+            .header("Content-Type", "application/octet-stream; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
 
     let output = redirecting_command()
-        .arg("--pretty=all")
-        .arg(server.base_url())
+        .args(&["--pretty=all", &server.base_url()])
         .assert()
         .get_output()
         .stdout
         .clone();
     assert_eq!(&output, b"\xe9");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn binary_detection() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.body(b"foo\0bar");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .body(b"foo\0bar".as_ref().into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn streaming_binary_detection() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.body(b"foo\0bar");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .body(b"foo\0bar".as_ref().into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--print=b")
-        .arg("--stream")
-        .arg(server.base_url())
+        .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
@@ -535,15 +517,13 @@ fn request_binary_detection() {
     binary_file.write_all(b"foo\0bar").unwrap();
     binary_file.seek(SeekFrom::Start(0)).unwrap();
     redirecting_command()
-        .arg("--print=B")
-        .arg("--offline")
-        .arg(":")
+        .args(&["--print=B", "--offline", ":"])
         .stdin(binary_file)
         .assert()
         .stdout(indoc! {r#"
-        +-----------------------------------------+
-        | NOTE: binary data not shown in terminal |
-        +-----------------------------------------+
+            +-----------------------------------------+
+            | NOTE: binary data not shown in terminal |
+            +-----------------------------------------+
 
 
         "#});
@@ -551,112 +531,83 @@ fn request_binary_detection() {
 
 #[test]
 fn timeout() {
-    let server = MockServer::start();
-    let mock = server.mock(|_, then| {
-        then.status(200).delay(Duration::from_secs_f32(0.5));
+    let server = server::http(|_req| async move {
+        tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
+        http::Response::default()
     });
 
     get_command()
-        .arg("--timeout=0.1")
-        .arg(server.base_url())
+        .args(&["--timeout=0.1", &server.base_url()])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("operation timed out"));
-
-    mock.assert();
+        .stderr(contains("operation timed out"));
 }
 
 #[test]
 fn timeout_no_limit() {
-    let server = MockServer::start();
-    let mock = server.mock(|_, then| {
-        then.status(200).delay(Duration::from_secs_f32(0.5));
+    let server = server::http(|_req| async move {
+        tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
+        http::Response::default()
     });
 
     get_command()
-        .arg("--timeout=0")
-        .arg(server.base_url())
+        .args(&["--timeout=0", &server.base_url()])
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn timeout_invalid() {
     get_command()
-        .arg("--timeout=-0.01")
-        .arg("--offline")
-        .arg(":")
+        .args(&["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "Invalid seconds as connection timeout",
-        ));
-}
-
-#[test]
-fn last_supplied_proxy_wins() {
-    let first_server = MockServer::start();
-    let first_mock = first_server.mock(|when, then| {
-        when.method(GET).header("host", "example.test");
-        then.status(500);
-    });
-    let second_server = MockServer::start();
-    let second_mock = second_server.mock(|when, then| {
-        when.method(GET).header("host", "example.test");
-        then.status(200);
-    });
-
-    let mut cmd = get_command();
-    cmd.args(&[
-        format!("--proxy=http:{}", first_server.base_url()).as_str(),
-        format!("--proxy=http:{}", second_server.base_url()).as_str(),
-        "GET",
-        "http://example.test",
-    ])
-    .assert()
-    .success();
-
-    first_mock.assert_hits(0);
-    second_mock.assert();
-}
-
-#[test]
-fn proxy_multiple_valid_proxies() {
-    let mut cmd = get_command();
-    cmd.arg("--offline")
-        .arg("--pretty=format")
-        .arg("--proxy=http:https://127.0.0.1:8000")
-        .arg("--proxy=https:socks5://127.0.0.1:8000")
-        .arg("--proxy=all:http://127.0.0.1:8000")
-        .arg("GET")
-        .arg("http://httpbin.org/get");
-
-    cmd.assert().success();
+        .stderr(contains("Invalid seconds as connection timeout"));
 }
 
 #[test]
 fn check_status() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.status(404);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(404)
+            .body("".into())
+            .unwrap()
     });
 
     get_command()
-        .arg("--check-status")
-        .arg(server.base_url())
+        .args(&["--check-status", &server.base_url()])
         .assert()
         .code(4)
         .stderr("");
-    mock.assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn check_status_warning() {
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(501)
+            .body("".into())
+            .unwrap()
+    });
+
+    redirecting_command()
+        .args(&["--check-status", &server.base_url()])
+        .assert()
+        .code(5)
+        .stderr("xh: warning: HTTP 501 Not Implemented\n");
+    server.assert_hits(1);
 }
 
 #[test]
 fn check_status_is_implied() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.status(404);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(404)
+            .body("".into())
+            .unwrap()
     });
 
     get_command()
@@ -664,14 +615,16 @@ fn check_status_is_implied() {
         .assert()
         .code(4)
         .stderr("");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn check_status_is_not_implied_in_compat_mode() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.status(404);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(404)
+            .body("".into())
+            .unwrap()
     });
 
     get_command()
@@ -679,28 +632,194 @@ fn check_status_is_not_implied_in_compat_mode() {
         .arg(server.base_url())
         .assert()
         .code(0);
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn user_password_auth() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
+        http::Response::default()
     });
 
     get_command()
-        .arg("--auth=user:pass")
-        .arg(server.base_url())
+        .args(&["--auth=user:pass", &server.base_url()])
         .assert();
-    mock.assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn user_auth() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Basic dXNlcjo=");
+        http::Response::default()
+    });
+
+    get_command()
+        .args(&["--auth=user:", &server.base_url()])
+        .assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn bearer_auth() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Bearer SomeToken");
+        http::Response::default()
+    });
+
+    get_command()
+        .args(&["--bearer=SomeToken", &server.base_url()])
+        .assert();
+    server.assert_hits(1);
+}
+
+#[test]
+fn digest_auth() {
+    let server = server::http(|req| async move {
+        if req.headers().get("Authorization").is_none() {
+            http::Response::builder()
+                .status(401)
+                .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
+                .body("".into())
+                .unwrap()
+        } else {
+            http::Response::builder()
+                .body("authenticated".into())
+                .unwrap()
+        }
+    });
+
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg(server.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+
+    server.assert_hits(2);
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn successful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn unsuccessful_digest_auth() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:wrongpass")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 401 Unauthorized"));
+}
+
+#[test]
+fn digest_auth_with_redirection() {
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/login_page" => {
+                if req.headers().get("Authorization").is_none() {
+                    http::Response::builder()
+                        .status(401)
+                        .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
+                        .header("date", "N/A")
+                        .body("".into())
+                        .unwrap()
+                } else {
+                    http::Response::builder()
+                        .status(302)
+                        .header("location", "/admin_page")
+                        .header("date", "N/A")
+                        .body("authentication successful, redirecting...".into())
+                        .unwrap()
+                }
+            }
+            "/admin_page" => {
+                if req.headers().get("Authorization").is_none() {
+                    http::Response::builder()
+                        .header("date", "N/A")
+                        .body("admin page".into())
+                        .unwrap()
+                } else {
+                    http::Response::builder()
+                        .status(401)
+                        .body("unauthorized".into())
+                        .unwrap()
+                }
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .env("XH_TEST_DIGEST_AUTH_CNONCE", "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ")
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("--follow")
+        .arg("--verbose")
+        .arg(server.url("/login_page"))
+        .assert()
+        .stdout(indoc! {r#"
+            GET /login_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 401 Unauthorized
+            Content-Length: 0
+            Date: N/A
+            Www-Authenticate: Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE
+
+
+
+            GET /login_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/login_page", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="894fd5ee1dcc702df7e4a6abed37fd56", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 302 Found
+            Content-Length: 41
+            Date: N/A
+            Location: /admin_page
+
+            authentication successful, redirecting...
+
+            GET /admin_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 200 OK
+            Content-Length: 10
+            Date: N/A
+
+            admin page
+        "#});
+
+    server.assert_hits(3);
 }
 
 #[test]
 fn netrc_env_user_password_auth() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
+        http::Response::default()
     });
 
     let mut netrc = tempfile::NamedTempFile::new().unwrap();
@@ -715,15 +834,15 @@ fn netrc_env_user_password_auth() {
         .env("NETRC", netrc.path())
         .arg(server.base_url())
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn netrc_file_user_password_auth() {
     for netrc_file in [".netrc", "_netrc"].iter() {
-        let server = MockServer::start();
-        let mock = server.mock(|when, _then| {
-            when.header("Authorization", "Basic dXNlcjpwYXNz");
+        let server = server::http(|req| async move {
+            assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
+            http::Response::default()
         });
 
         let homedir = tempfile::TempDir::new().unwrap();
@@ -744,119 +863,177 @@ fn netrc_file_user_password_auth() {
             .arg(server.base_url())
             .assert();
 
-        mock.assert();
+        server.assert_hits(1);
 
         drop(netrc);
         homedir.close().unwrap();
     }
 }
 
+fn get_proxy_command(
+    protocol_to_request: &str,
+    protocol_to_proxy: &str,
+    proxy_url: &str,
+) -> Command {
+    let mut cmd = get_command();
+    cmd.arg("--check-status")
+        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
+        .arg("GET")
+        .arg(format!("{}://example.test/get", protocol_to_request));
+    cmd
+}
+
 #[test]
-fn check_status_warning() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.status(501);
+fn proxy_http_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::default()
     });
 
-    redirecting_command()
-        .arg("--check-status")
-        .arg(server.base_url())
+    get_proxy_command("http", "http", &server.base_url())
         .assert()
-        .code(5)
-        .stderr("xh: warning: HTTP 501 Not Implemented\n");
-    mock.assert();
+        .success();
+
+    server.assert_hits(1);
 }
 
 #[test]
-fn user_auth() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("Authorization", "Basic dXNlcjo=");
+fn proxy_https_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "CONNECT");
+        http::Response::builder()
+            .status(502)
+            .body("".into())
+            .unwrap()
     });
 
-    get_command()
-        .arg("--auth=user:")
-        .arg(server.base_url())
-        .assert();
-    mock.assert();
+    get_proxy_command("https", "https", &server.base_url())
+        .assert()
+        .stderr(contains("unsuccessful tunnel"))
+        .failure();
+
+    server.assert_hits(1);
 }
 
 #[test]
-fn bearer_auth() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("Authorization", "Bearer SomeToken");
+fn proxy_all_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "CONNECT");
+        http::Response::builder()
+            .status(502)
+            .body("".into())
+            .unwrap()
     });
 
-    get_command()
-        .arg("--bearer=SomeToken")
-        .arg(server.base_url())
-        .assert();
-    mock.assert();
+    get_proxy_command("https", "all", &server.base_url())
+        .assert()
+        .stderr(contains("unsuccessful tunnel"))
+        .failure();
+
+    server.assert_hits(1);
+
+    get_proxy_command("http", "all", &server.base_url())
+        .assert()
+        .failure();
+
+    server.assert_hits(1);
 }
 
-// TODO: test implicit download filenames
-// For this we have to pretend the output is a tty
-// This intersects with both #41 and #59
+#[test]
+fn last_supplied_proxy_wins() {
+    let first_server = server::http(|req| async move {
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::builder()
+            .status(500)
+            .body("".into())
+            .unwrap()
+    });
 
+    let second_server = server::http(|req| async move {
+        assert_eq!(req.headers()["host"], "example.test");
+        http::Response::builder()
+            .status(200)
+            .body("".into())
+            .unwrap()
+    });
+
+    let mut cmd = get_command();
+    cmd.args(&[
+        format!("--proxy=http:{}", first_server.base_url()).as_str(),
+        format!("--proxy=http:{}", second_server.base_url()).as_str(),
+        "GET",
+        "http://example.test",
+    ])
+    .assert()
+    .success();
+
+    first_server.assert_hits(0);
+    second_server.assert_hits(1);
+}
+
+#[test]
+fn proxy_multiple_valid_proxies() {
+    let mut cmd = get_command();
+    cmd.arg("--offline")
+        .arg("--proxy=http:https://127.0.0.1:8000")
+        .arg("--proxy=https:socks5://127.0.0.1:8000")
+        .arg("--proxy=all:http://127.0.0.1:8000")
+        .arg("GET")
+        .arg("http://httpbin.org/get");
+
+    cmd.assert().success();
+}
+
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_default_yes() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "https://self-signed.badssl.com"])
         .assert()
         .failure()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stderr(predicates::str::contains("UnknownIssuer"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stderr(contains("UnknownIssuer"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_explicit_yes() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("--verify=yes")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
         .failure()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stderr(predicates::str::contains("UnknownIssuer"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stderr(contains("UnknownIssuer"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_no() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("--verify=no")
-        .arg("get")
-        .arg("https://self-signed.badssl.com")
+        .args(&["-v", "--verify=no", "https://self-signed.badssl.com"])
         .assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"))
         .stderr(predicates::str::is_empty());
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn verify_valid_file() {
     get_command()
         .arg("-v")
-        .arg("--pretty=format")
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
-        .arg("get")
         .arg("https://self-signed.badssl.com")
         .assert()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"))
         .stderr(predicates::str::is_empty());
 }
 
 // This test may fail if https://github.com/seanmonstar/reqwest/issues/1260 is fixed
 // If that happens make sure to remove the warning, not just this test
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn verify_valid_file_native_tls() {
     get_command()
@@ -864,41 +1041,35 @@ fn verify_valid_file_native_tls() {
         .arg("--verify=tests/fixtures/certs/wildcard-self-signed.pem")
         .arg("https://self-signed.badssl.com")
         .assert()
-        .stderr(predicates::str::contains(
-            "Custom CA bundles with native-tls are broken",
-        ));
+        .stderr(contains("Custom CA bundles with native-tls are broken"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn cert_without_key() {
     get_command()
-        .arg("-v")
-        .arg("--pretty=format")
-        .arg("get")
-        .arg("https://client.badssl.com")
+        .args(&["-v", "https://client.badssl.com"])
         .assert()
-        .stdout(predicates::str::contains(
-            "400 No required SSL certificate was sent",
-        ))
+        .stdout(contains("400 No required SSL certificate was sent"))
         .stderr(predicates::str::is_empty());
 }
 
+#[cfg(feature = "online-tests")]
+#[ignore = "certificate expired (I think)"]
 #[test]
 fn cert_with_key() {
     get_command()
         .arg("-v")
-        .arg("--pretty=format")
         .arg("--cert=tests/fixtures/certs/client.badssl.com.crt")
         .arg("--cert-key=tests/fixtures/certs/client.badssl.com.key")
-        .arg("get")
         .arg("https://client.badssl.com")
         .assert()
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"))
-        .stdout(predicates::str::contains("client-authenticated"))
+        .stdout(contains("HTTP/1.1 200 OK"))
+        .stdout(contains("client-authenticated"))
         .stderr(predicates::str::is_empty());
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn cert_with_key_native_tls() {
     get_command()
@@ -908,7 +1079,7 @@ fn cert_with_key_native_tls() {
         .arg("https://client.badssl.com")
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
+        .stderr(contains(
             "Client certificates are not supported for native-tls",
         ));
 }
@@ -917,66 +1088,62 @@ fn cert_with_key_native_tls() {
 #[test]
 fn native_tls_flag_disabled() {
     get_command()
-        .arg("--native-tls")
-        .arg(":")
+        .args(&["--native-tls", ":"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "built without native-tls support",
-        ));
+        .stderr(contains("built without native-tls support"));
 }
 
-#[cfg(not(feature = "native-tls"))]
+#[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_no_support() {
     get_command()
         .arg("https://1.1.1.1")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("rustls does not support"))
-        .stderr(predicates::str::contains(
-            "building with the `native-tls` feature",
-        ));
+        .stderr(contains("rustls does not support"))
+        .stderr(contains("building with the `native-tls` feature"));
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn native_tls_works() {
     get_command()
-        .arg("--native-tls")
-        .arg("https://example.org")
+        .args(&["--native-tls", "https://example.org"])
         .assert()
         .success();
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_with_support() {
-    let server = MockServer::start();
-    let mock = server.mock(|_, then| {
-        then.permanent_redirect("https://1.1.1.1");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .status(301)
+            .header("Location", "https://1.1.1.1")
+            .body("Moved Permanently".into())
+            .unwrap()
     });
     get_command()
-        .arg("--follow")
-        .arg(server.base_url())
+        .args(&["--follow", &server.base_url()])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("rustls does not support"))
-        .stderr(predicates::str::contains("using the --native-tls flag"));
-    mock.assert();
+        .stderr(contains("rustls does not support"))
+        .stderr(contains("using the --native-tls flag"));
+    server.assert_hits(1);
 }
 
 #[cfg(feature = "native-tls")]
 #[test]
 fn auto_nativetls() {
     get_command()
-        .arg("--offline")
-        .arg("https://1.1.1.1")
+        .args(&["--offline", "https://1.1.1.1"])
         .assert()
         .success()
-        .stderr(predicates::str::contains("native-tls will be enabled"));
+        .stderr(contains("native-tls will be enabled"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn good_tls_version() {
     get_command()
@@ -986,13 +1153,13 @@ fn good_tls_version() {
         .success();
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn good_tls_version_nativetls() {
     get_command()
-        .arg("--ssl=tls1.1")
+        .arg("--ssl=tls1.2")
         .arg("--native-tls")
-        .arg("https://tls-v1-1.badssl.com:1011/")
+        .arg("https://tls-v1-2.badssl.com:1012/")
         .assert()
         .success();
 }
@@ -1048,153 +1215,154 @@ fn unsupported_tls_version_rustls() {
 
 #[test]
 fn forced_json() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.method(GET)
-            .header("content-type", "application/json")
-            .header("accept", "application/json, */*;q=0.5");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "application/json");
+        assert_eq!(req.headers()["accept"], "application/json, */*;q=0.5");
+        http::Response::default()
     });
+
     get_command()
-        .arg("--json")
-        .arg(server.base_url())
+        .args(&["--json", &server.base_url()])
         .assert()
         .success();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn forced_form() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.method(GET)
-            .header("content-type", "application/x-www-form-urlencoded");
+    let server = server::http(|req| async move {
+        assert_eq!(
+            req.headers()["content-type"],
+            "application/x-www-form-urlencoded"
+        );
+        http::Response::default()
     });
     get_command()
-        .arg("--form")
-        .arg(server.base_url())
+        .args(&["--form", &server.base_url()])
         .assert()
         .success();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn forced_multipart() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.method(POST).header_exists("content-type").body("");
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.headers().get("content-type").is_some(), true);
+        assert_eq!(req.body_as_string().await, "");
+        http::Response::default()
     });
     get_command()
-        .arg("--multipart")
-        .arg(server.base_url())
+        .args(&["--multipart", &server.base_url()])
         .assert()
         .success();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn formatted_json_output() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("content-type", "application/json")
-            .body(r#"{"":0}"#);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn inferred_json_output() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("content-type", "text/plain").body(r#"{"":0}"#);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("content-type", "text/plain")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn inferred_json_javascript_output() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("content-type", "application/javascript")
-            .body(r#"{"":0}"#);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("content-type", "application/javascript")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {
-            "": 0
-        }
+            {
+                "": 0
+            }
 
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn inferred_nonjson_output() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        // Trailing comma makes it invalid JSON, though formatting would still work
-        then.header("content-type", "text/plain").body(r#"{"":0,}"#);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("content-type", "text/plain")
+            // Trailing comma makes it invalid JSON, though formatting would still work
+            .body(r#"{"":0,}"#.into())
+            .unwrap()
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {"":0,}
+            {"":0,}
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn noninferred_json_output() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        // Valid JSON, but not declared as text
-        then.header("content-type", "application/octet-stream")
-            .body(r#"{"":0}"#);
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            // Valid JSON, but not declared as text
+            .header("content-type", "application/octet-stream")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
     });
     get_command()
-        .arg("--print=b")
-        .arg(server.base_url())
+        .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout(indoc! {r#"
-        {"":0}
+            {"":0}
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn mixed_stdin_request_items() {
     let input_file = tempfile().unwrap();
     redirecting_command()
-        .arg("--offline")
-        .arg(":")
-        .arg("x=3")
+        .args(&["--offline", ":", "x=3"])
         .stdin(input_file)
         .assert()
         .failure()
@@ -1207,9 +1375,7 @@ fn mixed_stdin_request_items() {
 fn multipart_stdin() {
     let input_file = tempfile().unwrap();
     redirecting_command()
-        .arg("--offline")
-        .arg("--multipart")
-        .arg(":")
+        .args(&["--offline", "--multipart", ":"])
         .stdin(input_file)
         .assert()
         .failure()
@@ -1218,9 +1384,9 @@ fn multipart_stdin() {
 
 #[test]
 fn default_json_for_raw_body() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _then| {
-        when.header("content-type", "application/json");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "application/json");
+        hyper::Response::default()
     });
     let input_file = tempfile().unwrap();
     redirecting_command()
@@ -1228,28 +1394,30 @@ fn default_json_for_raw_body() {
         .stdin(input_file)
         .assert()
         .success();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn multipart_file_upload() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
+    let server = server::http(|req| async move {
         // This test may be fragile, it's conceivable that the headers will become
         // lowercase in the future
         // (so if this breaks all of a sudden, check that first)
-        when.body_contains("Hello world")
-            .body_contains(concat!(
-                "Content-Disposition: form-data; name=\"x\"; filename=\"input.txt\"\r\n",
-                "\r\n",
-                "Hello world\n"
-            ))
-            .body_contains(concat!(
-                "Content-Disposition: form-data; name=\"y\"; filename=\"foobar.htm\"\r\n",
-                "Content-Type: text/html\r\n",
-                "\r\n",
-                "Hello world\n",
-            ));
+        let body = req.body_as_string().await;
+        assert!(body.contains("Hello world"));
+        assert!(body.contains(concat!(
+            "Content-Disposition: form-data; name=\"x\"; filename=\"input.txt\"\r\n",
+            "\r\n",
+            "Hello world\n"
+        )));
+        assert!(body.contains(concat!(
+            "Content-Disposition: form-data; name=\"y\"; filename=\"foobar.htm\"\r\n",
+            "Content-Type: text/html\r\n",
+            "\r\n",
+            "Hello world\n",
+        )));
+
+        hyper::Response::default()
     });
 
     let dir = tempfile::tempdir().unwrap();
@@ -1273,15 +1441,15 @@ fn multipart_file_upload() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn body_from_file() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("content-type", "text/plain")
-            .body("Hello world\n");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "text/plain");
+        assert_eq!(req.body_as_string().await, "Hello world\n");
+        hyper::Response::default()
     });
 
     let dir = tempfile::tempdir().unwrap();
@@ -1300,15 +1468,15 @@ fn body_from_file() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn body_from_file_with_explicit_mimetype() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("content-type", "image/png")
-            .body("Hello world\n");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "image/png");
+        assert_eq!(req.body_as_string().await, "Hello world\n");
+        hyper::Response::default()
     });
 
     let dir = tempfile::tempdir().unwrap();
@@ -1327,15 +1495,15 @@ fn body_from_file_with_explicit_mimetype() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn body_from_file_with_fallback_mimetype() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("content-type", "application/json")
-            .body("Hello world\n");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "application/json");
+        assert_eq!(req.body_as_string().await, "Hello world\n");
+        hyper::Response::default()
     });
 
     let dir = tempfile::tempdir().unwrap();
@@ -1354,15 +1522,13 @@ fn body_from_file_with_fallback_mimetype() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn no_double_file_body() {
     get_command()
-        .arg(":")
-        .arg("@foo")
-        .arg("@bar")
+        .args(&[":", "@foo", "@bar"])
         .assert()
         .failure()
         .stderr(contains("Can't read request from multiple files"));
@@ -1392,8 +1558,7 @@ fn print_body_from_file() {
 #[test]
 fn colored_headers() {
     color_command()
-        .arg("--offline")
-        .arg(":")
+        .args(&["--offline", ":"])
         .assert()
         .success()
         // Color
@@ -1405,9 +1570,7 @@ fn colored_headers() {
 #[test]
 fn colored_body() {
     color_command()
-        .arg("--offline")
-        .arg(":")
-        .arg("x:=3")
+        .args(&["--offline", ":", "x:=3"])
         .assert()
         .success()
         .stdout(contains("\x1b[34m3\x1b[0m"));
@@ -1428,25 +1591,22 @@ fn force_color_pipe() {
 
 #[test]
 fn request_json_keys_order_is_preserved() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.body(r#"{"name":"ali","age":24}"#);
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, r#"{"name":"ali","age":24}"#);
+        hyper::Response::default()
     });
 
     get_command()
-        .arg("get")
-        .arg(server.base_url())
-        .arg("name=ali")
-        .arg("age:=24")
+        .args(&["get", &server.base_url(), "name=ali", "age:=24"])
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn data_field_from_file() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.body(r#"{"ids":"[1,2,3]"}"#);
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, r#"{"ids":"[1,2,3]"}"#);
+        hyper::Response::default()
     });
 
     let mut text_file = tempfile::NamedTempFile::new().unwrap();
@@ -1456,14 +1616,14 @@ fn data_field_from_file() {
         .arg(server.base_url())
         .arg(format!("ids=@{}", text_file.path().to_string_lossy()))
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn data_field_from_file_in_form_mode() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.body(r#"message=hello+world"#);
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, r#"message=hello+world"#);
+        hyper::Response::default()
     });
 
     let mut text_file = tempfile::NamedTempFile::new().unwrap();
@@ -1474,14 +1634,14 @@ fn data_field_from_file_in_form_mode() {
         .arg("--form")
         .arg(format!("message=@{}", text_file.path().to_string_lossy()))
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn json_field_from_file() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.body(r#"{"ids":[1,2,3]}"#);
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, r#"{"ids":[1,2,3]}"#);
+        hyper::Response::default()
     });
 
     let mut json_file = tempfile::NamedTempFile::new().unwrap();
@@ -1491,15 +1651,13 @@ fn json_field_from_file() {
         .arg(server.base_url())
         .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
         .assert();
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn can_unset_default_headers() {
     get_command()
-        .arg(":")
-        .arg("user-agent:")
-        .arg("--offline")
+        .args(&[":", "user-agent:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1514,11 +1672,7 @@ fn can_unset_default_headers() {
 #[test]
 fn can_unset_headers() {
     get_command()
-        .arg(":")
-        .arg("hello:world")
-        .arg("goodby:world")
-        .arg("goodby:")
-        .arg("--offline")
+        .args(&[":", "hello:world", "goodby:world", "goodby:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1535,10 +1689,7 @@ fn can_unset_headers() {
 #[test]
 fn can_set_unset_header() {
     get_command()
-        .arg(":")
-        .arg("hello:")
-        .arg("hello:world")
-        .arg("--offline")
+        .args(&[":", "hello:", "hello:world", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -1552,31 +1703,13 @@ fn can_set_unset_header() {
         "#});
 }
 
-// httpmock's matches function doesn't accept closures
-// see https://github.com/alexliesenfeld/httpmock/issues/44#issuecomment-840797442
-macro_rules! cookie_exists {
-    ($when:ident, $expected_value:expr) => {{
-        $when.matches(|req: &HttpMockRequest| {
-            req.headers
-                .as_ref()
-                .unwrap()
-                .iter()
-                .any(|(key, actual_value)| {
-                    key == "cookie" && {
-                        let expected = $expected_value.split("; ").collect::<HashSet<_>>();
-                        let actual = actual_value.split("; ").collect::<HashSet<_>>();
-                        actual == expected
-                    }
-                })
-        });
-    }};
-}
-
 #[test]
 fn named_sessions() {
-    let server = MockServer::start();
-    let mock = server.mock(|_, then| {
-        then.header("set-cookie", "cook1=one; Path=/");
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "cook1=one; Path=/")
+            .body("".into())
+            .unwrap()
     });
 
     let config_dir = tempdir().unwrap();
@@ -1591,7 +1724,7 @@ fn named_sessions() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 
     let path_to_session = config_dir.path().join::<std::path::PathBuf>(
         [
@@ -1624,9 +1757,11 @@ fn named_sessions() {
 
 #[test]
 fn anonymous_sessions() {
-    let server = MockServer::start();
-    let mock = server.mock(|_, then| {
-        then.header("set-cookie", "cook1=one");
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "cook1=one")
+            .body("".into())
+            .unwrap()
     });
 
     let mut path_to_session = std::env::temp_dir();
@@ -1641,7 +1776,7 @@ fn anonymous_sessions() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 
     let session_content = read_to_string(path_to_session).unwrap();
 
@@ -1661,9 +1796,11 @@ fn anonymous_sessions() {
 
 #[test]
 fn anonymous_read_only_session() {
-    let server = MockServer::start();
-    server.mock(|_, then| {
-        then.header("set-cookie", "lang=en");
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "lang=en")
+            .body("".into())
+            .unwrap()
     });
 
     let session_file = tempfile::NamedTempFile::new().unwrap();
@@ -1695,9 +1832,11 @@ fn anonymous_read_only_session() {
 
 #[test]
 fn session_files_are_created_in_read_only_mode() {
-    let server = MockServer::start();
-    server.mock(|_, then| {
-        then.header("set-cookie", "lang=ar");
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "lang=ar")
+            .body("".into())
+            .unwrap()
     });
 
     let mut path_to_session = std::env::temp_dir();
@@ -1736,9 +1875,11 @@ fn session_files_are_created_in_read_only_mode() {
 
 #[test]
 fn named_read_only_session() {
-    let server = MockServer::start();
-    server.mock(|_, then| {
-        then.header("set-cookie", "lang=en");
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "lang=en")
+            .body("".into())
+            .unwrap()
     });
 
     let config_dir = tempdir().unwrap();
@@ -1848,15 +1989,25 @@ fn expired_cookies_are_removed_from_session() {
     );
 }
 
+fn cookies_are_equal(c1: &str, c2: &str) -> bool {
+    HashSet::<_>::from_iter(c1.split(";").map(|c| c.trim()))
+        == HashSet::<_>::from_iter(c2.split(";").map(|c| c.trim()))
+}
+
 #[test]
 fn cookies_override_each_other_in_the_correct_order() {
     // Cookies storage priority is: Server response > Command line request > Session file
     // See https://httpie.io/docs#cookie-storage-behaviour
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        cookie_exists!(when, "lang=fr; cook1=two; cook2=two");
-        then.header("set-cookie", "lang=en")
-            .header("set-cookie", "cook1=one");
+    let server = server::http(|req| async move {
+        assert!(cookies_are_equal(
+            req.headers()["cookie"].to_str().unwrap(),
+            "lang=fr; cook1=two; cook2=two"
+        ));
+        hyper::Response::builder()
+            .header("set-cookie", "lang=en")
+            .header("set-cookie", "cook1=one")
+            .body("".into())
+            .unwrap()
     });
 
     let session_file = tempfile::NamedTempFile::new().unwrap();
@@ -1887,7 +2038,7 @@ fn cookies_override_each_other_in_the_correct_order() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 
     let session_content = read_to_string(session_file.path()).unwrap();
     assert_eq!(
@@ -1907,9 +2058,9 @@ fn cookies_override_each_other_in_the_correct_order() {
 
 #[test]
 fn basic_auth_from_session_is_used() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("authorization", "Basic dXNlcjpwYXNz");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["authorization"], "Basic dXNlcjpwYXNz");
+        hyper::Response::default()
     });
 
     let session_file = tempfile::NamedTempFile::new().unwrap();
@@ -1936,14 +2087,14 @@ fn basic_auth_from_session_is_used() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn bearer_auth_from_session_is_used() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("authorization", "Bearer secret-token");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["authorization"], "Bearer secret-token");
+        hyper::Response::default()
     });
 
     let session_file = tempfile::NamedTempFile::new().unwrap();
@@ -1970,14 +2121,14 @@ fn bearer_auth_from_session_is_used() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn auth_netrc_is_not_persisted_in_session() {
-    let server = MockServer::start();
-    let mock = server.mock(|when, _| {
-        when.header("Authorization", "Basic dXNlcjpwYXNz");
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["authorization"], "Basic dXNlcjpwYXNz");
+        hyper::Response::default()
     });
 
     let mut path_to_session = std::env::temp_dir();
@@ -2001,7 +2152,7 @@ fn auth_netrc_is_not_persisted_in_session() {
         .assert()
         .success();
 
-    mock.assert();
+    server.assert_hits(1);
 
     let session_content = read_to_string(path_to_session).unwrap();
     assert_eq!(
@@ -2022,26 +2173,27 @@ fn auth_netrc_is_not_persisted_in_session() {
 
 #[test]
 fn print_intermediate_requests_and_responses() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    server1.mock(|_, then| {
-        then.header("location", &server2.base_url())
-            .status(302)
-            .header("date", "N/A")
-            .body("redirecting...");
-    });
-    server2.mock(|_, then| {
-        then.header("date", "N/A").body("final destination");
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => http::Response::builder()
+                .status(302)
+                .header("Date", "N/A")
+                .header("Location", "/second_page")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/second_page" => http::Response::builder()
+                .header("Date", "N/A")
+                .body("final destination".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
     });
 
     get_command()
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("--verbose")
-        .arg("--all")
+        .args(&[&server.url("/first_page"), "--follow", "--verbose", "--all"])
         .assert()
-        .stdout(formatdoc! {r#"
-            GET / HTTP/1.1
+        .stdout(indoc! {r#"
+            GET /first_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br
             Connection: keep-alive
@@ -2051,11 +2203,11 @@ fn print_intermediate_requests_and_responses() {
             HTTP/1.1 302 Found
             Content-Length: 14
             Date: N/A
-            Location: {url}
+            Location: /second_page
 
             redirecting...
 
-            GET / HTTP/1.1
+            GET /second_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br
             Connection: keep-alive
@@ -2067,32 +2219,36 @@ fn print_intermediate_requests_and_responses() {
             Date: N/A
 
             final destination
-        "#, url = server2.base_url() });
+        "#});
 }
 
 #[test]
 fn history_print() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    server1.mock(|_, then| {
-        then.header("location", &server2.base_url())
-            .status(302)
-            .header("date", "N/A")
-            .body("redirecting...");
-    });
-    server2.mock(|_, then| {
-        then.header("date", "N/A").body("final destination");
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => http::Response::builder()
+                .status(302)
+                .header("Date", "N/A")
+                .header("Location", "/second_page")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/second_page" => http::Response::builder()
+                .header("Date", "N/A")
+                .body("final destination".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
     });
 
     get_command()
-        .arg(server1.base_url())
+        .arg(server.url("/first_page"))
         .arg("--follow")
         .arg("--print=HhBb")
         .arg("--history-print=Hh")
         .arg("--all")
         .assert()
-        .stdout(formatdoc! {r#"
-            GET / HTTP/1.1
+        .stdout(indoc! {r#"
+            GET /first_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br
             Connection: keep-alive
@@ -2102,9 +2258,9 @@ fn history_print() {
             HTTP/1.1 302 Found
             Content-Length: 14
             Date: N/A
-            Location: {url}
+            Location: /second_page
 
-            GET / HTTP/1.1
+            GET /second_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br
             Connection: keep-alive
@@ -2116,28 +2272,22 @@ fn history_print() {
             Date: N/A
 
             final destination
-        "#, url = server2.base_url() });
+        "#});
 }
 
 #[test]
 fn max_redirects_is_enforced() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    server1.mock(|_, then| {
-        then.header("location", &server2.base_url())
+    let server = server::http(|_req| async move {
+        http::Response::builder()
             .status(302)
-            .body("redirecting...");
-    });
-    server2.mock(|_, then| {
-        then.header("location", &server2.base_url()) // redirect to the same server
-            .status(302)
-            .body("redirecting...");
+            .header("Date", "N/A")
+            .header("Location", "/") // infinite redirect loop
+            .body("redirecting...".into())
+            .unwrap()
     });
 
     get_command()
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("--max-redirects=5")
+        .args(&[&server.base_url(), "--follow", "--max-redirects=5"])
         .assert()
         .stderr(contains("Too many redirects (--max-redirects=5)"))
         .failure();
@@ -2145,125 +2295,155 @@ fn max_redirects_is_enforced() {
 
 #[test]
 fn method_is_changed_when_following_302_redirect() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    let mock1 = server1.mock(|when, then| {
-        when.method(POST)
-            .header_exists("Content-Length")
-            .body(r#"{"name":"ali"}"#);
-        then.header("location", &server2.base_url())
-            .status(302)
-            .body("redirecting...");
-    });
-    let mock2 = server2.mock(|when, then| {
-        when.method(GET).matches(|req: &HttpMockRequest| {
-            !req.headers
-                .as_ref()
-                .unwrap()
-                .iter()
-                .any(|(key, _)| key == "Content-Length")
-        });
-        then.body("final destination");
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => {
+                assert_eq!(req.method(), "POST");
+                assert!(req.headers().get("Content-Length").is_some());
+                assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
+                http::Response::builder()
+                    .status(302)
+                    .header("Location", "/second_page")
+                    .body("redirecting...".into())
+                    .unwrap()
+            }
+            "/second_page" => {
+                assert_eq!(req.method(), "GET");
+                assert!(req.headers().get("Content-Length").is_none());
+                http::Response::builder()
+                    .body("final destination".into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
     });
 
     get_command()
-        .arg("post")
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("name=ali")
+        .args(&[
+            "post",
+            &server.url("/first_page"),
+            "--verbose",
+            "--follow",
+            "name=ali",
+        ])
         .assert()
-        .success();
+        .success()
+        .stdout(contains("POST /first_page HTTP/1.1"))
+        .stdout(contains("GET /second_page HTTP/1.1"));
 
-    mock1.assert();
-    mock2.assert();
+    server.assert_hits(2);
 }
 
 #[test]
 fn method_is_not_changed_when_following_307_redirect() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    let mock1 = server1.mock(|when, then| {
-        when.method(POST).body(r#"{"name":"ali"}"#);
-        then.header("location", &server2.base_url())
-            .status(307)
-            .body("redirecting...");
-    });
-    let mock2 = server2.mock(|when, then| {
-        when.method(POST).body(r#"{"name":"ali"}"#);
-        then.body("final destination");
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => {
+                assert_eq!(req.method(), "POST");
+                assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
+                http::Response::builder()
+                    .status(307)
+                    .header("Location", "/second_page")
+                    .body("redirecting...".into())
+                    .unwrap()
+            }
+            "/second_page" => {
+                assert_eq!(req.method(), "POST");
+                assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
+                http::Response::builder()
+                    .body("final destination".into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
     });
 
     get_command()
-        .arg("post")
-        .arg(server1.base_url())
-        .arg("--follow")
-        .arg("name=ali")
+        .args(&[
+            "post",
+            &server.url("/first_page"),
+            "--verbose",
+            "--follow",
+            "name=ali",
+        ])
         .assert()
-        .success();
+        .success()
+        .stdout(contains("POST /first_page HTTP/1.1"))
+        .stdout(contains("POST /second_page HTTP/1.1"));
 
-    mock1.assert();
-    mock2.assert();
+    server.assert_hits(2);
 }
 
 #[test]
 fn sensitive_headers_are_removed_after_cross_domain_redirect() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    let mock1 = server1.mock(|when, then| {
-        when.header_exists("Authorization").header_exists("hello");
-        then.header("Location", &server2.base_url())
-            .status(302)
-            .body("redirecting...");
+    let server1 = server::http(|req| async move {
+        assert!(req.headers().get("Authorization").is_none());
+        assert!(req.headers().get("Hello").is_some());
+        http::Response::builder()
+            .header("Date", "N/A")
+            .body("final destination".into())
+            .unwrap()
     });
-    let mock2 = server2.mock(|when, then| {
-        when.header_exists("Hello")
-            .matches(|req: &HttpMockRequest| {
-                !req.headers
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .any(|(key, _)| key == "Authorization")
-            });
-        then.header("Date", "N/A").body("final destination");
+
+    let server1_base_url = server1.base_url();
+    let server2 = server::http(move |req| {
+        let server1_base_url = server1_base_url.clone();
+        async move {
+            assert!(req.headers().get("Authorization").is_some());
+            assert!(req.headers().get("Hello").is_some());
+            http::Response::builder()
+                .status(302)
+                .header("Location", server1_base_url)
+                .body("redirecting...".into())
+                .unwrap()
+        }
     });
 
     get_command()
-        .arg(server1.base_url())
+        .arg(server2.base_url())
         .arg("--follow")
         .arg("--auth=user:pass")
         .arg("hello:world")
         .assert()
         .success();
 
-    mock1.assert();
-    mock2.assert();
+    server1.assert_hits(1);
+    server2.assert_hits(1);
 }
 
 #[test]
 fn request_body_is_buffered_for_307_redirect() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    server1.mock(|_, then| {
-        then.header("location", &server2.base_url())
-            .status(307)
-            .body("redirecting...");
-    });
-    let mock2 = server2.mock(|when, then| {
-        when.body("hello world\n");
-        then.body("final destination");
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => http::Response::builder()
+                .status(307)
+                .header("Location", "/second_page")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/second_page" => {
+                assert_eq!(req.body_as_string().await, "hello world\n");
+                http::Response::builder()
+                    .body("final destination".into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
     });
 
     let mut file = tempfile::NamedTempFile::new().unwrap();
     writeln!(file, "hello world").unwrap();
 
     get_command()
-        .arg(server1.base_url())
+        .arg(server.url("/first_page"))
         .arg("--follow")
+        .arg("--all")
+        .arg("--print=Hh") // prevent Printer from buffering the request body by not using --verbose
         .arg(format!("@{}", file.path().to_string_lossy()))
         .assert()
-        .success();
+        .success()
+        .stdout(contains("POST /second_page HTTP/1.1"));
 
-    mock2.assert();
+    server.assert_hits(2);
 }
 
 #[test]
@@ -2300,193 +2480,54 @@ fn warns_if_config_is_invalid() {
 
     get_command()
         .env("XH_CONFIG_DIR", config_dir.path())
-        .arg(":")
-        .arg("--offline")
+        .args(&[":", "--offline"])
         .assert()
         .stderr(contains("Unable to parse config file"))
         .success();
 }
 
-#[test]
-fn digest_auth() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    let mock1 = server1.mock(|when, then| {
-        when.matches(|req: &HttpMockRequest| {
-            !req.headers
-                .as_ref()
-                .unwrap()
-                .iter()
-                .any(|(key, _)| key == "Authorization")
-        });
-        then.status(401).header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#);
-    });
-    let mock2 = server2.mock(|when, then| {
-        when.header_exists("Authorization");
-        then.body("authenticated");
-    });
-
-    get_command()
-        .env("XH_TEST_DIGEST_AUTH_URL", server2.base_url())
-        .arg("--auth-type=digest")
-        .arg("--auth=ahmed:12345")
-        .arg(server1.base_url())
-        .assert()
-        .stdout(contains("HTTP/1.1 200 OK"));
-
-    mock1.assert();
-    mock2.assert();
-}
-
-#[test]
-fn successful_digest_auth() {
-    get_command()
-        .arg("--auth-type=digest")
-        .arg("--auth=ahmed:12345")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
-        .assert()
-        .stdout(contains("HTTP/1.1 200 OK"));
-}
-
-#[test]
-fn unsuccessful_digest_auth() {
-    get_command()
-        .arg("--auth-type=digest")
-        .arg("--auth=ahmed:wrongpass")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
-        .assert()
-        .stdout(contains("HTTP/1.1 401 Unauthorized"));
-}
-
-#[test]
-fn digest_auth_with_redirection() {
-    let server1 = MockServer::start();
-    let server2 = MockServer::start();
-    let server3 = MockServer::start();
-    let mock1 = server1.mock(|when, then| {
-        when.matches(|req: &HttpMockRequest| {
-            !req.headers
-                .as_ref()
-                .unwrap()
-                .iter()
-                .any(|(key, _)| key == "Authorization")
-        });
-        then.status(401)
-            .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
-            .header("date", "N/A");
-    });
-    let mock2 = server2.mock(|when, then| {
-        when.header_exists("Authorization");
-        then.status(302)
-            .header("location", &server3.base_url())
-            .header("date", "N/A")
-            .body("authentication successful, redirecting...");
-    });
-    server3.mock(|_, then| {
-        then.header("date", "N/A").body("final destination");
-    });
-
-    get_command()
-        .env("XH_TEST_DIGEST_AUTH_URL", server2.base_url())
-        .env("XH_TEST_DIGEST_AUTH_CNONCE", "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ")
-        .arg("--auth-type=digest")
-        .arg("--auth=ahmed:12345")
-        .arg("--follow")
-        .arg("--verbose")
-        .arg(server1.base_url())
-        .assert()
-        .stdout(formatdoc! {r#"
-            GET / HTTP/1.1
-            Accept: */*
-            Accept-Encoding: gzip, deflate, br
-            Connection: keep-alive
-            Host: http.mock
-            User-Agent: xh/0.0.0 (test mode)
-
-            HTTP/1.1 401 Unauthorized
-            Content-Length: 0
-            Date: N/A
-            Www-Authenticate: Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE
-
-
-
-            GET / HTTP/1.1
-            Accept: */*
-            Accept-Encoding: gzip, deflate, br
-            Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="1e96c9808de24d5dd36e9e4865ffca7d", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
-            Connection: keep-alive
-            Host: http.mock
-            User-Agent: xh/0.0.0 (test mode)
-
-            HTTP/1.1 302 Found
-            Content-Length: 41
-            Date: N/A
-            Location: {redirect_url}
-
-            authentication successful, redirecting...
-
-            GET / HTTP/1.1
-            Accept: */*
-            Accept-Encoding: gzip, deflate, br
-            Connection: keep-alive
-            Host: http.mock
-            User-Agent: xh/0.0.0 (test mode)
-
-            HTTP/1.1 200 OK
-            Content-Length: 17
-            Date: N/A
-
-            final destination
-        "#, redirect_url = server3.base_url()});
-
-    mock1.assert();
-    mock2.assert();
-}
-
+#[cfg(feature = "online-tests")]
 #[test]
 fn http1_0() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=1.0")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=1.0", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/1.0"))
+        .stdout(contains("GET / HTTP/1.0"))
         // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
         // Fortunately, https://www.google.com is not one of those.
-        .stdout(predicates::str::contains("HTTP/1.0 200 OK"));
+        .stdout(contains("HTTP/1.0 200 OK"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http1_1() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=1.1")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=1.1", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/1.1"))
-        .stdout(predicates::str::contains("HTTP/1.1 200 OK"));
+        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("HTTP/1.1 200 OK"));
 }
 
+#[cfg(feature = "online-tests")]
 #[test]
 fn http2() {
     get_command()
-        .arg("--print=hH")
-        .arg("--http-version=2")
-        .arg("https://www.google.com")
+        .args(&["--print=hH", "--http-version=2", "https://www.google.com"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("GET / HTTP/2.0"))
-        .stdout(predicates::str::contains("HTTP/2.0 200 OK"));
+        .stdout(contains("GET / HTTP/2.0"))
+        .stdout(contains("HTTP/2.0 200 OK"));
 }
 
 #[test]
 fn override_response_charset() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/plain; charset=utf-8")
-            .body(b"\xe9");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
     });
 
     get_command()
@@ -2495,15 +2536,16 @@ fn override_response_charset() {
         .arg(server.base_url())
         .assert()
         .stdout("é\n");
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn override_response_mime() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("Content-Type", "text/html; charset=utf-8")
-            .body("{\"status\": \"ok\"}");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body("{\"status\": \"ok\"}".into())
+            .unwrap()
     });
 
     get_command()
@@ -2518,14 +2560,16 @@ fn override_response_mime() {
 
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
 
 #[test]
 fn omit_response_body() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("date", "N/A").body("Hello!");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("date", "N/A")
+            .body("Hello!".into())
+            .unwrap()
     });
 
     get_command()
@@ -2538,5 +2582,5 @@ fn omit_response_body() {
             Date: N/A
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }

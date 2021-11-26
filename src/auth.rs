@@ -129,9 +129,6 @@ impl<'a> Middleware for DigestAuthMiddleware<'a> {
                 request
                     .headers_mut()
                     .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
-                if let Some(url) = std::env::var_os("XH_TEST_DIGEST_AUTH_URL") {
-                    *request.url_mut() = reqwest::Url::parse(&url.to_string_lossy())?;
-                }
                 self.print(&mut ctx, response, &mut request)?;
                 Ok(self.next(&mut ctx, request)?)
             }
