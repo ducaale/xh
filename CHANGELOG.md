@@ -1,3 +1,11 @@
+## [Unreleased]
+### Bug fixes
+- Do not print response body unconditionally, see #197 (@blyxxyz)
+
+### Other
+- Do not rebuild when no syntax or theme file has changed, see #194 (@blyxxyz)
+- Remove curl from `dev-dependencies` by replacing httpmock with hyper, see #190 (@ducaale)
+
 ## [0.14.0] - 2021-11-15
 ### Features
 - Add `--http-version` for forcing a specific http version, see #161 (@ducaale)
