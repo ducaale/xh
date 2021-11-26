@@ -14,8 +14,6 @@ exclude = ["assets/xhs", "assets/xhs.1.gz"]
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
-base64 = "0.13"
-bytes = "1.0.1"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
 digest_auth = "0.3.0"

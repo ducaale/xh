@@ -7,7 +7,6 @@
 
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock};
 
-use bytes::Bytes;
 use cookie_crate::{Cookie as RawCookie, ParseError as RawCookieParseError};
 use cookie_store::CookieStore;
 use reqwest::header::HeaderValue;
@@ -39,7 +38,7 @@ fn cookies(cookie_store: &CookieStore, url: &url::Url) -> Option<HeaderValue> {
         return None;
     }
 
-    HeaderValue::from_maybe_shared(Bytes::from(s)).ok()
+    HeaderValue::from_str(&s).ok()
 }
 
 /// A [`cookie_store::CookieStore`] wrapped internally by a [`std::sync::Mutex`], suitable for use in

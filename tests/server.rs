@@ -71,6 +71,7 @@ where
             .expect("new rt");
         let srv = {
             let hits_counter = hits_counter.clone();
+            #[allow(clippy::async_yields_async)]
             rt.block_on(async move {
                 let make_service = make_service_fn(move |_| {
                     let func = func.clone();
