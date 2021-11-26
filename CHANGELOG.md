@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.14.1] - 2021-11-26
 ### Bug fixes
 - Do not print response body unconditionally, see #197 (@blyxxyz)
 
