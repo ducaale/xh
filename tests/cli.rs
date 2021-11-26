@@ -2564,9 +2564,11 @@ fn override_response_mime() {
 
 #[test]
 fn omit_response_body() {
-    let server = MockServer::start();
-    let mock = server.mock(|_when, then| {
-        then.header("date", "N/A").body("Hello!");
+    let server = server::http(|_req| async move {
+        http::Response::builder()
+            .header("date", "N/A")
+            .body("Hello!".into())
+            .unwrap()
     });
 
     get_command()
@@ -2579,5 +2581,5 @@ fn omit_response_body() {
             Date: N/A
 
         "#});
-    mock.assert();
+    server.assert_hits(1);
 }
