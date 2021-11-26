@@ -2561,3 +2561,23 @@ fn override_response_mime() {
         "#});
     server.assert_hits(1);
 }
+
+#[test]
+fn omit_response_body() {
+    let server = MockServer::start();
+    let mock = server.mock(|_when, then| {
+        then.header("date", "N/A").body("Hello!");
+    });
+
+    get_command()
+        .arg("--print=h")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Length: 6
+            Date: N/A
+
+        "#});
+    mock.assert();
+}

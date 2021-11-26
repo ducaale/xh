@@ -1,12 +1,30 @@
+## [0.14.0] - 2021-11-15
+### Features
+- Add `--http-version` for forcing a specific http version, see #161 (@ducaale)
+- Support overwriting response's mime and charset via `--response-mime` and `--response-charset`
+  respectively, see #184 (@ducaale)
+- Add support for digest authentication, see #176 (@ducaale)
+- Add --ssl option for forcing a specific TLS version, see #168 (@blyxxyz)
+
+### Bug fixes
+- Preserve case of --verify path, see #181 (@blyxxyz)
+
+### Other
+- Enable LTO on the release profile, see #177 (@sorairolake)
+- Replace `lazy_static` with `once_cell`, see #187 (@sorairolake)
+- Include enabled features in `--version` flag's output, see #188 and #191 (@sorairolake)
+- Support displaying units smaller than a second in download result, see #192 (@sorairolake)
+- Change to use binary prefix in `--download`, see #193 (@sorairolake)
+
 ## [0.13.0] - 2021-09-16
 ### Features
-- Add _--all_ flag for printing intermediate requests and responses, see #137 (@ducaale)
+- Add `--all` flag for printing intermediate requests and responses, see #137 (@ducaale)
 - Support customising what sections are printed from intermediary requests and responses
-  via the _--history-print_ flag, see #137 (@ducaale)
+  via the `--history-print` flag, see #137 (@ducaale)
 
 ### Bug fixes
 - Apply header title case for consecutive dashes, see #170 (@blyxxyz)
-- Avoid printing unnecessary line separators when _--all_ flag is used, see #174 (@ducaale)
+- Avoid printing unnecessary line separators when `--all` flag is used, see #174 (@ducaale)
 
 ### Other
 - Include Debian package in release artifacts, see #172 (@ducaale)
@@ -15,13 +33,13 @@
 ### Features
 - Add support for HTTPie's [Sessions](https://httpie.io/docs#sessions), see #125 (@ducaale)
 - Send and display headers names as title case for non-HTTP/2 requests and responses, see #167 (@blyxxyz)
-- Support using the system's TLS library via _--native-tls_ flag, see #154 (@blyxxyz)
+- Support using the system's TLS library via `--native-tls` flag, see #154 (@blyxxyz)
 - Support reading args from a config file, see #165 (@ducaale)
 
 ## [0.11.0] - 2021-07-26
 ### Features
 - Support `REQUESTS_CA_BUNDLE` & `CURL_CA_BUNDLE` env variables, see #146 (@ducaale)
-- Enable color and wrapping for _--help_, see #151 (@QuarticCat)
+- Enable color and wrapping for `--help`, see #151 (@QuarticCat)
 - Add monokai theme, #157 (@ducaale)
 - handle responses compressed in deflate format, see #158 (@ducaale)
 - Support setting the filename for multipart uploads, see #164 (@blyxxyz)
@@ -33,7 +51,7 @@
 - Re-enable HTTP/2 adaptive window, see #150 (@blyxxyz)
 
 ### Breaking changes
-- _--check-status_ is now on by default. You can opt-out of this change by enabling xh's
+- `--check-status` is now on by default. You can opt-out of this change by enabling xh's
   [strict compatibility mode](https://github.com/ducaale/xh#strict-compatibility-mode),
   see #155 (@ducaale)
 
@@ -75,7 +93,7 @@
 
 ## [0.9.1] - 2021-03-16
 ### Bug fixes
-- Don't include the _--verify_ flag in usage when it is not used, see #100 (@ducaale)
+- Don't include the `--verify` flag in usage when it is not used, see #100 (@ducaale)
 - Don't color progress indicators when color is disabled, see #103 (@ducaale)
 
 ### Other
@@ -85,10 +103,10 @@
 
 ## [0.9.0] - 2021-03-08
 ### Features
-- Add _--no-FLAG_ variants of flags. This is useful for disabling any flags you might have in your
+- Add `--no-FLAG` variants of flags. This is useful for disabling any flags you might have in your
   alias, see #86 (@blyxxyz)
 - Support non-standard HTTP methods, see #89 (@blyxxyz)
-- Add support for getting credentials from .netrc plus a _--ignore-netrc_ flag to disable that
+- Add support for getting credentials from .netrc plus a `--ignore-netrc` flag to disable that
   functionality, see #87 (@dwink)
 
 ## [0.8.1] - 2021-03-01
@@ -101,21 +119,21 @@
 ### Features
 - More robust detection of the method and URL arguments, see #55 (@blyxxyz)
 - Improvements to the generation downloaded filenames, see #56 (@blyxxyz)
-- _--continue_ now works for resuming downloads. It was incomplete before, see #59 (@blyxxyz)
-- _--check-status_ is supported, and is automatically active for downloads
+- `--continue` now works for resuming downloads. It was incomplete before, see #59 (@blyxxyz)
+- `--check-status` is supported, and is automatically active for downloads
   (so you don't download error pages), see #59 (@blyxxyz)
-- Add the _--proxy_ option, see #62 (@otaconix)
-- Add _--bearer_ flag for Bearer Authentication and remove _--auth-type_, see #64 (@blyxxyz)
+- Add the `--proxy` option, see #62 (@otaconix)
+- Add `--bearer` flag for Bearer Authentication and remove `--auth-type`, see #64 (@blyxxyz)
 - Add support for manpages, see #64 (@blyxxyz)
-- Add _help_ subcommand for printing long help and update _--help_ to print short help, see #64 (@blyxxyz)
+- Add _help_ subcommand for printing long help and update `--help` to print short help, see #64 (@blyxxyz)
 - Support escaping characters in request items with backslash, see #66 (@blyxxyz)
-- Add support for _--verify_ to skip the host’s SSL certificate verification, see #44 (@jihchi, @otaconix)
-- Add support for _--cert/cert-key_ for using client side certificate for the SSL communication, see #44 (@jihchi, @otaconix)
-- Add _--curl_ flag to print equivalent curl command, see #69 (@blyxxyz)
-- Replace _--default-scheme_ by _--https_. _--default-scheme_ is still kept as an undocumented flag, see #73 (@blyxxyz)
-- If `xh` is invoked as `xhs`, `https`, or `xhttps`, run as if _--https_ was used, see #73 (@blyxxyz)
+- Add support for `--verify` to skip the host’s SSL certificate verification, see #44 (@jihchi, @otaconix)
+- Add support for `--cert/cert-key` for using client side certificate for the SSL communication, see #44 (@jihchi, @otaconix)
+- Add `--curl` flag to print equivalent curl command, see #69 (@blyxxyz)
+- Replace `--default-scheme` by `--https`. `--default-scheme` is still kept as an undocumented flag, see #73 (@blyxxyz)
+- If `xh` is invoked as `xhs`, `https`, or `xhttps`, run as if `--https` was used, see #73 (@blyxxyz)
 - Support `NO_COLOR` environment variable to turn colors off by default, see #73 (@blyxxyz)
-- Make _--json_/_--form_/_--multipart_ override each other and force content-type. If you use multiple of those flags,
+- Make `--json`/`--form`/`--multipart` override each other and force content-type. If you use multiple of those flags,
   all but the last will be ignored. And if you use them without request items the appropriate headers will still be set,
   see #73 (@blyxxyz)
 - Try to detect undeclared JSON response bodies: If the response is javascript or plain text,
@@ -139,7 +157,7 @@
 ## [0.6.0] - 2021-02-08
 ### Features
 - Add support for OPTIONS HTTP method, see #17 (@plombard)
-- Add _--body_ flag for printing only response body, see #38 (@idanski)
+- Add `--body` flag for printing only response body, see #38 (@idanski)
 - Add content length to file upload stream, see #32 (@blyxxyz)
 - Include User-Agent header in outgoing requests, see #33 (@blyxxyz)
 

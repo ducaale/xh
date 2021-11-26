@@ -18,6 +18,8 @@ _xh() {
 '--pretty=[Controls output processing]: :(all colors format none)' \
 '-s+[Output coloring style]: :(auto solarized monokai)' \
 '--style=[Output coloring style]: :(auto solarized monokai)' \
+'--response-charset=[Override the response encoding for terminal display purposes]' \
+'--response-mime=[Override the response mime type for coloring and formatting for the terminal]' \
 '-p+[String specifying what the output should contain]' \
 '--print=[String specifying what the output should contain]' \
 '-P+[The same as --print but applies only to intermediary requests/responses]' \
@@ -26,10 +28,10 @@ _xh() {
 '--output=[Save output to FILE instead of stdout]' \
 '--session=[Create, or reuse and update a session]' \
 '(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]' \
-'-A+[Specify the auth mechanism]: :(basic bearer)' \
-'--auth-type=[Specify the auth mechanism]: :(basic bearer)' \
-'-a+[Authenticate as USER with PASS. PASS will be prompted if missing]' \
-'--auth=[Authenticate as USER with PASS. PASS will be prompted if missing]' \
+'-A+[Specify the auth mechanism]: :(basic bearer digest)' \
+'--auth-type=[Specify the auth mechanism]: :(basic bearer digest)' \
+'-a+[Authenticate as USER with PASS or with TOKEN]' \
+'--auth=[Authenticate as USER with PASS or with TOKEN]' \
 '--bearer=[Authenticate with a bearer token]' \
 '--max-redirects=[Number of redirects to follow, only respected if `follow` is set]' \
 '--timeout=[Connection timeout of the request]' \
@@ -37,7 +39,9 @@ _xh() {
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]' \
 '--cert=[Use a client side certificate for SSL]' \
 '--cert-key=[A private key file to use with --cert]' \
+'--ssl=[Force a particular TLS version]: :(auto ssl2.3 tls1 tls1.1 tls1.2 tls1.3)' \
 '--default-scheme=[The default scheme to use if not specified in the URL]' \
+'--http-version=[HTTP version to use]: :(1 1.0 1.1 2)' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
@@ -87,6 +91,7 @@ _xh() {
 '--no-form[]' \
 '--no-headers[]' \
 '--no-history-print[]' \
+'--no-http-version[]' \
 '--no-https[]' \
 '--no-ignore-netrc[]' \
 '--no-ignore-stdin[]' \
@@ -100,8 +105,11 @@ _xh() {
 '--no-print[]' \
 '--no-proxy[]' \
 '--no-quiet[]' \
+'--no-response-charset[]' \
+'--no-response-mime[]' \
 '--no-session[]' \
 '--no-session-read-only[]' \
+'--no-ssl[]' \
 '--no-stream[]' \
 '--no-style[]' \
 '--no-timeout[]' \

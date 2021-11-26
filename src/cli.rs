@@ -32,7 +32,8 @@ use crate::utils::config_dir;
 
 /// xh is a friendly and fast tool for sending HTTP requests.
 ///
-/// It reimplements as much as possible of HTTPie's excellent design.
+/// It reimplements as much as possible of HTTPie's excellent design, with a focus
+/// on improved performance.
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "xh",
@@ -163,7 +164,7 @@ pub struct Cli {
     ///
     /// TOKEN is expected if `--auth-type=bearer`.
     /// {n}{n}{n}
-    #[structopt(short = "a", long, value_name = "USER[:PASS] | token")]
+    #[structopt(short = "a", long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
@@ -350,8 +351,8 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-form",
     "--no-headers",
     "--no-history-print",
-    "--no-https",
     "--no-http-version",
+    "--no-https",
     "--no-ignore-netrc",
     "--no-ignore-stdin",
     "--no-json",
@@ -364,6 +365,8 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-print",
     "--no-proxy",
     "--no-quiet",
+    "--no-response-charset",
+    "--no-response-mime",
     "--no-session",
     "--no-session-read-only",
     "--no-ssl",
@@ -1041,7 +1044,6 @@ fn safe_exit() -> ! {
     std::process::exit(0);
 }
 
-#[inline]
 fn long_version() -> &'static str {
     concat!(env!("CARGO_PKG_VERSION"), "\n", env!("XH_FEATURES"))
 }
