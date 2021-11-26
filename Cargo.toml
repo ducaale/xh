@@ -59,7 +59,6 @@ assert_matches = "1.4.0"
 form_urlencoded = "1.0.1"
 indoc = "1.0"
 predicates = "1.0.7"
-http = "0.2"
 hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 tempfile = "3.2.0"

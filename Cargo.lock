@@ -2175,7 +2175,6 @@ dependencies = [
  "encoding_rs",
  "encoding_rs_io",
  "form_urlencoded",
- "http",
  "humantime",
  "hyper",
  "indicatif",
