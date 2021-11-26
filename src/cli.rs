@@ -12,7 +12,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use encoding_rs::Encoding;
 use reqwest::{tls, Method, Url};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
 use structopt::StructOpt;
 
@@ -593,7 +593,7 @@ impl Cli {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct Config {
     default_options: Vec<String>,
 }

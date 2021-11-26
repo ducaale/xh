@@ -56,7 +56,6 @@ impl Buffer {
         matches!(self, Buffer::Redirect(..))
     }
 
-    #[inline]
     pub fn print(&mut self, s: impl AsRef<[u8]>) -> io::Result<()> {
         self.write_all(s.as_ref())
     }
@@ -97,7 +96,6 @@ impl Buffer {
 }
 
 impl Write for Buffer {
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Buffer::File(file) => file.write(buf),
@@ -108,15 +106,6 @@ impl Write for Buffer {
 
     fn flush(&mut self) -> io::Result<()> {
         self.inner_mut().flush()
-    }
-
-    #[inline]
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        match self {
-            Buffer::File(file) => file.write_all(buf),
-            Buffer::Stdout(stream) | Buffer::Stderr(stream) => stream.write_all(buf),
-            Buffer::Redirect(stream) => stream.write_all(buf),
-        }
     }
 }
 

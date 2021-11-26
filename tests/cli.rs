@@ -28,7 +28,7 @@ where
     T::Error: std::fmt::Debug,
 {
     fn query_params(&self) -> HashMap<String, String> {
-        form_urlencoded::parse(&self.uri().query().unwrap().as_bytes())
+        form_urlencoded::parse(self.uri().query().unwrap().as_bytes())
             .into_owned()
             .collect::<HashMap<String, String>>()
     }
@@ -118,8 +118,8 @@ fn basic_json_post() {
         assert_eq!(req.headers()["Content-Type"], "application/json");
         assert_eq!(req.body_as_string().await, "{\"name\":\"ali\"}");
 
-        http::Response::builder()
-            .header(http::header::CONTENT_TYPE, "application/json")
+        hyper::Response::builder()
+            .header(hyper::header::CONTENT_TYPE, "application/json")
             .body(r#"{"got":"name","status":"ok"}"#.into())
             .unwrap()
     });
@@ -145,7 +145,7 @@ fn basic_json_post() {
 fn basic_get() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "GET");
-        http::Response::builder().body("foobar\n".into()).unwrap()
+        hyper::Response::builder().body("foobar\n".into()).unwrap()
     });
     get_command()
         .args(&["--print=b", "get", &server.base_url()])
@@ -158,7 +158,7 @@ fn basic_get() {
 fn basic_head() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "HEAD");
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&["head", &server.base_url()])
@@ -171,7 +171,7 @@ fn basic_head() {
 fn basic_options() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "OPTIONS");
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Allow", "GET, HEAD, OPTIONS")
             .body("".into())
             .unwrap()
@@ -189,7 +189,7 @@ fn multiline_value() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "POST");
         assert_eq!(req.body_as_string().await, "foo=bar%0Abaz");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -202,7 +202,7 @@ fn multiline_value() {
 fn header() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["X-Foo"], "Bar");
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&[&server.base_url(), "x-foo:Bar"])
@@ -214,7 +214,7 @@ fn header() {
 fn query_param() {
     let server = server::http(|req| async move {
         assert_eq!(req.query_params()["foo"], "bar");
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&[&server.base_url(), "foo==bar"])
@@ -227,7 +227,7 @@ fn query_param() {
 fn json_param() {
     let server = server::http(|req| async move {
         assert_eq!(req.body_as_string().await, "{\"foo\":[1,2,3]}");
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&[&server.base_url(), "foo:=[1,2,3]"])
@@ -243,7 +243,7 @@ fn verbose() {
         assert_eq!(req.headers()["Content-Length"], "9");
         assert_eq!(req.headers()["User-Agent"], "xh/0.0.0 (test mode)");
         assert_eq!(req.body_as_string().await, "{\"x\":\"y\"}");
-        http::Response::builder()
+        hyper::Response::builder()
             .header("X-Foo", "Bar")
             .header("Date", "N/A")
             .body("a body".into())
@@ -282,7 +282,7 @@ fn verbose() {
 fn download() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .body("file contents\n".into())
             .unwrap()
     });
@@ -302,7 +302,7 @@ fn download() {
 fn accept_encoding_not_modifiable_in_download_mode() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["accept-encoding"], "identity");
-        http::Response::builder()
+        hyper::Response::builder()
             .body(r#"{"ids":[1,2,3]}"#.into())
             .unwrap()
     });
@@ -319,7 +319,7 @@ fn accept_encoding_not_modifiable_in_download_mode() {
 fn download_generated_filename() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "application/json")
             .body("file".into())
             .unwrap()
@@ -346,7 +346,7 @@ fn download_generated_filename() {
 fn download_supplied_filename() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Disposition", r#"attachment; filename="foo.bar""#)
             .body("file".into())
             .unwrap()
@@ -364,7 +364,7 @@ fn download_supplied_filename() {
 fn download_supplied_unquoted_filename() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Disposition", r#"attachment; filename=foo bar baz"#)
             .body("file".into())
             .unwrap()
@@ -388,7 +388,7 @@ fn download_supplied_unquoted_filename() {
 #[test]
 fn decode() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/plain; charset=latin1")
             .body(b"\xe9".as_ref().into())
             .unwrap()
@@ -404,7 +404,7 @@ fn decode() {
 #[test]
 fn streaming_decode() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/plain; charset=latin1")
             .body(b"\xe9".as_ref().into())
             .unwrap()
@@ -420,7 +420,7 @@ fn streaming_decode() {
 #[test]
 fn only_decode_for_terminal() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/plain; charset=latin1")
             .body(b"\xe9".as_ref().into())
             .unwrap()
@@ -439,7 +439,7 @@ fn only_decode_for_terminal() {
 #[test]
 fn do_decode_if_formatted() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/plain; charset=latin1")
             .body(b"\xe9".as_ref().into())
             .unwrap()
@@ -454,7 +454,7 @@ fn do_decode_if_formatted() {
 #[test]
 fn never_decode_if_binary() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             // this mimetype with a charset may actually be incoherent
             .header("Content-Type", "application/octet-stream; charset=latin1")
             .body(b"\xe9".as_ref().into())
@@ -474,7 +474,7 @@ fn never_decode_if_binary() {
 #[test]
 fn binary_detection() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .body(b"foo\0bar".as_ref().into())
             .unwrap()
     });
@@ -494,7 +494,7 @@ fn binary_detection() {
 #[test]
 fn streaming_binary_detection() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .body(b"foo\0bar".as_ref().into())
             .unwrap()
     });
@@ -533,7 +533,7 @@ fn request_binary_detection() {
 fn timeout() {
     let server = server::http(|_req| async move {
         tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -547,7 +547,7 @@ fn timeout() {
 fn timeout_no_limit() {
     let server = server::http(|_req| async move {
         tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -570,7 +570,7 @@ fn timeout_invalid() {
 #[test]
 fn check_status() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(404)
             .body("".into())
             .unwrap()
@@ -587,7 +587,7 @@ fn check_status() {
 #[test]
 fn check_status_warning() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(501)
             .body("".into())
             .unwrap()
@@ -604,7 +604,7 @@ fn check_status_warning() {
 #[test]
 fn check_status_is_implied() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(404)
             .body("".into())
             .unwrap()
@@ -621,7 +621,7 @@ fn check_status_is_implied() {
 #[test]
 fn check_status_is_not_implied_in_compat_mode() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(404)
             .body("".into())
             .unwrap()
@@ -639,7 +639,7 @@ fn check_status_is_not_implied_in_compat_mode() {
 fn user_password_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -652,7 +652,7 @@ fn user_password_auth() {
 fn user_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Basic dXNlcjo=");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -665,7 +665,7 @@ fn user_auth() {
 fn bearer_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Bearer SomeToken");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -678,13 +678,13 @@ fn bearer_auth() {
 fn digest_auth() {
     let server = server::http(|req| async move {
         if req.headers().get("Authorization").is_none() {
-            http::Response::builder()
+            hyper::Response::builder()
                 .status(401)
                 .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
                 .body("".into())
                 .unwrap()
         } else {
-            http::Response::builder()
+            hyper::Response::builder()
                 .body("authenticated".into())
                 .unwrap()
         }
@@ -728,14 +728,14 @@ fn digest_auth_with_redirection() {
         match req.uri().path() {
             "/login_page" => {
                 if req.headers().get("Authorization").is_none() {
-                    http::Response::builder()
+                    hyper::Response::builder()
                         .status(401)
                         .header("WWW-Authenticate", r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#)
                         .header("date", "N/A")
                         .body("".into())
                         .unwrap()
                 } else {
-                    http::Response::builder()
+                    hyper::Response::builder()
                         .status(302)
                         .header("location", "/admin_page")
                         .header("date", "N/A")
@@ -745,12 +745,12 @@ fn digest_auth_with_redirection() {
             }
             "/admin_page" => {
                 if req.headers().get("Authorization").is_none() {
-                    http::Response::builder()
+                    hyper::Response::builder()
                         .header("date", "N/A")
                         .body("admin page".into())
                         .unwrap()
                 } else {
-                    http::Response::builder()
+                    hyper::Response::builder()
                         .status(401)
                         .body("unauthorized".into())
                         .unwrap()
@@ -819,7 +819,7 @@ fn digest_auth_with_redirection() {
 fn netrc_env_user_password_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     let mut netrc = tempfile::NamedTempFile::new().unwrap();
@@ -842,7 +842,7 @@ fn netrc_file_user_password_auth() {
     for netrc_file in [".netrc", "_netrc"].iter() {
         let server = server::http(|req| async move {
             assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
-            http::Response::default()
+            hyper::Response::default()
         });
 
         let homedir = tempfile::TempDir::new().unwrap();
@@ -888,7 +888,7 @@ fn proxy_http_proxy() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "GET");
         assert_eq!(req.headers()["host"], "example.test");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_proxy_command("http", "http", &server.base_url())
@@ -902,7 +902,7 @@ fn proxy_http_proxy() {
 fn proxy_https_proxy() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "CONNECT");
-        http::Response::builder()
+        hyper::Response::builder()
             .status(502)
             .body("".into())
             .unwrap()
@@ -920,7 +920,7 @@ fn proxy_https_proxy() {
 fn proxy_all_proxy() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "CONNECT");
-        http::Response::builder()
+        hyper::Response::builder()
             .status(502)
             .body("".into())
             .unwrap()
@@ -944,7 +944,7 @@ fn proxy_all_proxy() {
 fn last_supplied_proxy_wins() {
     let first_server = server::http(|req| async move {
         assert_eq!(req.headers()["host"], "example.test");
-        http::Response::builder()
+        hyper::Response::builder()
             .status(500)
             .body("".into())
             .unwrap()
@@ -952,7 +952,7 @@ fn last_supplied_proxy_wins() {
 
     let second_server = server::http(|req| async move {
         assert_eq!(req.headers()["host"], "example.test");
-        http::Response::builder()
+        hyper::Response::builder()
             .status(200)
             .body("".into())
             .unwrap()
@@ -1118,7 +1118,7 @@ fn native_tls_works() {
 #[test]
 fn improved_https_ip_error_with_support() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(301)
             .header("Location", "https://1.1.1.1")
             .body("Moved Permanently".into())
@@ -1218,7 +1218,7 @@ fn forced_json() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["content-type"], "application/json");
         assert_eq!(req.headers()["accept"], "application/json, */*;q=0.5");
-        http::Response::default()
+        hyper::Response::default()
     });
 
     get_command()
@@ -1235,7 +1235,7 @@ fn forced_form() {
             req.headers()["content-type"],
             "application/x-www-form-urlencoded"
         );
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&["--form", &server.base_url()])
@@ -1250,7 +1250,7 @@ fn forced_multipart() {
         assert_eq!(req.method(), "POST");
         assert_eq!(req.headers().get("content-type").is_some(), true);
         assert_eq!(req.body_as_string().await, "");
-        http::Response::default()
+        hyper::Response::default()
     });
     get_command()
         .args(&["--multipart", &server.base_url()])
@@ -1262,7 +1262,7 @@ fn forced_multipart() {
 #[test]
 fn formatted_json_output() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("content-type", "application/json")
             .body(r#"{"":0}"#.into())
             .unwrap()
@@ -1283,7 +1283,7 @@ fn formatted_json_output() {
 #[test]
 fn inferred_json_output() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("content-type", "text/plain")
             .body(r#"{"":0}"#.into())
             .unwrap()
@@ -1304,7 +1304,7 @@ fn inferred_json_output() {
 #[test]
 fn inferred_json_javascript_output() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("content-type", "application/javascript")
             .body(r#"{"":0}"#.into())
             .unwrap()
@@ -1325,7 +1325,7 @@ fn inferred_json_javascript_output() {
 #[test]
 fn inferred_nonjson_output() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("content-type", "text/plain")
             // Trailing comma makes it invalid JSON, though formatting would still work
             .body(r#"{"":0,}"#.into())
@@ -1343,7 +1343,7 @@ fn inferred_nonjson_output() {
 #[test]
 fn noninferred_json_output() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             // Valid JSON, but not declared as text
             .header("content-type", "application/octet-stream")
             .body(r#"{"":0}"#.into())
@@ -1990,8 +1990,8 @@ fn expired_cookies_are_removed_from_session() {
 }
 
 fn cookies_are_equal(c1: &str, c2: &str) -> bool {
-    HashSet::<_>::from_iter(c1.split(";").map(|c| c.trim()))
-        == HashSet::<_>::from_iter(c2.split(";").map(|c| c.trim()))
+    HashSet::<_>::from_iter(c1.split(';').map(|c| c.trim()))
+        == HashSet::<_>::from_iter(c2.split(';').map(|c| c.trim()))
 }
 
 #[test]
@@ -2175,13 +2175,13 @@ fn auth_netrc_is_not_persisted_in_session() {
 fn print_intermediate_requests_and_responses() {
     let server = server::http(|req| async move {
         match req.uri().path() {
-            "/first_page" => http::Response::builder()
+            "/first_page" => hyper::Response::builder()
                 .status(302)
                 .header("Date", "N/A")
                 .header("Location", "/second_page")
                 .body("redirecting...".into())
                 .unwrap(),
-            "/second_page" => http::Response::builder()
+            "/second_page" => hyper::Response::builder()
                 .header("Date", "N/A")
                 .body("final destination".into())
                 .unwrap(),
@@ -2226,13 +2226,13 @@ fn print_intermediate_requests_and_responses() {
 fn history_print() {
     let server = server::http(|req| async move {
         match req.uri().path() {
-            "/first_page" => http::Response::builder()
+            "/first_page" => hyper::Response::builder()
                 .status(302)
                 .header("Date", "N/A")
                 .header("Location", "/second_page")
                 .body("redirecting...".into())
                 .unwrap(),
-            "/second_page" => http::Response::builder()
+            "/second_page" => hyper::Response::builder()
                 .header("Date", "N/A")
                 .body("final destination".into())
                 .unwrap(),
@@ -2278,7 +2278,7 @@ fn history_print() {
 #[test]
 fn max_redirects_is_enforced() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .status(302)
             .header("Date", "N/A")
             .header("Location", "/") // infinite redirect loop
@@ -2301,7 +2301,7 @@ fn method_is_changed_when_following_302_redirect() {
                 assert_eq!(req.method(), "POST");
                 assert!(req.headers().get("Content-Length").is_some());
                 assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
-                http::Response::builder()
+                hyper::Response::builder()
                     .status(302)
                     .header("Location", "/second_page")
                     .body("redirecting...".into())
@@ -2310,7 +2310,7 @@ fn method_is_changed_when_following_302_redirect() {
             "/second_page" => {
                 assert_eq!(req.method(), "GET");
                 assert!(req.headers().get("Content-Length").is_none());
-                http::Response::builder()
+                hyper::Response::builder()
                     .body("final destination".into())
                     .unwrap()
             }
@@ -2341,7 +2341,7 @@ fn method_is_not_changed_when_following_307_redirect() {
             "/first_page" => {
                 assert_eq!(req.method(), "POST");
                 assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
-                http::Response::builder()
+                hyper::Response::builder()
                     .status(307)
                     .header("Location", "/second_page")
                     .body("redirecting...".into())
@@ -2350,7 +2350,7 @@ fn method_is_not_changed_when_following_307_redirect() {
             "/second_page" => {
                 assert_eq!(req.method(), "POST");
                 assert_eq!(req.body_as_string().await, r#"{"name":"ali"}"#);
-                http::Response::builder()
+                hyper::Response::builder()
                     .body("final destination".into())
                     .unwrap()
             }
@@ -2379,7 +2379,7 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
     let server1 = server::http(|req| async move {
         assert!(req.headers().get("Authorization").is_none());
         assert!(req.headers().get("Hello").is_some());
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Date", "N/A")
             .body("final destination".into())
             .unwrap()
@@ -2391,7 +2391,7 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
         async move {
             assert!(req.headers().get("Authorization").is_some());
             assert!(req.headers().get("Hello").is_some());
-            http::Response::builder()
+            hyper::Response::builder()
                 .status(302)
                 .header("Location", server1_base_url)
                 .body("redirecting...".into())
@@ -2415,14 +2415,14 @@ fn sensitive_headers_are_removed_after_cross_domain_redirect() {
 fn request_body_is_buffered_for_307_redirect() {
     let server = server::http(|req| async move {
         match req.uri().path() {
-            "/first_page" => http::Response::builder()
+            "/first_page" => hyper::Response::builder()
                 .status(307)
                 .header("Location", "/second_page")
                 .body("redirecting...".into())
                 .unwrap(),
             "/second_page" => {
                 assert_eq!(req.body_as_string().await, "hello world\n");
-                http::Response::builder()
+                hyper::Response::builder()
                     .body("final destination".into())
                     .unwrap()
             }
@@ -2524,7 +2524,7 @@ fn http2() {
 #[test]
 fn override_response_charset() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/plain; charset=utf-8")
             .body(b"\xe9".as_ref().into())
             .unwrap()
@@ -2542,7 +2542,7 @@ fn override_response_charset() {
 #[test]
 fn override_response_mime() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("Content-Type", "text/html; charset=utf-8")
             .body("{\"status\": \"ok\"}".into())
             .unwrap()
@@ -2566,7 +2566,7 @@ fn override_response_mime() {
 #[test]
 fn omit_response_body() {
     let server = server::http(|_req| async move {
-        http::Response::builder()
+        hyper::Response::builder()
             .header("date", "N/A")
             .body("Hello!".into())
             .unwrap()

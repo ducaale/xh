@@ -59,8 +59,8 @@ impl Drop for Server {
 
 pub fn http<F, Fut>(func: F) -> Server
 where
-    F: Fn(http::Request<hyper::Body>) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = http::Response<hyper::Body>> + Send + 'static,
+    F: Fn(hyper::Request<hyper::Body>) -> Fut + Clone + Send + 'static,
+    Fut: Future<Output = hyper::Response<hyper::Body>> + Send + 'static,
 {
     //Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
@@ -71,6 +71,7 @@ where
             .expect("new rt");
         let srv = {
             let hits_counter = hits_counter.clone();
+            #[allow(clippy::async_yields_async)]
             rt.block_on(async move {
                 let make_service = make_service_fn(move |_| {
                     let func = func.clone();
