@@ -520,10 +520,11 @@ fn request_binary_detection() {
 
 #[test]
 fn timeout() {
-    let server = server::http(|_req| async move {
+    let mut server = server::http(|_req| async move {
         tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
         hyper::Response::default()
     });
+    server.disable_hit_checks();
 
     get_command()
         .args(&["--timeout=0.1", &server.base_url()])
@@ -928,7 +929,7 @@ fn proxy_https_all_proxy() {
 
 #[test]
 fn last_supplied_proxy_wins() {
-    let first_server = server::http(|req| async move {
+    let mut first_server = server::http(|req| async move {
         assert_eq!(req.headers()["host"], "example.test");
         hyper::Response::builder()
             .status(500)
@@ -954,6 +955,7 @@ fn last_supplied_proxy_wins() {
     .assert()
     .success();
 
+    first_server.disable_hit_checks();
     first_server.assert_hits(0);
     second_server.assert_hits(1);
 }

@@ -14,6 +14,7 @@ pub struct Server {
     addr: net::SocketAddr,
     successful_hits: Arc<Mutex<u8>>,
     total_hits: Arc<Mutex<u8>>,
+    no_hit_checks: bool,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -37,6 +38,10 @@ impl Server {
     pub fn assert_hits(&self, hits: u8) {
         assert_eq!(*self.successful_hits.lock().unwrap(), hits);
     }
+
+    pub fn disable_hit_checks(&mut self) {
+        self.no_hit_checks = true;
+    }
 }
 
 impl Drop for Server {
@@ -45,14 +50,14 @@ impl Drop for Server {
             let _ = tx.send(());
         }
 
-        if !::std::thread::panicking() {
+        if !::std::thread::panicking() && !self.no_hit_checks {
             let total_hits = *self.total_hits.lock().unwrap();
             let successful_hits = *self.successful_hits.lock().unwrap();
             let failed_hits = total_hits - successful_hits;
             assert!(total_hits > 0, "test server exited without being called");
             assert!(
                 failed_hits == 0,
-                "numbers of panicked requests: {}",
+                "numbers of panicked or in-progress requests: {}",
                 failed_hits
             );
         }
@@ -118,6 +123,7 @@ where
             addr,
             successful_hits,
             total_hits,
+            no_hit_checks: false,
             shutdown_tx: Some(shutdown_tx),
         }
     })
