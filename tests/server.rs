@@ -3,10 +3,8 @@
 use std::convert::Infallible;
 use std::future::Future;
 use std::net;
-use std::sync::mpsc as std_mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use hyper::service::{make_service_fn, service_fn};
 use tokio::runtime;
@@ -16,9 +14,6 @@ pub struct Server {
     addr: net::SocketAddr,
     successful_hits: Arc<Mutex<u8>>,
     total_hits: Arc<Mutex<u8>>,
-    // The panic_rx channel is to make sure the test fails if the server panics.
-    // If the server panics, the message is not sent and the recv call panics.
-    panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -60,9 +55,6 @@ impl Drop for Server {
                 "numbers of panicked requests: {}",
                 failed_hits
             );
-            self.panic_rx
-                .recv_timeout(Duration::from_secs(3))
-                .expect("test server should not panic");
         }
     }
 }
@@ -115,12 +107,10 @@ where
             let _ = shutdown_rx.await;
         });
 
-        let (panic_tx, panic_rx) = std_mpsc::channel();
         thread::Builder::new()
             .name("test-server".into())
             .spawn(move || {
                 rt.block_on(srv).unwrap();
-                let _ = panic_tx.send(());
             })
             .expect("thread spawn");
 
@@ -128,7 +118,6 @@ where
             addr,
             successful_hits,
             total_hits,
-            panic_rx,
             shutdown_tx: Some(shutdown_tx),
         }
     })
