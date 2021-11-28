@@ -14,7 +14,8 @@ use tokio::sync::oneshot;
 
 pub struct Server {
     addr: net::SocketAddr,
-    hits: Arc<Mutex<u8>>,
+    successful_hits: Arc<Mutex<u8>>,
+    total_hits: Arc<Mutex<u8>>,
     // The panic_rx channel is to make sure the test fails if the server panics.
     // If the server panics, the message is not sent and the recv call panics.
     panic_rx: std_mpsc::Receiver<()>,
@@ -39,7 +40,7 @@ impl Server {
     }
 
     pub fn assert_hits(&self, hits: u8) {
-        assert_eq!(*self.hits.lock().unwrap(), hits);
+        assert_eq!(*self.successful_hits.lock().unwrap(), hits);
     }
 }
 
@@ -50,6 +51,15 @@ impl Drop for Server {
         }
 
         if !::std::thread::panicking() {
+            let total_hits = *self.total_hits.lock().unwrap();
+            let successful_hits = *self.successful_hits.lock().unwrap();
+            let failed_hits = total_hits - successful_hits;
+            assert!(total_hits > 0, "test server exited without being called");
+            assert!(
+                failed_hits == 0,
+                "numbers of panicked requests: {}",
+                failed_hits
+            );
             self.panic_rx
                 .recv_timeout(Duration::from_secs(3))
                 .expect("test server should not panic");
@@ -64,26 +74,30 @@ where
 {
     //Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
-        let hits_counter = Arc::new(Mutex::new(0));
+        let successful_hits = Arc::new(Mutex::new(0));
+        let total_hits = Arc::new(Mutex::new(0));
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("new rt");
         let srv = {
-            let hits_counter = hits_counter.clone();
+            let successful_hits = successful_hits.clone();
+            let total_hits = total_hits.clone();
             #[allow(clippy::async_yields_async)]
             rt.block_on(async move {
                 let make_service = make_service_fn(move |_| {
                     let func = func.clone();
-                    let hits_counter = hits_counter.clone();
+                    let successful_hits = successful_hits.clone();
+                    let total_hits = total_hits.clone();
                     async move {
                         Ok::<_, Infallible>(service_fn(move |req| {
                             let fut = func(req);
-                            let hits_counter = hits_counter.clone();
+                            let successful_hits = successful_hits.clone();
+                            let total_hits = total_hits.clone();
                             async move {
+                                *total_hits.lock().unwrap() += 1;
                                 let res = fut.await;
-                                let mut num = hits_counter.lock().unwrap();
-                                *num += 1;
+                                *successful_hits.lock().unwrap() += 1;
                                 Ok::<_, Infallible>(res)
                             }
                         }))
@@ -102,12 +116,8 @@ where
         });
 
         let (panic_tx, panic_rx) = std_mpsc::channel();
-        let tname = format!(
-            "test({})-support-server",
-            thread::current().name().unwrap_or("<unknown>")
-        );
         thread::Builder::new()
-            .name(tname)
+            .name("test-server".into())
             .spawn(move || {
                 rt.block_on(srv).unwrap();
                 let _ = panic_tx.send(());
@@ -116,7 +126,8 @@ where
 
         Server {
             addr,
-            hits: hits_counter,
+            successful_hits,
+            total_hits,
             panic_rx,
             shutdown_tx: Some(shutdown_tx),
         }
