@@ -29,6 +29,7 @@ jobs:
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-latest
             use-cross: true
+            flags: -- --test-threads=4
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
