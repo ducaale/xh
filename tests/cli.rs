@@ -895,7 +895,23 @@ fn proxy_https_proxy() {
 }
 
 #[test]
-fn proxy_all_proxy() {
+fn proxy_http_all_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        hyper::Response::builder()
+            .status(502)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_proxy_command("http", "all", &server.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 502 Bad Gateway"))
+        .failure();
+}
+
+#[test]
+fn proxy_https_all_proxy() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "CONNECT");
         hyper::Response::builder()
@@ -908,14 +924,6 @@ fn proxy_all_proxy() {
         .assert()
         .stderr(contains("unsuccessful tunnel"))
         .failure();
-
-    server.assert_hits(1);
-
-    get_proxy_command("http", "all", &server.base_url())
-        .assert()
-        .failure();
-
-    server.assert_hits(1);
 }
 
 #[test]
