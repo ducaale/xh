@@ -228,7 +228,6 @@ impl Body {
         match self {
             Body::Json(map) => map.is_empty(),
             Body::Form(items) => items.is_empty(),
-            Body::Raw(data) => data.is_empty(),
             // A multipart form without items isn't empty, and we can't read
             // a body from stdin because it has to match the header, so we
             // should never consider this "empty"
@@ -237,6 +236,7 @@ impl Body {
             // but that behavior is useless so there's no need to match it
             Body::Multipart(..) => false,
             Body::File { .. } => false,
+            Body::Raw(..) => false,
         }
     }
 
