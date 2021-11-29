@@ -100,11 +100,12 @@ fn run(args: Cli) -> Result<i32> {
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
 
-    let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
+    let use_stdin = !(args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term());
     let body_type = args.request_items.body_type;
     let body_from_request_items = args.request_items.body()?;
+    let has_request_items = !body_from_request_items.is_empty();
 
-    let body = match (!ignore_stdin, args.raw, !body_from_request_items.is_empty()) {
+    let body = match (use_stdin, args.raw, has_request_items) {
         (true, None, false) => {
             let mut buffer = Vec::new();
             stdin().read_to_end(&mut buffer)?;
