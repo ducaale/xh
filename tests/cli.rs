@@ -1351,6 +1351,30 @@ fn mixed_stdin_request_items() {
 }
 
 #[test]
+fn mixed_stdin_raw() {
+    let input_file = tempfile().unwrap();
+    redirecting_command()
+        .args(&["--offline", "--raw=hello", ":"])
+        .stdin(input_file)
+        .assert()
+        .failure()
+        .stderr(contains(
+            "Request body from stdin and --raw cannot be mixed",
+        ));
+}
+
+#[test]
+fn mixed_raw_request_items() {
+    get_command()
+        .args(&["--offline", "--raw=hello", ":", "x=3"])
+        .assert()
+        .failure()
+        .stderr(contains(
+            "Request body (from --raw) and request data (key=value) cannot be mixed",
+        ));
+}
+
+#[test]
 fn multipart_stdin() {
     let input_file = tempfile().unwrap();
     redirecting_command()
@@ -1359,6 +1383,15 @@ fn multipart_stdin() {
         .assert()
         .failure()
         .stderr(contains("Cannot build a multipart request body from stdin"));
+}
+
+#[test]
+fn multipart_raw() {
+    get_command()
+        .args(&["--offline", "--raw=hello", "--multipart", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Cannot build a multipart request body from --raw"));
 }
 
 #[test]
