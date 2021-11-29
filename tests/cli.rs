@@ -7,13 +7,12 @@ use std::future::Future;
 use std::io::{Seek, SeekFrom, Write};
 use std::iter::FromIterator;
 use std::pin::Pin;
-use std::process::Command;
 use std::time::Duration;
 
-use assert_cmd::prelude::*;
+use assert_cmd::cmd::Command;
 use indoc::indoc;
 use predicates::str::contains;
-use tempfile::{tempdir, tempfile};
+use tempfile::{tempdir, NamedTempFile};
 
 pub trait RequestExt {
     fn query_params(&self) -> HashMap<String, String>;
@@ -502,12 +501,13 @@ fn streaming_binary_detection() {
 
 #[test]
 fn request_binary_detection() {
-    let mut binary_file = tempfile().unwrap();
+    let mut binary_file = NamedTempFile::new().unwrap();
     binary_file.write_all(b"foo\0bar").unwrap();
     binary_file.seek(SeekFrom::Start(0)).unwrap();
     redirecting_command()
         .args(&["--print=B", "--offline", ":"])
-        .stdin(binary_file)
+        .pipe_stdin(binary_file.path())
+        .unwrap()
         .assert()
         .stdout(indoc! {r#"
             +-----------------------------------------+
@@ -806,7 +806,7 @@ fn netrc_env_user_password_auth() {
         hyper::Response::default()
     });
 
-    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    let mut netrc = NamedTempFile::new().unwrap();
     writeln!(
         netrc,
         "machine {}\nlogin user\npassword pass",
@@ -1338,11 +1338,77 @@ fn noninferred_json_output() {
 }
 
 #[test]
+fn empty_body_defaults_to_get() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        assert_eq!(req.body_as_string().await, "");
+        hyper::Response::default()
+    });
+
+    get_command().arg(server.base_url()).assert().success();
+}
+
+#[test]
+fn non_empty_body_defaults_to_post() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.body_as_string().await, "{\"x\":4}");
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(&[&server.base_url(), "x:=4"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn empty_raw_body_defaults_to_post() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.body_as_string().await, "");
+        hyper::Response::default()
+    });
+
+    redirecting_command()
+        .arg(server.base_url())
+        .write_stdin("")
+        .assert()
+        .success();
+}
+
+#[test]
+fn body_from_stdin() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, "body from stdin");
+        hyper::Response::default()
+    });
+
+    redirecting_command()
+        .arg(server.base_url())
+        .write_stdin("body from stdin")
+        .assert()
+        .success();
+}
+
+#[test]
+fn body_from_raw() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.body_as_string().await, "body from raw");
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(&["--raw=body from raw", &server.base_url()])
+        .assert()
+        .success();
+}
+
+#[test]
 fn mixed_stdin_request_items() {
-    let input_file = tempfile().unwrap();
     redirecting_command()
         .args(&["--offline", ":", "x=3"])
-        .stdin(input_file)
+        .write_stdin("")
         .assert()
         .failure()
         .stderr(contains(
@@ -1352,10 +1418,9 @@ fn mixed_stdin_request_items() {
 
 #[test]
 fn mixed_stdin_raw() {
-    let input_file = tempfile().unwrap();
     redirecting_command()
         .args(&["--offline", "--raw=hello", ":"])
-        .stdin(input_file)
+        .write_stdin("")
         .assert()
         .failure()
         .stderr(contains(
@@ -1376,10 +1441,9 @@ fn mixed_raw_request_items() {
 
 #[test]
 fn multipart_stdin() {
-    let input_file = tempfile().unwrap();
     redirecting_command()
         .args(&["--offline", "--multipart", ":"])
-        .stdin(input_file)
+        .write_stdin("")
         .assert()
         .failure()
         .stderr(contains("Cannot build a multipart request body from stdin"));
@@ -1400,10 +1464,9 @@ fn default_json_for_raw_body() {
         assert_eq!(req.headers()["content-type"], "application/json");
         hyper::Response::default()
     });
-    let input_file = tempfile().unwrap();
     redirecting_command()
         .arg(server.base_url())
-        .stdin(input_file)
+        .write_stdin("")
         .assert()
         .success();
 }
@@ -1612,7 +1675,7 @@ fn data_field_from_file() {
         hyper::Response::default()
     });
 
-    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    let mut text_file = NamedTempFile::new().unwrap();
     write!(text_file, "[1,2,3]").unwrap();
 
     get_command()
@@ -1629,7 +1692,7 @@ fn data_field_from_file_in_form_mode() {
         hyper::Response::default()
     });
 
-    let mut text_file = tempfile::NamedTempFile::new().unwrap();
+    let mut text_file = NamedTempFile::new().unwrap();
     write!(text_file, "hello world").unwrap();
 
     get_command()
@@ -1647,7 +1710,7 @@ fn json_field_from_file() {
         hyper::Response::default()
     });
 
-    let mut json_file = tempfile::NamedTempFile::new().unwrap();
+    let mut json_file = NamedTempFile::new().unwrap();
     writeln!(json_file, "[1,2,3]").unwrap();
 
     get_command()
@@ -1806,7 +1869,7 @@ fn anonymous_read_only_session() {
             .unwrap()
     });
 
-    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let session_file = NamedTempFile::new().unwrap();
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
@@ -1936,7 +1999,7 @@ fn expired_cookies_are_removed_from_session() {
         + 1000;
     let past_timestamp = 1114425967; // 2005-04-25
 
-    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let session_file = NamedTempFile::new().unwrap();
 
     std::fs::write(
         &session_file,
@@ -2013,7 +2076,7 @@ fn cookies_override_each_other_in_the_correct_order() {
             .unwrap()
     });
 
-    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let session_file = NamedTempFile::new().unwrap();
 
     std::fs::write(
         &session_file,
@@ -2066,7 +2129,7 @@ fn basic_auth_from_session_is_used() {
         hyper::Response::default()
     });
 
-    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let session_file = NamedTempFile::new().unwrap();
 
     std::fs::write(
         &session_file,
@@ -2098,7 +2161,7 @@ fn bearer_auth_from_session_is_used() {
         hyper::Response::default()
     });
 
-    let session_file = tempfile::NamedTempFile::new().unwrap();
+    let session_file = NamedTempFile::new().unwrap();
 
     std::fs::write(
         &session_file,
@@ -2135,7 +2198,7 @@ fn auth_netrc_is_not_persisted_in_session() {
     path_to_session.push(file_name);
     assert_eq!(path_to_session.exists(), false);
 
-    let mut netrc = tempfile::NamedTempFile::new().unwrap();
+    let mut netrc = NamedTempFile::new().unwrap();
     writeln!(
         netrc,
         "machine {}\nlogin user\npassword pass",
@@ -2429,7 +2492,7 @@ fn request_body_is_buffered_for_307_redirect() {
         }
     });
 
-    let mut file = tempfile::NamedTempFile::new().unwrap();
+    let mut file = NamedTempFile::new().unwrap();
     writeln!(file, "hello world").unwrap();
 
     get_command()
