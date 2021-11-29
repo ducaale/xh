@@ -102,10 +102,25 @@ fn run(args: Cli) -> Result<i32> {
 
     let ignore_stdin = args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term();
     let body_type = args.request_items.body_type;
-    let mut body = args.request_items.body()?;
-    if !ignore_stdin {
-        if !body.is_empty() {
-            if body.is_multipart() {
+    let body_from_request_items = args.request_items.body()?;
+
+    let body = match (!ignore_stdin, args.raw, !body_from_request_items.is_empty()) {
+        (true, None, false) => {
+            let mut buffer = Vec::new();
+            stdin().read_to_end(&mut buffer)?;
+            Body::Raw(buffer)
+        }
+        (false, Some(raw), false) => Body::Raw(raw.as_bytes().to_vec()),
+        (false, None, _) => body_from_request_items,
+
+        (true, Some(_), _) => {
+            return Err(anyhow!(
+                "Request body from stdin and --raw cannot be mixed. \
+                Pass --ignore-stdin to ignore standard input."
+            ))
+        }
+        (true, _, true) => {
+            if args.multipart {
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
             } else {
                 return Err(anyhow!(
@@ -114,10 +129,16 @@ fn run(args: Cli) -> Result<i32> {
                 ));
             }
         }
-        let mut buffer = Vec::new();
-        stdin().read_to_end(&mut buffer)?;
-        body = Body::Raw(buffer);
-    }
+        (_, Some(_), true) => {
+            if args.multipart {
+                return Err(anyhow!("Cannot build a multipart request body from --raw"));
+            } else {
+                return Err(anyhow!(
+                    "Request body (from --raw) and request data (key=value) cannot be mixed."
+                ));
+            }
+        }
+    };
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
     let timeout = args.timeout.and_then(|t| t.as_duration());

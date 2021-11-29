@@ -61,6 +61,10 @@ pub struct Cli {
     #[structopt(short = "m", long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
+    /// Pass raw request data without extra processing.
+    #[structopt(long, value_name = "RAW")]
+    pub raw: Option<String>,
+
     /// Controls output processing.
     #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
     pub pretty: Option<Pretty>,
@@ -365,6 +369,7 @@ const NEGATION_FLAGS: &[&str] = &[
     "--no-print",
     "--no-proxy",
     "--no-quiet",
+    "--no-raw",
     "--no-response-charset",
     "--no-response-mime",
     "--no-session",

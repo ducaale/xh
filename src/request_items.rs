@@ -247,10 +247,6 @@ impl Body {
             Method::POST
         }
     }
-
-    pub fn is_multipart(&self) -> bool {
-        matches!(self, Body::Multipart(..))
-    }
 }
 
 impl RequestItems {
