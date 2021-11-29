@@ -138,7 +138,6 @@ fn basic_json_post() {
 
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -151,7 +150,6 @@ fn basic_get() {
         .args(&["--print=b", "get", &server.base_url()])
         .assert()
         .stdout("foobar\n\n");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -164,7 +162,6 @@ fn basic_head() {
         .args(&["head", &server.base_url()])
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -181,7 +178,6 @@ fn basic_options() {
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"))
         .stdout(contains("Allow:"));
-    server.assert_hits(1);
 }
 
 #[test]
@@ -194,8 +190,8 @@ fn multiline_value() {
 
     get_command()
         .args(&["--form", "post", &server.base_url(), "foo=bar\nbaz"])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -206,8 +202,8 @@ fn header() {
     });
     get_command()
         .args(&[&server.base_url(), "x-foo:Bar"])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -220,7 +216,6 @@ fn query_param() {
         .args(&[&server.base_url(), "foo==bar"])
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -231,8 +226,8 @@ fn json_param() {
     });
     get_command()
         .args(&[&server.base_url(), "foo:=[1,2,3]"])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -275,7 +270,6 @@ fn verbose() {
 
             a body
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -293,8 +287,8 @@ fn download() {
         .arg("--output")
         .arg(&outfile)
         .arg(server.base_url())
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
     assert_eq!(read_to_string(&outfile).unwrap(), "file contents\n");
 }
 
@@ -311,8 +305,8 @@ fn accept_encoding_not_modifiable_in_download_mode() {
     get_command()
         .current_dir(&dir)
         .args(&[&server.base_url(), "--download", "accept-encoding:gzip"])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -328,12 +322,14 @@ fn download_generated_filename() {
     get_command()
         .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
-        .assert();
+        .assert()
+        .success();
 
     get_command()
         .args(&["--download", &server.url("/foo/bar/")])
         .current_dir(&dir)
-        .assert();
+        .assert()
+        .success();
 
     assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
     assert_eq!(
@@ -355,8 +351,8 @@ fn download_supplied_filename() {
     get_command()
         .args(&["--download", &server.base_url()])
         .current_dir(&dir)
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
     assert_eq!(read_to_string(dir.path().join("foo.bar")).unwrap(), "file");
 }
 
@@ -373,8 +369,8 @@ fn download_supplied_unquoted_filename() {
     get_command()
         .args(&["--download", &server.base_url()])
         .current_dir(&dir)
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
     assert_eq!(
         read_to_string(dir.path().join("foo bar baz")).unwrap(),
         "file"
@@ -398,7 +394,6 @@ fn decode() {
         .args(&["--print=b", &server.base_url()])
         .assert()
         .stdout("é\n");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -414,7 +409,6 @@ fn streaming_decode() {
         .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
         .stdout("é\n");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -433,7 +427,6 @@ fn only_decode_for_terminal() {
         .stdout
         .clone();
     assert_eq!(&output, b"\xe9"); // .stdout() doesn't support byte slices
-    server.assert_hits(1);
 }
 
 #[test]
@@ -448,7 +441,6 @@ fn do_decode_if_formatted() {
         .args(&["--pretty=all", &server.base_url()])
         .assert()
         .stdout("é");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -468,7 +460,6 @@ fn never_decode_if_binary() {
         .stdout
         .clone();
     assert_eq!(&output, b"\xe9");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -488,7 +479,6 @@ fn binary_detection() {
             +-----------------------------------------+
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -508,7 +498,6 @@ fn streaming_binary_detection() {
             +-----------------------------------------+
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -531,10 +520,11 @@ fn request_binary_detection() {
 
 #[test]
 fn timeout() {
-    let server = server::http(|_req| async move {
+    let mut server = server::http(|_req| async move {
         tokio::time::sleep(Duration::from_secs_f32(0.5)).await;
         hyper::Response::default()
     });
+    server.disable_hit_checks();
 
     get_command()
         .args(&["--timeout=0.1", &server.base_url()])
@@ -554,8 +544,6 @@ fn timeout_no_limit() {
         .args(&["--timeout=0", &server.base_url()])
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -581,7 +569,6 @@ fn check_status() {
         .assert()
         .code(4)
         .stderr("");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -598,7 +585,6 @@ fn check_status_warning() {
         .assert()
         .code(5)
         .stderr("xh: warning: HTTP 501 Not Implemented\n");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -615,7 +601,6 @@ fn check_status_is_implied() {
         .assert()
         .code(4)
         .stderr("");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -632,7 +617,6 @@ fn check_status_is_not_implied_in_compat_mode() {
         .arg(server.base_url())
         .assert()
         .code(0);
-    server.assert_hits(1);
 }
 
 #[test]
@@ -644,8 +628,8 @@ fn user_password_auth() {
 
     get_command()
         .args(&["--auth=user:pass", &server.base_url()])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -657,8 +641,8 @@ fn user_auth() {
 
     get_command()
         .args(&["--auth=user:", &server.base_url()])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -670,8 +654,8 @@ fn bearer_auth() {
 
     get_command()
         .args(&["--bearer=SomeToken", &server.base_url()])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -833,8 +817,8 @@ fn netrc_env_user_password_auth() {
     get_command()
         .env("NETRC", netrc.path())
         .arg(server.base_url())
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -861,9 +845,8 @@ fn netrc_file_user_password_auth() {
             .env("HOME", homedir.path())
             .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
             .arg(server.base_url())
-            .assert();
-
-        server.assert_hits(1);
+            .assert()
+            .success();
 
         drop(netrc);
         homedir.close().unwrap();
@@ -894,8 +877,6 @@ fn proxy_http_proxy() {
     get_proxy_command("http", "http", &server.base_url())
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -912,12 +893,26 @@ fn proxy_https_proxy() {
         .assert()
         .stderr(contains("unsuccessful tunnel"))
         .failure();
-
-    server.assert_hits(1);
 }
 
 #[test]
-fn proxy_all_proxy() {
+fn proxy_http_all_proxy() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        hyper::Response::builder()
+            .status(502)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_proxy_command("http", "all", &server.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 502 Bad Gateway"))
+        .failure();
+}
+
+#[test]
+fn proxy_https_all_proxy() {
     let server = server::http(|req| async move {
         assert_eq!(req.method(), "CONNECT");
         hyper::Response::builder()
@@ -930,19 +925,11 @@ fn proxy_all_proxy() {
         .assert()
         .stderr(contains("unsuccessful tunnel"))
         .failure();
-
-    server.assert_hits(1);
-
-    get_proxy_command("http", "all", &server.base_url())
-        .assert()
-        .failure();
-
-    server.assert_hits(1);
 }
 
 #[test]
 fn last_supplied_proxy_wins() {
-    let first_server = server::http(|req| async move {
+    let mut first_server = server::http(|req| async move {
         assert_eq!(req.headers()["host"], "example.test");
         hyper::Response::builder()
             .status(500)
@@ -968,6 +955,7 @@ fn last_supplied_proxy_wins() {
     .assert()
     .success();
 
+    first_server.disable_hit_checks();
     first_server.assert_hits(0);
     second_server.assert_hits(1);
 }
@@ -1130,7 +1118,6 @@ fn improved_https_ip_error_with_support() {
         .failure()
         .stderr(contains("rustls does not support"))
         .stderr(contains("using the --native-tls flag"));
-    server.assert_hits(1);
 }
 
 #[cfg(feature = "native-tls")]
@@ -1225,7 +1212,6 @@ fn forced_json() {
         .args(&["--json", &server.base_url()])
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1241,7 +1227,6 @@ fn forced_form() {
         .args(&["--form", &server.base_url()])
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1256,7 +1241,6 @@ fn forced_multipart() {
         .args(&["--multipart", &server.base_url()])
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1277,7 +1261,6 @@ fn formatted_json_output() {
 
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1298,7 +1281,6 @@ fn inferred_json_output() {
 
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1319,7 +1301,6 @@ fn inferred_json_javascript_output() {
 
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1337,7 +1318,6 @@ fn inferred_nonjson_output() {
         .stdout(indoc! {r#"
             {"":0,}
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1355,7 +1335,6 @@ fn noninferred_json_output() {
         .stdout(indoc! {r#"
             {"":0}
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1394,7 +1373,6 @@ fn default_json_for_raw_body() {
         .stdin(input_file)
         .assert()
         .success();
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1440,8 +1418,6 @@ fn multipart_file_upload() {
         ))
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1467,8 +1443,6 @@ fn body_from_file() {
         .arg(format!("@{}", filename.to_string_lossy()))
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1494,8 +1468,6 @@ fn body_from_file_with_explicit_mimetype() {
         .arg(format!("@{};type=image/png", filename.to_string_lossy()))
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1521,8 +1493,6 @@ fn body_from_file_with_fallback_mimetype() {
         .arg(format!("@{}", filename.to_string_lossy()))
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -1598,8 +1568,8 @@ fn request_json_keys_order_is_preserved() {
 
     get_command()
         .args(&["get", &server.base_url(), "name=ali", "age:=24"])
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -1615,8 +1585,8 @@ fn data_field_from_file() {
     get_command()
         .arg(server.base_url())
         .arg(format!("ids=@{}", text_file.path().to_string_lossy()))
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -1633,8 +1603,8 @@ fn data_field_from_file_in_form_mode() {
         .arg(server.base_url())
         .arg("--form")
         .arg(format!("message=@{}", text_file.path().to_string_lossy()))
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -1650,8 +1620,8 @@ fn json_field_from_file() {
     get_command()
         .arg(server.base_url())
         .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
-        .assert();
-    server.assert_hits(1);
+        .assert()
+        .success();
 }
 
 #[test]
@@ -2086,8 +2056,6 @@ fn basic_auth_from_session_is_used() {
         .arg("--no-check-status")
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -2120,8 +2088,6 @@ fn bearer_auth_from_session_is_used() {
         .arg("--no-check-status")
         .assert()
         .success();
-
-    server.assert_hits(1);
 }
 
 #[test]
@@ -2536,7 +2502,6 @@ fn override_response_charset() {
         .arg(server.base_url())
         .assert()
         .stdout("é\n");
-    server.assert_hits(1);
 }
 
 #[test]
@@ -2560,7 +2525,6 @@ fn override_response_mime() {
 
 
         "#});
-    server.assert_hits(1);
 }
 
 #[test]
@@ -2582,5 +2546,4 @@ fn omit_response_body() {
             Date: N/A
 
         "#});
-    server.assert_hits(1);
 }
