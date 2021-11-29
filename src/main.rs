@@ -121,6 +121,7 @@ fn run(args: Cli) -> Result<i32> {
         }
         (true, _, true) => {
             if args.multipart {
+                // Multipart bodies are never "empty", so we can get here without request items
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
             } else {
                 return Err(anyhow!(
@@ -131,6 +132,7 @@ fn run(args: Cli) -> Result<i32> {
         }
         (_, Some(_), true) => {
             if args.multipart {
+                // Multipart bodies are never "empty", so we can get here without request items
                 return Err(anyhow!("Cannot build a multipart request body from --raw"));
             } else {
                 return Err(anyhow!(
