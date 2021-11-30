@@ -4,7 +4,7 @@ mod server;
 use std::collections::{HashMap, HashSet};
 use std::fs::{create_dir_all, read_to_string, File, OpenOptions};
 use std::future::Future;
-use std::io::{Seek, SeekFrom, Write};
+use std::io::Write;
 use std::iter::FromIterator;
 use std::pin::Pin;
 use std::time::Duration;
@@ -501,13 +501,9 @@ fn streaming_binary_detection() {
 
 #[test]
 fn request_binary_detection() {
-    let mut binary_file = NamedTempFile::new().unwrap();
-    binary_file.write_all(b"foo\0bar").unwrap();
-    binary_file.seek(SeekFrom::Start(0)).unwrap();
     redirecting_command()
         .args(&["--print=B", "--offline", ":"])
-        .pipe_stdin(binary_file.path())
-        .unwrap()
+        .write_stdin(b"foo\0bar".as_ref())
         .assert()
         .stdout(indoc! {r#"
             +-----------------------------------------+
