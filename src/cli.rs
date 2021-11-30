@@ -97,11 +97,11 @@ pub struct Cli {
     #[structopt(short = "p", long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
-    /// Print only the response headers, shortcut for --print=h.
+    /// Print only the response headers. Shortcut for --print=h.
     #[structopt(short = "h", long)]
     pub headers: bool,
 
-    /// Print only the response body, Shortcut for --print=b.
+    /// Print only the response body. Shortcut for --print=b.
     #[structopt(short = "b", long)]
     pub body: bool,
 
