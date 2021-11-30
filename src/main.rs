@@ -111,7 +111,7 @@ fn run(args: Cli) -> Result<i32> {
             stdin().read_to_end(&mut buffer)?;
             Body::Raw(buffer)
         }
-        (false, Some(raw), false) => Body::Raw(raw.as_bytes().to_vec()),
+        (false, Some(raw), false) => Body::Raw(raw.into_bytes()),
         (false, None, _) => body_from_request_items,
 
         (true, Some(_), _) => {
