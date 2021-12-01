@@ -6,6 +6,7 @@
 - Solarized and Monokai are based on ansi-dark with color values taken from the [pygments](https://github.com/pygments/pygments) library
   - [Solarized](https://github.com/pygments/pygments/blob/master/pygments/styles/solarized.py)
   - [Monokai](https://github.com/pygments/pygments/blob/master/pygments/styles/monokai.py)
+  - [Fruity](https://github.com/pygments/pygments/blob/master/pygments/styles/fruity.py)
 
 ## Tools used to create xh-demo.gif
 - [asciinema](https://github.com/asciinema/asciinema) for the initial recording.
