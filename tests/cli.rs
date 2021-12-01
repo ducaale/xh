@@ -82,6 +82,7 @@ fn get_base_command() -> Command {
         cmd = Command::new(path);
     }
     cmd.env("HOME", "");
+    cmd.env("NETRC", "");
     #[cfg(target_os = "windows")]
     cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
     cmd
@@ -840,6 +841,7 @@ fn netrc_file_user_password_auth() {
         get_command()
             .env("HOME", homedir.path())
             .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+            .env_remove("NETRC")
             .arg(server.base_url())
             .assert()
             .success();
