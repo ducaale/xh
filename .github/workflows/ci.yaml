@@ -67,10 +67,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --tests -- -D warnings
+          args: --tests -- -D warnings -A unknown-lints
 
       - name: Clippy (all features)
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features --tests -- -D warnings
+          args: --all-features --tests -- -D warnings -A unknown-lints
