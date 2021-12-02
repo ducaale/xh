@@ -23,11 +23,11 @@ pub struct Server {
 
 impl Server {
     pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr.to_string())
+        format!("http://{}", self.addr)
     }
 
     pub fn url(&self, path: &str) -> String {
-        format!("http://{}{}", self.addr.to_string(), path)
+        format!("http://{}{}", self.addr, path)
     }
 
     pub fn host(&self) -> String {
