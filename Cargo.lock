@@ -906,12 +906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "netrc-rs"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea2970fbbc8c785e8246234a7bd004ed66cd1ed1a35ec73669a92545e419b836"
-
-[[package]]
 name = "normalize-line-endings"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2181,7 +2175,6 @@ dependencies = [
  "mime",
  "mime2ext",
  "mime_guess",
- "netrc-rs",
  "once_cell",
  "pem",
  "predicates 1.0.8",
