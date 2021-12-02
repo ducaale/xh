@@ -111,6 +111,13 @@ fn color_command() -> Command {
     cmd
 }
 
+const BINARY_SUPPRESSOR: &str = concat!(
+    "+-----------------------------------------+\n",
+    "| NOTE: binary data not shown in terminal |\n",
+    "+-----------------------------------------+\n",
+    "\n"
+);
+
 #[test]
 fn basic_json_post() {
     let server = server::http(|req| async move {
@@ -473,12 +480,7 @@ fn binary_detection() {
     get_command()
         .args(&["--print=b", &server.base_url()])
         .assert()
-        .stdout(indoc! {r#"
-            +-----------------------------------------+
-            | NOTE: binary data not shown in terminal |
-            +-----------------------------------------+
-
-        "#});
+        .stdout(BINARY_SUPPRESSOR);
 }
 
 #[test]
@@ -492,12 +494,7 @@ fn streaming_binary_detection() {
     get_command()
         .args(&["--print=b", "--stream", &server.base_url()])
         .assert()
-        .stdout(indoc! {r#"
-            +-----------------------------------------+
-            | NOTE: binary data not shown in terminal |
-            +-----------------------------------------+
-
-        "#});
+        .stdout(BINARY_SUPPRESSOR);
 }
 
 #[test]
@@ -2640,4 +2637,73 @@ fn omit_response_body() {
             Date: N/A
 
         "#});
+}
+
+#[test]
+fn encoding_detection() {
+    fn case(
+        content_type: &'static str,
+        body: &'static (impl AsRef<[u8]> + ?Sized),
+        output: &'static str,
+    ) {
+        let body = body.as_ref();
+        let server = server::http(move |_| async move {
+            hyper::Response::builder()
+                .header("Content-Type", content_type)
+                .body(body.into())
+                .unwrap()
+        });
+
+        get_command()
+            .arg("--print=b")
+            .arg(server.base_url())
+            .assert()
+            .stdout(output);
+
+        get_command()
+            .arg("--print=b")
+            .arg("--stream")
+            .arg(server.base_url())
+            .assert()
+            .stdout(output);
+
+        server.assert_hits(2);
+    }
+
+    // UTF-8 is a typical fallback
+    case("text/plain", "é", "é\n");
+
+    // But headers take precedence
+    case("text/html; charset=latin1", "é", "Ã©\n");
+
+    // As do BOMs
+    case("text/html", b"\xFF\xFEa\0b\0", "ab\n");
+
+    // windows-1252 is another common fallback
+    case("text/plain", b"\xFF", "ÿ\n");
+
+    // BOMs are stripped
+    case("text/plain", b"\xFF\xFEa\0b\0", "ab\n");
+    case("text/plain; charset=UTF-16", b"\xFF\xFEa\0b\0", "ab\n");
+    case("text/plain; charset=UTF-16LE", b"\xFF\xFEa\0b\0", "ab\n");
+    case("text/plain", b"\xFE\xFF\0a\0b", "ab\n");
+    case("text/plain; charset=UTF-16BE", b"\xFE\xFF\0a\0b", "ab\n");
+
+    // ...unless they're for a different encoding
+    case(
+        "text/plain; charset=UTF-16LE",
+        b"\xFE\xFFa\0b\0",
+        "\u{FFFE}ab\n",
+    );
+    case(
+        "text/plain; charset=UTF-16BE",
+        b"\xFF\xFE\0a\0b",
+        "\u{FFFE}ab\n",
+    );
+
+    // Binary content is detected
+    case("application/octet-stream", "foo\0bar", BINARY_SUPPRESSOR);
+
+    // (even for non-ASCII-compatible encodings)
+    case("text/plain; charset=UTF-16", "\0\0", BINARY_SUPPRESSOR);
 }

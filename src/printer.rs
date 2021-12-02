@@ -1,6 +1,7 @@
+use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
-use encoding_rs::{Encoding, UTF_8};
+use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Request, Response};
@@ -10,6 +11,7 @@ use reqwest::header::{
 };
 use reqwest::Version;
 use termcolor::WriteColor;
+use url::Url;
 
 use crate::{
     buffer::Buffer,
@@ -374,10 +376,11 @@ impl Printer {
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
+        let url = response.url().to_owned();
         let content_type = mime
             .map(ContentType::from)
             .unwrap_or_else(|| get_content_type(response.headers()));
-        let encoding = encoding.unwrap_or_else(|| guess_encoding(&response));
+        let encoding = encoding.or_else(|| get_charset(&response));
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -396,11 +399,11 @@ impl Printer {
                 if self.stream {
                     self.print_body_stream(
                         content_type,
-                        &mut decode_stream(&mut response, encoding),
+                        &mut decode_stream(&mut response, encoding, &url)?,
                     )?;
                 } else {
                     let bytes = response.bytes()?;
-                    let (text, _, _) = encoding.decode(&bytes);
+                    let text = decode_blob_unconditional(&bytes, encoding, &url);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
@@ -410,8 +413,10 @@ impl Printer {
                 self.buffer.print(&body)?;
             }
         } else if self.stream {
-            match self.print_body_stream(content_type, &mut decode_stream(&mut response, encoding))
-            {
+            match self.print_body_stream(
+                content_type,
+                &mut decode_stream(&mut response, encoding, &url)?,
+            ) {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -423,11 +428,13 @@ impl Printer {
         } else {
             // Note that .decode() behaves like String::from_utf8_lossy()
             let bytes = response.bytes()?;
-            let (text, _, _) = encoding.decode(&bytes);
-            if text.contains('\0') {
-                self.buffer.print(BINARY_SUPPRESSOR)?;
-                return Ok(());
-            }
+            let text = match decode_blob(&bytes, encoding, &url) {
+                None => {
+                    self.buffer.print(BINARY_SUPPRESSOR)?;
+                    return Ok(());
+                }
+                Some(text) => text,
+            };
             self.print_body_text(content_type, &text)?;
             self.buffer.print("\n")?;
         }
@@ -496,34 +503,134 @@ pub fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }
 
-/// Decode a streaming response in a way that matches `.text()`.
+/// Decode a response, using BOM sniffing or chardet if the encoding is unknown.
 ///
-/// Note that in practice this seems to behave like String::from_utf8_lossy(),
-/// but it makes no guarantees about outputting valid UTF-8 if the input is
-/// invalid UTF-8 (claiming to be UTF-8). So only pass data through here
-/// that's going to the terminal, and don't trust its output.
-fn decode_stream<'a>(response: &'a mut Response, encoding: &'static Encoding) -> impl Read + 'a {
-    DecodeReaderBytesBuilder::new()
-        .encoding(Some(encoding))
-        .build(response)
+/// This is different from [`Response::text`], which assumes UTF-8 as a fallback.
+///
+/// Returns `None` if the decoded text would contain null codepoints (i.e., is binary).
+fn decode_blob<'a>(
+    raw: &'a [u8],
+    encoding: Option<&'static Encoding>,
+    url: &Url,
+) -> Option<Cow<'a, str>> {
+    let encoding = encoding.unwrap_or_else(|| detect_encoding(raw, true, url));
+    // If the encoding is ASCII-compatible then a null byte corresponds to a
+    // null codepoint and vice versa, so we can check for them before decoding.
+    // For a 11MB binary file this saves 100ms, that's worth doing.
+    // UTF-16 is not ASCII-compatible: all ASCII characters are padded with a
+    // null byte, so finding a null byte doesn't mean anything.
+    if encoding.is_ascii_compatible() && raw.contains(&0) {
+        return None;
+    }
+    // Don't allow the BOM to override the encoding. But do remove it if
+    // it matches the encoding.
+    let text = encoding.decode_with_bom_removal(raw).0;
+    if !encoding.is_ascii_compatible() && text.contains('\0') {
+        None
+    } else {
+        Some(text)
+    }
 }
 
-/// Guess the response's encoding, with UTF-8 as the default.
+/// Like [`decode_blob`], but without binary detection.
+fn decode_blob_unconditional<'a>(
+    raw: &'a [u8],
+    encoding: Option<&'static Encoding>,
+    url: &Url,
+) -> Cow<'a, str> {
+    let encoding = encoding.unwrap_or_else(|| detect_encoding(raw, true, url));
+    encoding.decode_with_bom_removal(raw).0
+}
+
+/// Decode a streaming response in a way that matches [`decode_blob`].
 ///
-/// reqwest doesn't provide an API for this, so the logic is copied here.
+/// As-is this should do a lossy decode with replacement characters, so the
+/// output is valid UTF-8, but a differently configured DecodeReaderBytes can
+/// produce invalid UTF-8.
+fn decode_stream<'a>(
+    response: &'a mut Response,
+    encoding: Option<&'static Encoding>,
+    url: &Url,
+) -> io::Result<impl Read + 'a> {
+    // 16 KiB is the largest initial read I could achieve.
+    // That was with a HTTP/2 miniserve running on Linux.
+    // I think this is a buffer size for hyper, it could change. But it seems
+    // large enough for a best-effort attempt.
+    // (16 is otherwise used because 0 seems dangerous, but it shouldn't matter.)
+    let capacity = if encoding.is_some() { 16 } else { 16 * 1024 };
+    let mut reader = BufReader::with_capacity(capacity, response);
+    let encoding = match encoding {
+        Some(encoding) => encoding,
+        None => {
+            // We need to guess the encoding.
+            // The more data we have the better our guess, but we can't just wait
+            // for all of it to arrive. The user explicitly asked us to hurry.
+            // HTTPie solves this by detecting the encoding separately for each line,
+            // but that's silly, and we don't necessarily go linewise.
+            // We'll just hope we get enough data in the very first read.
+            let peek = reader.fill_buf()?;
+            detect_encoding(peek, false, url)
+        }
+    };
+    // We could set .utf8_passthru(true) to not sanitize invalid UTF-8. It would
+    // arrive more faithfully in the terminal.
+    // But that has questionable benefit and writing invalid UTF-8 to stdout
+    // causes an error on Windows (because the console is UTF-16).
+    let reader = DecodeReaderBytesBuilder::new()
+        .encoding(Some(encoding))
+        .build(reader);
+    Ok(reader)
+}
+
+fn detect_encoding(mut bytes: &[u8], mut complete: bool, url: &Url) -> &'static Encoding {
+    // chardetng doesn't seem to take BOMs into account, so check those manually.
+    // We trust them unconditionally. (Should we?)
+    if bytes.starts_with(b"\xEF\xBB\xBF") {
+        return encoding_rs::UTF_8;
+    } else if bytes.starts_with(b"\xFF\xFE") {
+        return encoding_rs::UTF_16LE;
+    } else if bytes.starts_with(b"\xFE\xFF") {
+        return encoding_rs::UTF_16BE;
+    }
+
+    // 64 KiB takes 2-5 ms to check on my machine. So even on slower machines
+    // that should be acceptable.
+    // If we check the full document we can easily spend most of our runtime
+    // inside chardetng. That's especially problematic because we usually get
+    // here for binary files, which we won't even end up showing.
+    const CHARDET_PEEK_SIZE: usize = 64 * 1024;
+    if bytes.len() > CHARDET_PEEK_SIZE {
+        bytes = &bytes[..CHARDET_PEEK_SIZE];
+        complete = false;
+    }
+
+    // HTTPie uses https://pypi.org/project/charset-normalizer/
+    let mut detector = chardetng::EncodingDetector::new();
+    detector.feed(bytes, complete);
+    let tld = url.domain().and_then(get_tld).map(str::as_bytes);
+    // The `allow_utf8` parameter is meant for HTML content:
+    // https://hsivonen.fi/utf-8-detection/
+    // We always enable it because we're more geared toward APIs than
+    // toward plain webpages, and because we don't have a full HTML parser
+    // to implement proper UTF-8 detection.
+    detector.guess(tld, true)
+}
+
+fn get_tld(domain: &str) -> Option<&str> {
+    // Fully qualified domain names end with a .
+    domain.trim_end_matches('.').rsplit('.').next()
+}
+
+/// Get the response's encoding from its Content-Type.
+///
+/// reqwest doesn't provide an API for this, and we don't want a fixed default.
 ///
 /// See https://github.com/seanmonstar/reqwest/blob/2940740493/src/async_impl/response.rs#L172
-fn guess_encoding(response: &Response) -> &'static Encoding {
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<Mime>().ok());
-    let encoding_name = content_type
-        .as_ref()
-        .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
-        .unwrap_or("utf-8");
-    Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8)
+fn get_charset(response: &Response) -> Option<&'static Encoding> {
+    let content_type = response.headers().get(CONTENT_TYPE)?.to_str().ok()?;
+    let mime: Mime = content_type.parse().ok()?;
+    let encoding_name = mime.get_param("charset")?.as_str();
+    Encoding::for_label(encoding_name.as_bytes())
 }
 
 #[cfg(test)]
