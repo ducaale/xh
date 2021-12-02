@@ -46,7 +46,7 @@
                 <key>name</key>
                 <string>Strings</string>
                 <key>scope</key>
-                <string>string.quoted, punctuation.definition.string.begin, punctuation.definition.string.end, constant.character.escape</string>
+                <string>string.quoted, punctuation.definition.string.begin, punctuation.definition.string.end</string>
                 <key>settings</key>
                 <dict>
                     <key>foreground</key>
