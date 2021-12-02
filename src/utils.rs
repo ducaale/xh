@@ -94,7 +94,6 @@ pub const BUFFER_SIZE: usize = 64 * 1024;
 /// served locally by `python3 -m http.server`. Results may vary.
 pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io::Result<()> {
     let mut buf = vec![0; BUFFER_SIZE];
-    let mut buf = buf.as_mut_slice();
     loop {
         match reader.read(&mut buf) {
             Ok(0) => return Ok(()),

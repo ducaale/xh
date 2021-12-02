@@ -24,6 +24,7 @@ impl<'a, 'b> Context<'a, 'b> {
         match self.middlewares {
             [] => Ok(self.client.execute(request)?),
             [ref mut head, tail @ ..] => head.handle(
+                #[allow(clippy::needless_option_as_deref)]
                 Context::new(self.client, self.printer.as_deref_mut(), tail),
                 request,
             ),
