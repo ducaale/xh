@@ -1,6 +1,6 @@
 use std::env::var_os;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use reqwest::blocking::Request;
@@ -57,6 +57,17 @@ pub fn get_home_dir() -> Option<PathBuf> {
     }
 
     dirs::home_dir()
+}
+
+pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
+    if let Ok(path) = path.as_ref().strip_prefix("~") {
+        let mut expanded_path = PathBuf::new();
+        expanded_path.push(get_home_dir().unwrap_or_else(|| "~".into()));
+        expanded_path.push(path);
+        expanded_path
+    } else {
+        path.as_ref().into()
+    }
 }
 
 // https://stackoverflow.com/a/45145246/5915221
