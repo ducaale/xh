@@ -2718,22 +2718,25 @@ fn tilde_expanded_in_request_items() {
         .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
         .args(&["--offline", ":", "key=@~/secret_key.txt"])
         .assert()
+        .stdout(contains("sxemfalm....."))
         .success();
 
     std::fs::write(homedir.path().join("ids.json"), "[102,111,164]").unwrap();
     get_command()
         .env("HOME", homedir.path())
         .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
-        .args(&["--offline", ":", "ids:=@~/ids.json"])
+        .args(&["--offline", "--pretty=none", ":", "ids:=@~/ids.json"])
         .assert()
+        .stdout(contains("[102,111,164]"))
         .success();
 
-    std::fs::write(homedir.path().join("hello.jpg"), b"bar\0\0bar").unwrap();
+    std::fs::write(homedir.path().join("moby-dick.txt"), "Call me Ishmael.").unwrap();
     get_command()
         .env("HOME", homedir.path())
         .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
-        .args(&["--offline", "--form", ":", "picture@~/hello.jpg"])
+        .args(&["--offline", "--form", ":", "content@~/moby-dick.txt"])
         .assert()
+        .stdout(contains("Call me Ishmael."))
         .success();
 
     std::fs::write(homedir.path().join("random_file"), "random data").unwrap();
@@ -2742,5 +2745,6 @@ fn tilde_expanded_in_request_items() {
         .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
         .args(&["--offline", ":", "@~/random_file"])
         .assert()
+        .stdout(contains("random data"))
         .success();
 }
