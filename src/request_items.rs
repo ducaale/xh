@@ -12,6 +12,7 @@ use reqwest::{blocking::multipart, Method};
 use structopt::clap;
 
 use crate::cli::BodyType;
+use crate::utils::expand_tilde;
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
@@ -302,13 +303,15 @@ impl RequestItems {
                     body.insert(key, value);
                 }
                 RequestItem::JsonFieldFromFile(key, value) => {
-                    body.insert(key, serde_json::from_str(&fs::read_to_string(value)?)?);
+                    let path = expand_tilde(value);
+                    body.insert(key, serde_json::from_str(&fs::read_to_string(path)?)?);
                 }
                 RequestItem::DataField(key, value) => {
                     body.insert(key, serde_json::Value::String(value));
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
-                    body.insert(key, serde_json::Value::String(fs::read_to_string(value)?));
+                    let path = expand_tilde(value);
+                    body.insert(key, serde_json::Value::String(fs::read_to_string(path)?));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}
@@ -328,7 +331,8 @@ impl RequestItems {
                 }
                 RequestItem::DataField(key, value) => text_fields.push((key, value)),
                 RequestItem::DataFieldFromFile(key, value) => {
-                    text_fields.push((key, fs::read_to_string(value)?));
+                    let path = expand_tilde(value);
+                    text_fields.push((key, fs::read_to_string(path)?));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}
@@ -350,7 +354,8 @@ impl RequestItems {
                     form = form.text(key, value);
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
-                    form = form.text(key, fs::read_to_string(value)?);
+                    let path = expand_tilde(value);
+                    form = form.text(key, fs::read_to_string(path)?);
                 }
                 RequestItem::FormFile {
                     key,
@@ -358,7 +363,7 @@ impl RequestItems {
                     file_type,
                     file_name_header,
                 } => {
-                    let mut part = file_to_part(&file_name)?;
+                    let mut part = file_to_part(expand_tilde(&file_name))?;
                     if let Some(file_type) = file_type {
                         part = part.mime_str(&file_type)?;
                     }
@@ -412,7 +417,7 @@ impl RequestItems {
                             .or_else(|| mime_guess::from_path(&file_name).first_raw())
                             .map(HeaderValue::from_str)
                             .transpose()?,
-                        file_name: file_name.into(),
+                        file_name: expand_tilde(file_name),
                         file_name_header,
                     });
                 }

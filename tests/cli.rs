@@ -12,7 +12,7 @@ use std::time::Duration;
 use assert_cmd::cmd::Command;
 use indoc::indoc;
 use predicates::str::contains;
-use tempfile::{tempdir, NamedTempFile};
+use tempfile::{tempdir, NamedTempFile, TempDir};
 
 pub trait RequestExt {
     fn query_params(&self) -> HashMap<String, String>;
@@ -823,7 +823,7 @@ fn netrc_file_user_password_auth() {
             hyper::Response::default()
         });
 
-        let homedir = tempfile::TempDir::new().unwrap();
+        let homedir = TempDir::new().unwrap();
         let netrc_path = homedir.path().join(netrc_file);
         let mut netrc = File::create(&netrc_path).unwrap();
         writeln!(
@@ -2706,4 +2706,45 @@ fn encoding_detection() {
 
     // (even for non-ASCII-compatible encodings)
     case("text/plain; charset=UTF-16", "\0\0", BINARY_SUPPRESSOR);
+}
+
+#[test]
+fn tilde_expanded_in_request_items() {
+    let homedir = TempDir::new().unwrap();
+
+    std::fs::write(homedir.path().join("secret_key.txt"), "sxemfalm.....").unwrap();
+    get_command()
+        .env("HOME", homedir.path())
+        .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+        .args(&["--offline", ":", "key=@~/secret_key.txt"])
+        .assert()
+        .stdout(contains("sxemfalm....."))
+        .success();
+
+    std::fs::write(homedir.path().join("ids.json"), "[102,111,164]").unwrap();
+    get_command()
+        .env("HOME", homedir.path())
+        .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+        .args(&["--offline", "--pretty=none", ":", "ids:=@~/ids.json"])
+        .assert()
+        .stdout(contains("[102,111,164]"))
+        .success();
+
+    std::fs::write(homedir.path().join("moby-dick.txt"), "Call me Ishmael.").unwrap();
+    get_command()
+        .env("HOME", homedir.path())
+        .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+        .args(&["--offline", "--form", ":", "content@~/moby-dick.txt"])
+        .assert()
+        .stdout(contains("Call me Ishmael."))
+        .success();
+
+    std::fs::write(homedir.path().join("random_file"), "random data").unwrap();
+    get_command()
+        .env("HOME", homedir.path())
+        .env("XH_TEST_MODE_WIN_HOME_DIR", homedir.path())
+        .args(&["--offline", ":", "@~/random_file"])
+        .assert()
+        .stdout(contains("random data"))
+        .success();
 }
