@@ -59,6 +59,11 @@ pub fn get_home_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
+/// Perform simple tilde expansion if `dirs::home_dir()` is `Some(path)`.
+///
+/// Note that prefixed tilde e.g `~foo` is ignored.
+///
+/// See https://www.gnu.org/software/bash/manual/html_node/Tilde-Expansion.html
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     if let Ok(path) = path.as_ref().strip_prefix("~") {
         let mut expanded_path = PathBuf::new();
