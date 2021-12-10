@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response};
 use tokio::runtime;
 use tokio::sync::oneshot;
 
@@ -64,11 +65,23 @@ impl Drop for Server {
     }
 }
 
+// http() is generic, http_inner() is not.
+// A generic function has to be compiled for every single type you use it with.
+// And every closure counts as a different type.
+// By making only http() generic a rebuild of the tests take 3-10 times less long.
+
 pub fn http<F, Fut>(func: F) -> Server
 where
-    F: Fn(hyper::Request<hyper::Body>) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = hyper::Response<hyper::Body>> + Send + 'static,
+    F: Fn(Request<Body>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Response<Body>> + Send + 'static,
 {
+    http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))))
+}
+
+type Serv = dyn Fn(Request<Body>) -> Box<ServFut> + Send + Sync;
+type ServFut = dyn Future<Output = Response<Body>> + Send + Unpin;
+
+fn http_inner(func: Arc<Serv>) -> Server {
     //Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
         let successful_hits = Arc::new(Mutex::new(0));
