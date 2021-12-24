@@ -492,7 +492,7 @@ mod tests {
             ),
         ];
         for (input, output) in expected {
-            let cli = Cli::from_iter_safe(input.split_whitespace()).unwrap();
+            let cli = Cli::try_parse_from(input.split_whitespace()).unwrap();
             let cmd = translate(cli).unwrap();
             assert_eq!(cmd.to_string(), output, "Wrong output for {:?}", input);
         }

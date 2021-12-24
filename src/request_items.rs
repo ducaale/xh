@@ -9,7 +9,6 @@ use std::{
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
-use structopt::clap;
 
 use crate::cli::BodyType;
 use crate::utils::expand_tilde;
@@ -36,8 +35,8 @@ pub enum RequestItem {
 }
 
 impl FromStr for RequestItem {
-    type Err = clap::Error;
-    fn from_str(request_item: &str) -> clap::Result<RequestItem> {
+    type Err = anyhow::Error;
+    fn from_str(request_item: &str) -> anyhow::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
         const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
@@ -95,12 +94,8 @@ impl FromStr for RequestItem {
                 "=" => Ok(RequestItem::DataField(key, value)),
                 ":=" => Ok(RequestItem::JsonField(
                     key,
-                    serde_json::from_str(&value).map_err(|err| {
-                        clap::Error::with_description(
-                            &format!("{:?}: {}", request_item, err),
-                            clap::ErrorKind::InvalidValue,
-                        )
-                    })?,
+                    serde_json::from_str(&value)
+                        .map_err(|err| anyhow::anyhow!("{:?}: {}", request_item, err))?,
                 )),
                 "@" => {
                     let PartWithParams {
@@ -128,9 +123,9 @@ impl FromStr for RequestItem {
             // TODO: We can also end up here if the method couldn't be parsed
             // and was interpreted as a URL, making the actual URL a request
             // item
-            Err(clap::Error::with_description(
-                &format!("{:?} is not a valid request item", request_item),
-                clap::ErrorKind::InvalidValue,
+            Err(anyhow::anyhow!(
+                "{:?} is not a valid request item",
+                request_item
             ))
         }
     }
