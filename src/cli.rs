@@ -674,13 +674,7 @@ fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
     };
     let mut buf = Vec::new();
     clap_complete::generate(shell, &mut app, bin_name, &mut buf);
-    let mut completions = String::from_utf8(buf).unwrap();
-    if matches!(shell, clap_complete::Shell::Fish) {
-        // We don't have (proper) subcommands, so this check is unnecessary and
-        // slightly harmful
-        // See https://github.com/clap-rs/clap/pull/2359, currently unreleased
-        completions = completions.replace(r#" -n "__fish_use_subcommand""#, "");
-    }
+    let completions = String::from_utf8(buf).unwrap();
     print!("{}", completions);
     safe_exit();
 }
