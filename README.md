@@ -30,7 +30,7 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 | macOS           | MacPorts   | `sudo port install xh`  |
 | Windows         | Scoop      | `scoop install xh`      |
 
-\* Make sure that you have Rust 1.46 or later installed
+\* Make sure that you have Rust 1.54 or later installed
 
 \*\* You will need to add the apt repository from https://apt.cli.rs/
 
