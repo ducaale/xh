@@ -11,7 +11,8 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
 
 use crate::cli::BodyType;
-use crate::utils::expand_tilde;
+use crate::json_form;
+use crate::utils::{expand_tilde, unescape};
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
@@ -40,33 +41,6 @@ impl FromStr for RequestItem {
         const SPECIAL_CHARS: &str = "=@:;\\";
         const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
-        fn unescape(text: &str) -> String {
-            let mut out = String::new();
-            let mut chars = text.chars();
-            while let Some(ch) = chars.next() {
-                if ch == '\\' {
-                    match chars.next() {
-                        Some(next) if SPECIAL_CHARS.contains(next) => {
-                            // Escape this character
-                            out.push(next);
-                        }
-                        Some(next) => {
-                            // Do not escape this character, treat backslash
-                            // as ordinary character
-                            out.push(ch);
-                            out.push(next);
-                        }
-                        None => {
-                            out.push(ch);
-                        }
-                    }
-                } else {
-                    out.push(ch);
-                }
-            }
-            out
-        }
-
         fn split(request_item: &str) -> Option<(String, &'static str, String)> {
             let mut char_inds = request_item.char_indices();
             while let Some((ind, ch)) = char_inds.next() {
@@ -81,7 +55,11 @@ impl FromStr for RequestItem {
                 for sep in SEPS {
                     if let Some(value) = request_item[ind..].strip_prefix(sep) {
                         let key = &request_item[..ind];
-                        return Some((unescape(key), sep, unescape(value)));
+                        return Some((
+                            unescape(key, SPECIAL_CHARS),
+                            sep,
+                            unescape(value, SPECIAL_CHARS),
+                        ));
                     }
                 }
             }
@@ -215,7 +193,7 @@ pub struct RequestItems {
 }
 
 pub enum Body {
-    Json(serde_json::Map<String, serde_json::Value>),
+    Json(serde_json::Value),
     Form(Vec<(String, String)>),
     Multipart(multipart::Form),
     Raw(Vec<u8>),
@@ -229,7 +207,7 @@ pub enum Body {
 impl Body {
     pub fn is_empty(&self) -> bool {
         match self {
-            Body::Json(map) => map.is_empty(),
+            Body::Json(value) => value.is_null(),
             Body::Form(items) => items.is_empty(),
             // A multipart form without items isn't empty, and we can't read
             // a body from stdin because it has to match the header, so we
@@ -298,22 +276,28 @@ impl RequestItems {
     }
 
     fn body_as_json(self) -> Result<Body> {
-        let mut body = serde_json::Map::new();
+        use serde_json::Value;
+
+        let mut body = Value::Null;
         for item in self.items {
             match item {
                 RequestItem::JsonField(key, value) => {
-                    body.insert(key, value);
+                    let json_path = json_form::parse_path(&key);
+                    body = json_form::set_value(body, &json_path, value);
                 }
                 RequestItem::JsonFieldFromFile(key, value) => {
-                    let path = expand_tilde(value);
-                    body.insert(key, serde_json::from_str(&fs::read_to_string(path)?)?);
+                    let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
+                    let json_path = json_form::parse_path(&key);
+                    body = json_form::set_value(body, &json_path, value);
                 }
                 RequestItem::DataField(key, value) => {
-                    body.insert(key, serde_json::Value::String(value));
+                    let json_path = json_form::parse_path(&key);
+                    body = json_form::set_value(body, &json_path, Value::String(value));
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
-                    let path = expand_tilde(value);
-                    body.insert(key, serde_json::Value::String(fs::read_to_string(path)?));
+                    let value = fs::read_to_string(expand_tilde(value))?;
+                    let json_path = json_form::parse_path(&key);
+                    body = json_form::set_value(body, &json_path, Value::String(value));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}

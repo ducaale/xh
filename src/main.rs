@@ -4,6 +4,7 @@ mod buffer;
 mod cli;
 mod download;
 mod formatting;
+mod json_form;
 mod middleware;
 mod netrc;
 mod printer;
@@ -343,9 +344,10 @@ fn run(args: Cli) -> Result<i32> {
             Body::Form(body) => request_builder.form(&body),
             Body::Multipart(body) => request_builder.multipart(body),
             Body::Json(body) => {
-                // An empty JSON body would produce "{}" instead of "", so
+                // TODO: update the comment below
+                // An empty JSON body would produce {} instead of "", so
                 // this is the one kind of body that needs an is_empty() check
-                if !body.is_empty() {
+                if !body.is_null() {
                     request_builder
                         .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                         .json(&body)

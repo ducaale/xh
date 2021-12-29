@@ -361,11 +361,11 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg(encoded);
                 }
             }
-            Body::Json(map) if !map.is_empty() => {
+            Body::Json(value) if !value.is_null() => {
                 cmd.header("content-type", JSON_CONTENT_TYPE);
                 cmd.header("accept", JSON_ACCEPT);
 
-                let json_string = serde_json::Value::from(map).to_string();
+                let json_string = value.to_string();
                 cmd.opt("-d", "--data");
                 cmd.arg(json_string);
             }

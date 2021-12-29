@@ -6,6 +6,33 @@ use anyhow::Result;
 use reqwest::blocking::Request;
 use url::{Host, Url};
 
+pub fn unescape(text: &str, special_chars: &'static str) -> String {
+    let mut out = String::new();
+    let mut chars = text.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some(next) if special_chars.contains(next) => {
+                    // Escape this character
+                    out.push(next);
+                }
+                Some(next) => {
+                    // Do not escape this character, treat backslash
+                    // as ordinary character
+                    out.push(ch);
+                    out.push(next);
+                }
+                None => {
+                    out.push(ch);
+                }
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 pub fn clone_request(request: &mut Request) -> Result<Request> {
     if let Some(b) = request.body_mut().as_mut() {
         b.buffer()?;
