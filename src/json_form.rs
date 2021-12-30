@@ -185,3 +185,112 @@ fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde_json::{json, Value};
+
+    #[test]
+    fn deeply_nested_object() {
+        let mut root = Value::Null;
+        root = set_value(root, &parse_path("foo[bar][baz]").unwrap(), 5.into());
+        assert_eq!(root, json!({"foo": {"bar": {"baz": 5}}}));
+    }
+
+    #[test]
+    fn deeply_nested_array() {
+        let mut root = Value::Null;
+        root = set_value(root, &parse_path("[0][0][1]").unwrap(), 5.into());
+        assert_eq!(root, json!([[[null, 5]]]));
+    }
+
+    #[test]
+    fn existing_values_are_never_overwritten() {
+        let mut root = Value::Null;
+
+        root = set_value(root, &parse_path("foo").unwrap(), 5.into());
+        assert_eq!(root, json!({"foo": 5}));
+
+        root = set_value(root, &parse_path("foo").unwrap(), 7.into());
+        assert_eq!(root, json!({"foo": [5, 7]}));
+
+        root = set_value(root, &parse_path("foo").unwrap(), 7.into());
+        assert_eq!(root, json!({"foo": [5, 7, 7]}));
+
+        root = set_value(root, &parse_path("bar").unwrap(), false.into());
+        assert_eq!(root, json!({"foo": [5, 7, 7], "bar": false}));
+
+        root = set_value(root, &parse_path("bar[y]").unwrap(), 10.into());
+        assert_eq!(root, json!({"foo": [5, 7, 7], "bar": {"": false, "y": 10}}));
+
+        root = set_value(root, &parse_path("bar[y][y][y]").unwrap(), true.into());
+        assert_eq!(
+            root,
+            json!({"foo": [5, 7, 7], "bar": {"": false, "y": {"": 10, "y": {"y": true}}}})
+        );
+
+        root = set_value(root, &parse_path("baz").unwrap(), Value::Null);
+        assert_eq!(
+            root,
+            json!({
+                "foo": [5, 7, 7],
+                "bar": {"": false, "y": {"": 10, "y": {"y": true}}},
+                "baz": null
+            })
+        );
+
+        // ...except for null values
+        root = set_value(root, &parse_path("baz[x][z]").unwrap(), 1.into());
+        assert_eq!(
+            root,
+            json!({
+                "foo": [5, 7, 7],
+                "bar": {"": false, "y": {"": 10, "y": {"y": true}}},
+                "baz": {"x": {"z": 1}}
+            })
+        );
+    }
+
+    #[test]
+    fn object_array_clash() {
+        let mut root = Value::Null;
+
+        root = set_value(root, &parse_path("foo[]").unwrap(), 5.into());
+        root = set_value(root, &parse_path("foo[]").unwrap(), true.into());
+        assert_eq!(root, json!({"foo": [5, true]}));
+
+        root = set_value(root, &parse_path("foo[x]").unwrap(), false.into());
+        assert_eq!(root, json!({"foo": {"0": 5, "1": true, "x": false}}));
+
+        root = set_value(root, &parse_path("foo[]").unwrap(), true.into());
+        assert_eq!(
+            root,
+            json!({"foo": {"0": 5, "1": true, "x": false, "": true}})
+        );
+    }
+
+    #[test]
+    fn json_path_parser() {
+        assert_eq!(parse_path(r"foo\[x\][]").unwrap(), &[r"foo[x]", ""]);
+        assert_eq!(parse_path(r"foo\\[x]").unwrap(), &[r"foo\", "x"]);
+        assert_eq!(
+            parse_path(r"foo[ba\[ar][9]").unwrap(),
+            &["foo", "ba[ar", "9"]
+        );
+        assert_eq!(parse_path(r"[0][foo]").unwrap(), &["0", "foo"]);
+        assert_eq!(parse_path(r"[][foo]").unwrap(), &["", "foo"]);
+
+        // Note that most of the following json_path strings are accepted by HTTPie
+        // without any complaints. Hopefully, that may change in the future.
+        assert!(parse_path(r"x[y]h[z]").is_err());
+        assert!(parse_path(r"x[y]h").is_err());
+        assert!(parse_path(r"[x][y]h").is_err());
+        // If a path starts with a bracket rather an identifier, it may only contain
+        // a number or nothing
+        assert!(parse_path(r"[x][0]").is_err());
+        assert!(parse_path(r"foo[bar]\[baz]").is_err());
+        assert!(parse_path(r"foo\[bar][baz]").is_err());
+    }
+}
