@@ -1,48 +1,82 @@
 use std::mem;
 
+use anyhow::{anyhow, Result};
 use serde_json::map::Map;
 use serde_json::Value;
 
 use crate::utils::unescape;
 
-pub fn parse_path(raw_json_path: &str) -> Vec<String> {
-    let mut delims: Vec<usize> = vec![];
+pub fn parse_path(raw_json_path: &str) -> Result<Vec<String>> {
+    const SPECIAL_CHARS: &str = "[]\\";
+    let mut delims = vec![];
     let mut backslashes = 0;
 
-    for (i, ch) in raw_json_path.chars().enumerate() {
+    for (i, ch) in raw_json_path.char_indices() {
         if ch == '\\' {
             backslashes += 1;
         } else {
             if (ch == '[' || ch == ']') && backslashes % 2 == 0 {
-                delims.push(i);
+                delims.push((i, ch));
             }
             backslashes = 0;
         }
     }
 
     if delims.is_empty() {
-        return vec![raw_json_path.to_string()];
+        return Ok(vec![unescape(raw_json_path, SPECIAL_CHARS)]);
+    }
+    if delims.len() % 2 != 0 {
+        return Err(anyhow!("unbalanced number of brackets {:?}", raw_json_path));
+    }
+    let mut prev_closing_bracket = None;
+    for pair in delims.chunks_exact(2) {
+        if let Some(prev_closing_bracket) = prev_closing_bracket {
+            let current_opening_bracket = pair[0].0;
+            if current_opening_bracket - prev_closing_bracket > 1 {
+                return Err(anyhow!(
+                    "unexpected string after closing bracket at index {}",
+                    prev_closing_bracket + 1
+                ));
+            }
+        }
+        if pair[0].1 == ']' {
+            return Err(anyhow!("unexpected closing bracket at index {}", pair[0].0));
+        }
+        if pair[1].1 == '[' {
+            return Err(anyhow!("unexpected opening bracket at index {}", pair[1].0));
+        }
+        prev_closing_bracket = Some(pair[1].0);
     }
 
-    // Missing preliminary checks
-    // 1. make sure every opening bracket is followed by a closing bracket
-    // 2. make sure number of delims is an even number
+    if let Some(last_closing_bracket) = prev_closing_bracket {
+        if raw_json_path.chars().count() > last_closing_bracket + 1 {
+            return Err(anyhow!(
+                "unexpected string after closing bracket at index {}",
+                last_closing_bracket + 1
+            ));
+        }
+    }
 
     let mut json_path = vec![];
-    if delims[0] > 0 {
-        json_path.push(&raw_json_path[0..delims[0]]);
+    if delims[0].0 > 0 {
+        // If json path doesn't start with a bracket e.g foo[x]
+        json_path.push(&raw_json_path[0..delims[0].0]);
+    } else {
+        // Otherwise, double-check that it is either [] or [number]
+        let key = dbg!(&raw_json_path[delims[0].0 + 1..delims[1].0]);
+        if !key.is_empty() && key.parse::<usize>().is_err() {
+            return Err(anyhow!("invalid json path {}", raw_json_path));
+        }
     }
     for pair in delims.chunks_exact(2) {
-        json_path.push(&raw_json_path[pair[0] + 1..pair[1]]);
+        json_path.push(&raw_json_path[pair[0].0 + 1..pair[1].0]);
     }
-
-    json_path
+    Ok(json_path
         .iter()
-        .map(|p| unescape(p, "[]"))
-        .collect::<Vec<_>>()
+        .map(|p| unescape(p, SPECIAL_CHARS))
+        .collect::<Vec<_>>())
 }
 
-// TODO: write comments + tests for this function
 pub fn set_value<T: AsRef<str>>(root: Value, path: &[T], value: Value) -> Value {
     debug_assert!(!path.is_empty(), "path should not be empty");
     match root {

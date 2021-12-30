@@ -38,7 +38,7 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = clap::Error;
     fn from_str(request_item: &str) -> clap::Result<RequestItem> {
-        const SPECIAL_CHARS: &str = "=@:;\\";
+        const SPECIAL_CHARS: &str = "=@:;";
         const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
         fn split(request_item: &str) -> Option<(String, &'static str, String)> {
@@ -56,6 +56,7 @@ impl FromStr for RequestItem {
                     if let Some(value) = request_item[ind..].strip_prefix(sep) {
                         let key = &request_item[..ind];
                         return Some((
+                            // TODO: conditionally defer unescaping the backslashes to json_form::parse_path
                             unescape(key, SPECIAL_CHARS),
                             sep,
                             unescape(value, SPECIAL_CHARS),
@@ -282,21 +283,21 @@ impl RequestItems {
         for item in self.items {
             match item {
                 RequestItem::JsonField(key, value) => {
-                    let json_path = json_form::parse_path(&key);
+                    let json_path = json_form::parse_path(&key)?;
                     body = json_form::set_value(body, &json_path, value);
                 }
                 RequestItem::JsonFieldFromFile(key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
-                    let json_path = json_form::parse_path(&key);
+                    let json_path = json_form::parse_path(&key)?;
                     body = json_form::set_value(body, &json_path, value);
                 }
                 RequestItem::DataField(key, value) => {
-                    let json_path = json_form::parse_path(&key);
+                    let json_path = json_form::parse_path(&key)?;
                     body = json_form::set_value(body, &json_path, Value::String(value));
                 }
                 RequestItem::DataFieldFromFile(key, value) => {
                     let value = fs::read_to_string(expand_tilde(value))?;
-                    let json_path = json_form::parse_path(&key);
+                    let json_path = json_form::parse_path(&key)?;
                     body = json_form::set_value(body, &json_path, Value::String(value));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
