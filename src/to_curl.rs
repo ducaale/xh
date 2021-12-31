@@ -311,11 +311,11 @@ pub fn translate(args: Cli) -> Result<Command> {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
-                RequestItem::DataField(key, value) => {
+                RequestItem::DataField { key, value, .. } => {
                     cmd.opt("-F", "--form");
                     cmd.arg(format!("{}={}", key, value));
                 }
-                RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::DataFieldFromFile { key, value, .. } => {
                     cmd.opt("-F", "--form");
                     cmd.arg(format!("{}=<{}", key, value));
                 }

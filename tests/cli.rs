@@ -226,6 +226,26 @@ fn nested_json() {
 }
 
 #[test]
+fn json_path_with_escaped_characters() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg(r"f\=\:\;oo\[\\[\@]=b\:\:\:ar")
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "f=:;oo[\\": {
+                    "@": "b:::ar"
+                }
+            }
+
+
+
+        "#});
+}
+
+#[test]
 fn header() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["X-Foo"], "Bar");

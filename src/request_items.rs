@@ -23,8 +23,16 @@ pub enum RequestItem {
     HttpHeader(String, String),
     HttpHeaderToUnset(String),
     UrlParam(String, String),
-    DataField(String, String),
-    DataFieldFromFile(String, String),
+    DataField {
+        key: String,
+        raw_key: String,
+        value: String,
+    },
+    DataFieldFromFile {
+        key: String,
+        raw_key: String,
+        value: String,
+    },
     JsonField(String, serde_json::Value),
     JsonFieldFromFile(String, String),
     FormFile {
@@ -38,10 +46,10 @@ pub enum RequestItem {
 impl FromStr for RequestItem {
     type Err = clap::Error;
     fn from_str(request_item: &str) -> clap::Result<RequestItem> {
-        const SPECIAL_CHARS: &str = "=@:;";
+        const SPECIAL_CHARS: &str = "=@:;\\";
         const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
-        fn split(request_item: &str) -> Option<(String, &'static str, String)> {
+        fn split(request_item: &str) -> Option<(&str, &'static str, &str)> {
             let mut char_inds = request_item.char_indices();
             while let Some((ind, ch)) = char_inds.next() {
                 if ch == '\\' {
@@ -55,12 +63,7 @@ impl FromStr for RequestItem {
                 for sep in SEPS {
                     if let Some(value) = request_item[ind..].strip_prefix(sep) {
                         let key = &request_item[..ind];
-                        return Some((
-                            // TODO: conditionally defer unescaping the backslashes to json_form::parse_path
-                            unescape(key, SPECIAL_CHARS),
-                            sep,
-                            unescape(value, SPECIAL_CHARS),
-                        ));
+                        return Some((key, sep, value));
                     }
                 }
             }
@@ -68,11 +71,18 @@ impl FromStr for RequestItem {
         }
 
         if let Some((key, sep, value)) = split(request_item) {
+            let raw_key = key.to_string();
+            let key = unescape(key, SPECIAL_CHARS);
+            let value = unescape(value, SPECIAL_CHARS);
             match sep {
                 "==" => Ok(RequestItem::UrlParam(key, value)),
-                "=" => Ok(RequestItem::DataField(key, value)),
-                ":=" => Ok(RequestItem::JsonField(
+                "=" => Ok(RequestItem::DataField {
                     key,
+                    raw_key,
+                    value,
+                }),
+                ":=" => Ok(RequestItem::JsonField(
+                    raw_key,
                     serde_json::from_str(&value).map_err(|err| {
                         clap::Error::raw(
                             clap::ErrorKind::InvalidValue,
@@ -98,8 +108,12 @@ impl FromStr for RequestItem {
                 }
                 ":" if value.is_empty() => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
-                "=@" => Ok(RequestItem::DataFieldFromFile(key, value)),
-                ":=@" => Ok(RequestItem::JsonFieldFromFile(key, value)),
+                "=@" => Ok(RequestItem::DataFieldFromFile {
+                    key,
+                    raw_key,
+                    value,
+                }),
+                ":=@" => Ok(RequestItem::JsonFieldFromFile(raw_key, value)),
                 _ => unreachable!(),
             }
         } else if let Some(header) = request_item.strip_suffix(';') {
@@ -256,8 +270,8 @@ impl RequestItems {
                     headers_to_unset.insert(key);
                 }
                 RequestItem::UrlParam(..) => {}
-                RequestItem::DataField(..) => {}
-                RequestItem::DataFieldFromFile(..) => {}
+                RequestItem::DataField { .. } => {}
+                RequestItem::DataFieldFromFile { .. } => {}
                 RequestItem::JsonField(..) => {}
                 RequestItem::JsonFieldFromFile(..) => {}
                 RequestItem::FormFile { .. } => {}
@@ -278,26 +292,25 @@ impl RequestItems {
 
     fn body_as_json(self) -> Result<Body> {
         use serde_json::Value;
-
         let mut body = Value::Null;
         for item in self.items {
             match item {
-                RequestItem::JsonField(key, value) => {
-                    let json_path = json_form::parse_path(&key)?;
+                RequestItem::JsonField(raw_key, value) => {
+                    let json_path = json_form::parse_path(&raw_key)?;
                     body = json_form::set_value(body, &json_path, value);
                 }
-                RequestItem::JsonFieldFromFile(key, value) => {
+                RequestItem::JsonFieldFromFile(raw_key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
-                    let json_path = json_form::parse_path(&key)?;
+                    let json_path = json_form::parse_path(&raw_key)?;
                     body = json_form::set_value(body, &json_path, value);
                 }
-                RequestItem::DataField(key, value) => {
-                    let json_path = json_form::parse_path(&key)?;
+                RequestItem::DataField { raw_key, value, .. } => {
+                    let json_path = json_form::parse_path(&raw_key)?;
                     body = json_form::set_value(body, &json_path, Value::String(value));
                 }
-                RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::DataFieldFromFile { raw_key, value, .. } => {
                     let value = fs::read_to_string(expand_tilde(value))?;
-                    let json_path = json_form::parse_path(&key)?;
+                    let json_path = json_form::parse_path(&raw_key)?;
                     body = json_form::set_value(body, &json_path, Value::String(value));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
@@ -316,8 +329,8 @@ impl RequestItems {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in Form fields"));
                 }
-                RequestItem::DataField(key, value) => text_fields.push((key, value)),
-                RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::DataField { key, value, .. } => text_fields.push((key, value)),
+                RequestItem::DataFieldFromFile { key, value, .. } => {
                     let path = expand_tilde(value);
                     text_fields.push((key, fs::read_to_string(path)?));
                 }
@@ -337,10 +350,10 @@ impl RequestItems {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
-                RequestItem::DataField(key, value) => {
+                RequestItem::DataField { key, value, .. } => {
                     form = form.text(key, value);
                 }
-                RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::DataFieldFromFile { key, value, .. } => {
                     let path = expand_tilde(value);
                     form = form.text(key, fs::read_to_string(path)?);
                 }
@@ -380,9 +393,9 @@ impl RequestItems {
         }
         for item in self.items {
             match item {
-                RequestItem::DataField(..)
+                RequestItem::DataField { .. }
                 | RequestItem::JsonField(..)
-                | RequestItem::DataFieldFromFile(..)
+                | RequestItem::DataFieldFromFile { .. }
                 | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!(
                         "Request body (from a file) and request data (key=value) cannot be mixed."
@@ -452,8 +465,8 @@ impl RequestItems {
                 RequestItem::HttpHeader(..)
                 | RequestItem::HttpHeaderToUnset(..)
                 | RequestItem::UrlParam(..) => continue,
-                RequestItem::DataField(..)
-                | RequestItem::DataFieldFromFile(..)
+                RequestItem::DataField { .. }
+                | RequestItem::DataFieldFromFile { .. }
                 | RequestItem::JsonField(..)
                 | RequestItem::JsonFieldFromFile(..)
                 | RequestItem::FormFile { .. } => return Method::POST,
@@ -494,16 +507,34 @@ mod tests {
         }
 
         // Data field
-        assert_eq!(parse("foo=bar"), DataField("foo".into(), "bar".into()));
+        assert_eq!(
+            parse("foo=bar"),
+            DataField {
+                key: "foo".into(),
+                raw_key: "foo".into(),
+                value: "bar".into()
+            }
+        );
         // Data field from file
         assert_eq!(
             parse("foo=@data.json"),
-            DataFieldFromFile("foo".into(), "data.json".into())
+            DataFieldFromFile {
+                key: "foo".into(),
+                raw_key: "foo".into(),
+                value: "data.json".into()
+            }
         );
         // URL param
         assert_eq!(parse("foo==bar"), UrlParam("foo".into(), "bar".into()));
         // Escaped right before separator
-        assert_eq!(parse(r"foo\==bar"), DataField("foo=".into(), "bar".into()));
+        assert_eq!(
+            parse(r"foo\==bar"),
+            DataField {
+                key: "foo=".into(),
+                raw_key: r"foo\=".into(),
+                value: "bar".into()
+            }
+        );
         // Header
         assert_eq!(parse("foo:bar"), HttpHeader("foo".into(), "bar".into()));
         // JSON field
@@ -518,12 +549,20 @@ mod tests {
         // Can't escape normal chars
         assert_eq!(
             parse(r"f\o\o=\ba\r"),
-            DataField(r"f\o\o".into(), r"\ba\r".into()),
+            DataField {
+                key: r"f\o\o".into(),
+                raw_key: r"f\o\o".into(),
+                value: r"\ba\r".into()
+            },
         );
         // Can escape special chars
         assert_eq!(
             parse(r"f\=\:\@\;oo=b\:\:\:ar"),
-            DataField("f=:@;oo".into(), "b:::ar".into()),
+            DataField {
+                key: "f=:@;oo".into(),
+                raw_key: r"f\=\:\@\;oo".into(),
+                value: "b:::ar".into()
+            },
         );
         // Unset header
         assert_eq!(parse("foobar:"), HttpHeaderToUnset("foobar".into()));
@@ -574,16 +613,41 @@ mod tests {
         "foobar".parse::<RequestItem>().unwrap_err();
         "".parse::<RequestItem>().unwrap_err();
         // Trailing backslash
-        assert_eq!(parse(r"foo=bar\"), DataField("foo".into(), r"bar\".into()));
+        assert_eq!(
+            parse(r"foo=bar\"),
+            DataField {
+                key: "foo".into(),
+                raw_key: "foo".into(),
+                value: r"bar\".into()
+            }
+        );
         // Escaped backslash
-        assert_eq!(parse(r"foo\\=bar"), DataField(r"foo\".into(), "bar".into()),);
+        assert_eq!(
+            parse(r"foo\\=bar"),
+            DataField {
+                key: r"foo\".into(),
+                raw_key: r"foo\\".into(),
+                value: "bar".into()
+            }
+        );
         // Unicode
         assert_eq!(
             parse("\u{00B5}=\u{00B5}"),
-            DataField("\u{00B5}".into(), "\u{00B5}".into()),
+            DataField {
+                key: "\u{00B5}".into(),
+                raw_key: "\u{00B5}".into(),
+                value: "\u{00B5}".into()
+            },
         );
         // Empty
-        assert_eq!(parse("="), DataField("".into(), "".into()));
+        assert_eq!(
+            parse("="),
+            DataField {
+                key: "".into(),
+                raw_key: "".into(),
+                value: "".into()
+            }
+        );
     }
 
     #[test]

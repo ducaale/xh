@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::utils::unescape;
 
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<String>> {
-    const SPECIAL_CHARS: &str = "[]\\";
+    const SPECIAL_CHARS: &str = "=@:;[]\\";
     let mut delims = vec![];
     let mut backslashes = 0;
 

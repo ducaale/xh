@@ -1102,7 +1102,11 @@ mod tests {
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
             cli.request_items.items,
-            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+            vec![RequestItem::DataField {
+                key: "foo".to_string(),
+                raw_key: "foo".to_string(),
+                value: "bar".to_string()
+            }]
         );
     }
 
@@ -1113,7 +1117,11 @@ mod tests {
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
             cli.request_items.items,
-            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+            vec![RequestItem::DataField {
+                key: "foo".to_string(),
+                raw_key: "foo".to_string(),
+                value: "bar".to_string()
+            }]
         );
     }
 
