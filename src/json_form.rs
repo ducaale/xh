@@ -6,6 +6,15 @@ use serde_json::Value;
 
 use crate::utils::unescape;
 
+/// Parse a JSON path.
+///
+/// A valid JSON path is either `ident([index])+` or `([index])*`
+/// where
+/// - `index` -> string, number or empty
+/// - `ident` -> string
+///
+/// Just like any `request_item`, special characters e.g `[` can be escaped with
+/// a backslash character.
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<String>> {
     const SPECIAL_CHARS: &str = "=@:;[]\\";
     let mut delims = vec![];
@@ -77,6 +86,7 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<String>> {
         .collect::<Vec<_>>())
 }
 
+// TODO: add comment here
 pub fn set_value<T: AsRef<str>>(root: Value, path: &[T], value: Value) -> Value {
     debug_assert!(!path.is_empty(), "path should not be empty");
     match root {
@@ -131,7 +141,7 @@ pub fn set_value<T: AsRef<str>>(root: Value, path: &[T], value: Value) -> Value 
     }
 }
 
-/// Insert a value into object without overwriting existing value
+/// Insert a value into object without overwriting existing value.
 fn obj_append(obj: &mut Map<String, Value>, key: String, value: Value) {
     let old_value = obj.remove(&key).unwrap_or(Value::Null);
     match old_value {
@@ -148,7 +158,7 @@ fn obj_append(obj: &mut Map<String, Value>, key: String, value: Value) {
     }
 }
 
-/// Insert into array at any index and without overwriting existing value
+/// Insert into array at any index and without overwriting existing value.
 fn arr_append(arr: &mut Vec<Value>, index: usize, value: Value) {
     while index >= arr.len() {
         arr.push(Value::Null);
@@ -168,7 +178,7 @@ fn arr_append(arr: &mut Vec<Value>, index: usize, value: Value) {
     }
 }
 
-/// Convert array to object by using indices as keys
+/// Convert array to object by using indices as keys.
 fn arr_to_obj(mut arr: Vec<Value>) -> Map<String, Value> {
     let mut obj = Map::new();
     for (i, v) in arr.drain(..).enumerate() {
@@ -177,7 +187,7 @@ fn arr_to_obj(mut arr: Vec<Value>) -> Map<String, Value> {
     obj
 }
 
-/// Remove an element from array and replace it with `Value::Null`
+/// Remove an element from array and replace it with `Value::Null`.
 fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
     if index < arr.len() {
         Some(mem::replace(&mut arr[index], Value::Null))
