@@ -58,7 +58,7 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<String>> {
     }
 
     if let Some(last_closing_bracket) = prev_closing_bracket {
-        if raw_json_path.chars().count() > last_closing_bracket + 1 {
+        if last_closing_bracket != raw_json_path.bytes().count() - 1 {
             return Err(anyhow!(
                 "unexpected string after closing bracket at index {}",
                 last_closing_bracket + 1
@@ -297,6 +297,7 @@ mod tests {
         assert!(parse_path(r"x[y]h[z]").is_err());
         assert!(parse_path(r"x[y]h").is_err());
         assert!(parse_path(r"[x][y]h").is_err());
+        assert!(parse_path("foo[😀]x").is_err());
         // If a path starts with a bracket rather an identifier, it may only contain
         // a number or nothing
         assert!(parse_path(r"[x][0]").is_err());
