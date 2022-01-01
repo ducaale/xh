@@ -14,4 +14,3 @@ XH_HELP2MAN=1 help2man \
 
 cargo run --all-features -- generate_completions completions
 
-mv completions/xh.fish.new completions/xh.fish
