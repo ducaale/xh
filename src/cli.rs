@@ -418,7 +418,6 @@ impl Cli {
                                 {long-about}\n\
                                 \n\
                                 Options:\n\
-                                {flags}\n\
                                 {options}\n\
                                 {after-help}\
                             ",
