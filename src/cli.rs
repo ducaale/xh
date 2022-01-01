@@ -125,7 +125,13 @@ pub struct Cli {
     pub download: bool,
 
     /// Resume an interrupted download. Requires --download and --output.
-    #[clap(short = 'c', long = "continue", name = "continue")]
+    #[clap(
+        short = 'c',
+        long = "continue",
+        name = "continue",
+        requires = "download",
+        requires = "output"
+    )]
     pub resume: bool,
 
     /// Create, or reuse and update a session.
@@ -491,7 +497,7 @@ impl Cli {
             cli.httpie_compat_mode = true;
         }
 
-        cli.process_relations(&mut app, &matches)?;
+        cli.process_relations(&matches)?;
 
         cli.url = construct_url(
             &raw_url,
@@ -509,23 +515,7 @@ impl Cli {
     }
 
     /// Set flags that are implied by other flags and report conflicting flags.
-    fn process_relations(
-        &mut self,
-        app: &mut clap::App,
-        matches: &clap::ArgMatches,
-    ) -> clap::Result<()> {
-        if self.resume && !self.download {
-            return Err(app.error(
-                ErrorKind::MissingRequiredArgument,
-                "--continue only works with --download",
-            ));
-        }
-        if self.resume && self.output.is_none() {
-            return Err(app.error(
-                ErrorKind::MissingRequiredArgument,
-                "--continue requires --output",
-            ));
-        }
+    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
         if self.verbose {
             self.all = true;
         }
