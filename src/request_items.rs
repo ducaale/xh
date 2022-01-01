@@ -35,8 +35,8 @@ pub enum RequestItem {
 }
 
 impl FromStr for RequestItem {
-    type Err = anyhow::Error;
-    fn from_str(request_item: &str) -> anyhow::Result<RequestItem> {
+    type Err = clap::Error;
+    fn from_str(request_item: &str) -> clap::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
         const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
 
@@ -94,8 +94,15 @@ impl FromStr for RequestItem {
                 "=" => Ok(RequestItem::DataField(key, value)),
                 ":=" => Ok(RequestItem::JsonField(
                     key,
-                    serde_json::from_str(&value)
-                        .map_err(|err| anyhow::anyhow!("{:?}: {}", request_item, err))?,
+                    serde_json::from_str(&value).map_err(|err| {
+                        clap::Error::raw(
+                            clap::ErrorKind::InvalidValue,
+                            format!(
+                                "Invalid value for '[REQUEST_ITEM]...': {:?} {}",
+                                request_item, err
+                            ),
+                        )
+                    })?,
                 )),
                 "@" => {
                     let PartWithParams {
@@ -123,9 +130,12 @@ impl FromStr for RequestItem {
             // TODO: We can also end up here if the method couldn't be parsed
             // and was interpreted as a URL, making the actual URL a request
             // item
-            Err(anyhow::anyhow!(
-                "{:?} is not a valid request item",
-                request_item
+            Err(clap::Error::raw(
+                clap::ErrorKind::InvalidValue,
+                format!(
+                    "Invalid value for '[REQUEST_ITEM]...': {:?} is not a valid Request Item",
+                    request_item
+                ),
             ))
         }
     }

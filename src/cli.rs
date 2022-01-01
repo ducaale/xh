@@ -461,7 +461,7 @@ impl Cli {
                 cli.method = Some(method);
                 rest_args
                     .next()
-                    .ok_or_else(|| app.error(ErrorKind::MissingRequiredArgument, "Missing URL"))?
+                    .ok_or_else(|| app.error(ErrorKind::MissingRequiredArgument, "Missing <URL>"))?
             }
             None => {
                 cli.method = None;
@@ -472,7 +472,7 @@ impl Cli {
             cli.request_items.items.push(
                 request_item
                     .parse()
-                    .map_err(|err| app.error(ErrorKind::InvalidValue, err))?,
+                    .map_err(|err: Error| err.format(&mut app))?,
             );
         }
 
@@ -498,7 +498,12 @@ impl Cli {
             cli.default_scheme.as_deref(),
             cli.request_items.query(),
         )
-        .map_err(|err| app.error(ErrorKind::ValueValidation, format!("Invalid URL: {}", err)))?;
+        .map_err(|err| {
+            app.error(
+                ErrorKind::ValueValidation,
+                format!("Invalid <URL>: {}", err),
+            )
+        })?;
 
         Ok(cli)
     }
