@@ -426,7 +426,7 @@ impl Cli {
                         )
                         .print_long_help()
                         .unwrap();
-                } else if err.info == vec!["XH_PRINT_LONG_HELP".to_string()] {
+                } else if err.info == &["XH_PRINT_LONG_HELP"] {
                     Self::into_app().print_long_help().unwrap();
                     println!();
                 } else {
