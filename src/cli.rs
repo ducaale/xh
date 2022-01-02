@@ -430,7 +430,7 @@ impl Cli {
                 } else {
                     Self::into_app().print_help().unwrap();
                     println!(
-                        "\n\nRun `{} help` for more complete documentation.",
+                        "\nRun `{} help` for more complete documentation.",
                         env!("CARGO_PKG_NAME")
                     );
                 }
