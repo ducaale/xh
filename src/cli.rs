@@ -34,7 +34,7 @@ use crate::utils::config_dir;
 /// on improved performance.
 #[derive(clap::Parser, Debug)]
 #[clap(
-    name = "xh",
+    version,
     long_version = long_version(),
     setting(AppSettings::DeriveDisplayOrder | AppSettings::AllArgsOverrideSelf),
 )]
