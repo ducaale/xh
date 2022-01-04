@@ -415,7 +415,7 @@ impl Cli {
                             "\
                                 Usage: {usage}\n\
                                 \n\
-                                {long-about}\n\
+                                {about}\n\
                                 \n\
                                 Options:\n\
                                 {options}\n\
