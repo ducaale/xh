@@ -8,10 +8,8 @@ use crate::utils::unescape;
 
 /// Parse a JSON path.
 ///
-/// A valid JSON path is either `ident([index])+` or `([index])*`
-/// where
-/// - `index` -> string, number or empty
-/// - `ident` -> string
+/// A valid JSON path is either `text([index])*` or `([index])+` where `index`
+/// is `text`, `number` or `empty`.
 ///
 /// Just like any `request_item`, special characters e.g `[` can be escaped with
 /// a backslash character.
@@ -110,8 +108,8 @@ pub fn set_value<T: AsRef<str>>(root: Value, path: &[T], value: Value) -> Value 
                 let value = if path.len() == 1 {
                     value
                 } else {
-                    let temp1 = remove_from_arr(&mut arr, index).unwrap_or(Value::Null);
-                    set_value(temp1, &path[1..], value)
+                    let temp = remove_from_arr(&mut arr, index).unwrap_or(Value::Null);
+                    set_value(temp, &path[1..], value)
                 };
                 arr_append(&mut arr, index, value);
                 Value::Array(arr)
@@ -131,8 +129,8 @@ pub fn set_value<T: AsRef<str>>(root: Value, path: &[T], value: Value) -> Value 
             let value = if path.len() == 1 {
                 value
             } else {
-                let temp1 = obj.remove(path[0].as_ref()).unwrap_or(Value::Null);
-                set_value(temp1, &path[1..], value)
+                let temp = obj.remove(path[0].as_ref()).unwrap_or(Value::Null);
+                set_value(temp, &path[1..], value)
             };
             obj.insert("".to_string(), root);
             obj.insert(path[0].as_ref().to_string(), value);
