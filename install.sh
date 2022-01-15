@@ -80,6 +80,6 @@ else
     sudo ln -sf "$bindir/xh" "$bindir/xhs"
 fi
 
-echo "$("$bindir"/xh --version | head -1) has been installed to:"
+echo "$("$bindir"/xh -V) has been installed to:"
 echo " • $bindir/xh"
 echo " • $bindir/xhs"
