@@ -77,6 +77,8 @@ jobs:
           use-cross: ${{ matrix.job.use-cross }}
           command: build
           args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
+        env:
+          RUSTFLAGS: ${{ matrix.job.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
 
       - name: Strip release binary (linux and macOS)
         if: matrix.job.os != 'windows-latest'
