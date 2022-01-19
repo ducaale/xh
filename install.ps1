@@ -9,11 +9,13 @@ $zipfile = "$env:TEMP\$($asset.name)"
 Write-Output "Downloading: $($asset.name)"
 Invoke-RestMethod -Method Get -Uri $asset.browser_download_url -OutFile $zipfile
 
-# checks if an older version of xh.exe exists in '$destdir', if yes, then delete it, if not, then download latest zip to extract from
+# checks if an older version of xh.exe (includes xhs.exe) exists in '$destdir', if yes, then delete it, if not, then download latest zip to extract from
 $xhPath = "${destdir}xh.exe"
+$xhsPath = "${destdir}xhs.exe"
 if (Test-Path -Path $xhPath -PathType Leaf) {
-    "`n xh.exe exists in $destdir, deleting..."
+    "`n xh.exe exists in $destdir, deleting xh and xhs"
 	rm -r -fo $xhPath
+	rm -r -fo $xhsPath
 }
 
 #xh.exe extraction start
@@ -32,15 +34,16 @@ $zip.Dispose()
 
 Remove-Item -Path $zipfile
 
-Write-Host "`n Exctracted 'xh.exe' file is located in: $destdir."
+# Copy xh.exe as xhs.exe into bin
+Copy-Item $xhPath $xhsPath
 
-# Requires powershell to be run as administrator. Creates 'xhs' symbolic link
-cmd /c mklink /d xhs $xhPath
+Write-Host "`n Exctracted 'xh.exe' file is located in: $destdir."
 
 # Add to environment variables
 $p = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User);
 if (!$p.ToLower().Contains($destdir.ToLower()))
 {
+	# path to "user"/bin
 	Write-Output "`n Adding $destdir to your Path"
 	
 	$p += "$destdir";
@@ -48,9 +51,9 @@ if (!$p.ToLower().Contains($destdir.ToLower()))
 	
 	$Env:Path = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine) + ";" + $p
 	
+	# Path to xhs.exe
+	
 	Write-Host "`n PATH environment variable changed (restart your applications that use command line)." -foreground yellow
 }
 
 Write-Output "`n Done!"
-Write-Host -NoNewLine "`n Press any key to continue...";
-$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
