@@ -1,2 +1,4 @@
+/.direnv
+/.envrc
 /target
 /.vscode
