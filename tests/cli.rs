@@ -83,6 +83,7 @@ fn get_base_command() -> Command {
     }
     cmd.env("HOME", "");
     cmd.env("NETRC", "");
+    cmd.env("XH_CONFIG_DIR", "");
     #[cfg(target_os = "windows")]
     cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
     cmd
