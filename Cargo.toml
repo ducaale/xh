@@ -45,7 +45,7 @@ url = "2.2.2"
 [dependencies.reqwest]
 version = "0.11.6"
 default-features = false
-features = ["rustls-tls", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
+features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"
