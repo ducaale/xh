@@ -21,17 +21,9 @@ pub fn print_curl_translation(args: Cli) -> Result<()> {
     Ok(())
 }
 
-// Options shouldn't be quoted, Args may be.
-// On Windows os_display quotes arguments that look like options,
-// because PowerShell pays attention to that.
-pub enum Arg {
-    Option(&'static str),
-    Arg(OsString),
-}
-
 pub struct Command {
     pub long: bool,
-    pub args: Vec<Arg>,
+    pub args: Vec<OsString>,
     pub env: Vec<(&'static str, String)>,
     pub warnings: Vec<String>,
 }
@@ -47,19 +39,19 @@ impl Command {
     }
 
     fn long(&mut self, opt: &'static str) {
-        self.args.push(Arg::Option(opt));
+        self.args.push(opt.into());
     }
 
     fn opt(&mut self, short: &'static str, long: &'static str) {
         if self.long {
-            self.args.push(Arg::Option(long));
+            self.args.push(long.into());
         } else {
-            self.args.push(Arg::Option(short));
+            self.args.push(short.into());
         }
     }
 
     fn arg(&mut self, arg: impl Into<OsString>) {
-        self.args.push(Arg::Arg(arg.into()));
+        self.args.push(arg.into());
     }
 
     fn header(&mut self, name: &str, value: &str) {
@@ -85,10 +77,7 @@ impl std::fmt::Display for Command {
         }
         write!(f, "curl")?;
         for arg in &self.args {
-            match arg {
-                Arg::Arg(arg) => write!(f, " {}", arg.maybe_quote())?,
-                Arg::Option(opt) => write!(f, " {}", opt)?,
-            }
+            write!(f, " {}", arg.maybe_quote().external(true))?;
         }
         Ok(())
     }
@@ -422,7 +411,10 @@ mod tests {
             ("xh httpbin.org/get", "curl http://httpbin.org/get"),
             (
                 "xh httpbin.org/post x=3",
+                #[cfg(not(windows))]
                 r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":"3"}'"#,
+                #[cfg(windows)]
+                r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{\"x\":\"3\"}'"#,
             ),
             (
                 "xh --form httpbin.org/post x\\=y=z=w",
@@ -458,7 +450,10 @@ mod tests {
             ),
             (
                 "xh httpbin.org/post x:=[3]",
+                #[cfg(not(windows))]
                 r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{"x":[3]}'"#,
+                #[cfg(windows)]
+                r#"curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' -d '{\"x\":[3]}'"#,
             ),
             (
                 "xh --json httpbin.org/post",
