@@ -218,7 +218,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
     if let Some(timeout) = args.timeout.and_then(|t| t.as_duration()) {
-        cmd.arg("--connect-timeout");
+        cmd.arg("--max-time");
         cmd.arg(timeout.as_secs_f64().to_string());
     }
     if let Some(http_version) = args.http_version {
