@@ -207,19 +207,18 @@ fn nested_json() {
     let server = server::http(|req| async move {
         assert_eq!(
             req.body_as_string().await,
-            r#"{"object":{"":"scalar","0":"array 1","key":"key key"},"array":[1,2,3],"wow":{"such":{"deep":[null,null,null,{"much":{"power":{"!":"Amaze"}}}]}}}"#
+            r#"{"shallow":"value","object":{"key":"value"},"array":[1,2,3],"wow":{"such":{"deep":[null,null,null,{"much":{"power":{"!":"Amaze"}}}]}}}"#
         );
         hyper::Response::default()
     });
 
     get_command()
         .args(&["post", &server.base_url()])
-        .arg("object=scalar")
-        .arg("object[0]=array 1")
-        .arg("object[key]=key key")
-        .arg("array:=1")
-        .arg("array:=2")
-        .arg("array[]:=3")
+        .arg("shallow=value")
+        .arg("object[key]=value")
+        .arg("array[]:=1")
+        .arg("array[1]:=2")
+        .arg("array[2]:=3")
         .arg("wow[such][deep][3][much][power][!]=Amaze")
         .assert()
         .success();

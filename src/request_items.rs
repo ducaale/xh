@@ -11,7 +11,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
 
 use crate::cli::BodyType;
-use crate::json_form;
+use crate::nested_json;
 use crate::utils::{expand_tilde, unescape};
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
@@ -292,26 +292,34 @@ impl RequestItems {
 
     fn body_as_json(self) -> Result<Body> {
         use serde_json::Value;
-        let mut body = Value::Null;
+        let mut body = None;
         for item in self.items {
             match item {
                 RequestItem::JsonField(raw_key, value) => {
-                    let json_path = json_form::parse_path(&raw_key)?;
-                    body = json_form::set_value(body, &json_path, value);
+                    let json_path = nested_json::parse_path(&raw_key)?;
+                    body = Some(nested_json::set_value(body, &json_path, value));
                 }
                 RequestItem::JsonFieldFromFile(raw_key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
-                    let json_path = json_form::parse_path(&raw_key)?;
-                    body = json_form::set_value(body, &json_path, value);
+                    let json_path = nested_json::parse_path(&raw_key)?;
+                    body = Some(nested_json::set_value(body, &json_path, value));
                 }
                 RequestItem::DataField { raw_key, value, .. } => {
-                    let json_path = json_form::parse_path(&raw_key)?;
-                    body = json_form::set_value(body, &json_path, Value::String(value));
+                    let json_path = nested_json::parse_path(&raw_key)?;
+                    body = Some(nested_json::set_value(
+                        body,
+                        &json_path,
+                        Value::String(value),
+                    ));
                 }
                 RequestItem::DataFieldFromFile { raw_key, value, .. } => {
                     let value = fs::read_to_string(expand_tilde(value))?;
-                    let json_path = json_form::parse_path(&raw_key)?;
-                    body = json_form::set_value(body, &json_path, Value::String(value));
+                    let json_path = nested_json::parse_path(&raw_key)?;
+                    body = Some(nested_json::set_value(
+                        body,
+                        &json_path,
+                        Value::String(value),
+                    ));
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}
@@ -319,7 +327,7 @@ impl RequestItems {
                 RequestItem::UrlParam(..) => {}
             }
         }
-        Ok(Body::Json(body))
+        Ok(Body::Json(body.unwrap_or(Value::Null)))
     }
 
     fn body_as_form(self) -> Result<Body> {
