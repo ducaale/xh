@@ -38,10 +38,6 @@ impl Command {
         }
     }
 
-    fn long(&mut self, opt: &'static str) {
-        self.args.push(opt.into());
-    }
-
     fn opt(&mut self, short: &'static str, long: &'static str) {
         if self.long {
             self.args.push(long.into());
@@ -149,7 +145,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.opt("-L", "--location");
     }
     if let Some(num) = args.max_redirects {
-        cmd.long("--max-redirs");
+        cmd.arg("--max-redirs");
         cmd.arg(num.to_string());
     }
     if let Some(filename) = args.output {
@@ -161,11 +157,11 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
     if args.resume {
         cmd.opt("-C", "--continue-at");
-        cmd.long("-"); // Tell curl to guess, like we do
+        cmd.arg("-"); // Tell curl to guess, like we do
     }
     match args.verify.unwrap_or(Verify::Yes) {
         Verify::CustomCaBundle(filename) => {
-            cmd.long("--cacert");
+            cmd.arg("--cacert");
             cmd.arg(filename);
         }
         Verify::No => {
@@ -178,29 +174,29 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg(cert);
     }
     if let Some(keyfile) = args.cert_key {
-        cmd.long("--key");
+        cmd.arg("--key");
         cmd.arg(keyfile);
     }
     if let Some(Some(tls_version)) = args.ssl {
         match tls_version {
             tls::Version::TLS_1_0 => {
-                cmd.long("--tlsv1.0");
-                cmd.long("--tls-max");
+                cmd.arg("--tlsv1.0");
+                cmd.arg("--tls-max");
                 cmd.arg("1.0");
             }
             tls::Version::TLS_1_1 => {
-                cmd.long("--tlsv1.1");
-                cmd.long("--tls-max");
+                cmd.arg("--tlsv1.1");
+                cmd.arg("--tls-max");
                 cmd.arg("1.1");
             }
             tls::Version::TLS_1_2 => {
-                cmd.long("--tlsv1.2");
-                cmd.long("--tls-max");
+                cmd.arg("--tlsv1.2");
+                cmd.arg("--tls-max");
                 cmd.arg("1.2");
             }
             tls::Version::TLS_1_3 => {
-                cmd.long("--tlsv1.3");
-                cmd.long("--tls-max");
+                cmd.arg("--tlsv1.3");
+                cmd.arg("--tls-max");
                 cmd.arg("1.3");
             }
             _ => unreachable!(),
@@ -222,14 +218,14 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
     if let Some(timeout) = args.timeout.and_then(|t| t.as_duration()) {
-        cmd.long("--connect-timeout");
+        cmd.arg("--connect-timeout");
         cmd.arg(timeout.as_secs_f64().to_string());
     }
     if let Some(http_version) = args.http_version {
         match http_version {
-            HttpVersion::Http10 => cmd.long("--http1.0"),
-            HttpVersion::Http11 => cmd.long("--http1.1"),
-            HttpVersion::Http2 => cmd.long("--http2"),
+            HttpVersion::Http10 => cmd.arg("--http1.0"),
+            HttpVersion::Http11 => cmd.arg("--http1.1"),
+            HttpVersion::Http2 => cmd.arg("--http2"),
         }
     }
 
@@ -284,24 +280,24 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
     if args.ignore_netrc {
         // Already the default, so a bit questionable
-        cmd.long("--no-netrc");
+        cmd.arg("--no-netrc");
     }
     if let Some(auth) = args.auth {
         match args.auth_type.unwrap_or_default() {
             AuthType::basic => {
-                cmd.long("--basic");
+                cmd.arg("--basic");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
             AuthType::digest => {
-                cmd.long("--digest");
+                cmd.arg("--digest");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
             AuthType::bearer => {
-                cmd.long("--oauth2-bearer");
+                cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
             }
         }
@@ -357,7 +353,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     // More faithful than -F, but doesn't have a short version
                     // New in curl 7.18.0 (January 28 2008), *probably* old enough
                     // Otherwise passing --multipart helps
-                    cmd.long("--data-urlencode");
+                    cmd.arg("--data-urlencode");
                     // Encoding this is tricky: --data-urlencode expects name
                     // to be encoded but not value and doesn't take strings
                     let mut encoded = serde_urlencoded::to_string(&[(key, "")])?;
@@ -390,7 +386,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                 } else {
                     cmd.header("content-type", JSON_CONTENT_TYPE);
                 }
-                cmd.long("--data-binary");
+                cmd.arg("--data-binary");
                 let mut arg = OsString::from("@");
                 arg.push(file_name);
                 cmd.arg(arg);
