@@ -69,16 +69,21 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             flags: --features=native-tls
+            rustflags: -C target-feature=+crt-static
     steps:
       - uses: actions/checkout@v2
+
+      - name: Set RUSTFLAGS env variable
+        if: matrix.job.rustflags
+        shell: bash
+        run: echo "RUSTFLAGS=${{ matrix.job.rustflags }}" >> $GITHUB_ENV
+
       - name: Build target
         uses: actions-rs/cargo@v1
         with:
           use-cross: ${{ matrix.job.use-cross }}
           command: build
           args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
-        env:
-          RUSTFLAGS: ${{ matrix.job.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
 
       - name: Strip release binary (linux and macOS)
         if: matrix.job.os != 'windows-latest'
@@ -92,6 +97,7 @@ jobs:
 
       - id: get_version
         uses: battila7/get-version-action@v2
+
       - name: Package
         shell: bash
         run: |
