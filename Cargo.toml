@@ -91,6 +91,3 @@ xh is a friendly and fast tool for sending HTTP requests.
 It reimplements as much as possible of HTTPie's excellent design, with a focus
 on improved performance.
 """
-
-[profile.release]
-lto = true
