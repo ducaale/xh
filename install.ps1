@@ -2,9 +2,10 @@
 
 $ProgressPreference = 'SilentlyContinue'
 $release = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/ducaale/xh/releases/latest"
-$asset = $release.assets | Where-Object name -like *.zip
+$asset = $release.assets | Where-Object name -like *x86_64-pc-windows*.zip
 $destdir = "$home\bin\"
 $zipfile = "$env:TEMP\$($asset.name)"
+$zipfilename = [System.IO.Path]::GetFileNameWithoutExtension("$zipfile")
 
 Write-Output "Downloading: $($asset.name)"
 Invoke-RestMethod -Method Get -Uri $asset.browser_download_url -OutFile $zipfile
@@ -13,23 +14,23 @@ Invoke-RestMethod -Method Get -Uri $asset.browser_download_url -OutFile $zipfile
 $xhPath = "${destdir}xh.exe"
 $xhsPath = "${destdir}xhs.exe"
 if (Test-Path -Path $xhPath -PathType Leaf) {
-    "`n xh.exe exists in $destdir, deleting xh and xhs"
-	rm -r -fo $xhPath
-	rm -r -fo $xhsPath
+"Removing previous installation of xh from $($destdir)"
+    rm -r -fo $xhPath
+    rm -r -fo $xhsPath
 }
 
 #xh.exe extraction start
 Add-Type -Assembly System.IO.Compression.FileSystem
 
 $zip = [IO.Compression.ZipFile]::OpenRead($zipfile)
-$entries=$zip.Entries | where {$_.FullName -like '*.exe'} 
+$entries = $zip.Entries | where {$_.FullName -like '*.exe'}
 
-#create dir for result of extraction
+# create dir for result of extraction
 New-Item -ItemType Directory -Path $destdir -Force | Out-Null
 
-#extraction
+# Extraction.
 $entries | foreach {[IO.Compression.ZipFileExtensions]::ExtractToFile( $_, $destdir + $_.Name) }
-#free zipfile
+# Free the zipfile.
 $zip.Dispose()
 
 Remove-Item -Path $zipfile
@@ -37,23 +38,21 @@ Remove-Item -Path $zipfile
 # Copy xh.exe as xhs.exe into bin
 Copy-Item $xhPath $xhsPath
 
-Write-Host "`n Exctracted 'xh.exe' file is located in: $destdir."
-
 # Add to environment variables
-$p = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User);
+$p = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
 if (!$p.ToLower().Contains($destdir.ToLower()))
 {
-	# path to "user"/bin
-	Write-Output "`n Adding $destdir to your Path"
+    # Path to "user"/bin
+    Write-Output "Adding $destdir to your Path"
 	
-	$p += "$destdir";
-	[System.Environment]::SetEnvironmentVariable('Path',$p,[System.EnvironmentVariableTarget]::User);
+    $p += "$destdir"
+    [System.Environment]::SetEnvironmentVariable('Path', $p, [System.EnvironmentVariableTarget]::User)
+    $Env:Path = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine) + ";" + $p
 	
-	$Env:Path = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine) + ";" + $p
-	
-	# Path to xhs.exe
-	
-	Write-Host "`n PATH environment variable changed (restart your applications that use command line)." -foreground yellow
+    # Path to xhs.exe
+    Write-Host "PATH environment variable changed (restart your applications that use command line)." -foreground yellow
 }
 
-Write-Output "`n Done!"
+# Get version from zip file name
+
+Write-Output "xh v$($zipfilename.trim("xh-v -x86_64-pc-windows-msvc.zip")) has been installed to:`n - $xhPath`n - $xhsPath"

@@ -19,7 +19,7 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 ### via Powershell (Windows)
 
 ```
-  PowerShell -ExecutionPolicy bypass -Command "iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex"
+iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 ```
 
 
