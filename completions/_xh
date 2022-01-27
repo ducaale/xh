@@ -15,9 +15,10 @@ _xh() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
+'--raw=[Pass raw request data without extra processing]' \
 '--pretty=[Controls output processing]: :(all colors format none)' \
-'-s+[Output coloring style]: :(auto solarized monokai)' \
-'--style=[Output coloring style]: :(auto solarized monokai)' \
+'-s+[Output coloring style]: :(auto solarized monokai fruity)' \
+'--style=[Output coloring style]: :(auto solarized monokai fruity)' \
 '--response-charset=[Override the response encoding for terminal display purposes]' \
 '--response-mime=[Override the response mime type for coloring and formatting for the terminal]' \
 '-p+[String specifying what the output should contain]' \
@@ -48,10 +49,10 @@ _xh() {
 '--form[Serialize data items from the command line as form fields]' \
 '-m[Like --form, but force a multipart/form-data request even without files]' \
 '--multipart[Like --form, but force a multipart/form-data request even without files]' \
-'-h[Print only the response headers, shortcut for --print=h]' \
-'--headers[Print only the response headers, shortcut for --print=h]' \
-'-b[Print only the response body, Shortcut for --print=b]' \
-'--body[Print only the response body, Shortcut for --print=b]' \
+'-h[Print only the response headers. Shortcut for --print=h]' \
+'--headers[Print only the response headers. Shortcut for --print=h]' \
+'-b[Print only the response body. Shortcut for --print=b]' \
+'--body[Print only the response body. Shortcut for --print=b]' \
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
@@ -105,6 +106,7 @@ _xh() {
 '--no-print[]' \
 '--no-proxy[]' \
 '--no-quiet[]' \
+'--no-raw[]' \
 '--no-response-charset[]' \
 '--no-response-mime[]' \
 '--no-session[]' \

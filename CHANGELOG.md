@@ -1,4 +1,4 @@
-## Unreleased
+## [0.15.0] - 2022-01-27
 ### Features
 - Add support for `--raw` flag, see #202 (@ducaale)
 - Add Fruity theme, see #206 (@ducaale)

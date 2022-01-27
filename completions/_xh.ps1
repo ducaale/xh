@@ -20,6 +20,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'xh' {
+            [CompletionResult]::new('--raw', 'raw', [CompletionResultType]::ParameterName, 'Pass raw request data without extra processing')
             [CompletionResult]::new('--pretty', 'pretty', [CompletionResultType]::ParameterName, 'Controls output processing')
             [CompletionResult]::new('-s', 's', [CompletionResultType]::ParameterName, 'Output coloring style')
             [CompletionResult]::new('--style', 'style', [CompletionResultType]::ParameterName, 'Output coloring style')
@@ -53,10 +54,10 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--form', 'form', [CompletionResultType]::ParameterName, 'Serialize data items from the command line as form fields')
             [CompletionResult]::new('-m', 'm', [CompletionResultType]::ParameterName, 'Like --form, but force a multipart/form-data request even without files')
             [CompletionResult]::new('--multipart', 'multipart', [CompletionResultType]::ParameterName, 'Like --form, but force a multipart/form-data request even without files')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print only the response headers, shortcut for --print=h')
-            [CompletionResult]::new('--headers', 'headers', [CompletionResultType]::ParameterName, 'Print only the response headers, shortcut for --print=h')
-            [CompletionResult]::new('-b', 'b', [CompletionResultType]::ParameterName, 'Print only the response body, Shortcut for --print=b')
-            [CompletionResult]::new('--body', 'body', [CompletionResultType]::ParameterName, 'Print only the response body, Shortcut for --print=b')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print only the response headers. Shortcut for --print=h')
+            [CompletionResult]::new('--headers', 'headers', [CompletionResultType]::ParameterName, 'Print only the response headers. Shortcut for --print=h')
+            [CompletionResult]::new('-b', 'b', [CompletionResultType]::ParameterName, 'Print only the response body. Shortcut for --print=b')
+            [CompletionResult]::new('--body', 'body', [CompletionResultType]::ParameterName, 'Print only the response body. Shortcut for --print=b')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Print the whole request as well as the response')
             [CompletionResult]::new('--verbose', 'verbose', [CompletionResultType]::ParameterName, 'Print the whole request as well as the response')
             [CompletionResult]::new('--all', 'all', [CompletionResultType]::ParameterName, 'Show any intermediary requests/responses while following redirects with --follow')
@@ -110,6 +111,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--no-print', 'no-print', [CompletionResultType]::ParameterName, 'no-print')
             [CompletionResult]::new('--no-proxy', 'no-proxy', [CompletionResultType]::ParameterName, 'no-proxy')
             [CompletionResult]::new('--no-quiet', 'no-quiet', [CompletionResultType]::ParameterName, 'no-quiet')
+            [CompletionResult]::new('--no-raw', 'no-raw', [CompletionResultType]::ParameterName, 'no-raw')
             [CompletionResult]::new('--no-response-charset', 'no-response-charset', [CompletionResultType]::ParameterName, 'no-response-charset')
             [CompletionResult]::new('--no-response-mime', 'no-response-mime', [CompletionResultType]::ParameterName, 'no-response-mime')
             [CompletionResult]::new('--no-session', 'no-session', [CompletionResultType]::ParameterName, 'no-session')

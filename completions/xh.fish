@@ -1,5 +1,6 @@
+complete -c xh -l raw -d 'Pass raw request data without extra processing'
 complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all colors format none"
-complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized monokai"
+complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "auto solarized monokai fruity"
 complete -c xh -l response-charset -d 'Override the response encoding for terminal display purposes'
 complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal'
 complete -c xh -s p -l print -d 'String specifying what the output should contain'
@@ -22,8 +23,8 @@ complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "1 1.0 1.1 2"
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
 complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
-complete -c xh -s h -l headers -d 'Print only the response headers, shortcut for --print=h'
-complete -c xh -s b -l body -d 'Print only the response body, Shortcut for --print=b'
+complete -c xh -s h -l headers -d 'Print only the response headers. Shortcut for --print=h'
+complete -c xh -s b -l body -d 'Print only the response body. Shortcut for --print=b'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
@@ -70,6 +71,7 @@ complete -c xh -l no-pretty
 complete -c xh -l no-print
 complete -c xh -l no-proxy
 complete -c xh -l no-quiet
+complete -c xh -l no-raw
 complete -c xh -l no-response-charset
 complete -c xh -l no-response-mime
 complete -c xh -l no-session
