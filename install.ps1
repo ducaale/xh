@@ -10,49 +10,60 @@ $zipfilename = [System.IO.Path]::GetFileNameWithoutExtension("$zipfile")
 Write-Output "Downloading: $($asset.name)"
 Invoke-RestMethod -Method Get -Uri $asset.browser_download_url -OutFile $zipfile
 
-# checks if an older version of xh.exe (includes xhs.exe) exists in '$destdir', if yes, then delete it, if not, then download latest zip to extract from
+# Checks if an older version of xh.exe (includes xhs.exe) exists in '$destdir', if yes, then delete it, if not, then download latest zip to extract from.
+
 $xhPath = "${destdir}xh.exe"
 $xhsPath = "${destdir}xhs.exe"
 if (Test-Path -Path $xhPath -PathType Leaf) {
-"Removing previous installation of xh from $($destdir)"
-    rm -r -fo $xhPath
-    rm -r -fo $xhsPath
+    "Removing previous installation of xh from $($destdir)"
+    Remove-Item -r -fo $xhPath
+    Remove-Item -r -fo $xhsPath
 }
 
-#xh.exe extraction start
+# xh.exe extraction start.
+
 Add-Type -Assembly System.IO.Compression.FileSystem
 
 $zip = [IO.Compression.ZipFile]::OpenRead($zipfile)
-$entries = $zip.Entries | where {$_.FullName -like '*.exe'}
+$entries = $zip.Entries | Where-Object { $_.FullName -like '*.exe' }
 
-# create dir for result of extraction
+# Create dir for result of extraction.
+
 New-Item -ItemType Directory -Path $destdir -Force | Out-Null
 
 # Extraction.
-$entries | foreach {[IO.Compression.ZipFileExtensions]::ExtractToFile( $_, $destdir + $_.Name) }
+
+$entries | ForEach-Object { [IO.Compression.ZipFileExtensions]::ExtractToFile( $_, $destdir + $_.Name) }
+
 # Free the zipfile.
+
 $zip.Dispose()
 
 Remove-Item -Path $zipfile
 
-# Copy xh.exe as xhs.exe into bin
+# Copy xh.exe as xhs.exe into bin.
+
 Copy-Item $xhPath $xhsPath
 
-# Add to environment variables
+# Add to environment variables.
+
 $p = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
-if (!$p.ToLower().Contains($destdir.ToLower()))
-{
-    # Path to "user"/bin
+if (!$p.ToLower().Contains($destdir.ToLower())) {
+
+    # Path to "user"/bin.
+
     Write-Output "Adding $destdir to your Path"
 	
     $p += "$destdir"
     [System.Environment]::SetEnvironmentVariable('Path', $p, [System.EnvironmentVariableTarget]::User)
     $Env:Path = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine) + ";" + $p
 	
-    # Path to xhs.exe
+    # Path to xhs.exe.
+
     Write-Host "PATH environment variable changed (restart your applications that use command line)." -foreground yellow
 }
 
-# Get version from zip file name
+# Get version from zip file name.
 
-Write-Output "xh v$($zipfilename.trim("xh-v -x86_64-pc-windows-msvc.zip")) has been installed to:`n - $xhPath`n - $xhsPath"
+$xhVersion = $($zipfilename.trim("xh-v -x86_64-pc-windows-msvc.zip"))
+Write-Output "xh v$($xhVersion) has been installed to:`n - $xhPath`n - $xhsPath"
