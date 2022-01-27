@@ -1,3 +1,22 @@
+## Unreleased
+### Features
+- Add support for `--raw` flag, see #202 (@ducaale)
+- Add Fruity theme, see #206 (@ducaale)
+- Use a custom netrc parser that supports comments and is more faithful
+  to HTTPie, see #207 (@blyxxyz)
+- Add browser-style text encoding detection, see #203 (@blyxxyz)
+- Enable using OS certificate store with rustls, see #225 (@austinbutler)
+- Improve quoting and update options from `--curl`, see #200 (@blyxxyz)
+
+### Bug fixes
+- Expand tilde in request items that contain a path, see #209 (@ducaale)
+- Get version from `-V` when generating manpages, see #214 (@ducaale)
+
+### Other
+- Statically link C-runtime for MSVC Windows, see #221 (@ducaale)
+- Add `install.ps1` for Windows, see #220 (@ChrisK-0)
+- Add aarch64 support, see #213 (@myhro)
+
 ## [0.14.1] - 2021-11-26
 ### Bug fixes
 - Do not print response body unconditionally, see #197 (@blyxxyz)
