@@ -133,7 +133,7 @@ impl FromStr for RequestItem {
             Err(clap::Error::raw(
                 clap::ErrorKind::InvalidValue,
                 format!(
-                    "Invalid value for '[REQUEST_ITEM]...': {:?} is not a valid Request Item",
+                    "Invalid value for '[REQUEST_ITEM]...': {:?}",
                     request_item
                 ),
             ))
