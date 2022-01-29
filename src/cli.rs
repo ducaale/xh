@@ -10,11 +10,10 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
 use encoding_rs::Encoding;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
-use structopt::clap::{self, arg_enum, AppSettings, Error, ErrorKind, Result};
-use structopt::StructOpt;
 
 use crate::buffer::Buffer;
 use crate::regex;
@@ -23,68 +22,60 @@ use crate::utils::config_dir;
 
 // Some doc comments were copy-pasted from HTTPie
 
-// structopt guidelines:
+// clap guidelines:
 // - Only use `short` with an explicit arg (`short = "x"`)
 // - Only use `long` with an implicit arg (just `long`)
 //   - Unless it needs a different name, but then also use `name = "..."`
 // - Add an uppercase value_name to options that take a value
-// - Add a line with triple {n} after any long doc comment
 
 /// xh is a friendly and fast tool for sending HTTP requests.
 ///
 /// It reimplements as much as possible of HTTPie's excellent design, with a focus
 /// on improved performance.
-#[derive(StructOpt, Debug)]
-#[structopt(
-    name = "xh",
+#[derive(clap::Parser, Debug)]
+#[clap(
+    version,
     long_version = long_version(),
-    settings = &[
-        AppSettings::DeriveDisplayOrder,
-        AppSettings::UnifiedHelpMessage,
-        AppSettings::ColoredHelp,
-        AppSettings::AllArgsOverrideSelf,
-    ],
+    setting(AppSettings::DeriveDisplayOrder | AppSettings::AllArgsOverrideSelf),
 )]
 pub struct Cli {
-    #[structopt(skip)]
+    #[clap(skip)]
     pub httpie_compat_mode: bool,
 
     /// (default) Serialize data items from the command line as a JSON object.
-    #[structopt(short = "j", long, overrides_with_all = &["form", "multipart"])]
+    #[clap(short = 'j', long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
-    #[structopt(short = "f", long, overrides_with_all = &["json", "multipart"])]
+    #[clap(short = 'f', long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[structopt(short = "m", long, overrides_with_all = &["json", "form"])]
+    #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
-    #[structopt(long, value_name = "RAW")]
+    #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
 
     /// Controls output processing.
-    #[structopt(long, possible_values = &Pretty::variants(), case_insensitive = true, value_name = "STYLE")]
+    #[clap(long, arg_enum, value_name = "STYLE")]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[structopt(short = "s", long, value_name = "THEME", possible_values = &Theme::variants(), case_insensitive = true)]
+    #[clap(short = 's', long, arg_enum, value_name = "THEME")]
     pub style: Option<Theme>,
 
     /// Override the response encoding for terminal display purposes.
     ///
     /// Example: `--response-charset=latin1`
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
+    #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
     pub response_charset: Option<&'static Encoding>,
 
     /// Override the response mime type for coloring and formatting for the terminal
     ///
     /// Example: `--response-mime=application/json`
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "MIME_TYPE")]
+    #[clap(long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
     /// String specifying what the output should contain.
@@ -93,60 +84,64 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
-    /// {n}{n}{n}
-    #[structopt(short = "p", long, value_name = "FORMAT")]
+    #[clap(short = 'p', long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
     /// Print only the response headers. Shortcut for --print=h.
-    #[structopt(short = "h", long)]
+    #[clap(short = 'h', long)]
     pub headers: bool,
 
     /// Print only the response body. Shortcut for --print=b.
-    #[structopt(short = "b", long)]
+    #[clap(short = 'b', long)]
     pub body: bool,
 
     /// Print the whole request as well as the response.
-    #[structopt(short = "v", long)]
+    #[clap(short = 'v', long)]
     pub verbose: bool,
 
     /// Show any intermediary requests/responses while following redirects with --follow.
-    #[structopt(long)]
+    #[clap(long)]
     pub all: bool,
 
     /// The same as --print but applies only to intermediary requests/responses.
-    #[structopt(short = "P", long, value_name = "FORMAT")]
+    #[clap(short = 'P', long, value_name = "FORMAT")]
     pub history_print: Option<Print>,
 
     /// Do not print to stdout or stderr.
-    #[structopt(short = "q", long)]
+    #[clap(short = 'q', long)]
     pub quiet: bool,
 
     /// Always stream the response body.
-    #[structopt(short = "S", long)]
+    #[clap(short = 'S', long)]
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[structopt(short = "o", long, value_name = "FILE", parse(from_os_str))]
+    #[clap(short = 'o', long, value_name = "FILE", parse(from_os_str))]
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
-    #[structopt(short = "d", long)]
+    #[clap(short = 'd', long)]
     pub download: bool,
 
     /// Resume an interrupted download. Requires --download and --output.
-    #[structopt(short = "c", long = "continue", name = "continue")]
+    #[clap(
+        short = 'c',
+        long = "continue",
+        name = "continue",
+        requires = "download",
+        requires = "output"
+    )]
     pub resume: bool,
 
     /// Create, or reuse and update a session.
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE", parse(from_os_str))]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it form the request/response exchange.
-    #[structopt(
+    #[clap(
         long,
         value_name = "FILE",
         conflicts_with = "session",
@@ -154,11 +149,11 @@ pub struct Cli {
     )]
     pub session_read_only: Option<OsString>,
 
-    #[structopt(skip)]
+    #[clap(skip)]
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism.
-    #[structopt(short = "A", long, possible_values = &AuthType::variants(), case_insensitive = true)]
+    #[clap(short = 'A', long, arg_enum)]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS or with TOKEN.
@@ -167,20 +162,19 @@ pub struct Cli {
     /// to authenticate with just a username.
     ///
     /// TOKEN is expected if `--auth-type=bearer`.
-    /// {n}{n}{n}
-    #[structopt(short = "a", long, value_name = "USER[:PASS] | TOKEN")]
+    #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
-    #[structopt(long, value_name = "TOKEN", hidden = true)]
+    #[clap(long, value_name = "TOKEN", hide = true)]
     pub bearer: Option<String>,
 
     /// Do not use credentials from .netrc
-    #[structopt(long)]
+    #[clap(long)]
     pub ignore_netrc: bool,
 
     /// Construct HTTP requests without sending them anywhere.
-    #[structopt(long)]
+    #[clap(long)]
     pub offline: bool,
 
     /// (default) Exit with an error status code if the server replies with an error.
@@ -189,26 +183,24 @@ pub struct Cli {
     /// or 3 on 3xx (Redirect) if --follow isn't set.
     ///
     /// If stdout is redirected then a warning is written to stderr.
-    /// {n}{n}{n}
-    #[structopt(long = "check-status", name = "check-status")]
+    #[clap(long = "check-status", name = "check-status")]
     pub check_status_raw: bool,
 
-    #[structopt(skip)]
+    #[clap(skip)]
     pub check_status: Option<bool>,
 
     /// Do follow redirects.
-    #[structopt(short = "F", long)]
+    #[clap(short = 'F', long)]
     pub follow: bool,
 
     /// Number of redirects to follow, only respected if `follow` is set.
-    #[structopt(long, value_name = "NUM")]
+    #[clap(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Connection timeout of the request.
     ///
     /// The default value is `0`, i.e., there is no timeout limit.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "SEC")]
+    #[clap(long, value_name = "SEC")]
     pub timeout: Option<Timeout>,
 
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
@@ -222,8 +214,7 @@ pub struct Cli {
     ///
     /// The environment variables `http_proxy` and `https_proxy` can also be used, but
     /// are completely ignored if --proxy is passed.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
+    #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
     /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -231,60 +222,63 @@ pub struct Cli {
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "VERIFY", parse(from_os_str))]
+    #[clap(long, value_name = "VERIFY", parse(from_os_str))]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[structopt(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE", parse(from_os_str))]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    /// {n}{n}{n}
-    #[structopt(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE", parse(from_os_str))]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
     ///
-    /// "auto" or "ssl2.3" gives the default behavior of negotiating a version
+    /// "auto" gives the default behavior of negotiating a version
     /// with the server.
-    #[structopt(long, value_name = "VERSION", parse(from_str = parse_tls_version),
-      possible_values = &["auto", "ssl2.3", "tls1", "tls1.1", "tls1.2", "tls1.3"])]
+    #[clap(long, value_name = "VERSION", parse(from_str = parse_tls_version),
+      possible_value = clap::PossibleValue::new("auto").alias("ssl2.3"),
+      possible_values = &["tls1", "tls1.1", "tls1.2", "tls1.3"]
+    )]
     // The nested option is weird, but parse_tls_version can return None.
-    // If the inner option doesn't use a qualified path structopt gets confused.
+    // If the inner option doesn't use a qualified path clap gets confused.
     pub ssl: Option<std::option::Option<tls::Version>>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
-    #[structopt(long)]
+    #[clap(long)]
     pub native_tls: bool,
 
     /// The default scheme to use if not specified in the URL.
-    #[structopt(long, value_name = "SCHEME", hidden = true)]
+    #[clap(long, value_name = "SCHEME", hide = true)]
     pub default_scheme: Option<String>,
 
     /// Make HTTPS requests if not specified in the URL.
-    #[structopt(long)]
+    #[clap(long)]
     pub https: bool,
 
     /// HTTP version to use
-    #[structopt(long, value_name = "VERSION", possible_values = &["1", "1.0", "1.1", "2"])]
+    #[clap(long, value_name = "VERSION",
+        possible_value = clap::PossibleValue::new("1.0"),
+        possible_value = clap::PossibleValue::new("1.1").alias("1"),
+        possible_value = clap::PossibleValue::new("2")
+    )]
     pub http_version: Option<HttpVersion>,
 
     /// Do not attempt to read stdin.
-    #[structopt(short = "I", long)]
+    #[clap(short = 'I', long)]
     pub ignore_stdin: bool,
 
     /// Print a translation to a `curl` command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
-    /// {n}{n}{n}
-    #[structopt(long)]
+    #[clap(long)]
     pub curl: bool,
 
     /// Use the long versions of curl's flags.
-    #[structopt(long)]
+    #[clap(long)]
     pub curl_long: bool,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -292,8 +286,7 @@ pub struct Cli {
     /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
     /// If omitted, either a GET or a POST will be done depending on whether the
     /// request sends data.
-    /// {n}{n}{n}
-    #[structopt(value_name = "[METHOD] URL")]
+    #[clap(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request
@@ -308,23 +301,23 @@ pub struct Cli {
     ///   - header; to add a header with an empty value
     ///
     /// A backslash can be used to escape special characters (e.g. weird\:key=value).
-    #[structopt(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
+    #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
     /// The HTTP method, if supplied.
-    #[structopt(skip)]
+    #[clap(skip)]
     pub method: Option<Method>,
 
     /// The request URL.
-    #[structopt(skip = ("http://placeholder".parse::<Url>().unwrap()))]
+    #[clap(skip = ("http://placeholder".parse::<Url>().unwrap()))]
     pub url: Url,
 
     /// Optional key-value pairs to be included in the request.
-    #[structopt(skip)]
+    #[clap(skip)]
     pub request_items: RequestItems,
 
     /// The name of the binary.
-    #[structopt(skip)]
+    #[clap(skip)]
     pub bin_name: String,
 }
 
@@ -386,27 +379,27 @@ impl Cli {
     pub fn parse() -> Self {
         if let Some(default_args) = default_cli_args() {
             let mut args = std::env::args_os();
-            Cli::from_iter(
+            Self::parse_from(
                 std::iter::once(args.next().unwrap_or_else(|| "xh".into()))
                     .chain(default_args.into_iter().map(Into::into))
                     .chain(args),
             )
         } else {
-            Cli::from_iter(std::env::args_os())
+            Self::parse_from(std::env::args_os())
         }
     }
 
-    pub fn from_iter<I>(iter: I) -> Self
+    pub fn parse_from<I>(iter: I) -> Self
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
     {
-        match Self::from_iter_safe(iter) {
+        match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind == ErrorKind::HelpDisplayed => {
+            Err(err) if err.kind == ErrorKind::DisplayHelp => {
                 // The logic here is a little tricky.
                 //
-                // Normally with structopt/clap, -h prints short help while --help
+                // Normally with clap, -h prints short help while --help
                 // prints long help.
                 //
                 // But -h is short for --header, so we want --help to print short help
@@ -414,31 +407,30 @@ impl Cli {
                 //
                 // --help is baked into clap. So we intercept its special error that
                 // would print long help and print short help instead. And if we do
-                // want to print long help, then we insert our own error in from_iter_safe
+                // want to print long help, then we insert our own error in try_parse_from
                 // with a special tag.
                 if env::var_os("XH_HELP2MAN").is_some() {
-                    Cli::clap()
-                        .template(
+                    Self::into_app()
+                        .help_template(
                             "\
                                 Usage: {usage}\n\
                                 \n\
-                                {long-about}\n\
+                                {about}\n\
                                 \n\
                                 Options:\n\
-                                {flags}\n\
                                 {options}\n\
                                 {after-help}\
                             ",
                         )
                         .print_long_help()
                         .unwrap();
-                } else if err.message == "XH_PRINT_LONG_HELP" {
-                    Cli::clap().print_long_help().unwrap();
+                } else if err.info == ["XH_PRINT_LONG_HELP"] {
+                    Self::into_app().print_long_help().unwrap();
                     println!();
                 } else {
-                    Cli::clap().print_help().unwrap();
+                    Self::into_app().print_help().unwrap();
                     println!(
-                        "\n\nRun `{} help` for more complete documentation.",
+                        "\nRun `{} help` for more complete documentation.",
                         env!("CARGO_PKG_NAME")
                     );
                 }
@@ -448,22 +440,20 @@ impl Cli {
         }
     }
 
-    pub fn from_iter_safe<I>(iter: I) -> clap::Result<Self>
+    pub fn try_parse_from<I>(iter: I) -> clap::Result<Self>
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
     {
-        let mut app = Self::clap();
-        let matches = app.get_matches_from_safe_borrow(iter)?;
-        let mut cli = Self::from_clap(&matches);
+        let mut app = Self::into_app();
+        let matches = app.try_get_matches_from_mut(iter)?;
+        let mut cli = Self::from_arg_matches(&matches)?;
 
         match cli.raw_method_or_url.as_str() {
             "help" => {
-                return Err(Error {
-                    message: "XH_PRINT_LONG_HELP".to_string(),
-                    kind: ErrorKind::HelpDisplayed,
-                    info: Some(vec!["XH_PRINT_LONG_HELP".to_string()]),
-                })
+                let mut e = app.error(ErrorKind::DisplayHelp, "XH_PRINT_LONG_HELP");
+                e.info = vec!["XH_PRINT_LONG_HELP".to_string()];
+                return Err(e);
             }
             "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
             "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
@@ -473,9 +463,9 @@ impl Cli {
         let raw_url = match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                rest_args.next().ok_or_else(|| {
-                    Error::with_description("Missing URL", ErrorKind::MissingArgumentOrSubcommand)
-                })?
+                rest_args
+                    .next()
+                    .ok_or_else(|| app.error(ErrorKind::MissingRequiredArgument, "Missing <URL>"))?
             }
             None => {
                 cli.method = None;
@@ -483,7 +473,11 @@ impl Cli {
             }
         };
         for request_item in rest_args {
-            cli.request_items.items.push(request_item.parse()?);
+            cli.request_items.items.push(
+                request_item
+                    .parse()
+                    .map_err(|err: Error| err.format(&mut app))?,
+            );
         }
 
         cli.bin_name = app
@@ -508,10 +502,11 @@ impl Cli {
             cli.default_scheme.as_deref(),
             cli.request_items.query(),
         )
-        .map_err(|err| Error {
-            message: format!("Invalid URL: {}", err),
-            kind: ErrorKind::ValueValidation,
-            info: None,
+        .map_err(|err| {
+            app.error(
+                ErrorKind::ValueValidation,
+                format!("Invalid <URL>: {}", err),
+            )
         })?;
 
         Ok(cli)
@@ -519,18 +514,6 @@ impl Cli {
 
     /// Set flags that are implied by other flags and report conflicting flags.
     fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
-        if self.resume && !self.download {
-            return Err(Error::with_description(
-                "--continue only works with --download",
-                ErrorKind::MissingArgumentOrSubcommand,
-            ));
-        }
-        if self.resume && self.output.is_none() {
-            return Err(Error::with_description(
-                "--continue requires --output",
-                ErrorKind::MissingArgumentOrSubcommand,
-            ));
-        }
         if self.verbose {
             self.all = true;
         }
@@ -569,14 +552,8 @@ impl Cli {
         Ok(())
     }
 
-    pub fn clap() -> clap::App<'static, 'static> {
-        let mut app = <Self as StructOpt>::clap();
-        // Clap 2.33 implements color output via ansi_term crate,
-        // which does not handle `NO_COLOR` environment variable.
-        // We handle it here.
-        if env::var_os("NO_COLOR").is_some() {
-            app = app.setting(AppSettings::ColorNever);
-        }
+    pub fn into_app() -> clap::App<'static> {
+        let mut app = <Self as clap::IntoApp>::into_app();
         for &flag in NEGATION_FLAGS {
             // `orig` and `flag` both need a static lifetime, so we
             // build `orig` by trimming `flag` instead of building `flag`
@@ -585,9 +562,9 @@ impl Cli {
             app = app.arg(
                 // The name is inconsequential, but it has to be unique and it
                 // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::with_name(&flag[2..])
+                clap::Arg::new(&flag[2..])
                     .long(flag)
-                    .hidden(true)
+                    .hide(true)
                     // overrides_with is enough to make the flags take effect
                     // We never have to check their values, they'll simply
                     // unset previous occurrences of the original flag
@@ -676,27 +653,21 @@ fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
         // This name is borrowed from `app`, and `gen_completions_to()` mutably
         // borrows `app`, so we need to do a clone
         Some(name) => name.to_owned(),
-        None => return Error::with_description("Missing binary name", ErrorKind::EmptyValue),
+        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
     };
     if rest_args.len() != 1 {
-        return Error::with_description(
-            "Usage: xh print_completions <SHELL>",
+        return app.error(
             ErrorKind::WrongNumberOfValues,
+            "Usage: xh print_completions <SHELL>",
         );
     }
-    let shell = match rest_args[0].parse() {
+    let shell = match rest_args[0].parse::<clap_complete::Shell>() {
         Ok(shell) => shell,
-        Err(_) => return Error::with_description("Unknown shell name", ErrorKind::InvalidValue),
+        Err(_) => return app.error(ErrorKind::InvalidValue, "Unknown shell name"),
     };
     let mut buf = Vec::new();
-    app.gen_completions_to(bin_name, shell, &mut buf);
-    let mut completions = String::from_utf8(buf).unwrap();
-    if matches!(shell, clap::Shell::Fish) {
-        // We don't have (proper) subcommands, so this check is unnecessary and
-        // slightly harmful
-        // See https://github.com/clap-rs/clap/pull/2359, currently unreleased
-        completions = completions.replace(r#" -n "__fish_use_subcommand""#, "");
-    }
+    clap_complete::generate(shell, &mut app, bin_name, &mut buf);
+    let completions = String::from_utf8(buf).unwrap();
     print!("{}", completions);
     safe_exit();
 }
@@ -704,30 +675,30 @@ fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
 fn generate_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
     let bin_name = match app.get_bin_name() {
         Some(name) => name.to_owned(),
-        None => return Error::with_description("Missing binary name", ErrorKind::EmptyValue),
+        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
     };
     if rest_args.len() != 1 {
-        return Error::with_description(
-            "Usage: xh generate_completions <DIRECTORY>",
+        return app.error(
             ErrorKind::WrongNumberOfValues,
+            "Usage: xh generate_completions <DIRECTORY>",
         );
     }
-    for &shell in &clap::Shell::variants() {
+    for &shell in clap_complete::Shell::value_variants() {
         // Elvish complains about multiple deprecations and these don't seem to work
         // If you must use them, generate them manually with xh print_completions elvish
-        if shell != "elvish" {
-            app.gen_completions(&bin_name, shell.parse().unwrap(), &rest_args[0]);
+        if shell != clap_complete::Shell::Elvish {
+            clap_complete::generate_to(shell, &mut app, &bin_name, &rest_args[0]).unwrap();
         }
     }
     safe_exit();
 }
 
-arg_enum! {
-    #[allow(non_camel_case_types)]
-    #[derive(Copy, Clone, Debug, PartialEq)]
-    pub enum AuthType {
-        basic, bearer, digest
-    }
+#[allow(non_camel_case_types)]
+#[derive(ArgEnum, Copy, Clone, Debug, PartialEq)]
+pub enum AuthType {
+    basic,
+    bearer,
+    digest,
 }
 
 impl Default for AuthType {
@@ -736,16 +707,17 @@ impl Default for AuthType {
     }
 }
 
-arg_enum! {
-    // Uppercase variant names would show up as such in the help text
-    #[allow(non_camel_case_types)]
-    #[derive(Debug, PartialEq, Clone, Copy)]
-    pub enum Pretty {
-        all, colors, format, none
-    }
+// Uppercase variant names would show up as such in the help text
+#[allow(non_camel_case_types)]
+#[derive(ArgEnum, Debug, PartialEq, Clone, Copy)]
+pub enum Pretty {
+    all,
+    colors,
+    format,
+    none,
 }
 
-/// The caller must check in advance if the string is valid. (structopt does this.)
+/// The caller must check in advance if the string is valid. (clap does this.)
 fn parse_tls_version(text: &str) -> Option<tls::Version> {
     match text {
         // ssl2.3 is not a real version but it's how HTTPie spells "auto"
@@ -768,12 +740,13 @@ impl Pretty {
     }
 }
 
-arg_enum! {
-    #[allow(non_camel_case_types)]
-    #[derive(Debug, PartialEq, Clone, Copy)]
-    pub enum Theme {
-        auto, solarized, monokai, fruity
-    }
+#[allow(non_camel_case_types)]
+#[derive(ArgEnum, Debug, PartialEq, Clone, Copy)]
+pub enum Theme {
+    auto,
+    solarized,
+    monokai,
+    fruity,
 }
 
 impl Theme {
@@ -1072,7 +1045,7 @@ mod tests {
     use crate::request_items::RequestItem;
 
     fn parse(args: &[&str]) -> Result<Cli> {
-        Cli::from_iter_safe(
+        Cli::try_parse_from(
             Some("xh".to_string())
                 .into_iter()
                 .chain(args.iter().map(|s| s.to_string())),
@@ -1182,7 +1155,7 @@ mod tests {
 
     #[test]
     fn proxy_invalid_protocol() {
-        Cli::from_iter_safe(&[
+        Cli::try_parse_from(&[
             "xh",
             "--proxy=invalid:http://127.0.0.1:8000",
             "get",
@@ -1193,7 +1166,7 @@ mod tests {
 
     #[test]
     fn proxy_invalid_proxy_url() {
-        Cli::from_iter_safe(&["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
+        Cli::try_parse_from(&["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
             .unwrap_err();
     }
 
@@ -1235,13 +1208,13 @@ mod tests {
 
     #[test]
     fn executable_name() {
-        let args = Cli::from_iter_safe(&["xhs", "example.org"]).unwrap();
+        let args = Cli::try_parse_from(&["xhs", "example.org"]).unwrap();
         assert_eq!(args.https, true);
     }
 
     #[test]
     fn executable_name_extension() {
-        let args = Cli::from_iter_safe(&["xhs.exe", "example.org"]).unwrap();
+        let args = Cli::try_parse_from(&["xhs.exe", "example.org"]).unwrap();
         assert_eq!(args.https, true);
     }
 

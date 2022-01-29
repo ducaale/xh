@@ -13,7 +13,3 @@ XH_HELP2MAN=1 help2man \
   'cargo run --all-features --'
 
 cargo run --all-features -- generate_completions completions
-
-# Subcommand check is unnecessary: https://github.com/clap-rs/clap/pull/2359
-sed 's/ -n "__fish_use_subcommand"//g' completions/xh.fish > completions/xh.fish.new
-mv completions/xh.fish.new completions/xh.fish

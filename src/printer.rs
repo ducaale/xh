@@ -643,7 +643,7 @@ mod tests {
     use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
-        let args = Cli::from_iter_safe(args).unwrap();
+        let args = Cli::try_parse_from(args).unwrap();
         let buffer =
             Buffer::new(args.download, args.output.as_deref(), is_stdout_tty, None).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
