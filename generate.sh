@@ -13,4 +13,3 @@ XH_HELP2MAN=1 help2man \
   'cargo run --all-features --'
 
 cargo run --all-features -- generate_completions completions
-
