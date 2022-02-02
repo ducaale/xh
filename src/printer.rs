@@ -95,13 +95,6 @@ impl Printer {
     }
 
     fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
-        // This could perhaps be optimized
-        // syntect processes the whole buffer at once, doing it line by line might
-        // let us start printing earlier (but can decrease quality since regexes
-        // can't look ahead)
-        // A buffered writer could improve performance, but we'd have to use a
-        // BufferedStandardStream instead of a StandardStream, which is slightly tricky
-        // (wrapping a BufWriter around a Buffer wouldn't preserve syntax coloring)
         self.get_highlighter(syntax).highlight(text)
     }
 
