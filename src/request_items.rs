@@ -297,29 +297,29 @@ impl RequestItems {
             match item {
                 RequestItem::JsonField(raw_key, value) => {
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(body, &json_path, value)?);
+                    body = nested_json::set_value(body, &json_path, value)
+                        .map_err(|e| e.with_json_path(raw_key))?
+                        .into();
                 }
                 RequestItem::JsonFieldFromFile(raw_key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(body, &json_path, value)?);
+                    body = nested_json::set_value(body, &json_path, value)
+                        .map_err(|e| e.with_json_path(raw_key))?
+                        .into()
                 }
                 RequestItem::DataField { raw_key, value, .. } => {
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(
-                        body,
-                        &json_path,
-                        Value::String(value),
-                    )?);
+                    body = nested_json::set_value(body, &json_path, Value::String(value))
+                        .map_err(|e| e.with_json_path(raw_key))?
+                        .into();
                 }
                 RequestItem::DataFieldFromFile { raw_key, value, .. } => {
                     let value = fs::read_to_string(expand_tilde(value))?;
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(
-                        body,
-                        &json_path,
-                        Value::String(value),
-                    )?);
+                    body = nested_json::set_value(body, &json_path, Value::String(value))
+                        .map_err(|e| e.with_json_path(raw_key))?
+                        .into();
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}

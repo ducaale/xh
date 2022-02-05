@@ -1,4 +1,4 @@
-use std::mem;
+use std::{fmt, mem};
 
 use anyhow::{anyhow, Result};
 use serde_json::map::Map;
@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::utils::unescape;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathComponent {
     Key(String, Option<(usize, usize)>),
     Index(Option<usize>, (usize, usize)),
@@ -112,15 +112,77 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     Ok(json_path)
 }
 
+#[derive(Debug)]
+pub struct TypeError {
+    root: Value,
+    path_component: PathComponent,
+    json_path: Option<String>,
+}
+
+impl TypeError {
+    fn new(root: Value, path_component: PathComponent) -> Self {
+        TypeError {
+            root,
+            path_component,
+            json_path: None,
+        }
+    }
+
+    pub fn with_json_path(mut self, json_path: String) -> TypeError {
+        self.json_path = Some(json_path);
+        self
+    }
+}
+
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let root_type = match self.root {
+            Value::Null => "null",
+            Value::Bool(_) => "bool",
+            Value::Number(_) => "number",
+            Value::String(_) => "string",
+            Value::Array(_) => "array",
+            Value::Object(_) => "object",
+        };
+        let (access_type, i) = match self.path_component {
+            PathComponent::Index(_, (i, _)) => ("index", i),
+            PathComponent::Key(_, Some((i, _))) => ("key", i),
+            PathComponent::Key(_, None) => unreachable!(),
+        };
+
+        if let Some(json_path) = &self.json_path {
+            write!(
+                f,
+                "Can't perform '{}' based access on '{}' which has type of '{}'",
+                access_type,
+                &json_path[..i],
+                root_type
+            )
+        } else {
+            write!(
+                f,
+                "Can't perform '{}' based access on '{}'",
+                access_type, root_type
+            )
+        }
+    }
+}
+
+impl std::error::Error for TypeError {}
+
 // TODO: add comment here
-pub fn set_value(root: Option<Value>, path: &[PathComponent], value: Value) -> Result<Value> {
+pub fn set_value(
+    root: Option<Value>,
+    path: &[PathComponent],
+    value: Value,
+) -> std::result::Result<Value, TypeError> {
     debug_assert!(!path.is_empty(), "path should not be empty");
     Ok(match root {
         Some(Value::Object(mut obj)) => {
             let key = match &path[0] {
                 PathComponent::Key(v, ..) => v.to_string(),
-                key @ PathComponent::Index(..) => {
-                    todo!("current key: {:?}, root: {:?}", key, Value::Object(obj))
+                path_component @ PathComponent::Index(..) => {
+                    return Err(TypeError::new(Value::Object(obj), path_component.clone()))
                 }
             };
             if path.len() == 1 {
@@ -134,8 +196,8 @@ pub fn set_value(root: Option<Value>, path: &[PathComponent], value: Value) -> R
         }
         Some(Value::Array(mut arr)) => {
             let index = match &path[0] {
-                index @ PathComponent::Key(..) => {
-                    todo!("current index: {:?}, root: {:?}", index, Value::Array(arr))
+                path_component @ PathComponent::Key(..) => {
+                    return Err(TypeError::new(Value::Array(arr), path_component.clone()))
                 }
                 PathComponent::Index(Some(v), ..) => *v,
                 PathComponent::Index(None, ..) => arr.len(),
@@ -153,7 +215,7 @@ pub fn set_value(root: Option<Value>, path: &[PathComponent], value: Value) -> R
             if path.len() == 1 {
                 value
             } else {
-                todo!("current ???: {:?}, root: {:?}", path[0], root);
+                return Err(TypeError::new(root, path[0].clone()));
             }
         }
         None => match path[0] {
