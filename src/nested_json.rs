@@ -144,19 +144,22 @@ impl fmt::Display for TypeError {
             Value::Array(_) => "array",
             Value::Object(_) => "object",
         };
-        let (access_type, i) = match self.path_component {
-            PathComponent::Index(_, (i, _)) => ("index", i),
-            PathComponent::Key(_, Some((i, _))) => ("key", i),
+        let (access_type, expected_root_type, (start, end)) = match self.path_component {
+            PathComponent::Index(None, delims_pos) => ("append", "array", delims_pos),
+            PathComponent::Index(Some(_), delims_pos) => ("index", "array", delims_pos),
+            PathComponent::Key(_, Some(x)) => ("key", "object", x),
             PathComponent::Key(_, None) => unreachable!(),
         };
 
         if let Some(json_path) = &self.json_path {
             write!(
                 f,
-                "Can't perform '{}' based access on '{}' which has type of '{}'",
+                "Can't perform '{}' based access on '{}' which has a type of '{}' but this operation requires a type of '{}'.\n{}",
                 access_type,
-                &json_path[..i],
-                root_type
+                &json_path[..start],
+                root_type,
+                expected_root_type,
+                format_args!("{}\n{}{}", json_path, " ".repeat(start), "^".repeat(end - start + 1))
             )
         } else {
             write!(
