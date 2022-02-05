@@ -19,7 +19,7 @@ pub enum PathComponent {
 /// Just like any `request_item`, special characters e.g `[` can be escaped with
 /// a backslash character.
 ///
-/// **TODO**: mention escpaed numbers
+/// **TODO**: mention escaped numbers
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     use PathComponent::*;
     const SPECIAL_CHARS: &str = "=@:;[]\\";
@@ -174,6 +174,7 @@ impl fmt::Display for TypeError {
 impl std::error::Error for TypeError {}
 
 // TODO: add comment here
+// TOOD: come up with a better name for this function
 pub fn set_value(
     root: Option<Value>,
     path: &[PathComponent],
@@ -262,6 +263,8 @@ mod tests {
         let root = set_value(None, &parse_path("[0][0][1]").unwrap(), 5.into());
         assert_eq!(root.unwrap(), json!([[[null, 5]]]));
     }
+
+    // TODO: add tests for type clash errors
 
     #[test]
     fn json_path_parser() {
