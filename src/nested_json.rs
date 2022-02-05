@@ -8,30 +8,20 @@ use crate::utils::unescape;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PathComponent {
-    Key(String),
-    Index(Option<usize>),
-}
-
-impl From<String> for PathComponent {
-    fn from(value: String) -> Self {
-        PathComponent::Key(value)
-    }
-}
-
-impl From<usize> for PathComponent {
-    fn from(value: usize) -> Self {
-        PathComponent::Index(Some(value))
-    }
+    Key(String, Option<(usize, usize)>),
+    Index(Option<usize>, (usize, usize)),
 }
 
 /// Parse a JSON path.
 ///
-/// A valid JSON path is `text([index])*` where `index` is either a `text`, `number` or `empty`.
+/// A valid JSON path is `literal([index])*` where `index` is either a `text`, `number` or `empty`.
 ///
 /// Just like any `request_item`, special characters e.g `[` can be escaped with
 /// a backslash character.
+///
+/// **TODO**: mention escpaed numbers
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
-    // TODO: handle escaped numbers
+    use PathComponent::*;
     const SPECIAL_CHARS: &str = "=@:;[]\\";
     let mut delims = vec![];
     let mut backslashes = 0;
@@ -48,7 +38,7 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     }
 
     if delims.is_empty() {
-        return Ok(vec![unescape(raw_json_path, SPECIAL_CHARS).into()]);
+        return Ok(vec![Key(unescape(raw_json_path, SPECIAL_CHARS), None)]);
     }
     if delims.len() % 2 != 0 {
         return Err(anyhow!("unbalanced number of brackets {:?}", raw_json_path));
@@ -84,27 +74,38 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
 
     let mut json_path = vec![];
 
+    // handle any literals found before the first `[`
     if delims[0].0 > 0 {
         // raw_json_path starts with a literal e.g `foo[x]`, `foo[5]` or `foo[]`
-        json_path.push(unescape(&raw_json_path[0..delims[0].0], SPECIAL_CHARS).into());
+        json_path.push(Key(
+            unescape(&raw_json_path[0..delims[0].0], SPECIAL_CHARS),
+            None,
+        ));
     } else {
         let key = &raw_json_path[delims[0].0 + 1..delims[1].0];
         if !key.is_empty() && key.parse::<usize>().is_err() {
             // raw_json_path starts with `[string]`
-            json_path.push("".to_string().into());
+            // TODO: throw error instead. See https://github.com/httpie/httpie/pull/1292
+            json_path.push(Key("".to_string(), None));
         }
     }
+
     for pair in delims.chunks_exact(2) {
-        let path_component = &raw_json_path[pair[0].0 + 1..pair[1].0];
+        let (start, end) = (pair[0].0, pair[1].0);
+        let path_component = &raw_json_path[(start + 1)..end];
+
         if let Ok(index) = path_component.parse::<usize>() {
-            json_path.push(index.into());
+            json_path.push(Index(Some(index), (start, end)));
         } else if path_component.is_empty() {
-            json_path.push(PathComponent::Index(None));
+            json_path.push(Index(None, (start, end)));
         } else if path_component.starts_with('\\') && path_component[1..].parse::<usize>().is_ok() {
             // No need to escape `path_component[1..]` as it was successfully parsed as a number before.
-            json_path.push(path_component[1..].to_string().into());
+            json_path.push(Key(path_component[1..].to_string(), Some((start, end))));
         } else {
-            json_path.push(unescape(path_component, SPECIAL_CHARS).into());
+            json_path.push(Key(
+                unescape(path_component, SPECIAL_CHARS),
+                Some((start, end)),
+            ));
         }
     }
 
@@ -112,50 +113,54 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
 }
 
 // TODO: add comment here
-pub fn set_value(root: Option<Value>, path: &[PathComponent], value: Value) -> Value {
+pub fn set_value(root: Option<Value>, path: &[PathComponent], value: Value) -> Result<Value> {
     debug_assert!(!path.is_empty(), "path should not be empty");
-    match root {
+    Ok(match root {
         Some(Value::Object(mut obj)) => {
             let key = match &path[0] {
-                PathComponent::Key(v) => v.to_string(),
-                PathComponent::Index(..) => todo!("throw a nicely formatted error 1"),
+                PathComponent::Key(v, ..) => v.to_string(),
+                key @ PathComponent::Index(..) => {
+                    todo!("current key: {:?}, root: {:?}", key, Value::Object(obj))
+                }
             };
             if path.len() == 1 {
                 obj.insert(key, value);
             } else {
                 let temp = obj.remove(&key);
-                let value = set_value(temp, &path[1..], value);
+                let value = set_value(temp, &path[1..], value)?;
                 obj.insert(key, value);
             };
             Value::Object(obj)
         }
         Some(Value::Array(mut arr)) => {
-            let index = match path[0] {
-                PathComponent::Key(..) => todo!("throw a nicely formatted error 2"),
-                PathComponent::Index(Some(v)) => v,
-                PathComponent::Index(None) => arr.len(),
+            let index = match &path[0] {
+                index @ PathComponent::Key(..) => {
+                    todo!("current index: {:?}, root: {:?}", index, Value::Array(arr))
+                }
+                PathComponent::Index(Some(v), ..) => *v,
+                PathComponent::Index(None, ..) => arr.len(),
             };
             if path.len() == 1 {
                 arr_insert(&mut arr, index, value);
             } else {
                 let temp = remove_from_arr(&mut arr, index);
-                let value = set_value(temp, &path[1..], value);
+                let value = set_value(temp, &path[1..], value)?;
                 arr_insert(&mut arr, index, value);
             };
             Value::Array(arr)
         }
-        Some(_) => {
+        Some(root) => {
             if path.len() == 1 {
                 value
             } else {
-                todo!("throw a nicely formatted error 3")
+                todo!("current ???: {:?}, root: {:?}", path[0], root);
             }
         }
         None => match path[0] {
-            PathComponent::Key(..) => set_value(Some(Value::Object(Map::new())), path, value),
-            PathComponent::Index(..) => set_value(Some(Value::Array(vec![])), path, value),
+            PathComponent::Key(..) => set_value(Some(Value::Object(Map::new())), path, value)?,
+            PathComponent::Index(..) => set_value(Some(Value::Array(vec![])), path, value)?,
         },
-    }
+    })
 }
 
 /// Insert value into array at any index ≥ 0
@@ -184,13 +189,13 @@ mod tests {
     #[test]
     fn deeply_nested_object() {
         let root = set_value(None, &parse_path("foo[bar][baz]").unwrap(), 5.into());
-        assert_eq!(root, json!({"foo": {"bar": {"baz": 5}}}));
+        assert_eq!(root.unwrap(), json!({"foo": {"bar": {"baz": 5}}}));
     }
 
     #[test]
     fn deeply_nested_array() {
         let root = set_value(None, &parse_path("[0][0][1]").unwrap(), 5.into());
-        assert_eq!(root, json!([[[null, 5]]]));
+        assert_eq!(root.unwrap(), json!([[[null, 5]]]));
     }
 
     #[test]
@@ -199,39 +204,55 @@ mod tests {
 
         assert_eq!(
             parse_path(r"foo\[x\][]").unwrap(),
-            &[Key(r"foo[x]".into()), Index(None)]
+            &[Key(r"foo[x]".into(), None), Index(None, (8, 9))]
         );
         assert_eq!(
             parse_path(r"foo\\[x]").unwrap(),
-            &[Key(r"foo\".into()), Key("x".into())]
+            &[Key(r"foo\".into(), None), Key("x".into(), Some((5, 7)))]
         );
         assert_eq!(
             parse_path(r"foo[ba\[ar][9]").unwrap(),
-            &[Key("foo".into()), Key("ba[ar".into()), Index(Some(9))]
+            &[
+                Key("foo".into(), None),
+                Key("ba[ar".into(), Some((3, 10))),
+                Index(Some(9), (11, 13))
+            ]
         );
         assert_eq!(
             parse_path(r"[0][foo]").unwrap(),
-            &[Index(Some(0)), Key("foo".into())]
+            &[Index(Some(0), (0, 2)), Key("foo".into(), Some((3, 7)))]
         );
         assert_eq!(
             parse_path(r"[][foo]").unwrap(),
-            &[Index(None), Key("foo".into())]
+            &[Index(None, (0, 1)), Key("foo".into(), Some((2, 6)))]
         );
         assert_eq!(
             parse_path(r"[x][0]").unwrap(),
-            &[Key("".into()), Key("x".into()), Index(Some(0))]
+            &[
+                Key("".into(), None),
+                Key("x".into(), Some((0, 2))),
+                Index(Some(0), (3, 5))
+            ]
         );
         assert_eq!(
             parse_path(r"[x][\0]").unwrap(),
-            &[Key("".into()), Key("x".into()), Key("0".into())]
+            &[
+                Key("".into(), None),
+                Key("x".into(), Some((0, 2))),
+                Key("0".into(), Some((3, 6)))
+            ]
         );
         assert_eq!(
             parse_path(r"[x][\\0]").unwrap(),
-            &[Key("".into()), Key("x".into()), Key(r"\0".into())]
+            &[
+                Key("".into(), None),
+                Key("x".into(), Some((0, 2))),
+                Key(r"\0".into(), Some((3, 7))),
+            ]
         );
         assert_eq!(
             parse_path(r"5[x]").unwrap(),
-            &[Key("5".into()), Key("x".into())]
+            &[Key("5".into(), None), Key("x".into(), Some((1, 3)))]
         );
 
         assert!(parse_path(r"x[y]h[z]").is_err());

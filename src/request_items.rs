@@ -297,12 +297,12 @@ impl RequestItems {
             match item {
                 RequestItem::JsonField(raw_key, value) => {
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(body, &json_path, value));
+                    body = Some(nested_json::set_value(body, &json_path, value)?);
                 }
                 RequestItem::JsonFieldFromFile(raw_key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
                     let json_path = nested_json::parse_path(&raw_key)?;
-                    body = Some(nested_json::set_value(body, &json_path, value));
+                    body = Some(nested_json::set_value(body, &json_path, value)?);
                 }
                 RequestItem::DataField { raw_key, value, .. } => {
                     let json_path = nested_json::parse_path(&raw_key)?;
@@ -310,7 +310,7 @@ impl RequestItems {
                         body,
                         &json_path,
                         Value::String(value),
-                    ));
+                    )?);
                 }
                 RequestItem::DataFieldFromFile { raw_key, value, .. } => {
                     let value = fs::read_to_string(expand_tilde(value))?;
@@ -319,7 +319,7 @@ impl RequestItems {
                         body,
                         &json_path,
                         Value::String(value),
-                    ));
+                    )?);
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}
