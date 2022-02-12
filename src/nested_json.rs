@@ -216,11 +216,7 @@ pub fn set_value(
             Value::Array(arr)
         }
         Some(root) => {
-            if path.len() == 1 {
-                value
-            } else {
-                return Err(TypeError::new(root, path[0].clone()));
-            }
+            return Err(TypeError::new(root, path[0].clone()));
         }
         None => match path[0] {
             PathComponent::Key(..) => set_value(Some(Value::Object(Map::new())), path, value)?,
