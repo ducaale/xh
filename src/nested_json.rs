@@ -8,7 +8,7 @@ use crate::utils::unescape;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathComponent {
-    Key(String, Option<(usize, usize)>),
+    Key(String, (usize, usize)),
     Index(Option<usize>, (usize, usize)),
 }
 
@@ -38,10 +38,13 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     }
 
     if delims.is_empty() {
-        return Ok(vec![Key(unescape(raw_json_path, SPECIAL_CHARS), None)]);
+        return Ok(vec![Key(
+            unescape(raw_json_path, SPECIAL_CHARS),
+            (0, raw_json_path.len()),
+        )]);
     }
     if delims.len() % 2 != 0 {
-        return Err(anyhow!("unbalanced number of brackets {:?}", raw_json_path));
+        return Err(anyhow!("Unbalanced number of brackets {:?}", raw_json_path));
     }
     let mut prev_closing_bracket = None;
     for pair in delims.chunks_exact(2) {
@@ -49,24 +52,24 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
             let current_opening_bracket = pair[0].0;
             if current_opening_bracket - prev_closing_bracket > 1 {
                 return Err(anyhow!(
-                    "unexpected string after closing bracket at index {}",
+                    "Unexpected string after closing bracket at index {}",
                     prev_closing_bracket + 1
                 ));
             }
         }
         if pair[0].1 == ']' {
-            return Err(anyhow!("unexpected closing bracket at index {}", pair[0].0));
+            return Err(anyhow!("Unexpected closing bracket at index {}", pair[0].0));
         }
         if pair[1].1 == '[' {
-            return Err(anyhow!("unexpected opening bracket at index {}", pair[1].0));
+            return Err(anyhow!("Unexpected opening bracket at index {}", pair[1].0));
         }
         prev_closing_bracket = Some(pair[1].0);
     }
 
     if let Some(last_closing_bracket) = prev_closing_bracket {
-        if last_closing_bracket != raw_json_path.bytes().count() - 1 {
+        if last_closing_bracket != raw_json_path.len() - 1 {
             return Err(anyhow!(
-                "unexpected string after closing bracket at index {}",
+                "Unexpected string after closing bracket at index {}",
                 last_closing_bracket + 1
             ));
         }
@@ -79,20 +82,21 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         // raw_json_path starts with a literal e.g `foo[x]`, `foo[5]` or `foo[]`
         json_path.push(Key(
             unescape(&raw_json_path[0..delims[0].0], SPECIAL_CHARS),
-            None,
+            (0, delims[0].0),
         ));
     } else {
         let key = &raw_json_path[delims[0].0 + 1..delims[1].0];
         if !key.is_empty() && key.parse::<usize>().is_err() {
             // raw_json_path starts with `[string]`
             // TODO: throw error instead. See https://github.com/httpie/httpie/pull/1292
-            json_path.push(Key("".to_string(), None));
+            // json_path.push(Key("".to_string(), None));
+            todo!("throw error");
         }
     }
 
     for pair in delims.chunks_exact(2) {
-        let (start, end) = (pair[0].0, pair[1].0);
-        let path_component = &raw_json_path[(start + 1)..end];
+        let (start, end) = (pair[0].0, pair[1].0 + 1);
+        let path_component = &raw_json_path[(start + 1)..(end - 1)];
 
         if let Ok(index) = path_component.parse::<usize>() {
             json_path.push(Index(Some(index), (start, end)));
@@ -100,12 +104,9 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
             json_path.push(Index(None, (start, end)));
         } else if path_component.starts_with('\\') && path_component[1..].parse::<usize>().is_ok() {
             // No need to escape `path_component[1..]` as it was successfully parsed as a number before.
-            json_path.push(Key(path_component[1..].to_string(), Some((start, end))));
+            json_path.push(Key(path_component[1..].to_string(), (start, end)));
         } else {
-            json_path.push(Key(
-                unescape(path_component, SPECIAL_CHARS),
-                Some((start, end)),
-            ));
+            json_path.push(Key(unescape(path_component, SPECIAL_CHARS), (start, end)));
         }
     }
 
@@ -145,10 +146,9 @@ impl fmt::Display for TypeError {
             Value::Object(_) => "object",
         };
         let (access_type, expected_root_type, (start, end)) = match self.path_component {
-            PathComponent::Index(None, delims_pos) => ("append", "array", delims_pos),
-            PathComponent::Index(Some(_), delims_pos) => ("index", "array", delims_pos),
-            PathComponent::Key(_, Some(x)) => ("key", "object", x),
-            PathComponent::Key(_, None) => unreachable!(),
+            PathComponent::Index(None, pos) => ("append", "array", pos),
+            PathComponent::Index(Some(_), pos) => ("index", "array", pos),
+            PathComponent::Key(_, pos) => ("key", "object", pos),
         };
 
         if let Some(json_path) = &self.json_path {
@@ -159,7 +159,7 @@ impl fmt::Display for TypeError {
                 &json_path[..start],
                 root_type,
                 expected_root_type,
-                format_args!("{}\n{}{}", json_path, " ".repeat(start), "^".repeat(end - start + 1))
+                format_args!("{}\n{}{}", json_path, " ".repeat(start), "^".repeat(end - start))
             )
         } else {
             write!(
@@ -261,6 +261,7 @@ mod tests {
     }
 
     // TODO: add tests for type clash errors
+    // 1. xh ':' '[1]=5' '[1][foo]=5' --offline
 
     #[test]
     fn json_path_parser() {
@@ -268,55 +269,55 @@ mod tests {
 
         assert_eq!(
             parse_path(r"foo\[x\][]").unwrap(),
-            &[Key(r"foo[x]".into(), None), Index(None, (8, 9))]
+            &[Key(r"foo[x]".into(), (0, 8)), Index(None, (8, 10))]
         );
         assert_eq!(
             parse_path(r"foo\\[x]").unwrap(),
-            &[Key(r"foo\".into(), None), Key("x".into(), Some((5, 7)))]
+            &[Key(r"foo\".into(), (0, 5)), Key("x".into(), (5, 8))]
         );
         assert_eq!(
             parse_path(r"foo[ba\[ar][9]").unwrap(),
             &[
-                Key("foo".into(), None),
-                Key("ba[ar".into(), Some((3, 10))),
-                Index(Some(9), (11, 13))
+                Key("foo".into(), (0, 3)),
+                Key("ba[ar".into(), (3, 11)),
+                Index(Some(9), (11, 14))
             ]
         );
         assert_eq!(
             parse_path(r"[0][foo]").unwrap(),
-            &[Index(Some(0), (0, 2)), Key("foo".into(), Some((3, 7)))]
+            &[Index(Some(0), (0, 3)), Key("foo".into(), (3, 8))]
         );
         assert_eq!(
             parse_path(r"[][foo]").unwrap(),
-            &[Index(None, (0, 1)), Key("foo".into(), Some((2, 6)))]
+            &[Index(None, (0, 2)), Key("foo".into(), (2, 7))]
         );
-        assert_eq!(
-            parse_path(r"[x][0]").unwrap(),
-            &[
-                Key("".into(), None),
-                Key("x".into(), Some((0, 2))),
-                Index(Some(0), (3, 5))
-            ]
-        );
-        assert_eq!(
-            parse_path(r"[x][\0]").unwrap(),
-            &[
-                Key("".into(), None),
-                Key("x".into(), Some((0, 2))),
-                Key("0".into(), Some((3, 6)))
-            ]
-        );
-        assert_eq!(
-            parse_path(r"[x][\\0]").unwrap(),
-            &[
-                Key("".into(), None),
-                Key("x".into(), Some((0, 2))),
-                Key(r"\0".into(), Some((3, 7))),
-            ]
-        );
+        // assert_eq!(
+        //     parse_path(r"[x][0]").unwrap(),
+        //     &[
+        //         Key("".into(), None),
+        //         Key("x".into(), (0, 2)),
+        //         Index(Some(0), (3, 5))
+        //     ]
+        // );
+        // assert_eq!(
+        //     parse_path(r"[x][\0]").unwrap(),
+        //     &[
+        //         Key("".into(), None),
+        //         Key("x".into(), (0, 2)),
+        //         Key("0".into(), (3, 6))
+        //     ]
+        // );
+        // assert_eq!(
+        //     parse_path(r"[x][\\0]").unwrap(),
+        //     &[
+        //         Key("".into(), None),
+        //         Key("x".into(), (0, 2)),
+        //         Key(r"\0".into(), (3, 7)),
+        //     ]
+        // );
         assert_eq!(
             parse_path(r"5[x]").unwrap(),
-            &[Key("5".into(), None), Key("x".into(), Some((1, 3)))]
+            &[Key("5".into(), (0, 1)), Key("x".into(), (1, 4))]
         );
 
         assert!(parse_path(r"x[y]h[z]").is_err());
