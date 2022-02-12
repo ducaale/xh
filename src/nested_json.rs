@@ -14,12 +14,20 @@ pub enum PathComponent {
 
 /// Parse a JSON path.
 ///
-/// A valid JSON path is `literal([index])*` where `index` is either a `text`, `number` or `empty`.
+/// ```
+///   start: root_path path*
+///   root_path: (literal | index_path | append_path)
+///   literal: TEXT | NUMBER
 ///
-/// Just like any `request_item`, special characters e.g `[` can be escaped with
-/// a backslash character.
+///   path: key_path | index_path | append_path
+///   key_path: LEFT_BRACKET TEXT RIGHT_BRACKET
+///   index_path: LEFT_BRACKET NUMBER RIGHT_BRACKET
+///   append_path: LEFT_BRACKET RIGHT_BRACKET
+/// ```
 ///
-/// **TODO**: mention escaped numbers
+/// A backslash character can be used to:
+/// - Escape characters with especial meaning such as `\`, `[` and `]`.
+/// - Treat numbers as a key rather than as an index.
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     use PathComponent::*;
     const SPECIAL_CHARS: &str = "=@:;[]\\";
@@ -44,6 +52,8 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         )]);
     }
     if delims.len() % 2 != 0 {
+        // TODO: improve all error messages in this function by pointing out which
+        // request_item failed
         return Err(anyhow!("Unbalanced number of brackets {:?}", raw_json_path));
     }
     let mut prev_closing_bracket = None;
@@ -88,9 +98,10 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         let key = &raw_json_path[delims[0].0 + 1..delims[1].0];
         if !key.is_empty() && key.parse::<usize>().is_err() {
             // raw_json_path starts with `[string]`
-            // TODO: throw error instead. See https://github.com/httpie/httpie/pull/1292
-            // json_path.push(Key("".to_string(), None));
-            todo!("throw error");
+            return Err(anyhow!(
+                "Unexpected string after opening bracket at index {}",
+                1
+            ));
         }
     }
 
@@ -159,6 +170,9 @@ impl fmt::Display for TypeError {
                 &json_path[..start],
                 root_type,
                 expected_root_type,
+                // TODO: reuse this logic in parse_path
+                // TODO: take into account the visible width of unicode characters.
+                // See https://www.reddit.com/r/rust/comments/gpw2ra/how_is_the_rust_compiler_able_to_tell_the_visible/
                 format_args!("{}\n{}{}", json_path, " ".repeat(start), "^".repeat(end - start))
             )
         } else {
@@ -291,35 +305,24 @@ mod tests {
             parse_path(r"[][foo]").unwrap(),
             &[Index(None, (0, 2)), Key("foo".into(), (2, 7))]
         );
-        // assert_eq!(
-        //     parse_path(r"[x][0]").unwrap(),
-        //     &[
-        //         Key("".into(), None),
-        //         Key("x".into(), (0, 2)),
-        //         Index(Some(0), (3, 5))
-        //     ]
-        // );
-        // assert_eq!(
-        //     parse_path(r"[x][\0]").unwrap(),
-        //     &[
-        //         Key("".into(), None),
-        //         Key("x".into(), (0, 2)),
-        //         Key("0".into(), (3, 6))
-        //     ]
-        // );
-        // assert_eq!(
-        //     parse_path(r"[x][\\0]").unwrap(),
-        //     &[
-        //         Key("".into(), None),
-        //         Key("x".into(), (0, 2)),
-        //         Key(r"\0".into(), (3, 7)),
-        //     ]
-        // );
+        assert_eq!(
+            parse_path(r"foo[0]").unwrap(),
+            &[Key("foo".into(), (0, 3)), Index(Some(0), (3, 6))]
+        );
+        assert_eq!(
+            parse_path(r"foo[\0]").unwrap(),
+            &[Key("foo".into(), (0, 3)), Key("0".into(), (3, 7))]
+        );
+        assert_eq!(
+            parse_path(r"foo[\\0]").unwrap(),
+            &[Key("foo".into(), (0, 3)), Key(r"\0".into(), (3, 8)),]
+        );
         assert_eq!(
             parse_path(r"5[x]").unwrap(),
             &[Key("5".into(), (0, 1)), Key("x".into(), (1, 4))]
         );
 
+        assert!(parse_path(r"[y][5]").is_err());
         assert!(parse_path(r"x[y]h[z]").is_err());
         assert!(parse_path(r"x[y]h").is_err());
         assert!(parse_path(r"[x][y]h").is_err());
