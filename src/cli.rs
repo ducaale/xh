@@ -628,7 +628,9 @@ fn construct_url(
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if url.starts_with(':') {
+    let mut url: Url = if url.starts_with("://") {
+        format!("{}{}", default_scheme, &url[3..]).parse()?
+    } else if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
     } else if !regex!("[a-zA-Z0-9]://.+").is_match(url) {
         format!("{}{}", default_scheme, url).parse()?
