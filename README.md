@@ -37,6 +37,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Linux & macOS    | Homebrew   | `brew install xh`       |
 | macOS            | MacPorts   | `sudo port install xh`  |
 | Windows          | Scoop      | `scoop install xh`      |
+| Windows          | Chocolatey | `choco install xh`      |
 
 \* Make sure that you have Rust 1.54 or later installed
 
