@@ -628,8 +628,11 @@ fn construct_url(
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if url.starts_with("://") {
-        format!("{}{}", default_scheme, &url[3..]).parse()?
+    let mut url: Url = if let Some(url) = url.strip_prefix("://") {
+        // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
+        // by simply adding a space before `://`.
+        // Example: https://example.org -> https ://example.org
+        format!("{}{}", default_scheme, url).parse()?
     } else if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
     } else if !regex!("[a-zA-Z0-9]://.+").is_match(url) {
@@ -1095,6 +1098,39 @@ mod tests {
         assert_eq!(cli.method, Some(Method::POST));
         assert_eq!(cli.url.to_string(), "http://example.org/foo%20bar");
         assert!(cli.request_items.items.is_empty());
+    }
+
+    #[test]
+    fn url_with_leading_double_slash_colon() {
+        let cli = parse(&["://example.org"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://example.org/");
+    }
+
+    #[test]
+    fn url_with_leading_colon() {
+        let cli = parse(&[":3000"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://localhost:3000/");
+
+        let cli = parse(&[":3000/users"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://localhost:3000/users");
+
+        let cli = parse(&[":"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://localhost/");
+
+        let cli = parse(&[":/users"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://localhost/users");
+    }
+
+    #[test]
+    fn url_with_scheme() {
+        let cli = parse(&["https://example.org"]).unwrap();
+        assert_eq!(cli.url.to_string(), "https://example.org/");
+    }
+
+    #[test]
+    fn url_without_scheme() {
+        let cli = parse(&["example.org"]).unwrap();
+        assert_eq!(cli.url.to_string(), "http://example.org/");
     }
 
     #[test]
