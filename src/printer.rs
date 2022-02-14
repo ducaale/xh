@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -10,7 +10,6 @@ use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
 };
 use reqwest::Version;
-use termcolor::WriteColor;
 use url::Url;
 
 use crate::{
@@ -50,19 +49,57 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
         }
     }
 
-    fn read_line(&mut self) -> io::Result<Option<&[u8]>> {
+    /// Return at least one complete line.
+    ///
+    /// Compared to returning exactly one line, this gives you more information
+    /// about when data comes in. It's better to flush after each `read_lines`
+    /// call than to flush after each individual line.
+    ///
+    /// We only work with complete lines to accommodate the syntax highlighting
+    /// and the binary data (null byte) detection. HTTPie processes exactly
+    /// one line at a time.
+    ///
+    /// We work off the assumption that if the response contains a null byte
+    /// then none of it should be shown, and therefore the earlier we detect
+    /// the null byte, the better. This basically matches the non-streaming
+    /// behavior. But if it takes a while for the first null byte to show up
+    /// then it's unpredictable when the plain text output is cut off by the
+    /// binary suppressor. HTTPie is more consistent in this regard.
+    fn read_lines(&mut self) -> io::Result<Option<&[u8]>> {
         self.buffer.clear();
-        self.reader.read_until(b'\n', &mut self.buffer)?;
-        if self.buffer.is_empty() {
-            return Ok(None);
-        }
-        if self.checked && self.buffer.contains(&b'\0') {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Found binary data",
-            ))
-        } else {
-            Ok(Some(&self.buffer))
+        loop {
+            let buf = match self.reader.fill_buf() {
+                Ok(buf) => buf,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            if self.checked && buf.contains(&b'\0') {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Found binary data",
+                ));
+            } else if buf.is_empty() {
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Ok(Some(&self.buffer));
+                }
+            } else if let Some(ind) = memchr::memrchr(b'\n', buf) {
+                // Potential optimization: return a slice of buf instead of copying.
+                // (We'd have to delay the call to .consume() until the next call.)
+                // (There is a weird borrow checker problem.)
+                self.buffer.extend_from_slice(&buf[..=ind]);
+                self.reader.consume(ind + 1);
+                return Ok(Some(&self.buffer));
+            } else {
+                self.buffer.extend_from_slice(buf);
+                let n = buf.len(); // borrow checker
+                self.reader.consume(n);
+                // It would be nice to return early if self.buffer is growing very large
+                // or if it's been a long time since the last read. But especially the
+                // second is hard to implement, and we'd want to pair this with flushing
+                // the output buffer. (HTTPie does nothing of this kind.)
+            }
         }
     }
 }
@@ -83,7 +120,7 @@ impl Printer {
         Printer {
             indent_json: pretty.format(),
             sort_headers: pretty.format(),
-            color: pretty.color() && (cfg!(test) || buffer.supports_color()),
+            color: pretty.color(),
             stream,
             theme,
             buffer,
@@ -127,9 +164,7 @@ impl Printer {
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            let mut out = BufWriter::new(&mut self.buffer);
-            get_json_formatter().format_buf(text.as_bytes(), &mut out)?;
-            out.flush()
+            get_json_formatter().format_buf(text.as_bytes(), &mut self.buffer)
         }
     }
 
@@ -152,11 +187,12 @@ impl Printer {
 
     fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
         if !self.buffer.is_terminal() {
-            return copy_largebuf(reader, &mut self.buffer);
+            return copy_largebuf(reader, &mut self.buffer, true);
         }
         let mut guard = BinaryGuard::new(reader, true);
-        while let Some(line) = guard.read_line()? {
-            self.buffer.print(line)?;
+        while let Some(lines) = guard.read_lines()? {
+            self.buffer.write_all(lines)?;
+            self.buffer.flush()?;
         }
         Ok(())
     }
@@ -168,8 +204,11 @@ impl Printer {
     ) -> io::Result<()> {
         let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
         let mut highlighter = self.get_highlighter(syntax);
-        while let Some(line) = guard.read_line()? {
-            highlighter.highlight_bytes(line)?;
+        while let Some(lines) = guard.read_lines()? {
+            for line in lines.split_inclusive(|&b| b == b'\n') {
+                highlighter.highlight_bytes(line)?;
+            }
+            highlighter.flush()?;
         }
         Ok(())
     }
@@ -195,20 +234,35 @@ impl Printer {
             let mut formatter = get_json_formatter();
             let mut highlighter = self.get_highlighter("json");
             let mut buf = Vec::new();
-            while let Some(line) = guard.read_line()? {
-                formatter.format_buf(line, &mut buf)?;
-                highlighter.highlight_bytes(&buf)?;
+            while let Some(lines) = guard.read_lines()? {
+                formatter.format_buf(lines, &mut buf)?;
+                for line in buf.split_inclusive(|&b| b == b'\n') {
+                    highlighter.highlight_bytes(line)?;
+                }
+                highlighter.flush()?;
                 buf.clear();
             }
             Ok(())
         } else {
             let mut formatter = get_json_formatter();
             if !self.buffer.is_terminal() {
-                return formatter.format_stream_unbuffered(stream, &mut self.buffer);
+                let mut buf = vec![0; BUFFER_SIZE];
+                loop {
+                    match stream.read(&mut buf) {
+                        Ok(0) => return Ok(()),
+                        Ok(n) => {
+                            formatter.format_buf(&buf[0..n], &mut self.buffer)?;
+                            self.buffer.flush()?;
+                        }
+                        Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                        Err(e) => return Err(e),
+                    }
+                }
             }
             let mut guard = BinaryGuard::new(stream, true);
-            while let Some(line) = guard.read_line()? {
-                formatter.format_buf(line, &mut self.buffer)?;
+            while let Some(lines) = guard.read_lines()? {
+                formatter.format_buf(lines, &mut self.buffer)?;
+                self.buffer.flush()?;
             }
             Ok(())
         }
@@ -280,6 +334,7 @@ impl Printer {
 
     pub fn print_separator(&mut self) -> io::Result<()> {
         self.buffer.print("\n")?;
+        self.buffer.flush()?;
         Ok(())
     }
 
@@ -331,6 +386,7 @@ impl Printer {
 
         self.print_headers(&(request_line + &headers))?;
         self.buffer.print("\n\n")?;
+        self.buffer.flush()?;
         Ok(())
     }
 
@@ -344,6 +400,7 @@ impl Printer {
 
         self.print_headers(&(status_line + &headers))?;
         self.buffer.print("\n\n")?;
+        self.buffer.flush()?;
         Ok(())
     }
 
@@ -359,6 +416,7 @@ impl Printer {
             }
             // Breathing room between request and response
             self.buffer.print("\n")?;
+            self.buffer.flush()?;
         }
         Ok(())
     }
@@ -400,7 +458,7 @@ impl Printer {
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
-                copy_largebuf(&mut response, &mut self.buffer)?;
+                copy_largebuf(&mut response, &mut self.buffer, true)?;
             } else {
                 let body = response.bytes()?;
                 self.buffer.print(&body)?;
@@ -431,6 +489,7 @@ impl Printer {
             self.print_body_text(content_type, &text)?;
             self.buffer.print("\n")?;
         }
+        self.buffer.flush()?;
         Ok(())
     }
 }
@@ -633,12 +692,10 @@ mod tests {
     use super::*;
     use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
-    use assert_matches::assert_matches;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
-        let buffer =
-            Buffer::new(args.download, args.output.as_deref(), is_stdout_tty, None).unwrap();
+        let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
         Printer::new(pretty, args.style, false, buffer)
     }
@@ -654,14 +711,14 @@ mod tests {
     fn terminal_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stdout(..));
+        assert!(p.buffer.is_stdout());
     }
 
     #[test]
     fn redirect_mode() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get"], false);
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::Redirect(..));
+        assert!(p.buffer.is_redirect());
     }
 
     #[test]
@@ -669,7 +726,7 @@ mod tests {
         let output = temp_path();
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-o", output], true);
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::File(_));
+        assert!(p.buffer.is_file());
     }
 
     #[test]
@@ -680,21 +737,21 @@ mod tests {
             false,
         );
         assert_eq!(p.color, false);
-        assert_matches!(p.buffer, Buffer::File(_));
+        assert!(p.buffer.is_file());
     }
 
     #[test]
     fn terminal_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], true);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr(..));
+        assert!(p.buffer.is_stderr());
     }
 
     #[test]
     fn redirect_mode_download() {
         let p = run_cmd(vec_of_strings!["xh", "httpbin.org/get", "-d"], false);
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr(..));
+        assert!(p.buffer.is_stderr());
     }
 
     #[test]
@@ -705,7 +762,7 @@ mod tests {
             true,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr(..));
+        assert!(p.buffer.is_stderr());
     }
 
     #[test]
@@ -716,7 +773,7 @@ mod tests {
             false,
         );
         assert_eq!(p.color, true);
-        assert_matches!(p.buffer, Buffer::Stderr(..));
+        assert!(p.buffer.is_stderr());
     }
 
     #[test]
@@ -727,7 +784,7 @@ mod tests {
             theme: Theme::auto,
             sort_headers: false,
             stream: false,
-            buffer: Buffer::new(false, None, false, Some(Pretty::none)).unwrap(),
+            buffer: Buffer::new(false, None, false).unwrap(),
         };
 
         let mut headers = HeaderMap::new();

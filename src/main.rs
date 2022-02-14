@@ -439,7 +439,6 @@ fn run(args: Cli) -> Result<i32> {
         args.download,
         args.output.as_deref(),
         atty::is(Stream::Stdout) || test_pretend_term(),
-        args.pretty,
     )?;
     let is_output_redirected = buffer.is_redirect();
     let print = match args.print {

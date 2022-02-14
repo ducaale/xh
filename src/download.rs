@@ -245,7 +245,7 @@ pub fn download_file(
 
     match pb {
         Some(ref pb) => {
-            copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
+            copy_largebuf(&mut pb.wrap_read(response), &mut buffer, false)?;
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
             let time_taken = starting_time.elapsed();
@@ -261,7 +261,7 @@ pub fn download_file(
             }
         }
         None => {
-            copy_largebuf(&mut response, &mut buffer)?;
+            copy_largebuf(&mut response, &mut buffer, false)?;
         }
     }
 

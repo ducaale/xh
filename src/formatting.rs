@@ -67,6 +67,10 @@ impl<'a> Highlighter<'a> {
     pub fn highlight_bytes(&mut self, line: &[u8]) -> io::Result<()> {
         self.highlight(&String::from_utf8_lossy(line))
     }
+
+    pub fn flush(&mut self) -> io::Result<()> {
+        self.out.flush()
+    }
 }
 
 impl Drop for Highlighter<'_> {

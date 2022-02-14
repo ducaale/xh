@@ -96,24 +96,36 @@ macro_rules! regex {
     }};
 }
 
-pub const BUFFER_SIZE: usize = 64 * 1024;
+/// When downloading a large file from a local nginx, it seems that 128KiB
+/// is a bit faster than 64KiB but bumping it up to 256KiB doesn't help any
+/// more.
+/// When increasing the buffer size all the way to 1MiB I observe 408KiB as
+/// the largest read size. But this doesn't translate to a shorter runtime.
+pub const BUFFER_SIZE: usize = 128 * 1024;
 
 /// io::copy, but with a larger buffer size.
 ///
 /// io::copy's buffer is just 8 KiB. This noticeably slows down fast
 /// large downloads, especially with a progress bar.
 ///
-/// This one's size of 64 KiB was chosen because that makes it competitive
-/// with the old implementation, which repeatedly called .chunk().await.
-///
-/// Tests were done by running `ht -o /dev/null [-d]` on a two-gigabyte file
-/// served locally by `python3 -m http.server`. Results may vary.
-pub fn copy_largebuf(reader: &mut impl io::Read, writer: &mut impl Write) -> io::Result<()> {
+/// If `flush` is true, the writer will be flushed after each write. This is
+/// appropriate for streaming output, where you don't want a delay between data
+/// arriving and being shown.
+pub fn copy_largebuf(
+    reader: &mut impl io::Read,
+    writer: &mut impl Write,
+    flush: bool,
+) -> io::Result<()> {
     let mut buf = vec![0; BUFFER_SIZE];
     loop {
         match reader.read(&mut buf) {
             Ok(0) => return Ok(()),
-            Ok(len) => writer.write_all(&buf[..len])?,
+            Ok(len) => {
+                writer.write_all(&buf[..len])?;
+                if flush {
+                    writer.flush()?;
+                }
+            }
             Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
             Err(e) => return Err(e),
         }
