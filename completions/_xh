@@ -15,34 +15,37 @@ _xh() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'--raw=[Pass raw request data without extra processing]' \
-'--pretty=[Controls output processing]: :(all colors format none)' \
-'-s+[Output coloring style]: :(auto solarized monokai fruity)' \
-'--style=[Output coloring style]: :(auto solarized monokai fruity)' \
-'--response-charset=[Override the response encoding for terminal display purposes]' \
-'--response-mime=[Override the response mime type for coloring and formatting for the terminal]' \
-'-p+[String specifying what the output should contain]' \
-'--print=[String specifying what the output should contain]' \
-'-P+[The same as --print but applies only to intermediary requests/responses]' \
-'--history-print=[The same as --print but applies only to intermediary requests/responses]' \
-'-o+[Save output to FILE instead of stdout]' \
-'--output=[Save output to FILE instead of stdout]' \
-'--session=[Create, or reuse and update a session]' \
-'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]' \
-'-A+[Specify the auth mechanism]: :(basic bearer digest)' \
-'--auth-type=[Specify the auth mechanism]: :(basic bearer digest)' \
-'-a+[Authenticate as USER with PASS or with TOKEN]' \
-'--auth=[Authenticate as USER with PASS or with TOKEN]' \
-'--bearer=[Authenticate with a bearer token]' \
-'--max-redirects=[Number of redirects to follow, only respected if `follow` is set]' \
-'--timeout=[Connection timeout of the request]' \
-'*--proxy=[Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`]' \
-'--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]' \
-'--cert=[Use a client side certificate for SSL]' \
-'--cert-key=[A private key file to use with --cert]' \
-'--ssl=[Force a particular TLS version]: :(auto ssl2.3 tls1 tls1.1 tls1.2 tls1.3)' \
-'--default-scheme=[The default scheme to use if not specified in the URL]' \
-'--http-version=[HTTP version to use]: :(1 1.0 1.1 2)' \
+'--raw=[Pass raw request data without extra processing]:RAW: ' \
+'--pretty=[Controls output processing]:STYLE:(all colors format none)' \
+'-s+[Output coloring style]:THEME:(auto solarized monokai fruity)' \
+'--style=[Output coloring style]:THEME:(auto solarized monokai fruity)' \
+'--response-charset=[Override the response encoding for terminal display purposes]:ENCODING: ' \
+'--response-mime=[Override the response mime type for coloring and formatting for the terminal]:MIME_TYPE: ' \
+'-p+[String specifying what the output should contain]:FORMAT: ' \
+'--print=[String specifying what the output should contain]:FORMAT: ' \
+'-P+[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
+'--history-print=[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
+'-o+[Save output to FILE instead of stdout]:FILE: ' \
+'--output=[Save output to FILE instead of stdout]:FILE: ' \
+'--session=[Create, or reuse and update a session]:FILE: ' \
+'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE: ' \
+'-A+[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
+'--auth-type=[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
+'-a+[Authenticate as USER with PASS or with TOKEN]:USER[:PASS] | TOKEN: ' \
+'--auth=[Authenticate as USER with PASS or with TOKEN]:USER[:PASS] | TOKEN: ' \
+'--bearer=[Authenticate with a bearer token]:TOKEN: ' \
+'--max-redirects=[Number of redirects to follow, only respected if `follow` is set]:NUM: ' \
+'--timeout=[Connection timeout of the request]:SEC: ' \
+'*--proxy=[Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`]:PROTOCOL:URL: ' \
+'--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY: ' \
+'--cert=[Use a client side certificate for SSL]:FILE: ' \
+'--cert-key=[A private key file to use with --cert]:FILE: ' \
+'--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
+'--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME: ' \
+'--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2)' \
+'--help[Print help information]' \
+'-V[Print version information]' \
+'--version[Print version information]' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
@@ -75,62 +78,58 @@ _xh() {
 '--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a `curl` command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
-'--no-all[]' \
-'--no-auth[]' \
-'--no-auth-type[]' \
-'--no-bearer[]' \
-'--no-body[]' \
-'--no-cert[]' \
-'--no-cert-key[]' \
-'--no-check-status[]' \
-'--no-continue[]' \
-'--no-curl[]' \
-'--no-curl-long[]' \
-'--no-default-scheme[]' \
-'--no-download[]' \
-'--no-follow[]' \
-'--no-form[]' \
-'--no-headers[]' \
-'--no-history-print[]' \
-'--no-http-version[]' \
-'--no-https[]' \
-'--no-ignore-netrc[]' \
-'--no-ignore-stdin[]' \
+'--no-help[]' \
+'--no-version[]' \
 '--no-json[]' \
-'--no-max-redirects[]' \
+'--no-form[]' \
 '--no-multipart[]' \
-'--no-native-tls[]' \
-'--no-offline[]' \
-'--no-output[]' \
-'--no-pretty[]' \
-'--no-print[]' \
-'--no-proxy[]' \
-'--no-quiet[]' \
 '--no-raw[]' \
+'--no-pretty[]' \
+'--no-style[]' \
 '--no-response-charset[]' \
 '--no-response-mime[]' \
+'--no-print[]' \
+'--no-headers[]' \
+'--no-body[]' \
+'--no-verbose[]' \
+'--no-all[]' \
+'--no-history-print[]' \
+'--no-quiet[]' \
+'--no-stream[]' \
+'--no-output[]' \
+'--no-download[]' \
+'--no-continue[]' \
 '--no-session[]' \
 '--no-session-read-only[]' \
-'--no-ssl[]' \
-'--no-stream[]' \
-'--no-style[]' \
+'--no-auth-type[]' \
+'--no-auth[]' \
+'--no-bearer[]' \
+'--no-ignore-netrc[]' \
+'--no-offline[]' \
+'--no-check-status[]' \
+'--no-follow[]' \
+'--no-max-redirects[]' \
 '--no-timeout[]' \
-'--no-verbose[]' \
+'--no-proxy[]' \
 '--no-verify[]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
-':raw-method-or-url -- The request URL, preceded by an optional HTTP method:_files' \
-'::raw-rest-args -- Optional key-value pairs to be included in the request:_files' \
+'--no-cert[]' \
+'--no-cert-key[]' \
+'--no-ssl[]' \
+'--no-native-tls[]' \
+'--no-default-scheme[]' \
+'--no-https[]' \
+'--no-http-version[]' \
+'--no-ignore-stdin[]' \
+'--no-curl[]' \
+'--no-curl-long[]' \
+':raw-method-or-url -- The request URL, preceded by an optional HTTP method:' \
+'*::raw-rest-args -- Optional key-value pairs to be included in the request:' \
 && ret=0
-    
 }
 
 (( $+functions[_xh_commands] )) ||
 _xh_commands() {
-    local commands; commands=(
-        
-    )
+    local commands; commands=()
     _describe -t commands 'xh commands' commands "$@"
 }
 

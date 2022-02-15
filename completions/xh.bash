@@ -9,10 +9,9 @@ _xh() {
     for i in ${COMP_WORDS[@]}
     do
         case "${i}" in
-            xh)
+            "$1")
                 cmd="xh"
                 ;;
-            
             *)
                 ;;
         esac
@@ -20,13 +19,12 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts=" -j -f -m -h -b -v -q -S -d -c -F -I -V -s -p -P -o -A -a  --json --form --multipart --headers --body --verbose --all --quiet --stream --download --continue --ignore-netrc --offline --check-status --follow --native-tls --https --ignore-stdin --curl --curl-long --no-all --no-auth --no-auth-type --no-bearer --no-body --no-cert --no-cert-key --no-check-status --no-continue --no-curl --no-curl-long --no-default-scheme --no-download --no-follow --no-form --no-headers --no-history-print --no-http-version --no-https --no-ignore-netrc --no-ignore-stdin --no-json --no-max-redirects --no-multipart --no-native-tls --no-offline --no-output --no-pretty --no-print --no-proxy --no-quiet --no-raw --no-response-charset --no-response-mime --no-session --no-session-read-only --no-ssl --no-stream --no-style --no-timeout --no-verbose --no-verify --help --version --raw --pretty --style --response-charset --response-mime --print --history-print --output --session --session-read-only --auth-type --auth --bearer --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --default-scheme --http-version  <[METHOD] URL> <REQUEST_ITEM>... "
+            opts="-V -j -f -m -s -p -h -b -v -P -q -S -o -d -c -A -a -F -I --help --version --json --form --multipart --raw --pretty --style --response-charset --response-mime --print --headers --body --verbose --all --history-print --quiet --stream --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --ignore-stdin --curl --curl-long --no-help --no-version --no-json --no-form --no-multipart --no-raw --no-pretty --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-verbose --no-all --no-history-print --no-quiet --no-stream --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-ignore-stdin --no-curl --no-curl-long <[METHOD] URL> <REQUEST_ITEM>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                
                 --raw)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -39,7 +37,7 @@ _xh() {
                     COMPREPLY=($(compgen -W "auto solarized monokai fruity" -- "${cur}"))
                     return 0
                     ;;
-                    -s)
+                -s)
                     COMPREPLY=($(compgen -W "auto solarized monokai fruity" -- "${cur}"))
                     return 0
                     ;;
@@ -55,7 +53,7 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                    -p)
+                -p)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -63,7 +61,7 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                    -P)
+                -P)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -71,7 +69,7 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                    -o)
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -87,7 +85,7 @@ _xh() {
                     COMPREPLY=($(compgen -W "basic bearer digest" -- "${cur}"))
                     return 0
                     ;;
-                    -A)
+                -A)
                     COMPREPLY=($(compgen -W "basic bearer digest" -- "${cur}"))
                     return 0
                     ;;
@@ -95,7 +93,7 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                    -a)
+                -a)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -128,7 +126,7 @@ _xh() {
                     return 0
                     ;;
                 --ssl)
-                    COMPREPLY=($(compgen -W "auto ssl2.3 tls1 tls1.1 tls1.2 tls1.3" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "auto tls1 tls1.1 tls1.2 tls1.3" -- "${cur}"))
                     return 0
                     ;;
                 --default-scheme)
@@ -136,7 +134,7 @@ _xh() {
                     return 0
                     ;;
                 --http-version)
-                    COMPREPLY=($(compgen -W "1 1.0 1.1 2" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "1.0 1.1 2" -- "${cur}"))
                     return 0
                     ;;
                 *)
@@ -146,7 +144,6 @@ _xh() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        
     esac
 }
 
