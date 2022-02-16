@@ -131,6 +131,7 @@ xh localhost:3000/users        # resolves to http://localhost:3000/users
 xh :3000/users                 # resolves to http://localhost:3000/users
 xh :/users                     # resolves to http://localhost:80/users
 xh example.com                 # resolves to http://example.com
+xh ://example.com              # resolves to http://example.com
 ```
 
 ### Making HTTPS requests by default
