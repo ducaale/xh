@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 XH_HELP2MAN=1 help2man \
   --include 'doc/man-template.roff' \
-  --help-option 'help' \
+  --help-option '--help' \
   --version-option '-V' \
   --name 'Friendly and fast tool for sending HTTP requests' \
   --output 'doc/xh.1' \
