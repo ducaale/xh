@@ -17,7 +17,7 @@ fn build_syntax(dir: &str, out: &str) {
 fn feature_status(feature: &str) -> String {
     if env::var_os(format!(
         "CARGO_FEATURE_{}",
-        feature.to_uppercase().replace("-", "_")
+        feature.to_uppercase().replace('-', "_")
     ))
     .is_some()
     {
