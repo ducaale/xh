@@ -15,8 +15,8 @@ exclude = ["assets/xhs", "assets/xhs.1.gz"]
 anyhow = "1.0.38"
 atty = "0.2"
 chardetng = "0.1.15"
-clap = { version = "3.0.0", features = ["derive", "wrap_help"] }
-clap_complete = "3.0.0"
+clap = { version = "3.1.0", features = ["derive", "wrap_help"] }
+clap_complete = "3.1.0"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
 digest_auth = "0.3.0"

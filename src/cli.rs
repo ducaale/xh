@@ -37,7 +37,8 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
-    setting(AppSettings::DeriveDisplayOrder | AppSettings::AllArgsOverrideSelf),
+    setting(AppSettings::DeriveDisplayOrder),
+    args_override_self = true,
 )]
 pub struct Cli {
     #[clap(skip)]
@@ -343,7 +344,7 @@ impl Cli {
     {
         match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind == ErrorKind::DisplayHelp => {
+            Err(err) if err.kind() == ErrorKind::DisplayHelp => {
                 // The logic here is a little tricky.
                 //
                 // Normally with clap, -h prints short help while --help
@@ -354,8 +355,8 @@ impl Cli {
                 //
                 // --help is baked into clap. So we intercept its special error that
                 // would print long help and print short help instead. And if we do
-                // want to print long help, then we insert our own error in try_parse_from
-                // with a special tag.
+                // want to print long help, then we handle that in try_parse_from
+                // instead of here.
                 if env::var_os("XH_HELP2MAN").is_some() {
                     Self::into_app()
                         .help_template(
@@ -371,9 +372,6 @@ impl Cli {
                         )
                         .print_long_help()
                         .unwrap();
-                } else if err.info == ["XH_PRINT_LONG_HELP"] {
-                    Self::into_app().print_long_help().unwrap();
-                    println!();
                 } else {
                     Self::into_app().print_help().unwrap();
                     println!(
@@ -398,9 +396,9 @@ impl Cli {
 
         match cli.raw_method_or_url.as_str() {
             "help" => {
-                let mut e = app.error(ErrorKind::DisplayHelp, "XH_PRINT_LONG_HELP");
-                e.info = vec!["XH_PRINT_LONG_HELP".to_string()];
-                return Err(e);
+                app.print_long_help().unwrap();
+                println!();
+                safe_exit();
             }
             "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
             "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
@@ -499,8 +497,8 @@ impl Cli {
         Ok(())
     }
 
-    pub fn into_app() -> clap::App<'static> {
-        let app = <Self as clap::IntoApp>::into_app();
+    pub fn into_app() -> clap::Command<'static> {
+        let app = <Self as clap::CommandFactory>::command();
 
         // Every option should have a --no- variant that makes it as if it was
         // never passed.
@@ -536,7 +534,7 @@ impl Cli {
                     // overrides_with is enough to make the flags take effect
                     // We never have to check their values, they'll simply
                     // unset previous occurrences of the original flag
-                    .overrides_with(opt.get_name())
+                    .overrides_with(opt.get_id())
             })
             .collect();
 
@@ -623,7 +621,7 @@ fn construct_url(
 
 // This signature is a little weird: we either return an error or don't
 // return at all
-fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
+fn print_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     let bin_name = match app.get_bin_name() {
         // This name is borrowed from `app`, and `gen_completions_to()` mutably
         // borrows `app`, so we need to do a clone
@@ -647,7 +645,7 @@ fn print_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
     safe_exit();
 }
 
-fn generate_completions(mut app: clap::App, rest_args: Vec<String>) -> Error {
+fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     let bin_name = match app.get_bin_name() {
         Some(name) => name.to_owned(),
         None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
