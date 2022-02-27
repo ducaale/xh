@@ -52,9 +52,7 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         )]);
     }
     if delims.len() % 2 != 0 {
-        // TODO: improve all error messages in this function by pointing out which
-        // request_item failed
-        return Err(anyhow!("Unbalanced number of brackets {:?}", raw_json_path));
+        return Err(anyhow!("{:?} unbalanced number of brackets", raw_json_path));
     }
     let mut prev_closing_bracket = None;
     for pair in delims.chunks_exact(2) {
@@ -62,16 +60,25 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
             let current_opening_bracket = pair[0].0;
             if current_opening_bracket - prev_closing_bracket > 1 {
                 return Err(anyhow!(
-                    "Unexpected string after closing bracket at index {}",
+                    "{:?} unexpected string after closing bracket at index {}",
+                    raw_json_path,
                     prev_closing_bracket + 1
                 ));
             }
         }
         if pair[0].1 == ']' {
-            return Err(anyhow!("Unexpected closing bracket at index {}", pair[0].0));
+            return Err(anyhow!(
+                "{:?} unexpected closing bracket at index {}",
+                raw_json_path,
+                pair[0].0
+            ));
         }
         if pair[1].1 == '[' {
-            return Err(anyhow!("Unexpected opening bracket at index {}", pair[1].0));
+            return Err(anyhow!(
+                "{:?} unexpected opening bracket at index {}",
+                raw_json_path,
+                pair[1].0
+            ));
         }
         prev_closing_bracket = Some(pair[1].0);
     }
@@ -79,7 +86,8 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     if let Some(last_closing_bracket) = prev_closing_bracket {
         if last_closing_bracket != raw_json_path.len() - 1 {
             return Err(anyhow!(
-                "Unexpected string after closing bracket at index {}",
+                "{:?} unexpected string after closing bracket at index {}",
+                raw_json_path,
                 last_closing_bracket + 1
             ));
         }
@@ -99,7 +107,8 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         if !key.is_empty() && key.parse::<usize>().is_err() {
             // raw_json_path starts with `[string]`
             return Err(anyhow!(
-                "Unexpected string after opening bracket at index {}",
+                "{:?} Unexpected string after opening bracket at index {}",
+                raw_json_path,
                 1
             ));
         }
@@ -146,6 +155,19 @@ impl TypeError {
     }
 }
 
+fn highlight_error(text: &str, start: usize, end: usize) -> String {
+    // TODO: take into account the visible width of unicode characters?
+    // See https://www.reddit.com/r/rust/comments/gpw2ra/how_is_the_rust_compiler_able_to_tell_the_visible/
+    format!(
+        "  {}\n  {}{}",
+        text,
+        " ".repeat(start),
+        "^".repeat(end - start)
+    )
+}
+
+impl std::error::Error for TypeError {}
+
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let root_type = match self.root {
@@ -165,15 +187,12 @@ impl fmt::Display for TypeError {
         if let Some(json_path) = &self.json_path {
             write!(
                 f,
-                "Can't perform '{}' based access on '{}' which has a type of '{}' but this operation requires a type of '{}'.\n{}",
+                "Can't perform '{}' based access on '{}' which has a type of '{}' but this operation requires a type of '{}'.\n\n{}",
                 access_type,
                 &json_path[..start],
                 root_type,
                 expected_root_type,
-                // TODO: reuse this logic in parse_path
-                // TODO: take into account the visible width of unicode characters.
-                // See https://www.reddit.com/r/rust/comments/gpw2ra/how_is_the_rust_compiler_able_to_tell_the_visible/
-                format_args!("{}\n{}{}", json_path, " ".repeat(start), "^".repeat(end - start))
+                highlight_error(json_path, start, end)
             )
         } else {
             write!(
@@ -185,11 +204,8 @@ impl fmt::Display for TypeError {
     }
 }
 
-impl std::error::Error for TypeError {}
-
 // TODO: add comment here
-// TOOD: come up with a better name for this function
-pub fn set_value(
+pub fn insert(
     root: Option<Value>,
     path: &[PathComponent],
     value: Value,
@@ -207,7 +223,7 @@ pub fn set_value(
                 obj.insert(key, value);
             } else {
                 let temp = obj.remove(&key);
-                let value = set_value(temp, &path[1..], value)?;
+                let value = insert(temp, &path[1..], value)?;
                 obj.insert(key, value);
             };
             Value::Object(obj)
@@ -224,7 +240,7 @@ pub fn set_value(
                 arr_insert(&mut arr, index, value);
             } else {
                 let temp = remove_from_arr(&mut arr, index);
-                let value = set_value(temp, &path[1..], value)?;
+                let value = insert(temp, &path[1..], value)?;
                 arr_insert(&mut arr, index, value);
             };
             Value::Array(arr)
@@ -233,8 +249,8 @@ pub fn set_value(
             return Err(TypeError::new(root, path[0].clone()));
         }
         None => match path[0] {
-            PathComponent::Key(..) => set_value(Some(Value::Object(Map::new())), path, value)?,
-            PathComponent::Index(..) => set_value(Some(Value::Array(vec![])), path, value)?,
+            PathComponent::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
+            PathComponent::Index(..) => insert(Some(Value::Array(vec![])), path, value)?,
         },
     })
 }
@@ -264,13 +280,13 @@ mod tests {
 
     #[test]
     fn deeply_nested_object() {
-        let root = set_value(None, &parse_path("foo[bar][baz]").unwrap(), 5.into());
+        let root = insert(None, &parse_path("foo[bar][baz]").unwrap(), 5.into());
         assert_eq!(root.unwrap(), json!({"foo": {"bar": {"baz": 5}}}));
     }
 
     #[test]
     fn deeply_nested_array() {
-        let root = set_value(None, &parse_path("[0][0][1]").unwrap(), 5.into());
+        let root = insert(None, &parse_path("[0][0][1]").unwrap(), 5.into());
         assert_eq!(root.unwrap(), json!([[[null, 5]]]));
     }
 
