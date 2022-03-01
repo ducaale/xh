@@ -12,8 +12,9 @@ pub enum PathComponent {
     Index(Option<usize>, (usize, usize)),
 }
 
-/// Parse a JSON path.
+/// Parses a JSON path.
 ///
+/// A JSON path is a string that satisfies the following syntax grammar:
 /// ```
 ///   start: root_path path*
 ///   root_path: (literal | index_path | append_path)
@@ -25,7 +26,7 @@ pub enum PathComponent {
 ///   append_path: LEFT_BRACKET RIGHT_BRACKET
 /// ```
 ///
-/// A backslash character can be used to:
+/// Additionally, a backslash character can be used to:
 /// - Escape characters with especial meaning such as `\`, `[` and `]`.
 /// - Treat numbers as a key rather than as an index.
 pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
@@ -133,7 +134,7 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
     Ok(json_path)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeError {
     root: Value,
     path_component: PathComponent,
@@ -156,8 +157,7 @@ impl TypeError {
 }
 
 fn highlight_error(text: &str, start: usize, end: usize) -> String {
-    // TODO: take into account the visible width of unicode characters?
-    // See https://www.reddit.com/r/rust/comments/gpw2ra/how_is_the_rust_compiler_able_to_tell_the_visible/
+    // Note that this doesn't take into account the visible width of unicode characters
     format!(
         "  {}\n  {}{}",
         text,
@@ -204,13 +204,13 @@ impl fmt::Display for TypeError {
     }
 }
 
-// TODO: add comment here
 pub fn insert(
     root: Option<Value>,
     path: &[PathComponent],
     value: Value,
 ) -> std::result::Result<Value, TypeError> {
-    debug_assert!(!path.is_empty(), "path should not be empty");
+    assert!(!path.is_empty(), "path should not be empty");
+
     Ok(match root {
         Some(Value::Object(mut obj)) => {
             let key = match &path[0] {
@@ -255,7 +255,7 @@ pub fn insert(
     })
 }
 
-/// Insert value into array at any index ≥ 0
+/// Inserts value into array at any index greater or equal to 0.
 fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
     while index >= arr.len() {
         arr.push(Value::Null);
@@ -263,7 +263,7 @@ fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
     arr[index] = value;
 }
 
-/// Remove an element from array and replace it with `Value::Null`.
+/// Removes an element from array and replace it with `Value::Null`.
 fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
     if index < arr.len() {
         Some(mem::replace(&mut arr[index], Value::Null))
@@ -290,8 +290,56 @@ mod tests {
         assert_eq!(root.unwrap(), json!([[[null, 5]]]));
     }
 
-    // TODO: add tests for type clash errors
-    // 1. xh ':' '[1]=5' '[1][foo]=5' --offline
+    #[test]
+    fn can_override_value() {
+        let root = insert(None, &parse_path("foo[x]").unwrap(), 5.into());
+        assert_eq!(root.clone().unwrap(), json!({"foo": {"x": 5}}));
+
+        let root = insert(
+            root.unwrap().into(),
+            &parse_path("foo[y]").unwrap(),
+            true.into(),
+        );
+        assert_eq!(root.clone().unwrap(), json!({"foo": {"x": 5, "y": true}}));
+
+        let root = insert(
+            root.unwrap().into(),
+            &parse_path("foo[x]").unwrap(),
+            6.into(),
+        );
+        assert_eq!(root.unwrap(), json!({"foo": {"x": 6, "y": true}}));
+    }
+
+    #[test]
+    fn type_clashes() {
+        // object array clash
+        let root = insert(None, &parse_path("foo").unwrap(), 5.into());
+        let root = insert(root.unwrap().into(), &parse_path("[0]").unwrap(), 5.into());
+        assert!(root.is_err());
+
+        // array object clash
+        let root = insert(None, &parse_path("[0]").unwrap(), 5.into());
+        let root = insert(root.unwrap().into(), &parse_path("foo").unwrap(), 5.into());
+        assert!(root.is_err());
+
+        // number object clash
+        let root = insert(None, &parse_path("foo").unwrap(), 5.into());
+        let root = insert(
+            root.unwrap().into(),
+            &parse_path("foo[x]").unwrap(),
+            5.into(),
+        );
+        assert!(root.is_err());
+
+        // number array clash
+        let root = insert(None, &parse_path("foo").unwrap(), 5.into());
+        let root = insert(
+            root.unwrap().into(),
+            &parse_path("foo[0]").unwrap(),
+            5.into(),
+        );
+        assert!(root.is_err());
+    }
 
     #[test]
     fn json_path_parser() {
