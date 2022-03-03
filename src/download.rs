@@ -1,7 +1,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -249,11 +249,11 @@ pub fn download_file(
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
             let time_taken = starting_time.elapsed();
-            if time_taken != Duration::from_nanos(0) {
+            if !time_taken.is_zero() {
                 eprintln!(
-                    "Done. {} in {} ({}/s)",
+                    "Done. {} in {:.5}s ({}/s)",
                     HumanBytes(downloaded_length),
-                    humantime::format_duration(time_taken),
+                    time_taken.as_secs_f64(),
                     HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
                 );
             } else {
