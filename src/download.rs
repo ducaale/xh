@@ -251,9 +251,9 @@ pub fn download_file(
             let time_taken = starting_time.elapsed();
             if !time_taken.is_zero() {
                 eprintln!(
-                    "Done. {} in {}s ({}/s)",
+                    "Done. {} in {:.5}s ({}/s)",
                     HumanBytes(downloaded_length),
-                    time_taken.as_secs_f32(),
+                    time_taken.as_secs_f64(),
                     HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
                 );
             } else {
