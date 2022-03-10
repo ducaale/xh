@@ -829,7 +829,7 @@ pub struct Timeout(Duration);
 
 impl Timeout {
     pub fn as_duration(&self) -> Option<Duration> {
-        Some(self.0).filter(|t| t != &Duration::from_nanos(0))
+        Some(self.0).filter(|t| !t.is_zero())
     }
 }
 
