@@ -132,6 +132,6 @@ pub fn copy_largebuf(
     }
 }
 
-pub(crate) fn url_requires_native_tls(url: &Url) -> bool {
+pub fn url_requires_native_tls(url: &Url) -> bool {
     url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
 }
