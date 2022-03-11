@@ -1021,7 +1021,7 @@ mod tests {
         Cli::try_parse_from(
             Some("xh".to_string())
                 .into_iter()
-                .chain(args.iter().map(|s| s.to_string())),
+                .chain(args.iter().map(ToString::to_string)),
         )
     }
 

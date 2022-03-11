@@ -4,7 +4,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
-use reqwest::blocking::{Request, Response};
+use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
@@ -359,7 +359,7 @@ impl Printer {
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
         // sending the request, which we haven't done yet
-        if let Some(body) = request.body().and_then(|body| body.as_bytes()) {
+        if let Some(body) = request.body().and_then(Body::as_bytes) {
             // Added at https://github.com/seanmonstar/reqwest/blob/e56bd160ba/src/blocking/request.rs#L132
             headers
                 .entry(CONTENT_LENGTH)

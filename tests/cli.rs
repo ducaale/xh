@@ -2052,8 +2052,8 @@ fn expired_cookies_are_removed_from_session() {
 }
 
 fn cookies_are_equal(c1: &str, c2: &str) -> bool {
-    HashSet::<_>::from_iter(c1.split(';').map(|c| c.trim()))
-        == HashSet::<_>::from_iter(c2.split(';').map(|c| c.trim()))
+    HashSet::<_>::from_iter(c1.split(';').map(str::trim))
+        == HashSet::<_>::from_iter(c2.split(';').map(str::trim))
 }
 
 #[test]
