@@ -1993,7 +1993,7 @@ fn expired_cookies_are_removed_from_session() {
         .unwrap()
         .as_secs()
         + 1000;
-    let past_timestamp = 1114425967; // 2005-04-25
+    let past_timestamp = 1_114_425_967; // 2005-04-25
 
     let session_file = NamedTempFile::new().unwrap();
 
