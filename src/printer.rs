@@ -428,9 +428,8 @@ impl Printer {
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
         let url = response.url().clone();
-        let content_type = mime
-            .map(ContentType::from)
-            .unwrap_or_else(|| get_content_type(response.headers()));
+        let content_type =
+            mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(&response));
 
         if !self.buffer.is_terminal() {
@@ -547,8 +546,7 @@ pub fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .map(ContentType::from)
-        .unwrap_or(ContentType::Unknown)
+        .map_or(ContentType::Unknown, ContentType::from)
 }
 
 pub fn valid_json(text: &str) -> bool {
