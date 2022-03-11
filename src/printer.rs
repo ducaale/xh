@@ -4,7 +4,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
-use reqwest::blocking::{Request, Response};
+use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
@@ -359,7 +359,7 @@ impl Printer {
         // See https://github.com/seanmonstar/reqwest/issues/1030
         // reqwest and hyper add certain headers, but only in the process of
         // sending the request, which we haven't done yet
-        if let Some(body) = request.body().and_then(|body| body.as_bytes()) {
+        if let Some(body) = request.body().and_then(Body::as_bytes) {
             // Added at https://github.com/seanmonstar/reqwest/blob/e56bd160ba/src/blocking/request.rs#L132
             headers
                 .entry(CONTENT_LENGTH)
@@ -427,10 +427,9 @@ impl Printer {
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
-        let url = response.url().to_owned();
-        let content_type = mime
-            .map(ContentType::from)
-            .unwrap_or_else(|| get_content_type(response.headers()));
+        let url = response.url().clone();
+        let content_type =
+            mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(&response));
 
         if !self.buffer.is_terminal() {
@@ -547,8 +546,7 @@ pub fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .map(ContentType::from)
-        .unwrap_or(ContentType::Unknown)
+        .map_or(ContentType::Unknown, ContentType::from)
 }
 
 pub fn valid_json(text: &str) -> bool {

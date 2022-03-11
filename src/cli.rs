@@ -829,7 +829,7 @@ pub struct Timeout(Duration);
 
 impl Timeout {
     pub fn as_duration(&self) -> Option<Duration> {
-        Some(self.0).filter(|t| t != &Duration::from_nanos(0))
+        Some(self.0).filter(|t| !t.is_zero())
     }
 }
 
@@ -1021,7 +1021,7 @@ mod tests {
         Cli::try_parse_from(
             Some("xh".to_string())
                 .into_iter()
-                .chain(args.iter().map(|s| s.to_string())),
+                .chain(args.iter().map(ToString::to_string)),
         )
     }
 
@@ -1360,7 +1360,7 @@ mod tests {
         ];
 
         for (input, output) in test_cases {
-            assert_eq!(parse_encoding(input).unwrap(), output)
+            assert_eq!(parse_encoding(input).unwrap(), output);
         }
 
         assert_eq!(parse_encoding("notreal").is_err(), true);

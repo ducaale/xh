@@ -41,7 +41,7 @@ pub trait Middleware {
 
     fn print(&self, ctx: &mut Context, response: Response, request: &mut Request) -> Result<()> {
         if let Some(ref mut printer) = ctx.printer {
-            printer(response, request)?
+            printer(response, request)?;
         }
 
         Ok(())

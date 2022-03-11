@@ -818,7 +818,7 @@ fn netrc_env_user_password_auth() {
 
 #[test]
 fn netrc_file_user_password_auth() {
-    for netrc_file in [".netrc", "_netrc"].iter() {
+    for netrc_file in &[".netrc", "_netrc"] {
         let server = server::http(|req| async move {
             assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
             hyper::Response::default()
@@ -1993,7 +1993,7 @@ fn expired_cookies_are_removed_from_session() {
         .unwrap()
         .as_secs()
         + 1000;
-    let past_timestamp = 1114425967; // 2005-04-25
+    let past_timestamp = 1_114_425_967; // 2005-04-25
 
     let session_file = NamedTempFile::new().unwrap();
 
@@ -2052,8 +2052,8 @@ fn expired_cookies_are_removed_from_session() {
 }
 
 fn cookies_are_equal(c1: &str, c2: &str) -> bool {
-    HashSet::<_>::from_iter(c1.split(';').map(|c| c.trim()))
-        == HashSet::<_>::from_iter(c2.split(';').map(|c| c.trim()))
+    HashSet::<_>::from_iter(c1.split(';').map(str::trim))
+        == HashSet::<_>::from_iter(c2.split(';').map(str::trim))
 }
 
 #[test]

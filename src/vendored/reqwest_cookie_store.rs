@@ -21,7 +21,7 @@ fn set_cookies(
         std::str::from_utf8(val.as_bytes())
             .map_err(RawCookieParseError::from)
             .and_then(RawCookie::parse)
-            .map(|c| c.into_owned())
+            .map(RawCookie::into_owned)
             .ok()
     });
     cookie_store.store_response_cookies(cookies, url);
