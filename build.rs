@@ -2,7 +2,7 @@ use std::env;
 use std::fs::read_dir;
 use std::path::Path;
 
-use syntect::dumps::*;
+use syntect::dumps::dump_to_file;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSetBuilder;
 
