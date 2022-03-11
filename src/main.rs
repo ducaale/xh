@@ -422,9 +422,9 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut request = request_builder.headers(headers).build()?;
 
-        headers_to_unset.iter().for_each(|h| {
-            request.headers_mut().remove(h);
-        });
+        for header in &headers_to_unset {
+            request.headers_mut().remove(header);
+        }
 
         request
     };

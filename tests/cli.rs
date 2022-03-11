@@ -818,7 +818,7 @@ fn netrc_env_user_password_auth() {
 
 #[test]
 fn netrc_file_user_password_auth() {
-    for netrc_file in [".netrc", "_netrc"].iter() {
+    for netrc_file in &[".netrc", "_netrc"] {
         let server = server::http(|req| async move {
             assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
             hyper::Response::default()
