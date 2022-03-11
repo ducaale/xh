@@ -427,7 +427,7 @@ impl Printer {
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
-        let url = response.url().to_owned();
+        let url = response.url().clone();
         let content_type = mime
             .map(ContentType::from)
             .unwrap_or_else(|| get_content_type(response.headers()));
