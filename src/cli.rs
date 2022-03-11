@@ -1360,7 +1360,7 @@ mod tests {
         ];
 
         for (input, output) in test_cases {
-            assert_eq!(parse_encoding(input).unwrap(), output)
+            assert_eq!(parse_encoding(input).unwrap(), output);
         }
 
         assert_eq!(parse_encoding("notreal").is_err(), true);

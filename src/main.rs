@@ -237,7 +237,7 @@ fn run(args: Cli) -> Result<i32> {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
                 // not an outright bug, but it's still imaginable that it'll start working
-                warn("Client certificates are not supported for native-tls")
+                warn("Client certificates are not supported for native-tls");
             }
 
             let mut buffer = Vec::new();
