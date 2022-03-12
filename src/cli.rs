@@ -53,7 +53,7 @@ pub struct Cli {
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
+    #[clap(long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -80,13 +80,16 @@ pub struct Cli {
     #[clap(long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
-    /// String specifying what the output should contain.
+    /// String specifying what the output should contain
     ///
-    /// Use `H` and `B` for request header and body respectively,
-    /// and `h` and `b` for response hader and body.
+    ///     'H' request headers
+    ///     'B' request body
+    ///     'h' response headers
+    ///     'b' response body
+    ///     'm' response metadata
     ///
     /// Example: `--print=Hb`
-    #[clap(short = 'p', long, value_name = "FORMAT")]
+    #[clap(short = 'p', long, value_name = "FORMAT", verbatim_doc_comment)]
     pub print: Option<Print>,
 
     /// Print only the response headers. Shortcut for --print=h.
@@ -97,9 +100,13 @@ pub struct Cli {
     #[clap(short = 'b', long)]
     pub body: bool,
 
+    /// Print only the response metadata. Shortcut for --print=m.
+    #[clap(short = 'm', long)]
+    pub meta: bool,
+
     /// Print the whole request as well as the response.
-    #[clap(short = 'v', long)]
-    pub verbose: bool,
+    #[clap(short = 'v', long, parse(from_occurrences))]
+    pub verbose: usize,
 
     /// Show any intermediary requests/responses while following redirects with --follow.
     #[clap(long)]
@@ -293,14 +300,14 @@ pub struct Cli {
 
     /// Optional key-value pairs to be included in the request
     ///
-    ///   - key==value to add a parameter to the URL
-    ///   - key=value to add a JSON field (--json) or form field (--form)
-    ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-    ///   - key@filename to upload a file from filename (with --form)
-    ///   - @filename to use a file as the request body
-    ///   - header:value to add a header
-    ///   - header: to unset a header
-    ///   - header; to add a header with an empty value
+    ///     key==value   add a parameter to the URL
+    ///     key=value    add a JSON field (--json) or form field (--form)
+    ///     key:=value   add a complex JSON value (e.g. `numbers:=[1,2,3]`)
+    ///     key@filename upload a file from filename (with --form)
+    ///     @filename    use a file as the request body
+    ///     header:value add a header
+    ///     header:      unset a header
+    ///     header;      add a header with an empty value
     ///
     /// A backslash can be used to escape special characters (e.g. weird\:key=value).
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
@@ -460,7 +467,7 @@ impl Cli {
 
     /// Set flags that are implied by other flags and report conflicting flags.
     fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
-        if self.verbose {
+        if self.verbose > 0 {
             self.all = true;
         }
         if self.curl_long {
@@ -740,23 +747,26 @@ pub struct Print {
     pub request_body: bool,
     pub response_headers: bool,
     pub response_body: bool,
+    pub response_meta: bool,
 }
 
 impl Print {
     pub fn new(
-        verbose: bool,
+        verbose: usize,
         headers: bool,
         body: bool,
+        meta: bool,
         quiet: bool,
         offline: bool,
         buffer: &Buffer,
     ) -> Self {
-        if verbose {
+        if verbose > 0 {
             Print {
                 request_headers: true,
                 request_body: true,
                 response_headers: true,
                 response_body: true,
+                response_meta: verbose > 1,
             }
         } else if quiet {
             Print {
@@ -764,6 +774,7 @@ impl Print {
                 request_body: false,
                 response_headers: false,
                 response_body: false,
+                response_meta: false,
             }
         } else if offline {
             Print {
@@ -771,6 +782,7 @@ impl Print {
                 request_body: true,
                 response_headers: false,
                 response_body: false,
+                response_meta: false,
             }
         } else if headers {
             Print {
@@ -778,6 +790,7 @@ impl Print {
                 request_body: false,
                 response_headers: true,
                 response_body: false,
+                response_meta: false,
             }
         } else if body || !buffer.is_terminal() {
             Print {
@@ -785,6 +798,15 @@ impl Print {
                 request_body: false,
                 response_headers: false,
                 response_body: true,
+                response_meta: false,
+            }
+        } else if meta {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: false,
+                response_body: false,
+                response_meta: true,
             }
         } else {
             Print {
@@ -792,6 +814,7 @@ impl Print {
                 request_body: false,
                 response_headers: true,
                 response_body: true,
+                response_meta: false,
             }
         }
     }
@@ -804,6 +827,7 @@ impl FromStr for Print {
         let mut request_body = false;
         let mut response_headers = false;
         let mut response_body = false;
+        let mut response_meta = false;
 
         for char in s.chars() {
             match char {
@@ -811,6 +835,7 @@ impl FromStr for Print {
                 'B' => request_body = true,
                 'h' => response_headers = true,
                 'b' => response_body = true,
+                'm' => response_meta = true,
                 char => return Err(anyhow!("{:?} is not a valid value", char)),
             }
         }
@@ -820,6 +845,7 @@ impl FromStr for Print {
             request_body,
             response_headers,
             response_body,
+            response_meta,
         };
         Ok(p)
     }

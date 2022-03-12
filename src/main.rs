@@ -447,6 +447,7 @@ fn run(args: Cli) -> Result<i32> {
             args.verbose,
             args.headers,
             args.body,
+            args.meta,
             args.quiet,
             args.offline,
             &buffer,
