@@ -370,6 +370,7 @@ impl Cli {
                                 {after-help}\
                             ",
                         )
+                        .max_term_width(100)
                         .print_long_help()
                         .unwrap();
                 } else {
@@ -396,7 +397,7 @@ impl Cli {
 
         match cli.raw_method_or_url.as_str() {
             "help" => {
-                app.print_long_help().unwrap();
+                app.max_term_width(100).print_long_help().unwrap();
                 println!();
                 safe_exit();
             }
