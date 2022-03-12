@@ -467,11 +467,11 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     if !args.offline {
-        let response = {
+        let (response, response_meta) = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
-                client = client.with_printer(|prev_response, next_request| {
+                client = client.with_printer(|prev_response, prev_response_meta, next_request| {
                     if history_print.response_headers {
                         printer.print_response_headers(&prev_response)?;
                     }
