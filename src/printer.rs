@@ -16,6 +16,7 @@ use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
+    middleware::ResponseMeta,
     utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
 
@@ -489,6 +490,14 @@ impl Printer {
             self.buffer.print("\n")?;
         }
         self.buffer.flush()?;
+        Ok(())
+    }
+
+    pub fn print_response_meta(&mut self, response_meta: ResponseMeta) -> anyhow::Result<()> {
+        let elapsed_time = response_meta.starting_time.elapsed().as_secs_f64();
+        self.buffer
+            .print(format!("Elapsed time: {:.5}s", elapsed_time))?;
+        self.buffer.print("\n\n")?;
         Ok(())
     }
 }
