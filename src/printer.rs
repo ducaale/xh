@@ -593,10 +593,10 @@ fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }
 
-fn decompress_blob<'a>(
-    raw: &'a [u8],
+fn decompress_blob(
+    raw: &[u8],
     compression_type: Option<CompressionType>,
-) -> anyhow::Result<Cow<'a, [u8]>> {
+) -> anyhow::Result<Cow<[u8]>> {
     let mut buf: Vec<u8> = Vec::new();
     match compression_type {
         Some(CompressionType::Gzip) => {
