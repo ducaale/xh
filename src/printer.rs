@@ -1,13 +1,16 @@
 use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, Read, Write};
 
+use brotli::Decompressor as BrotliDecoder;
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use flate2::read::{GzDecoder, ZlibDecoder};
 use mime::Mime;
 use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE,
+    COOKIE, HOST,
 };
 use reqwest::Version;
 use url::Url;
@@ -431,6 +434,7 @@ impl Printer {
         let content_type =
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(&response));
+        let compression_type = get_compression_type(response.headers());
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -449,23 +453,37 @@ impl Printer {
                 if self.stream {
                     self.print_body_stream(
                         content_type,
-                        &mut decode_stream(&mut response, encoding, &url)?,
+                        &mut decode_stream(
+                            &mut decompress_stream(&mut response, compression_type),
+                            encoding,
+                            &url,
+                        )?,
                     )?;
                 } else {
-                    let bytes = response.bytes()?;
+                    let compressed_bytes = response.bytes()?;
+                    let bytes = decompress_blob(&compressed_bytes, compression_type)?;
                     let text = decode_blob_unconditional(&bytes, encoding, &url);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
-                copy_largebuf(&mut response, &mut self.buffer, true)?;
+                copy_largebuf(
+                    &mut decompress_stream(&mut response, compression_type),
+                    &mut self.buffer,
+                    true,
+                )?;
             } else {
-                let body = response.bytes()?;
-                self.buffer.print(&body)?;
+                let compressed_bytes = response.bytes()?;
+                let bytes = decompress_blob(&compressed_bytes, compression_type)?;
+                self.buffer.print(&bytes)?;
             }
         } else if self.stream {
             match self.print_body_stream(
                 content_type,
-                &mut decode_stream(&mut response, encoding, &url)?,
+                &mut decode_stream(
+                    &mut decompress_stream(&mut response, compression_type),
+                    encoding,
+                    &url,
+                )?,
             ) {
                 Ok(_) => {
                     self.buffer.print("\n")?;
@@ -476,24 +494,25 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            // Note that .decode() behaves like String::from_utf8_lossy()
-            let bytes = response.bytes()?;
-            let text = match decode_blob(&bytes, encoding, &url) {
+            let compressed_bytes = response.bytes()?;
+            let bytes = decompress_blob(&compressed_bytes, compression_type)?;
+            match decode_blob(&bytes, encoding, &url) {
                 None => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                     return Ok(());
                 }
-                Some(text) => text,
+                Some(text) => {
+                    self.print_body_text(content_type, &text)?;
+                    self.buffer.print("\n")?;
+                }
             };
-            self.print_body_text(content_type, &text)?;
-            self.buffer.print("\n")?;
         }
         self.buffer.flush()?;
         Ok(())
     }
 }
 
-pub enum ContentType {
+enum ContentType {
     Json,
     Html,
     Xml,
@@ -506,7 +525,7 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn is_text(&self) -> bool {
+    fn is_text(&self) -> bool {
         !matches!(
             self,
             ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
@@ -542,15 +561,73 @@ impl From<&str> for ContentType {
     }
 }
 
-pub fn get_content_type(headers: &HeaderMap) -> ContentType {
+fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .map_or(ContentType::Unknown, ContentType::from)
 }
 
-pub fn valid_json(text: &str) -> bool {
+enum CompressionType {
+    Gzip,
+    Deflate,
+    Brotli,
+}
+
+fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
+    // TODOS:
+    // 1. handle TRANSFER_ENCODING
+    // 2. handle CONTENT_ENCODING with multiple values
+    headers
+        .get(CONTENT_ENCODING)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| match value {
+            "gzip" => Some(CompressionType::Gzip),
+            "deflate" => Some(CompressionType::Deflate),
+            "br" => Some(CompressionType::Brotli),
+            _ => None,
+        })
+}
+
+fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
+}
+
+fn decompress_blob<'a>(
+    raw: &'a [u8],
+    compression_type: Option<CompressionType>,
+) -> anyhow::Result<Cow<'a, [u8]>> {
+    let mut buf: Vec<u8> = Vec::new();
+    match compression_type {
+        Some(CompressionType::Gzip) => {
+            let mut decoder = GzDecoder::new(raw);
+            decoder.read_to_end(&mut buf)?;
+            Ok(Cow::from(buf))
+        }
+        Some(CompressionType::Deflate) => {
+            let mut decoder = ZlibDecoder::new(raw);
+            decoder.read_to_end(&mut buf)?;
+            Ok(Cow::from(buf))
+        }
+        Some(CompressionType::Brotli) => {
+            let mut decoder = BrotliDecoder::new(raw, 4096);
+            decoder.read_to_end(&mut buf)?;
+            Ok(Cow::from(buf))
+        }
+        None => Ok(Cow::from(raw)),
+    }
+}
+
+fn decompress_stream<'a>(
+    stream: &'a mut impl Read,
+    compression_type: Option<CompressionType>,
+) -> Box<dyn Read + 'a> {
+    match compression_type {
+        Some(CompressionType::Gzip) => Box::new(GzDecoder::new(stream)),
+        Some(CompressionType::Deflate) => Box::new(ZlibDecoder::new(stream)),
+        Some(CompressionType::Brotli) => Box::new(BrotliDecoder::new(stream, 4096)),
+        None => Box::new(stream),
+    }
 }
 
 /// Decode a response, using BOM sniffing or chardet if the encoding is unknown.
@@ -598,7 +675,7 @@ fn decode_blob_unconditional<'a>(
 /// output is valid UTF-8, but a differently configured DecodeReaderBytes can
 /// produce invalid UTF-8.
 fn decode_stream<'a>(
-    response: &'a mut Response,
+    stream: &'a mut impl Read,
     encoding: Option<&'static Encoding>,
     url: &Url,
 ) -> io::Result<impl Read + 'a> {
@@ -608,7 +685,7 @@ fn decode_stream<'a>(
     // large enough for a best-effort attempt.
     // (16 is otherwise used because 0 seems dangerous, but it shouldn't matter.)
     let capacity = if encoding.is_some() { 16 } else { 16 * 1024 };
-    let mut reader = BufReader::with_capacity(capacity, response);
+    let mut reader = BufReader::with_capacity(capacity, stream);
     let encoding = match encoding {
         Some(encoding) => encoding,
         None => {
