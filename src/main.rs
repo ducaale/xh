@@ -34,7 +34,7 @@ use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
 use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
-use crate::middleware::ClientWithMiddleware;
+use crate::middleware::{ClientWithMiddleware, ResponseExt};
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
@@ -467,11 +467,12 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     if !args.offline {
-        let (response, response_meta) = {
+        let response = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
-                client = client.with_printer(|prev_response, prev_response_meta, next_request| {
+                client = client.with_printer(|prev_response, next_request| {
+                    let prev_response_meta = prev_response.metadata().clone();
                     if history_print.response_headers {
                         printer.print_response_headers(&prev_response)?;
                     }
@@ -532,6 +533,7 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else {
+            let response_meta = response.metadata().clone();
             if print.response_body {
                 printer.print_response_body(response, response_charset, response_mime)?;
                 if print.response_meta {

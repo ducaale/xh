@@ -6,7 +6,7 @@ use reqwest::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use reqwest::StatusCode;
 
 use crate::cli::AuthType;
-use crate::middleware::{Context, Middleware, ResponseMeta};
+use crate::middleware::{Context, Middleware};
 use crate::netrc;
 use crate::regex;
 use crate::utils::clone_request;
@@ -82,12 +82,8 @@ impl<'a> DigestAuthMiddleware<'a> {
 }
 
 impl<'a> Middleware for DigestAuthMiddleware<'a> {
-    fn handle(
-        &mut self,
-        mut ctx: Context,
-        mut request: Request,
-    ) -> Result<(Response, ResponseMeta)> {
-        let (response, response_meta) = self.next(&mut ctx, clone_request(&mut request)?)?;
+    fn handle(&mut self, mut ctx: Context, mut request: Request) -> Result<Response> {
+        let response = self.next(&mut ctx, clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
             Some(wwwauth) if response.status() == StatusCode::UNAUTHORIZED => {
                 let mut context = digest_auth::AuthContext::new(
@@ -103,10 +99,10 @@ impl<'a> Middleware for DigestAuthMiddleware<'a> {
                 request
                     .headers_mut()
                     .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
-                self.print(&mut ctx, response, response_meta, &mut request)?;
+                self.print(&mut ctx, response, &mut request)?;
                 Ok(self.next(&mut ctx, request)?)
             }
-            _ => Ok((response, response_meta)),
+            _ => Ok(response),
         }
     }
 }

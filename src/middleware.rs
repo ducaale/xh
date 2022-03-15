@@ -3,6 +3,7 @@ use std::time::Instant;
 use anyhow::Result;
 use reqwest::blocking::{Client, Request, Response};
 
+#[derive(Clone)]
 pub struct ResponseMeta {
     pub starting_time: Instant,
 }
@@ -13,18 +14,26 @@ impl ResponseMeta {
     }
 }
 
+pub trait ResponseExt {
+    fn metadata(&self) -> &ResponseMeta;
+}
+
+impl ResponseExt for Response {
+    fn metadata(&self) -> &ResponseMeta {
+        self.extensions().get::<ResponseMeta>().unwrap()
+    }
+}
+
 pub struct Context<'a, 'b> {
     client: &'a Client,
-    printer: Option<&'a mut (dyn FnMut(Response, ResponseMeta, &mut Request) -> Result<()> + 'b)>,
+    printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
 impl<'a, 'b> Context<'a, 'b> {
     fn new(
         client: &'a Client,
-        printer: Option<
-            &'a mut (dyn FnMut(Response, ResponseMeta, &mut Request) -> Result<()> + 'b),
-        >,
+        printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
         Context {
@@ -34,12 +43,15 @@ impl<'a, 'b> Context<'a, 'b> {
         }
     }
 
-    fn execute(&mut self, request: Request) -> Result<(Response, ResponseMeta)> {
+    fn execute(&mut self, request: Request) -> Result<Response> {
         match self.middlewares {
             [] => {
                 let starting_time = Instant::now();
-                let response = self.client.execute(request)?;
-                Ok((response, ResponseMeta::new(starting_time)))
+                let mut response = self.client.execute(request)?;
+                response
+                    .extensions_mut()
+                    .insert(ResponseMeta::new(starting_time));
+                Ok(response)
             }
             [ref mut head, tail @ ..] => head.handle(
                 #[allow(clippy::needless_option_as_deref)]
@@ -51,21 +63,15 @@ impl<'a, 'b> Context<'a, 'b> {
 }
 
 pub trait Middleware {
-    fn handle(&mut self, ctx: Context, request: Request) -> Result<(Response, ResponseMeta)>;
+    fn handle(&mut self, ctx: Context, request: Request) -> Result<Response>;
 
-    fn next(&self, ctx: &mut Context, request: Request) -> Result<(Response, ResponseMeta)> {
+    fn next(&self, ctx: &mut Context, request: Request) -> Result<Response> {
         ctx.execute(request)
     }
 
-    fn print(
-        &self,
-        ctx: &mut Context,
-        response: Response,
-        response_meta: ResponseMeta,
-        request: &mut Request,
-    ) -> Result<()> {
+    fn print(&self, ctx: &mut Context, response: Response, request: &mut Request) -> Result<()> {
         if let Some(ref mut printer) = ctx.printer {
-            printer(response, response_meta, request)?;
+            printer(response, request)?;
         }
 
         Ok(())
@@ -74,7 +80,7 @@ pub trait Middleware {
 
 pub struct ClientWithMiddleware<'a, T>
 where
-    T: FnMut(Response, ResponseMeta, &mut Request) -> Result<()>,
+    T: FnMut(Response, &mut Request) -> Result<()>,
 {
     client: &'a Client,
     printer: Option<T>,
@@ -83,7 +89,7 @@ where
 
 impl<'a, T> ClientWithMiddleware<'a, T>
 where
-    T: FnMut(Response, ResponseMeta, &mut Request) -> Result<()> + 'a,
+    T: FnMut(Response, &mut Request) -> Result<()> + 'a,
 {
     pub fn new(client: &'a Client) -> Self {
         ClientWithMiddleware {
@@ -103,7 +109,7 @@ where
         self
     }
 
-    pub fn execute(&mut self, request: Request) -> Result<(Response, ResponseMeta)> {
+    pub fn execute(&mut self, request: Request) -> Result<Response> {
         let mut ctx = Context::new(
             self.client,
             self.printer.as_mut().map(|p| p as _),
