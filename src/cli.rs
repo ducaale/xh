@@ -377,7 +377,6 @@ impl Cli {
                                 {after-help}\
                             ",
                         )
-                        .max_term_width(100)
                         .print_long_help()
                         .unwrap();
                 } else {
