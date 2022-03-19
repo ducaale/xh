@@ -1,5 +1,7 @@
 use std::borrow::Cow;
+use std::env;
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::str::FromStr;
 
 use brotli::Decompressor as BrotliDecoder;
 use encoding_rs::Encoding;
@@ -10,7 +12,7 @@ use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE,
-    COOKIE, HOST,
+    COOKIE, HOST, TRANSFER_ENCODING,
 };
 use reqwest::Version;
 use url::Url;
@@ -568,25 +570,52 @@ fn get_content_type(headers: &HeaderMap) -> ContentType {
         .map_or(ContentType::Unknown, ContentType::from)
 }
 
+#[derive(Debug)]
 enum CompressionType {
     Gzip,
     Deflate,
     Brotli,
 }
 
+impl FromStr for CompressionType {
+    type Err = anyhow::Error;
+    fn from_str(value: &str) -> anyhow::Result<CompressionType> {
+        match value {
+            "gzip" => Ok(CompressionType::Gzip),
+            "deflate" => Ok(CompressionType::Deflate),
+            "br" => Ok(CompressionType::Brotli),
+            _ => Err(anyhow::anyhow!("unknown compression type")),
+        }
+    }
+}
+
 fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
-    // TODOS:
-    // 1. handle TRANSFER_ENCODING
-    // 2. handle CONTENT_ENCODING with multiple values
-    headers
-        .get(CONTENT_ENCODING)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| match value {
-            "gzip" => Some(CompressionType::Gzip),
-            "deflate" => Some(CompressionType::Deflate),
-            "br" => Some(CompressionType::Brotli),
-            _ => None,
-        })
+    let mut compression_type = headers
+        .get_all(CONTENT_ENCODING)
+        .iter()
+        .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
+
+    if compression_type.is_none() {
+        compression_type = headers
+            .get_all(TRANSFER_ENCODING)
+            .iter()
+            .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
+    }
+
+    if let Some(compression_type) = &compression_type {
+        if let Some(content_length) = headers.get(CONTENT_LENGTH) {
+            if content_length == "0" {
+                eprintln!(
+                    "{}: warning: {:?} response with content-length of 0",
+                    env!("CARGO_PKG_NAME"),
+                    compression_type,
+                );
+                return None;
+            }
+        }
+    }
+
+    compression_type
 }
 
 fn valid_json(text: &str) -> bool {
