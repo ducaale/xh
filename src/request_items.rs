@@ -269,7 +269,7 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(key.as_bytes())?;
                     let value = HeaderValue::from_str(value)?;
                     headers_to_unset.remove(&key);
-                    headers.insert(key, value);
+                    headers.append(key, value);
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
                     let key = HeaderName::from_bytes(key.as_bytes())?;
