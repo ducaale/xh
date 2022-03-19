@@ -215,6 +215,20 @@ fn header() {
 }
 
 #[test]
+fn multiple_headers_with_same_key() {
+    let server = server::http(|req| async move {
+        let mut hello_header = req.headers().get_all("hello").iter();
+        assert_eq!(hello_header.next().unwrap(), &"world");
+        assert_eq!(hello_header.next().unwrap(), &"people");
+        hyper::Response::default()
+    });
+    get_command()
+        .args(&[&server.base_url(), "hello:world", "hello:people"])
+        .assert()
+        .success();
+}
+
+#[test]
 fn query_param() {
     let server = server::http(|req| async move {
         assert_eq!(req.query_params()["foo"], "bar");
