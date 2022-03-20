@@ -2749,3 +2749,110 @@ fn tilde_expanded_in_request_items() {
         .stdout(contains("random data"))
         .success();
 }
+
+#[test]
+fn gzip() {
+    let server = server::http(|_req| async move {
+        let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        e.write_all(b"Hello world").unwrap();
+        let compressed_bytes = e.finish().unwrap();
+
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 31
+            Date: N/A
+
+            Hello world
+        "#});
+}
+
+#[test]
+fn deflate() {
+    let server = server::http(|_req| async move {
+        let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        e.write_all(b"Hello world").unwrap();
+        let compressed_bytes = e.finish().unwrap();
+
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "deflate")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: deflate
+            Content-Length: 19
+            Date: N/A
+
+            Hello world
+        "#});
+}
+
+#[test]
+fn brotli() {
+    let server = server::http(|_req| async move {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = brotli::CompressorWriter::new(&mut buffer, 4096, 11, 22);
+            writer.write_all(b"Hello world").unwrap();
+        }
+
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "br")
+            .body(buffer.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: br
+            Content-Length: 15
+            Date: N/A
+
+            Hello world
+        "#});
+}
+
+#[test]
+fn empty_response_with_content_encoding() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stderr("xh: warning: Gzip response with content-length of 0\n")
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 0
+            Date: N/A
+
+
+        "#});
+}
