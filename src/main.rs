@@ -470,13 +470,13 @@ fn run(args: Cli) -> Result<i32> {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
-                client = client.with_printer(|mut prev_response, next_request| {
+                client = client.with_printer(|prev_response, next_request| {
                     if history_print.response_headers {
-                        printer.print_response_headers(&prev_response)?;
+                        printer.print_response_headers(prev_response)?;
                     }
                     if history_print.response_body {
                         printer.print_response_body(
-                            &mut prev_response,
+                            prev_response,
                             response_charset,
                             response_mime,
                         )?;

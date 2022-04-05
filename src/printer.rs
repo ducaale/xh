@@ -435,7 +435,7 @@ impl Printer {
         let url = response.url().clone();
         let content_type =
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
-        let encoding = encoding.or_else(|| get_charset(&response));
+        let encoding = encoding.or_else(|| get_charset(response));
         let compression_type = get_compression_type(response.headers());
         let mut body = decompress_stream(response, compression_type);
 
