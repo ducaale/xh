@@ -428,7 +428,7 @@ impl Printer {
 
     pub fn print_response_body(
         &mut self,
-        mut response: Response,
+        response: &mut Response,
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
@@ -437,6 +437,7 @@ impl Printer {
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(&response));
         let compression_type = get_compression_type(response.headers());
+        let mut body = decompress_stream(response, compression_type);
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -455,38 +456,25 @@ impl Printer {
                 if self.stream {
                     self.print_body_stream(
                         content_type,
-                        &mut decode_stream(
-                            &mut decompress_stream(&mut response, compression_type),
-                            encoding,
-                            &url,
-                        )?,
+                        &mut decode_stream(&mut body, encoding, &url)?,
                     )?;
                 } else {
-                    let compressed_bytes = response.bytes()?;
-                    let bytes = decompress_blob(&compressed_bytes, compression_type)?;
-                    let text = decode_blob_unconditional(&bytes, encoding, &url);
+                    let mut buf = Vec::new();
+                    body.read_to_end(&mut buf)?;
+                    let text = decode_blob_unconditional(&buf, encoding, &url);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
-                copy_largebuf(
-                    &mut decompress_stream(&mut response, compression_type),
-                    &mut self.buffer,
-                    true,
-                )?;
+                copy_largebuf(&mut body, &mut self.buffer, true)?;
             } else {
-                let compressed_bytes = response.bytes()?;
-                let bytes = decompress_blob(&compressed_bytes, compression_type)?;
-                self.buffer.print(&bytes)?;
+                let mut buf = Vec::new();
+                body.read_to_end(&mut buf)?;
+                self.buffer.print(&buf)?;
             }
         } else if self.stream {
-            match self.print_body_stream(
-                content_type,
-                &mut decode_stream(
-                    &mut decompress_stream(&mut response, compression_type),
-                    encoding,
-                    &url,
-                )?,
-            ) {
+            match self
+                .print_body_stream(content_type, &mut decode_stream(&mut body, encoding, &url)?)
+            {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -496,9 +484,9 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let compressed_bytes = response.bytes()?;
-            let bytes = decompress_blob(&compressed_bytes, compression_type)?;
-            match decode_blob(&bytes, encoding, &url) {
+            let mut buf = Vec::new();
+            body.read_to_end(&mut buf)?;
+            match decode_blob(&buf, encoding, &url) {
                 None => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                     return Ok(());
@@ -620,31 +608,6 @@ fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
 
 fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
-}
-
-fn decompress_blob(
-    raw: &[u8],
-    compression_type: Option<CompressionType>,
-) -> anyhow::Result<Cow<[u8]>> {
-    let mut buf: Vec<u8> = Vec::new();
-    match compression_type {
-        Some(CompressionType::Gzip) => {
-            let mut decoder = GzDecoder::new(raw);
-            decoder.read_to_end(&mut buf)?;
-            Ok(Cow::from(buf))
-        }
-        Some(CompressionType::Deflate) => {
-            let mut decoder = ZlibDecoder::new(raw);
-            decoder.read_to_end(&mut buf)?;
-            Ok(Cow::from(buf))
-        }
-        Some(CompressionType::Brotli) => {
-            let mut decoder = BrotliDecoder::new(raw, 4096);
-            decoder.read_to_end(&mut buf)?;
-            Ok(Cow::from(buf))
-        }
-        None => Ok(Cow::from(raw)),
-    }
 }
 
 fn decompress_stream<'a>(

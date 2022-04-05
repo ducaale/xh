@@ -466,17 +466,17 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     if !args.offline {
-        let response = {
+        let mut response = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
-                client = client.with_printer(|prev_response, next_request| {
+                client = client.with_printer(|mut prev_response, next_request| {
                     if history_print.response_headers {
                         printer.print_response_headers(&prev_response)?;
                     }
                     if history_print.response_body {
                         printer.print_response_body(
-                            prev_response,
+                            &mut prev_response,
                             response_charset,
                             response_mime,
                         )?;
@@ -528,7 +528,7 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else if print.response_body {
-            printer.print_response_body(response, response_charset, response_mime)?;
+            printer.print_response_body(&mut response, response_charset, response_mime)?;
         }
     }
 
