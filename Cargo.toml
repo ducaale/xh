@@ -9,6 +9,8 @@ documentation = "https://github.com/ducaale/xh"
 homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
+keywords = ["http"]
+categories = ["command-line-utilities"]
 exclude = ["assets/xhs", "assets/xhs.1.gz"]
 
 [dependencies]
