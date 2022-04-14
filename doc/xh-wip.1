@@ -1,0 +1,308 @@
+.TH XH 1 2022-04-30 0.16.0 "User Commands"
+
+.SH NAME
+xh \- Friendly and fast tool for sending HTTP requests
+
+.SH SYNOPSIS
+.B xh
+[\fIOPTIONS\fR]
+[\fIMETHOD\fR]
+\fIURL\fR
+[\-\-\]
+[\fIREQUEST_ITEM\fR \&.\|.\|.\&]
+
+.SH DESCRIPTION
+
+xh is an HTTP client that aims to reimplement as much as possible of
+HTTPie's excellent design, with a focus on improved performance.
+
+xh uses HTTPie's request-item syntax to set headers, request body,
+query string, etc. For more details, see REQUEST_ITEM in the
+OPTIONS section.
+
+In addition to constructing the requesting body from REQUEST_ITEM or the
+\-\-raw flag, xh supports reading body from stdin.
+
+.RS
+.EX
+$ cat report.txt | xhs post example.com
+.EE
+.RE
+
+xh will default to HTTPS scheme if the xhs symlink is used. For example,
+the following will send an HTTPS request to example.com:
+
+.RS
+.EX
+$ xhs example.com
+.EE
+.RE
+
+If xh is invoked as http or https (by renaming the binary), or if the
+XH_HTTPIE_COMPAT_MODE environment variable is set, it will run in HTTPie
+compatibility mode. The only current difference is that \-\-check\-status
+is not enabled by default.
+
+By default, rustls is used instead of the system's TLS library. However,
+one can opt-out by passing the --native-tls option (requires compiling xh
+with the native-tls feature).
+
+xh can be configured via ~/.config/xh/config.json. The only configurable
+option is default_options which is a list of default shell arguments that
+gets passed to xh.
+
+.RS
+.EX
+{
+  "default_options": ["--native-tls", "--style=solarized"]
+}
+.EE
+.RE
+
+.SH OPTIONS
+Each of the following options can be reset with a --no-OPTION argument.
+
+.TP
+\fB\-\-help\fR
+Print help information
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information
+.TP
+\fB\-j\fR, \fB\-\-json\fR
+(default) Serialize data items from the command line as a JSON object
+.TP
+\fB\-f\fR, \fB\-\-form\fR
+Serialize data items from the command line as form fields
+.TP
+\fB\-m\fR, \fB\-\-multipart\fR
+Like \-\-form, but force a multipart/form\-data request even without files
+.TP
+\fB\-\-raw\fR=\fIRAW\fR
+Pass raw request data without extra processing
+.TP
+\fB\-\-pretty\fR=\fISTYLE\fR
+Controls output processing
+.TP
+\fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
+Output coloring style
+.TP
+\fB\-\-response\-charset\fR=\fIENCODING\fR
+Override the response encoding for terminal display purposes.
+
+Example: `\-\-response\-charset=latin1`
+.TP
+\fB\-\-response\-mime\fR=\fIMIME_TYPE\fR
+Override the response mime type for coloring and formatting for the terminal
+
+Example: `\-\-response\-mime=application/json`
+.TP
+\fB\-p\fR, \fB\-\-print\fR=\fIFORMAT\fR
+String specifying what the output should contain.
+
+Use `H` and `B` for request header and body respectively, and `h` and `b` for response hader and body.
+
+Example: `\-\-print=Hb`
+.TP
+\fB\-h\fR, \fB\-\-headers\fR
+Print only the response headers. Shortcut for \-\-print=h
+.TP
+\fB\-b\fR, \fB\-\-body\fR
+Print only the response body. Shortcut for \-\-print=b
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Print the whole request as well as the response
+.TP
+\fB\-\-all\fR
+Show any intermediary requests/responses while following redirects with \-\-follow
+.TP
+\fB\-P\fR, \fB\-\-history\-print\fR=\fIFORMAT\fR
+The same as \-\-print but applies only to intermediary requests/responses
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Do not print to stdout or stderr
+.TP
+\fB\-S\fR, \fB\-\-stream\fR
+Always stream the response body
+.TP
+\fB\-o\fR, \fB\-\-output\fR=\fIFILE\fR
+Save output to FILE instead of stdout
+.TP
+\fB\-d\fR, \fB\-\-download\fR
+Download the body to a file instead of printing it
+.TP
+\fB\-c\fR, \fB\-\-continue\fR
+Resume an interrupted download. Requires \-\-download and \-\-output
+.TP
+\fB\-\-session\fR=\fIFILE\fR
+Create, or reuse and update a session.
+
+Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
+.TP
+\fB\-\-session\-read\-only\fR=\fIFILE\fR
+Create or read a session without updating it form the request/response exchange
+.TP
+\fB\-A\fR, \fB\-\-auth\-type\fR=\fIAUTH_TYPE\fR
+Specify the auth mechanism
+.TP
+\fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR]|\fITOKEN\fR
+Authenticate as USER with PASS or with TOKEN.
+
+PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+
+TOKEN is expected if `\-\-auth\-type=bearer`.
+.TP
+\fB\-\-ignore\-netrc\fR
+Do not use credentials from .netrc
+.TP
+\fB\-\-offline\fR
+Construct HTTP requests without sending them anywhere
+.TP
+\fB\-\-check\-status\fR
+(default) Exit with an error status code if the server replies with an error.
+
+The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error), or 3 on 3xx (Redirect) if \-\-follow isn't set.
+
+If stdout is redirected then a warning is written to stderr.
+.TP
+\fB\-F\fR, \fB\-\-follow\fR
+Do follow redirects
+.TP
+\fB\-\-max\-redirects\fR=\fINUM\fR
+Number of redirects to follow, only respected if `follow` is set
+.TP
+\fB\-\-timeout\fR=\fISEC\fR
+Connection timeout of the request.
+
+The default value is `0`, i.e., there is no timeout limit.
+.TP
+\fB\-\-proxy\fR=\fIPROTOCOL:URL\fR
+Use a proxy for a protocol. For example: `\-\-proxy https:http://proxy.host:8080`.
+
+PROTOCOL can be `http`, `https` or `all`.
+
+If your proxy requires credentials, put them in the URL, like so: `\-\-proxy http:socks5://user:password@proxy.host:8000`.
+
+You can specify proxies for multiple protocols by repeating this option.
+
+The environment variables `http_proxy` and `https_proxy` can also be used, but are completely ignored if \-\-proxy is passed.
+.TP
+\fB\-\-verify\fR=\fIVERIFY\fR
+If "no", skip SSL verification. If a file path, use it as a CA bundle.
+
+Specifying a CA bundle will disable the system's built\-in root certificates.
+
+"false" instead of "no" also works. The default is "yes" ("true").
+.TP
+\fB\-\-cert\fR=\fIFILE\fR
+Use a client side certificate for SSL
+.TP
+\fB\-\-cert\-key\fR=\fIFILE\fR
+A private key file to use with \-\-cert.
+
+Only necessary if the private key is not contained in the cert file.
+.TP
+\fB\-\-ssl\fR=\fIVERSION\fR
+Force a particular TLS version.
+
+"auto" gives the default behavior of negotiating a version with the server.
+.TP
+\fB\-\-native\-tls\fR
+Use the system TLS library instead of rustls (if enabled at compile time)
+.TP
+\fB\-\-https\fR
+Make HTTPS requests if not specified in the URL
+.TP
+\fB\-\-http\-version\fR=\fIVERSION\fR
+HTTP version to use
+.TP
+\fB\-I\fR, \fB\-\-ignore\-stdin\fR
+Do not attempt to read stdin
+.TP
+\fB\-\-curl\fR
+Print a translation to a `curl` command.
+
+For translating the other way, try https://curl2httpie.online/.
+.TP
+\fB\-\-curl\-long\fR
+Use the long versions of curl's flags
+
+
+.SH EXIT STATUS
+.TP
+.B 0
+Successful program execution.
+.TP
+.B 1
+Usage, syntax or network error.
+.TP
+.B 3
+Unexpected HTTP 3xx Redirection.
+.TP
+.B 4
+HTTP 4xx Client Error.
+.TP
+.B 5
+HTTP 5xx Server Error.
+
+.SH ENVIRONMENT
+.TP
+.B XH_CONFIG_DIR
+Specifies where to look for config.json and named session data.
+The default is $XDG_CONFIG_HOME/xh.
+.TP
+.B XH_HTTPIE_COMPAT_MODE
+Enables the HTTPie Compatibility Mode. The only current difference is that
+\-\-check-status is not enabled by default.
+.TP
+.BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
+Sets a custom CA bundle path.
+.TP
+.B HTTPS_PROXY
+Sets the proxy server to use for HTTPS.
+.TP
+.B http_proxy
+Sets the proxy server to use for HTTP.
+.TP
+.B NETRC
+Location of the .netrc file.
+
+.SH FILES
+.TP
+.I ~/.config/xh/config.json
+xh configuration file.
+.TP
+.IR ~/.netrc ", " ~/_netrc
+Auto-login information file.
+.TP
+.I ~/.config/xh/sessions
+Session data directory grouped by domain and port number.
+
+.SH EXAMPLES
+.TP 4
+xh \fIhttpbin.org/json\fR
+Send a GET request.
+.TP
+xh \fIhttpbin.org/post name=ahmed \fIage:=24\fR
+Send a POST request with body {"name": "ahmed", "age": 24}.
+.TP
+xh get \fIhttpbin.org/json id==5 sort==true\fR
+Send a GET request with querystring id=5&sort=true.
+.TP
+xh get \fIhttpbin.org/json x-api-key:12345\fR
+Send a GET request and include a header named x-api-key with value 12345.
+.TP
+xh put \fIhttpbin.org/put id:=49 age:=25\fR | less
+Send a PUT request and pipe the result to less.
+.TP
+xh -d \fIhttpbin.org/json\fR -o \fIres.json\fR
+Download and save to res.json.
+.TP
+xh \fIhttpbin.org/get user-agent:foobar\fR
+Make a request with a custom user agent.
+
+.SH REPORTING BUGS
+xh's Github issues <https://github.com/ducaale/xh/issues>
+
+.SH SEE ALSO
+HTTPie's online documentaion <https://httpie.io/docs/cli>

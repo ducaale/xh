@@ -7,7 +7,7 @@ use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
@@ -15,6 +15,9 @@ use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
+
+use chrono::{DateTime, Utc};
+use roff::{bold, italic, roman, Roff};
 
 use crate::buffer::Buffer;
 use crate::regex;
@@ -164,7 +167,7 @@ pub struct Cli {
     /// to authenticate with just a username.
     ///
     /// TOKEN is expected if `--auth-type=bearer`.
-    #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
+    #[clap(short = 'a', long, value_name = "USER[:PASS]|TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
@@ -402,6 +405,7 @@ impl Cli {
             }
             "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
             "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            "generate_manpages" => generate_manpages(app),
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
@@ -663,6 +667,60 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
             clap_complete::generate_to(shell, &mut app, &bin_name, &rest_args[0]).unwrap();
         }
     }
+    safe_exit();
+}
+
+fn generate_manpages(app: clap::Command) -> ! {
+    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
+
+    let mut roff = Roff::new();
+    for opt in items.iter().filter(|a| !a.is_positional()) {
+        let mut header = vec![];
+        if let Some(short) = opt.get_short() {
+            header.push(bold(format!("-{}", short)));
+        }
+        if let Some(long) = opt.get_long() {
+            if !header.is_empty() {
+                header.push(roman(", "));
+            }
+            header.push(bold(format!("--{}", long)));
+        }
+        if let Some(value) = &opt.get_value_names() {
+            if opt.get_long().is_some() {
+                header.push(roman("="));
+            } else {
+                header.push(roman(" "));
+            }
+
+            if opt.get_id() == "auth" {
+                header.push(italic("USER"));
+                header.push(roman("["));
+                header.push(italic(":PASS"));
+                header.push(roman("]|"));
+                header.push(italic("TOKEN"));
+            } else {
+                header.push(italic(&value.join(" ")));
+            }
+        }
+        let mut body = vec![];
+        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
+            body.push(roman(help));
+        }
+        roff.control("TP", []);
+        roff.text(header);
+        roff.text(body);
+    }
+
+    let mut manpage = fs::read_to_string("doc/man-template2.roff").unwrap();
+
+    let now: DateTime<Utc> = SystemTime::now().into();
+    let current_date = now.format("%F").to_string();
+
+    manpage = manpage.replace("{{date}}", &current_date);
+    manpage = manpage.replace("{{version}}", app.get_version().unwrap());
+    manpage = manpage.replace("{{options}}", &roff.to_roff());
+
+    fs::write("doc/xh-wip.1", manpage).unwrap();
     safe_exit();
 }
 
