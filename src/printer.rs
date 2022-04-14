@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::env;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::str::FromStr;
 
@@ -577,6 +576,7 @@ impl FromStr for CompressionType {
     }
 }
 
+// See https://github.com/seanmonstar/reqwest/blob/9bd4e90ec3401c2c5bc435c58954f3d52ab53e99/src/async_impl/decoder.rs#L150
 fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
     let mut compression_type = headers
         .get_all(CONTENT_ENCODING)
@@ -590,14 +590,9 @@ fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
             .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
     }
 
-    if let Some(compression_type) = &compression_type {
+    if compression_type.is_some() {
         if let Some(content_length) = headers.get(CONTENT_LENGTH) {
             if content_length == "0" {
-                eprintln!(
-                    "{}: warning: {:?} response with content-length of 0",
-                    env!("CARGO_PKG_NAME"),
-                    compression_type,
-                );
                 return None;
             }
         }

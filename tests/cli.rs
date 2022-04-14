@@ -2846,7 +2846,6 @@ fn empty_response_with_content_encoding() {
     get_command()
         .arg(server.base_url())
         .assert()
-        .stderr("xh: warning: Gzip response with content-length of 0\n")
         .stdout(indoc! {r#"
             HTTP/1.1 200 OK
             Content-Encoding: gzip
