@@ -152,7 +152,10 @@ fn run(args: Cli) -> Result<i32> {
         .use_rustls_tls()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(timeout);
+        .timeout(timeout)
+        .no_gzip()
+        .no_deflate()
+        .no_brotli();
 
     if let Some(Some(tls_version)) = args.ssl {
         client = client
