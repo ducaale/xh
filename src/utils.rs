@@ -63,15 +63,45 @@ pub fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
     compression_type
 }
 
-pub fn decompress<'a>(
-    reader: &'a mut impl Read,
+enum Decoder<R>
+where
+    R: Read,
+{
+    PlainText(R),
+    Gzip(GzDecoder<R>),
+    Deflate(ZlibDecoder<R>),
+    Brotli(BrotliDecoder<R>),
+}
+
+impl<R> Read for Decoder<R>
+where
+    R: Read,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Decoder::PlainText(decoder) => decoder.read(buf),
+            Decoder::Gzip(decoder) => decoder.read(buf).map_err(|e| {
+                io::Error::new(e.kind(), format!("error decoding response body: {}", e))
+            }),
+            Decoder::Deflate(decoder) => decoder.read(buf).map_err(|e| {
+                io::Error::new(e.kind(), format!("error decoding response body: {}", e))
+            }),
+            Decoder::Brotli(decoder) => decoder.read(buf).map_err(|e| {
+                io::Error::new(e.kind(), format!("error decoding response body: {}", e))
+            }),
+        }
+    }
+}
+
+pub fn decompress(
+    reader: &mut impl Read,
     compression_type: Option<CompressionType>,
-) -> Box<dyn Read + 'a> {
+) -> impl Read + '_ {
     match compression_type {
-        Some(CompressionType::Gzip) => Box::new(GzDecoder::new(reader)),
-        Some(CompressionType::Deflate) => Box::new(ZlibDecoder::new(reader)),
-        Some(CompressionType::Brotli) => Box::new(BrotliDecoder::new(reader, 4096)),
-        None => Box::new(reader),
+        Some(CompressionType::Gzip) => Decoder::Gzip(GzDecoder::new(reader)),
+        Some(CompressionType::Deflate) => Decoder::Deflate(ZlibDecoder::new(reader)),
+        Some(CompressionType::Brotli) => Decoder::Brotli(BrotliDecoder::new(reader, 4096)),
+        None => Decoder::PlainText(reader),
     }
 }
 
