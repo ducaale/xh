@@ -1,9 +1,13 @@
 use std::env::var_os;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use anyhow::Result;
+use brotli::Decompressor as BrotliDecoder;
+use flate2::read::{GzDecoder, ZlibDecoder};
 use reqwest::blocking::Request;
+use reqwest::header::{HeaderMap, CONTENT_ENCODING, CONTENT_LENGTH, TRANSFER_ENCODING};
 use url::{Host, Url};
 
 pub fn clone_request(request: &mut Request) -> Result<Request> {
@@ -13,6 +17,62 @@ pub fn clone_request(request: &mut Request) -> Result<Request> {
     // This doesn't copy the contents of the buffer, cloning requests is cheap
     // https://docs.rs/bytes/1.0.1/bytes/struct.Bytes.html
     Ok(request.try_clone().unwrap()) // guaranteed to not fail if body is already buffered
+}
+
+#[derive(Debug)]
+pub enum CompressionType {
+    Gzip,
+    Deflate,
+    Brotli,
+}
+
+impl FromStr for CompressionType {
+    type Err = anyhow::Error;
+    fn from_str(value: &str) -> anyhow::Result<CompressionType> {
+        match value {
+            "gzip" => Ok(CompressionType::Gzip),
+            "deflate" => Ok(CompressionType::Deflate),
+            "br" => Ok(CompressionType::Brotli),
+            _ => Err(anyhow::anyhow!("unknown compression type")),
+        }
+    }
+}
+
+// See https://github.com/seanmonstar/reqwest/blob/9bd4e90ec3401c2c5bc435c58954f3d52ab53e99/src/async_impl/decoder.rs#L150
+pub fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
+    let mut compression_type = headers
+        .get_all(CONTENT_ENCODING)
+        .iter()
+        .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
+
+    if compression_type.is_none() {
+        compression_type = headers
+            .get_all(TRANSFER_ENCODING)
+            .iter()
+            .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
+    }
+
+    if compression_type.is_some() {
+        if let Some(content_length) = headers.get(CONTENT_LENGTH) {
+            if content_length == "0" {
+                return None;
+            }
+        }
+    }
+
+    compression_type
+}
+
+pub fn decompress<'a>(
+    reader: &'a mut impl Read,
+    compression_type: Option<CompressionType>,
+) -> Box<dyn Read + 'a> {
+    match compression_type {
+        Some(CompressionType::Gzip) => Box::new(GzDecoder::new(reader)),
+        Some(CompressionType::Deflate) => Box::new(ZlibDecoder::new(reader)),
+        Some(CompressionType::Brotli) => Box::new(BrotliDecoder::new(reader, 4096)),
+        None => Box::new(reader),
+    }
 }
 
 /// Whether to make some things more deterministic for the benefit of tests

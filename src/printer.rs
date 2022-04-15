@@ -1,17 +1,13 @@
 use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, Read, Write};
-use std::str::FromStr;
 
-use brotli::Decompressor as BrotliDecoder;
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use flate2::read::{GzDecoder, ZlibDecoder};
 use mime::Mime;
 use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE,
-    COOKIE, HOST, TRANSFER_ENCODING,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
 };
 use reqwest::Version;
 use url::Url;
@@ -20,7 +16,7 @@ use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, test_mode, BUFFER_SIZE},
+    utils::{copy_largebuf, decompress, get_compression_type, test_mode, BUFFER_SIZE},
 };
 
 const BINARY_SUPPRESSOR: &str = concat!(
@@ -436,7 +432,7 @@ impl Printer {
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(response));
         let compression_type = get_compression_type(response.headers());
-        let mut body = decompress_stream(response, compression_type);
+        let mut body = decompress(response, compression_type);
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -557,64 +553,8 @@ fn get_content_type(headers: &HeaderMap) -> ContentType {
         .map_or(ContentType::Unknown, ContentType::from)
 }
 
-#[derive(Debug)]
-enum CompressionType {
-    Gzip,
-    Deflate,
-    Brotli,
-}
-
-impl FromStr for CompressionType {
-    type Err = anyhow::Error;
-    fn from_str(value: &str) -> anyhow::Result<CompressionType> {
-        match value {
-            "gzip" => Ok(CompressionType::Gzip),
-            "deflate" => Ok(CompressionType::Deflate),
-            "br" => Ok(CompressionType::Brotli),
-            _ => Err(anyhow::anyhow!("unknown compression type")),
-        }
-    }
-}
-
-// See https://github.com/seanmonstar/reqwest/blob/9bd4e90ec3401c2c5bc435c58954f3d52ab53e99/src/async_impl/decoder.rs#L150
-fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
-    let mut compression_type = headers
-        .get_all(CONTENT_ENCODING)
-        .iter()
-        .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
-
-    if compression_type.is_none() {
-        compression_type = headers
-            .get_all(TRANSFER_ENCODING)
-            .iter()
-            .find_map(|value| value.to_str().ok().and_then(|value| value.parse().ok()));
-    }
-
-    if compression_type.is_some() {
-        if let Some(content_length) = headers.get(CONTENT_LENGTH) {
-            if content_length == "0" {
-                return None;
-            }
-        }
-    }
-
-    compression_type
-}
-
 fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
-}
-
-fn decompress_stream<'a>(
-    stream: &'a mut impl Read,
-    compression_type: Option<CompressionType>,
-) -> Box<dyn Read + 'a> {
-    match compression_type {
-        Some(CompressionType::Gzip) => Box::new(GzDecoder::new(stream)),
-        Some(CompressionType::Deflate) => Box::new(ZlibDecoder::new(stream)),
-        Some(CompressionType::Brotli) => Box::new(BrotliDecoder::new(stream, 4096)),
-        None => Box::new(stream),
-    }
 }
 
 /// Decode a response, using BOM sniffing or chardet if the encoding is unknown.
