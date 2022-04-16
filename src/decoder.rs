@@ -49,11 +49,37 @@ pub fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
     compression_type
 }
 
+struct InnerReader<R: Read> {
+    reader: R,
+    has_errored: bool,
+}
+
+impl<R: Read> InnerReader<R> {
+    fn new(reader: R) -> Self {
+        InnerReader {
+            reader,
+            has_errored: false,
+        }
+    }
+}
+
+impl<R: Read> Read for InnerReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self.reader.read(buf) {
+            Ok(len) => Ok(len),
+            Err(e) => {
+                self.has_errored = true;
+                Err(e)
+            }
+        }
+    }
+}
+
 enum Decoder<R: Read> {
-    PlainText(R),
-    Gzip(GzDecoder<R>),
-    Deflate(ZlibDecoder<R>),
-    Brotli(BrotliDecoder<R>),
+    PlainText(InnerReader<R>),
+    Gzip(GzDecoder<InnerReader<R>>),
+    Deflate(ZlibDecoder<InnerReader<R>>),
+    Brotli(BrotliDecoder<InnerReader<R>>),
 }
 
 impl<R: Read> Read for Decoder<R> {
@@ -61,22 +87,34 @@ impl<R: Read> Read for Decoder<R> {
         match self {
             Decoder::PlainText(decoder) => decoder.read(buf),
             Decoder::Gzip(decoder) => decoder.read(buf).map_err(|e| {
-                io::Error::new(
-                    e.kind(),
-                    format!("error decoding gzip response body: {}", e),
-                )
+                if decoder.get_ref().has_errored {
+                    e
+                } else {
+                    io::Error::new(
+                        e.kind(),
+                        format!("error decoding gzip response body: {}", e),
+                    )
+                }
             }),
             Decoder::Deflate(decoder) => decoder.read(buf).map_err(|e| {
-                io::Error::new(
-                    e.kind(),
-                    format!("error decoding deflate response body: {}", e),
-                )
+                if decoder.get_ref().has_errored {
+                    e
+                } else {
+                    io::Error::new(
+                        e.kind(),
+                        format!("error decoding deflate response body: {}", e),
+                    )
+                }
             }),
             Decoder::Brotli(decoder) => decoder.read(buf).map_err(|e| {
-                io::Error::new(
-                    e.kind(),
-                    format!("error decoding brotli response body: {}", e),
-                )
+                if decoder.get_ref().has_errored {
+                    e
+                } else {
+                    io::Error::new(
+                        e.kind(),
+                        format!("error decoding brotli response body: {}", e),
+                    )
+                }
             }),
         }
     }
@@ -86,10 +124,52 @@ pub fn decompress(
     reader: &mut impl Read,
     compression_type: Option<CompressionType>,
 ) -> impl Read + '_ {
+    let reader = InnerReader::new(reader);
     match compression_type {
         Some(CompressionType::Gzip) => Decoder::Gzip(GzDecoder::new(reader)),
         Some(CompressionType::Deflate) => Decoder::Deflate(ZlibDecoder::new(reader)),
         Some(CompressionType::Brotli) => Decoder::Brotli(BrotliDecoder::new(reader, 4096)),
         None => Decoder::PlainText(reader),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_errors_are_prepended_with_custom_message() {
+        let uncompressed_data = String::from("Hello world");
+        let mut uncompressed_data = uncompressed_data.as_bytes();
+        let mut reader = decompress(&mut uncompressed_data, Some(CompressionType::Gzip));
+        let mut buffer = Vec::new();
+        match reader.read_to_end(&mut buffer) {
+            Ok(_) => unreachable!("gzip should fail to decompress an uncompressed data"),
+            Err(e) => {
+                assert!(e
+                    .to_string()
+                    .starts_with("error decoding gzip response body:"))
+            }
+        }
+    }
+
+    #[test]
+    fn underlying_read_errors_are_not_modified() {
+        struct SadReader;
+        impl Read for SadReader {
+            fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+                Err(io::Error::new(io::ErrorKind::Other, "oh no!"))
+            }
+        }
+
+        let mut sad_reader = SadReader;
+        let mut reader = decompress(&mut sad_reader, Some(CompressionType::Gzip));
+        let mut buffer = Vec::new();
+        match reader.read_to_end(&mut buffer) {
+            Ok(_) => unreachable!("SadReader should never be read"),
+            Err(e) => {
+                assert!(e.to_string().starts_with("oh no!"))
+            }
+        }
     }
 }
