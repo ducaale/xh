@@ -12,11 +12,12 @@ use reqwest::header::{
 use reqwest::Version;
 use url::Url;
 
+use crate::decoder::{decompress, get_compression_type};
 use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
-    utils::{copy_largebuf, decompress, get_compression_type, test_mode, BUFFER_SIZE},
+    utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
 
 const BINARY_SUPPRESSOR: &str = concat!(

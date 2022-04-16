@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod decoder;
 mod download;
 mod formatting;
 mod middleware;

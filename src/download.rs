@@ -13,8 +13,9 @@ use reqwest::{
     StatusCode,
 };
 
+use crate::decoder::{decompress, get_compression_type};
 use crate::regex;
-use crate::utils::{copy_largebuf, decompress, get_compression_type, test_pretend_term};
+use crate::utils::{copy_largebuf, test_pretend_term};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
