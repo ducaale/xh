@@ -16,6 +16,7 @@ exclude = ["assets/xhs", "assets/xhs.1.gz"]
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+brotli = { version = "3.3.0", default-features = false, features = ["std"] }
 chardetng = "0.1.15"
 clap = { version = "3.1.0", features = ["derive", "wrap_help"] }
 clap_complete = "3.1.0"
@@ -25,6 +26,7 @@ digest_auth = "0.3.0"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
+flate2 = "1.0.22"
 indicatif = "0.16.2"
 jsonxf = "1.1.0"
 memchr = "2.4.1"
@@ -47,7 +49,7 @@ url = "2.2.2"
 [dependencies.reqwest]
 version = "0.11.6"
 default-features = false
-features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
+features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"

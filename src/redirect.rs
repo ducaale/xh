@@ -36,7 +36,7 @@ impl Middleware for RedirectFollower {
                     self.max_redirects
                 ));
             }
-            self.print(&mut ctx, response, &mut next_request)?;
+            self.print(&mut ctx, &mut response, &mut next_request)?;
             request = clone_request(&mut next_request)?;
             response = self.next(&mut ctx, next_request)?;
         }

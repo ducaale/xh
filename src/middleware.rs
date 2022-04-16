@@ -3,14 +3,14 @@ use reqwest::blocking::{Client, Request, Response};
 
 pub struct Context<'a, 'b> {
     client: &'a Client,
-    printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
+    printer: Option<&'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b)>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
 impl<'a, 'b> Context<'a, 'b> {
     fn new(
         client: &'a Client,
-        printer: Option<&'a mut (dyn FnMut(Response, &mut Request) -> Result<()> + 'b)>,
+        printer: Option<&'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b)>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
         Context {
@@ -39,7 +39,12 @@ pub trait Middleware {
         ctx.execute(request)
     }
 
-    fn print(&self, ctx: &mut Context, response: Response, request: &mut Request) -> Result<()> {
+    fn print(
+        &self,
+        ctx: &mut Context,
+        response: &mut Response,
+        request: &mut Request,
+    ) -> Result<()> {
         if let Some(ref mut printer) = ctx.printer {
             printer(response, request)?;
         }
@@ -50,7 +55,7 @@ pub trait Middleware {
 
 pub struct ClientWithMiddleware<'a, T>
 where
-    T: FnMut(Response, &mut Request) -> Result<()>,
+    T: FnMut(&mut Response, &mut Request) -> Result<()>,
 {
     client: &'a Client,
     printer: Option<T>,
@@ -59,7 +64,7 @@ where
 
 impl<'a, T> ClientWithMiddleware<'a, T>
 where
-    T: FnMut(Response, &mut Request) -> Result<()> + 'a,
+    T: FnMut(&mut Response, &mut Request) -> Result<()> + 'a,
 {
     pub fn new(client: &'a Client) -> Self {
         ClientWithMiddleware {

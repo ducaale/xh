@@ -83,7 +83,7 @@ impl<'a> DigestAuthMiddleware<'a> {
 
 impl<'a> Middleware for DigestAuthMiddleware<'a> {
     fn handle(&mut self, mut ctx: Context, mut request: Request) -> Result<Response> {
-        let response = self.next(&mut ctx, clone_request(&mut request)?)?;
+        let mut response = self.next(&mut ctx, clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
             Some(wwwauth) if response.status() == StatusCode::UNAUTHORIZED => {
                 let mut context = digest_auth::AuthContext::new(
@@ -99,7 +99,7 @@ impl<'a> Middleware for DigestAuthMiddleware<'a> {
                 request
                     .headers_mut()
                     .insert(AUTHORIZATION, HeaderValue::from_str(&answer)?);
-                self.print(&mut ctx, response, &mut request)?;
+                self.print(&mut ctx, &mut response, &mut request)?;
                 Ok(self.next(&mut ctx, request)?)
             }
             _ => Ok(response),
