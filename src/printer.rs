@@ -12,6 +12,7 @@ use reqwest::header::{
 use reqwest::Version;
 use url::Url;
 
+use crate::decoder::{decompress, get_compression_type};
 use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
@@ -424,14 +425,16 @@ impl Printer {
 
     pub fn print_response_body(
         &mut self,
-        mut response: Response,
+        response: &mut Response,
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
         let url = response.url().clone();
         let content_type =
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
-        let encoding = encoding.or_else(|| get_charset(&response));
+        let encoding = encoding.or_else(|| get_charset(response));
+        let compression_type = get_compression_type(response.headers());
+        let mut body = decompress(response, compression_type);
 
         if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
@@ -450,24 +453,25 @@ impl Printer {
                 if self.stream {
                     self.print_body_stream(
                         content_type,
-                        &mut decode_stream(&mut response, encoding, &url)?,
+                        &mut decode_stream(&mut body, encoding, &url)?,
                     )?;
                 } else {
-                    let bytes = response.bytes()?;
-                    let text = decode_blob_unconditional(&bytes, encoding, &url);
+                    let mut buf = Vec::new();
+                    body.read_to_end(&mut buf)?;
+                    let text = decode_blob_unconditional(&buf, encoding, &url);
                     self.print_body_text(content_type, &text)?;
                 }
             } else if self.stream {
-                copy_largebuf(&mut response, &mut self.buffer, true)?;
+                copy_largebuf(&mut body, &mut self.buffer, true)?;
             } else {
-                let body = response.bytes()?;
-                self.buffer.print(&body)?;
+                let mut buf = Vec::new();
+                body.read_to_end(&mut buf)?;
+                self.buffer.print(&buf)?;
             }
         } else if self.stream {
-            match self.print_body_stream(
-                content_type,
-                &mut decode_stream(&mut response, encoding, &url)?,
-            ) {
+            match self
+                .print_body_stream(content_type, &mut decode_stream(&mut body, encoding, &url)?)
+            {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
@@ -477,17 +481,18 @@ impl Printer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            // Note that .decode() behaves like String::from_utf8_lossy()
-            let bytes = response.bytes()?;
-            let text = match decode_blob(&bytes, encoding, &url) {
+            let mut buf = Vec::new();
+            body.read_to_end(&mut buf)?;
+            match decode_blob(&buf, encoding, &url) {
                 None => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                     return Ok(());
                 }
-                Some(text) => text,
+                Some(text) => {
+                    self.print_body_text(content_type, &text)?;
+                    self.buffer.print("\n")?;
+                }
             };
-            self.print_body_text(content_type, &text)?;
-            self.buffer.print("\n")?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -502,7 +507,7 @@ impl Printer {
     }
 }
 
-pub enum ContentType {
+enum ContentType {
     Json,
     Html,
     Xml,
@@ -515,7 +520,7 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn is_text(&self) -> bool {
+    fn is_text(&self) -> bool {
         !matches!(
             self,
             ContentType::Unknown | ContentType::UrlencodedForm | ContentType::Multipart
@@ -551,14 +556,14 @@ impl From<&str> for ContentType {
     }
 }
 
-pub fn get_content_type(headers: &HeaderMap) -> ContentType {
+fn get_content_type(headers: &HeaderMap) -> ContentType {
     headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .map_or(ContentType::Unknown, ContentType::from)
 }
 
-pub fn valid_json(text: &str) -> bool {
+fn valid_json(text: &str) -> bool {
     serde_json::from_str::<serde::de::IgnoredAny>(text).is_ok()
 }
 
@@ -607,7 +612,7 @@ fn decode_blob_unconditional<'a>(
 /// output is valid UTF-8, but a differently configured DecodeReaderBytes can
 /// produce invalid UTF-8.
 fn decode_stream<'a>(
-    response: &'a mut Response,
+    stream: &'a mut impl Read,
     encoding: Option<&'static Encoding>,
     url: &Url,
 ) -> io::Result<impl Read + 'a> {
@@ -617,7 +622,7 @@ fn decode_stream<'a>(
     // large enough for a best-effort attempt.
     // (16 is otherwise used because 0 seems dangerous, but it shouldn't matter.)
     let capacity = if encoding.is_some() { 16 } else { 16 * 1024 };
-    let mut reader = BufReader::with_capacity(capacity, response);
+    let mut reader = BufReader::with_capacity(capacity, stream);
     let encoding = match encoding {
         Some(encoding) => encoding,
         None => {

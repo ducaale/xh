@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod decoder;
 mod download;
 mod formatting;
 mod middleware;
@@ -152,7 +153,10 @@ fn run(args: Cli) -> Result<i32> {
         .use_rustls_tls()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(timeout);
+        .timeout(timeout)
+        .no_gzip()
+        .no_deflate()
+        .no_brotli();
 
     if let Some(Some(tls_version)) = args.ssl {
         client = client
@@ -467,14 +471,14 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     if !args.offline {
-        let response = {
+        let mut response = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
                 client = client.with_printer(|prev_response, next_request| {
                     let prev_response_meta = prev_response.metadata().clone();
                     if history_print.response_headers {
-                        printer.print_response_headers(&prev_response)?;
+                        printer.print_response_headers(prev_response)?;
                     }
                     if history_print.response_body {
                         printer.print_response_body(
@@ -535,7 +539,7 @@ fn run(args: Cli) -> Result<i32> {
         } else {
             let response_meta = response.metadata().clone();
             if print.response_body {
-                printer.print_response_body(response, response_charset, response_mime)?;
+                printer.print_response_body(&mut response, response_charset, response_mime)?;
                 if print.response_meta {
                     printer.print_separator()?;
                 }

@@ -13,6 +13,7 @@ use reqwest::{
     StatusCode,
 };
 
+use crate::decoder::{decompress, get_compression_type};
 use crate::regex;
 use crate::utils::{copy_largebuf, test_pretend_term};
 
@@ -245,7 +246,12 @@ pub fn download_file(
 
     match pb {
         Some(ref pb) => {
-            copy_largebuf(&mut pb.wrap_read(response), &mut buffer, false)?;
+            let compression_type = get_compression_type(response.headers());
+            copy_largebuf(
+                &mut decompress(&mut pb.wrap_read(response), compression_type),
+                &mut buffer,
+                false,
+            )?;
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
             let time_taken = starting_time.elapsed();
@@ -261,7 +267,12 @@ pub fn download_file(
             }
         }
         None => {
-            copy_largebuf(&mut response, &mut buffer, false)?;
+            let compression_type = get_compression_type(response.headers());
+            copy_largebuf(
+                &mut decompress(&mut response, compression_type),
+                &mut buffer,
+                false,
+            )?;
         }
     }
 
