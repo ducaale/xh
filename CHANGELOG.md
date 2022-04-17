@@ -1,4 +1,4 @@
-## Unreleased
+## [0.16.0] - 2022-04-17
 ### Features
 - Add support for URLs with leading `://` to allow quick conversion of
   pasted URLs into HTTPie/xh command e.g `http://httpbin.org/json` →
