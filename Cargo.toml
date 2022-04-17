@@ -9,19 +9,24 @@ documentation = "https://github.com/ducaale/xh"
 homepage = "https://github.com/ducaale/xh"
 repository = "https://github.com/ducaale/xh"
 readme = "README.md"
+keywords = ["http"]
+categories = ["command-line-utilities"]
 exclude = ["assets/xhs", "assets/xhs.1.gz"]
 
 [dependencies]
 anyhow = "1.0.38"
 atty = "0.2"
+brotli = { version = "3.3.0", default-features = false, features = ["std"] }
 chardetng = "0.1.15"
+clap = { version = "3.1.0", features = ["derive", "wrap_help"] }
+clap_complete = "3.1.0"
 cookie_crate = { version = "0.15", package = "cookie" }
 cookie_store = { version = "0.15.0" }
 digest_auth = "0.3.0"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
-humantime = "2.1.0"
+flate2 = "1.0.22"
 indicatif = "0.16.2"
 jsonxf = "1.1.0"
 memchr = "2.4.1"
@@ -37,15 +42,14 @@ rpassword = "5.0.0"
 serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
-structopt = { version = "0.3.2", features = ["wrap_help"] }
 termcolor = "1.1.2"
 time = "0.2.26"
 url = "2.2.2"
 
 [dependencies.reqwest]
-version = "0.11.6"
+version = "0.11.10"
 default-features = false
-features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "gzip", "brotli", "deflate", "multipart", "blocking", "socks", "cookies"]
+features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"
@@ -54,7 +58,6 @@ features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-o
 
 [dev-dependencies]
 assert_cmd = "2.0"
-assert_matches = "1.4.0"
 form_urlencoded = "1.0.1"
 indoc = "1.0"
 predicates = "1.0.7"

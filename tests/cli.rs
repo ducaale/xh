@@ -2,7 +2,7 @@
 mod server;
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{create_dir_all, read_to_string, File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::future::Future;
 use std::io::Write;
 use std::iter::FromIterator;
@@ -215,6 +215,20 @@ fn header() {
 }
 
 #[test]
+fn multiple_headers_with_same_key() {
+    let server = server::http(|req| async move {
+        let mut hello_header = req.headers().get_all("hello").iter();
+        assert_eq!(hello_header.next().unwrap(), &"world");
+        assert_eq!(hello_header.next().unwrap(), &"people");
+        hyper::Response::default()
+    });
+    get_command()
+        .args(&[&server.base_url(), "hello:world", "hello:people"])
+        .assert()
+        .success();
+}
+
+#[test]
 fn query_param() {
     let server = server::http(|req| async move {
         assert_eq!(req.query_params()["foo"], "bar");
@@ -297,7 +311,7 @@ fn download() {
         .arg(server.base_url())
         .assert()
         .success();
-    assert_eq!(read_to_string(&outfile).unwrap(), "file contents\n");
+    assert_eq!(fs::read_to_string(&outfile).unwrap(), "file contents\n");
 }
 
 #[test]
@@ -339,9 +353,12 @@ fn download_generated_filename() {
         .assert()
         .success();
 
-    assert_eq!(read_to_string(dir.path().join("bar.json")).unwrap(), "file");
     assert_eq!(
-        read_to_string(dir.path().join("bar.json-1")).unwrap(),
+        fs::read_to_string(dir.path().join("bar.json")).unwrap(),
+        "file"
+    );
+    assert_eq!(
+        fs::read_to_string(dir.path().join("bar.json-1")).unwrap(),
         "file"
     );
 }
@@ -361,7 +378,10 @@ fn download_supplied_filename() {
         .current_dir(&dir)
         .assert()
         .success();
-    assert_eq!(read_to_string(dir.path().join("foo.bar")).unwrap(), "file");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("foo.bar")).unwrap(),
+        "file"
+    );
 }
 
 #[test]
@@ -380,7 +400,7 @@ fn download_supplied_unquoted_filename() {
         .assert()
         .success();
     assert_eq!(
-        read_to_string(dir.path().join("foo bar baz")).unwrap(),
+        fs::read_to_string(dir.path().join("foo bar baz")).unwrap(),
         "file"
     );
 }
@@ -818,7 +838,7 @@ fn netrc_env_user_password_auth() {
 
 #[test]
 fn netrc_file_user_password_auth() {
-    for netrc_file in [".netrc", "_netrc"].iter() {
+    for netrc_file in &[".netrc", "_netrc"] {
         let server = server::http(|req| async move {
             assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
             hyper::Response::default()
@@ -1798,7 +1818,7 @@ fn named_sessions() {
         .collect(),
     );
 
-    let session_content = read_to_string(path_to_session).unwrap();
+    let session_content = fs::read_to_string(path_to_session).unwrap();
 
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
@@ -1840,7 +1860,7 @@ fn anonymous_sessions() {
 
     server.assert_hits(1);
 
-    let session_content = read_to_string(path_to_session).unwrap();
+    let session_content = fs::read_to_string(path_to_session).unwrap();
 
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
@@ -1886,8 +1906,10 @@ fn anonymous_read_only_session() {
         .success();
 
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&read_to_string(session_file.path()).unwrap())
-            .unwrap(),
+        serde_json::from_str::<serde_json::Value>(
+            &fs::read_to_string(session_file.path()).unwrap()
+        )
+        .unwrap(),
         old_session_content
     );
 }
@@ -1916,7 +1938,7 @@ fn session_files_are_created_in_read_only_mode() {
         .assert()
         .success();
 
-    let session_content = read_to_string(path_to_session).unwrap();
+    let session_content = fs::read_to_string(path_to_session).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
@@ -1966,7 +1988,7 @@ fn named_read_only_session() {
             "hello": "world"
         }
     });
-    create_dir_all(path_to_session.parent().unwrap()).unwrap();
+    fs::create_dir_all(path_to_session.parent().unwrap()).unwrap();
     File::create(&path_to_session).unwrap();
     std::fs::write(&path_to_session, old_session_content.to_string()).unwrap();
 
@@ -1979,7 +2001,7 @@ fn named_read_only_session() {
         .success();
 
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&read_to_string(path_to_session).unwrap())
+        serde_json::from_str::<serde_json::Value>(&fs::read_to_string(path_to_session).unwrap())
             .unwrap(),
         old_session_content
     );
@@ -1993,7 +2015,7 @@ fn expired_cookies_are_removed_from_session() {
         .unwrap()
         .as_secs()
         + 1000;
-    let past_timestamp = 1114425967; // 2005-04-25
+    let past_timestamp = 1_114_425_967; // 2005-04-25
 
     let session_file = NamedTempFile::new().unwrap();
 
@@ -2031,7 +2053,7 @@ fn expired_cookies_are_removed_from_session() {
         .assert()
         .success();
 
-    let session_content = read_to_string(session_file.path()).unwrap();
+    let session_content = fs::read_to_string(session_file.path()).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
@@ -2052,8 +2074,8 @@ fn expired_cookies_are_removed_from_session() {
 }
 
 fn cookies_are_equal(c1: &str, c2: &str) -> bool {
-    HashSet::<_>::from_iter(c1.split(';').map(|c| c.trim()))
-        == HashSet::<_>::from_iter(c2.split(';').map(|c| c.trim()))
+    HashSet::<_>::from_iter(c1.split(';').map(str::trim))
+        == HashSet::<_>::from_iter(c2.split(';').map(str::trim))
 }
 
 #[test]
@@ -2102,7 +2124,7 @@ fn cookies_override_each_other_in_the_correct_order() {
 
     server.assert_hits(1);
 
-    let session_content = read_to_string(session_file.path()).unwrap();
+    let session_content = fs::read_to_string(session_file.path()).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
@@ -2212,7 +2234,7 @@ fn auth_netrc_is_not_persisted_in_session() {
 
     server.assert_hits(1);
 
-    let session_content = read_to_string(path_to_session).unwrap();
+    let session_content = fs::read_to_string(path_to_session).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
         serde_json::json!({
@@ -2748,4 +2770,102 @@ fn tilde_expanded_in_request_items() {
         .assert()
         .stdout(contains("random data"))
         .success();
+}
+
+#[test]
+fn gzip() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.gz").unwrap();
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 48
+            Date: N/A
+
+            Hello world
+
+        "#});
+}
+
+#[test]
+fn deflate() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.zz").unwrap();
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "deflate")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: deflate
+            Content-Length: 20
+            Date: N/A
+
+            Hello world
+
+        "#});
+}
+
+#[test]
+fn brotli() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.br").unwrap();
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "br")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: br
+            Content-Length: 17
+            Date: N/A
+
+            Hello world
+
+        "#});
+}
+
+#[test]
+fn empty_response_with_content_encoding() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 0
+            Date: N/A
+
+
+        "#});
 }

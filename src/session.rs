@@ -168,7 +168,7 @@ impl Session {
 
     pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
         let mut cookies = vec![];
-        for (name, c) in self.content.cookies.iter() {
+        for (name, c) in &self.content.cookies {
             let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
             if let Some(expires) = c.expires {
                 cookie_builder =

@@ -9,7 +9,6 @@ use std::{
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{blocking::multipart, Method};
-use structopt::clap;
 
 use crate::cli::BodyType;
 use crate::utils::expand_tilde;
@@ -96,9 +95,12 @@ impl FromStr for RequestItem {
                 ":=" => Ok(RequestItem::JsonField(
                     key,
                     serde_json::from_str(&value).map_err(|err| {
-                        clap::Error::with_description(
-                            &format!("{:?}: {}", request_item, err),
+                        clap::Error::raw(
                             clap::ErrorKind::InvalidValue,
+                            format!(
+                                "Invalid value for '[REQUEST_ITEM]...': {:?} {}",
+                                request_item, err
+                            ),
                         )
                     })?,
                 )),
@@ -128,9 +130,9 @@ impl FromStr for RequestItem {
             // TODO: We can also end up here if the method couldn't be parsed
             // and was interpreted as a URL, making the actual URL a request
             // item
-            Err(clap::Error::with_description(
-                &format!("{:?} is not a valid request item", request_item),
+            Err(clap::Error::raw(
                 clap::ErrorKind::InvalidValue,
+                format!("Invalid value for '[REQUEST_ITEM]...': {:?}", request_item),
             ))
         }
     }
@@ -267,7 +269,7 @@ impl RequestItems {
                     let key = HeaderName::from_bytes(key.as_bytes())?;
                     let value = HeaderValue::from_str(value)?;
                     headers_to_unset.remove(&key);
-                    headers.insert(key, value);
+                    headers.append(key, value);
                 }
                 RequestItem::HttpHeaderToUnset(key) => {
                     let key = HeaderName::from_bytes(key.as_bytes())?;

@@ -4,6 +4,7 @@ use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
+use syntect::util::LinesWithEndings;
 use termcolor::WriteColor;
 
 use crate::{buffer::Buffer, cli::Theme};
@@ -53,16 +54,22 @@ impl<'a> Highlighter<'a> {
     }
 
     /// Write a single piece of highlighted text.
-    pub fn highlight(&mut self, line: &str) -> io::Result<()> {
-        for (style, component) in self.highlighter.highlight(line, self.syntax_set) {
-            self.out.set_color(&convert_style(style))?;
-            write!(self.out, "{}", component)?;
+    pub fn highlight(&mut self, text: &str) -> io::Result<()> {
+        for line in LinesWithEndings::from(text) {
+            for (style, component) in self.highlighter.highlight(line, self.syntax_set) {
+                self.out.set_color(&convert_style(style))?;
+                write!(self.out, "{}", component)?;
+            }
         }
         Ok(())
     }
 
     pub fn highlight_bytes(&mut self, line: &[u8]) -> io::Result<()> {
         self.highlight(&String::from_utf8_lossy(line))
+    }
+
+    pub fn flush(&mut self) -> io::Result<()> {
+        self.out.flush()
     }
 }
 

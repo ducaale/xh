@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod decoder;
 mod download;
 mod formatting;
 mod middleware;
@@ -152,7 +153,10 @@ fn run(args: Cli) -> Result<i32> {
         .use_rustls_tls()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(timeout);
+        .timeout(timeout)
+        .no_gzip()
+        .no_deflate()
+        .no_brotli();
 
     if let Some(Some(tls_version)) = args.ssl {
         client = client
@@ -237,7 +241,7 @@ fn run(args: Cli) -> Result<i32> {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
                 // not an outright bug, but it's still imaginable that it'll start working
-                warn("Client certificates are not supported for native-tls")
+                warn("Client certificates are not supported for native-tls");
             }
 
             let mut buffer = Vec::new();
@@ -422,9 +426,9 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut request = request_builder.headers(headers).build()?;
 
-        headers_to_unset.iter().for_each(|h| {
-            request.headers_mut().remove(h);
-        });
+        for header in &headers_to_unset {
+            request.headers_mut().remove(header);
+        }
 
         request
     };
@@ -439,7 +443,6 @@ fn run(args: Cli) -> Result<i32> {
         args.download,
         args.output.as_deref(),
         atty::is(Stream::Stdout) || test_pretend_term(),
-        args.pretty,
     )?;
     let is_output_redirected = buffer.is_redirect();
     let print = match args.print {
@@ -467,13 +470,13 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     if !args.offline {
-        let response = {
+        let mut response = {
             let history_print = args.history_print.unwrap_or(print);
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
                 client = client.with_printer(|prev_response, next_request| {
                     if history_print.response_headers {
-                        printer.print_response_headers(&prev_response)?;
+                        printer.print_response_headers(prev_response)?;
                     }
                     if history_print.response_body {
                         printer.print_response_body(
@@ -529,7 +532,7 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else if print.response_body {
-            printer.print_response_body(response, response_charset, response_mime)?;
+            printer.print_response_body(&mut response, response_charset, response_mime)?;
         }
     }
 

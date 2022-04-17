@@ -1,7 +1,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
@@ -13,6 +13,7 @@ use reqwest::{
     StatusCode,
 };
 
+use crate::decoder::{decompress, get_compression_type};
 use crate::regex;
 use crate::utils::{copy_largebuf, test_pretend_term};
 
@@ -245,15 +246,20 @@ pub fn download_file(
 
     match pb {
         Some(ref pb) => {
-            copy_largebuf(&mut pb.wrap_read(response), &mut buffer)?;
+            let compression_type = get_compression_type(response.headers());
+            copy_largebuf(
+                &mut decompress(&mut pb.wrap_read(response), compression_type),
+                &mut buffer,
+                false,
+            )?;
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
             let time_taken = starting_time.elapsed();
-            if time_taken != Duration::from_nanos(0) {
+            if !time_taken.is_zero() {
                 eprintln!(
-                    "Done. {} in {} ({}/s)",
+                    "Done. {} in {:.5}s ({}/s)",
                     HumanBytes(downloaded_length),
-                    humantime::format_duration(time_taken),
+                    time_taken.as_secs_f64(),
                     HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
                 );
             } else {
@@ -261,7 +267,12 @@ pub fn download_file(
             }
         }
         None => {
-            copy_largebuf(&mut response, &mut buffer)?;
+            let compression_type = get_compression_type(response.headers());
+            copy_largebuf(
+                &mut decompress(&mut response, compression_type),
+                &mut buffer,
+                false,
+            )?;
         }
     }
 
