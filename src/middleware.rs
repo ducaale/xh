@@ -1,26 +1,26 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use reqwest::blocking::{Client, Request, Response};
 
 #[derive(Clone)]
 pub struct ResponseMeta {
-    pub starting_time: Instant,
-}
-
-impl ResponseMeta {
-    fn new(starting_time: Instant) -> Self {
-        ResponseMeta { starting_time }
-    }
+    pub request_duration: Duration,
+    pub content_download_duration: Option<Duration>,
 }
 
 pub trait ResponseExt {
-    fn metadata(&self) -> &ResponseMeta;
+    fn meta(&self) -> &ResponseMeta;
+    fn meta_mut(&mut self) -> &mut ResponseMeta;
 }
 
 impl ResponseExt for Response {
-    fn metadata(&self) -> &ResponseMeta {
+    fn meta(&self) -> &ResponseMeta {
         self.extensions().get::<ResponseMeta>().unwrap()
+    }
+
+    fn meta_mut(&mut self) -> &mut ResponseMeta {
+        self.extensions_mut().get_mut::<ResponseMeta>().unwrap()
     }
 }
 
@@ -48,9 +48,10 @@ impl<'a, 'b> Context<'a, 'b> {
             [] => {
                 let starting_time = Instant::now();
                 let mut response = self.client.execute(request)?;
-                response
-                    .extensions_mut()
-                    .insert(ResponseMeta::new(starting_time));
+                response.extensions_mut().insert(ResponseMeta {
+                    request_duration: starting_time.elapsed(),
+                    content_download_duration: None,
+                });
                 Ok(response)
             }
             [ref mut head, tail @ ..] => head.handle(

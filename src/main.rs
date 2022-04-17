@@ -35,7 +35,7 @@ use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
 use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
-use crate::middleware::{ClientWithMiddleware, ResponseExt};
+use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
@@ -476,7 +476,6 @@ fn run(args: Cli) -> Result<i32> {
             let mut client = ClientWithMiddleware::new(&client);
             if args.all {
                 client = client.with_printer(|prev_response, next_request| {
-                    let prev_response_meta = prev_response.metadata().clone();
                     if history_print.response_headers {
                         printer.print_response_headers(prev_response)?;
                     }
@@ -489,7 +488,7 @@ fn run(args: Cli) -> Result<i32> {
                         printer.print_separator()?;
                     }
                     if history_print.response_meta {
-                        printer.print_response_meta(prev_response_meta)?;
+                        printer.print_response_meta(prev_response)?;
                     }
                     if history_print.request_headers {
                         printer.print_request_headers(next_request, &*cookie_jar)?;
@@ -537,7 +536,6 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else {
-            let response_meta = response.metadata().clone();
             if print.response_body {
                 printer.print_response_body(&mut response, response_charset, response_mime)?;
                 if print.response_meta {
@@ -545,7 +543,7 @@ fn run(args: Cli) -> Result<i32> {
                 }
             }
             if print.response_meta {
-                printer.print_response_meta(response_meta)?;
+                printer.print_response_meta(&response)?;
             }
         }
     }

@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::time::Instant;
 
 use encoding_rs::Encoding;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -17,7 +18,7 @@ use crate::{
     buffer::Buffer,
     cli::{Pretty, Theme},
     formatting::{get_json_formatter, Highlighter},
-    middleware::ResponseMeta,
+    middleware::ResponseExt,
     utils::{copy_largebuf, test_mode, BUFFER_SIZE},
 };
 
@@ -429,6 +430,7 @@ impl Printer {
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
     ) -> anyhow::Result<()> {
+        let starting_time = Instant::now();
         let url = response.url().clone();
         let content_type =
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
@@ -486,7 +488,6 @@ impl Printer {
             match decode_blob(&buf, encoding, &url) {
                 None => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
-                    return Ok(());
                 }
                 Some(text) => {
                     self.print_body_text(content_type, &text)?;
@@ -495,13 +496,19 @@ impl Printer {
             };
         }
         self.buffer.flush()?;
+        drop(body); // silence the borrow checker
+        response.meta_mut().content_download_duration = Some(starting_time.elapsed());
         Ok(())
     }
 
-    pub fn print_response_meta(&mut self, response_meta: ResponseMeta) -> anyhow::Result<()> {
-        let elapsed_time = response_meta.starting_time.elapsed().as_secs_f64();
+    pub fn print_response_meta(&mut self, response: &Response) -> anyhow::Result<()> {
+        let meta = response.meta();
+        let mut total_elapsed_time = meta.request_duration.as_secs_f64();
+        if let Some(content_download_duration) = meta.content_download_duration {
+            total_elapsed_time += content_download_duration.as_secs_f64();
+        }
         self.buffer
-            .print(format!("Elapsed time: {:.5}s", elapsed_time))?;
+            .print(format!("Elapsed time: {:.5}s", total_elapsed_time))?;
         self.buffer.print("\n\n")?;
         Ok(())
     }
