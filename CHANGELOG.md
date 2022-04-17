@@ -1,3 +1,23 @@
+## Unreleased
+### Features
+- Add support for URLs with leading `://` to allow quick conversion of
+  pasted URLs into HTTPie/xh command e.g `http://httpbin.org/json` →
+  `$ http ://httpbin.org/json`, see #232 (@ducaale)
+- Support sending multiple request headers with the same key, see #242 (@ducaale)
+
+### Bug fixes
+- Don't remove `content-encoding` and `content-length` headers while processing
+  gzip/deflate/brotli encoded responses, see #241 (@ducaale)
+
+### Other
+- Replace structopt with clap3.x, see #216 (@ducaale) and #235 (@blyxxyz)
+- Improve output coloring performance by switching to incremental highlighting,
+  see #228 (@blyxxyz)
+- Faster `--stream` output formatting by switching to full buffering and manual
+  flushing, see #233 (@blyxxyz) 
+- Automate the generation of negation flags, see #234 (@blyxxyz)
+- Display download's elapsed time as seconds, see #236 (@ducaale)
+
 ## [0.15.0] - 2022-01-27
 ### Features
 - Add support for `--raw` flag, see #202 (@ducaale)
