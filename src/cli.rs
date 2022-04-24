@@ -405,7 +405,7 @@ impl Cli {
             }
             "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
             "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
-            "generate_manpages" => generate_manpages(app),
+            "generate_manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
@@ -670,7 +670,14 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
     safe_exit();
 }
 
-fn generate_manpages(app: clap::Command) -> ! {
+fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+    if rest_args.len() != 1 {
+        return app.error(
+            ErrorKind::WrongNumberOfValues,
+            "Usage: xh generate_manpages <DIRECTORY>",
+        );
+    }
+
     let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
 
     let mut roff = Roff::new();
@@ -711,7 +718,7 @@ fn generate_manpages(app: clap::Command) -> ! {
         roff.text(body);
     }
 
-    let mut manpage = fs::read_to_string("doc/man-template2.roff").unwrap();
+    let mut manpage = fs::read_to_string(format!("{}/man-template2.roff", rest_args[0])).unwrap();
 
     let now: DateTime<Utc> = SystemTime::now().into();
     let current_date = now.format("%F").to_string();
@@ -720,7 +727,7 @@ fn generate_manpages(app: clap::Command) -> ! {
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());
     manpage = manpage.replace("{{options}}", &roff.to_roff());
 
-    fs::write("doc/xh-wip.1", manpage).unwrap();
+    fs::write(format!("{}/xh-wip.1", rest_args[0]), manpage).unwrap();
     safe_exit();
 }
 
