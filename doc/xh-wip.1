@@ -226,7 +226,63 @@ For translating the other way, try https://curl2httpie.online/.
 .TP
 \fB\-\-curl\-long\fR
 Use the long versions of curl's flags
+.TP
+[\fIMETHOD\fR]\fI URL\fR
+The request URL, preceded by an optional HTTP method
 
+If the method is omitted, it will default to either GET or POST
+depending on whether the request sends data or not.
+
+    $ http example.com               # => GET
+    $ http example.com hello=world   # => POST
+
+Specifying the scheme portion of the request URL is optional.
+localhost can also be omitted from the URL as long it starts
+with colon plus an optional port number.
+
+    $ xh localhost:3000/users   # => http://localhost:3000/users
+    $ xh :3000/users            # => http://localhost:3000/users
+    $ xh :/users                # => http://localhost:80/users
+    $ xh example.com            # => http://example.com
+    $ xh ://example.com         # => http://example.com
+.TP
+\fIREQUEST_ITEM\fR
+Optional key\-value pairs to be included in the request
+
+The separator is used to determine the type e.g. headers,
+request body, query string, etc
+
+    key==value
+        add a parameter to the URL
+
+    key=value
+        add a JSON field (\-\-json) or form field (\-\-form)
+
+    key:=value
+        add a literal JSON value e.g. numbers:=[1,2,3]
+
+    key@file
+        upload a file from filename (with \-\-form)
+
+    key=@file
+        same as key=value but reads the value from a file
+
+    key:=@file
+        same as key:=value but reads the value from a file
+
+    @filename
+        use a file as the request body
+
+    header:value
+        add a header
+
+    header:
+        unset a header
+
+    header;
+        add a header with an empty value
+
+A backslash can be used to escape special characters e.g. weird\\:key=value.
 
 .SH EXIT STATUS
 .TP

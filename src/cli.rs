@@ -286,26 +286,62 @@ pub struct Cli {
     #[clap(long)]
     pub curl_long: bool,
 
-    /// The request URL, preceded by an optional HTTP method.
+    /// The request URL, preceded by an optional HTTP method
     ///
-    /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
-    /// If omitted, either a GET or a POST will be done depending on whether the
-    /// request sends data.
-    #[clap(value_name = "[METHOD] URL")]
+    /// If the method is omitted, it will default to either GET or POST
+    /// depending on whether the request sends data or not.
+    ///
+    ///     $ http example.com               # => GET
+    ///     $ http example.com hello=world   # => POST
+    ///
+    /// Specifying the scheme portion of the request URL is optional.
+    /// localhost can also be omitted from the URL as long it starts
+    /// with colon plus an optional port number.
+    ///
+    ///     $ xh localhost:3000/users   # => http://localhost:3000/users
+    ///     $ xh :3000/users            # => http://localhost:3000/users
+    ///     $ xh :/users                # => http://localhost:80/users
+    ///     $ xh example.com            # => http://example.com
+    ///     $ xh ://example.com         # => http://example.com
+    #[clap(value_name = "[METHOD] URL", verbatim_doc_comment)]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request
     ///
-    ///   - key==value to add a parameter to the URL
-    ///   - key=value to add a JSON field (--json) or form field (--form)
-    ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-    ///   - key@filename to upload a file from filename (with --form)
-    ///   - @filename to use a file as the request body
-    ///   - header:value to add a header
-    ///   - header: to unset a header
-    ///   - header; to add a header with an empty value
+    /// The separator is used to determine the type i.e. header,
+    /// request body, query string, etc
     ///
-    /// A backslash can be used to escape special characters (e.g. weird\:key=value).
+    ///     key==value
+    ///         add a parameter to the URL
+    ///
+    ///     key=value
+    ///         add a JSON field (--json) or form field (--form)
+    ///
+    ///     key:=value
+    ///         add a literal JSON value e.g. numbers:=[1,2,3]
+    ///
+    ///     key@file
+    ///         upload a file from filename (with --form)
+    ///
+    ///     key=@file
+    ///         same as key=value but reads the value from a file
+    ///
+    ///     key:=@file
+    ///         same as key:=value but reads the value from a file
+    ///
+    ///     @filename
+    ///         use a file as the request body
+    ///
+    ///     header:value
+    ///         add a header
+    ///
+    ///     header:
+    ///         unset a header
+    ///
+    ///     header;
+    ///         add a header with an empty value
+    ///
+    /// A backslash can be used to escape special characters e.g. weird\:key=value.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
@@ -678,9 +714,9 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         );
     }
 
-    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
-
     let mut roff = Roff::new();
+
+    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
     for opt in items.iter().filter(|a| !a.is_positional()) {
         let mut header = vec![];
         if let Some(short) = opt.get_short() {
@@ -713,6 +749,29 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
             body.push(roman(help));
         }
+        roff.control("TP", []);
+        roff.text(header);
+        roff.text(body);
+    }
+
+    for opt in items.iter().filter(|a| a.is_positional()) {
+        let mut header = vec![];
+        if opt.get_id() == "raw-method-or-url" {
+            header.push(roman("["));
+            header.push(italic("METHOD"));
+            header.push(roman("]"));
+            header.push(italic(" URL"));
+        } else if let Some(value_name) = opt.get_value_names() {
+            header.push(italic(value_name.join(" ")));
+        } else {
+            header.push(italic(opt.get_id()));
+        }
+
+        let mut body = vec![];
+        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
+            body.push(roman(help));
+        }
+
         roff.control("TP", []);
         roff.text(header);
         roff.text(body);
