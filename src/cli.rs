@@ -777,7 +777,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         roff.text(body);
     }
 
-    let mut manpage = fs::read_to_string(format!("{}/man-template2.roff", rest_args[0])).unwrap();
+    let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
 
     let now: DateTime<Utc> = SystemTime::now().into();
     let current_date = now.format("%F").to_string();
@@ -786,7 +786,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());
     manpage = manpage.replace("{{options}}", &roff.to_roff());
 
-    fs::write(format!("{}/xh-wip.1", rest_args[0]), manpage).unwrap();
+    fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
     safe_exit();
 }
 

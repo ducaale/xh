@@ -1,45 +1,143 @@
-[OPTIONS]
-.SS "Positional Arguments"
-.HP
-METHOD
-.IP
-The HTTP method to use. One of \fBget\fR, \fBpost\fR, \fBhead\fR, \fBput\fR, \fBpatch\fR, \fBdelete\fR, or \fBoptions\fR.
-.IP
-Optional. If omitted, a GET or a POST will be done depending on whether the request sends data.
-.HP
-URL
-.IP
-The URL to request. The scheme defaults to 'http://' unless \fB\-\-https\fR is used.
-.IP
-A leading colon works as shorthand for localhost. :8000 is equivalent to localhost:8000, and :/path is equivalent to localhost/path.
-.HP
-REQUEST_ITEM...
-.IP
-Optional key-value pairs to be included in the request.
-.IP
-\fBkey==value\fR to add a parameter to the URL
-.IP
-\fBkey=value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR)
-.IP
-\fBkey=@value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR) from a file.
-.IP
-\fBkey:=value\fR to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-.IP
-\fBkey:=@value\fR to add a complex JSON value (e.g. `numbers:=@data.json`) from a file.
-.IP
-\fBkey@filename\fR to upload a file from filename (with \fB\-\-form\fR)
-.IP
-\fB@filename\fR to use a file as the request body
-.IP
-\fBheader:value\fR to add a header
-.IP
-\fBheader:\fR to unset a header
-.IP
-\fBheader;\fR to add a header with an empty value
-.IP
-A backslash can be used to escape special characters (e.g. weird\\:key=value).
-.IP
-File uploads can take ';type=' and ';filename=' parameters to set the mimetype and filename, respectively. For example:
-.IP
-  key@filename;type=text/html;filename=document.html
-.SS "Options"
+.TH XH 1 {{date}} {{version}} "User Commands"
+
+.SH NAME
+xh \- Friendly and fast tool for sending HTTP requests
+
+.SH SYNOPSIS
+.B xh
+[\fIOPTIONS\fR]
+[\fIMETHOD\fR]
+\fIURL\fR
+[\-\-\]
+[\fIREQUEST_ITEM\fR \&.\|.\|.\&]
+
+.SH DESCRIPTION
+
+xh is an HTTP client that aims to reimplement as much as possible of
+HTTPie's excellent design, with a focus on improved performance.
+
+xh uses HTTPie's request-item syntax to set headers, request body,
+query string, etc. For more details, see REQUEST_ITEM in the
+OPTIONS section.
+
+In addition to constructing the requesting body from REQUEST_ITEM or the
+\-\-raw flag, xh supports reading body from stdin.
+
+.RS
+.EX
+$ cat report.txt | xhs post example.com
+.EE
+.RE
+
+xh will default to HTTPS scheme if the xhs symlink is used. For example,
+the following will send an HTTPS request to example.com:
+
+.RS
+.EX
+$ xhs example.com
+.EE
+.RE
+
+If xh is invoked as http or https (by renaming the binary), or if the
+XH_HTTPIE_COMPAT_MODE environment variable is set, it will run in HTTPie
+compatibility mode. The only current difference is that \-\-check\-status
+is not enabled by default.
+
+By default, rustls is used instead of the system's TLS library. However,
+one can opt-out by passing the --native-tls option (requires compiling xh
+with the native-tls feature).
+
+xh can be configured via ~/.config/xh/config.json. The only configurable
+option is default_options which is a list of default shell arguments that
+gets passed to xh.
+
+.RS
+.EX
+{
+  "default_options": ["--native-tls", "--style=solarized"]
+}
+.EE
+.RE
+
+.SH OPTIONS
+Each of the following options can be reset with a --no-OPTION argument.
+
+{{options}}
+.SH EXIT STATUS
+.TP
+.B 0
+Successful program execution.
+.TP
+.B 1
+Usage, syntax or network error.
+.TP
+.B 3
+Unexpected HTTP 3xx Redirection.
+.TP
+.B 4
+HTTP 4xx Client Error.
+.TP
+.B 5
+HTTP 5xx Server Error.
+
+.SH ENVIRONMENT
+.TP
+.B XH_CONFIG_DIR
+Specifies where to look for config.json and named session data.
+The default is $XDG_CONFIG_HOME/xh.
+.TP
+.B XH_HTTPIE_COMPAT_MODE
+Enables the HTTPie Compatibility Mode. The only current difference is that
+\-\-check-status is not enabled by default.
+.TP
+.BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
+Sets a custom CA bundle path.
+.TP
+.B HTTPS_PROXY
+Sets the proxy server to use for HTTPS.
+.TP
+.B http_proxy
+Sets the proxy server to use for HTTP.
+.TP
+.B NETRC
+Location of the .netrc file.
+
+.SH FILES
+.TP
+.I ~/.config/xh/config.json
+xh configuration file.
+.TP
+.IR ~/.netrc ", " ~/_netrc
+Auto-login information file.
+.TP
+.I ~/.config/xh/sessions
+Session data directory grouped by domain and port number.
+
+.SH EXAMPLES
+.TP 4
+xh \fIhttpbin.org/json\fR
+Send a GET request.
+.TP
+xh \fIhttpbin.org/post name=ahmed \fIage:=24\fR
+Send a POST request with body {"name": "ahmed", "age": 24}.
+.TP
+xh get \fIhttpbin.org/json id==5 sort==true\fR
+Send a GET request with querystring id=5&sort=true.
+.TP
+xh get \fIhttpbin.org/json x-api-key:12345\fR
+Send a GET request and include a header named x-api-key with value 12345.
+.TP
+xh put \fIhttpbin.org/put id:=49 age:=25\fR | less
+Send a PUT request and pipe the result to less.
+.TP
+xh -d \fIhttpbin.org/json\fR -o \fIres.json\fR
+Download and save to res.json.
+.TP
+xh \fIhttpbin.org/get user-agent:foobar\fR
+Make a request with a custom user agent.
+
+.SH REPORTING BUGS
+xh's Github issues <https://github.com/ducaale/xh/issues>
+
+.SH SEE ALSO
+HTTPie's online documentaion <https://httpie.io/docs/cli>
