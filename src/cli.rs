@@ -7,7 +7,7 @@ use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
@@ -15,9 +15,6 @@ use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
-
-use chrono::{DateTime, Utc};
-use roff::{bold, italic, roman, Roff};
 
 use crate::buffer::Buffer;
 use crate::regex;
@@ -433,14 +430,16 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
+        #[allow(clippy::single_match)]
         match cli.raw_method_or_url.as_str() {
             "help" => {
                 app.print_long_help().unwrap();
                 println!();
                 safe_exit();
             }
-            "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
+            #[cfg(feature = "man-completion-gen")]
             "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            #[cfg(feature = "man-completion-gen")]
             "generate_manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
@@ -659,32 +658,8 @@ fn construct_url(
     Ok(url)
 }
 
-// This signature is a little weird: we either return an error or don't
-// return at all
-fn print_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
-    let bin_name = match app.get_bin_name() {
-        // This name is borrowed from `app`, and `gen_completions_to()` mutably
-        // borrows `app`, so we need to do a clone
-        Some(name) => name.to_owned(),
-        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
-    };
-    if rest_args.len() != 1 {
-        return app.error(
-            ErrorKind::WrongNumberOfValues,
-            "Usage: xh print_completions <SHELL>",
-        );
-    }
-    let shell = match rest_args[0].parse::<clap_complete::Shell>() {
-        Ok(shell) => shell,
-        Err(_) => return app.error(ErrorKind::InvalidValue, "Unknown shell name"),
-    };
-    let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut app, bin_name, &mut buf);
-    let completions = String::from_utf8(buf).unwrap();
-    print!("{}", completions);
-    safe_exit();
-}
-
+#[cfg(feature = "man-completion-gen")]
+// This signature is a little weird: we either return an error or don't return at all
 fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     let bin_name = match app.get_bin_name() {
         Some(name) => name.to_owned(),
@@ -706,7 +681,12 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
     safe_exit();
 }
 
+#[cfg(feature = "man-completion-gen")]
 fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+    use chrono::{DateTime, Utc};
+    use roff::{bold, italic, roman, Roff};
+    use std::time::SystemTime;
+
     if rest_args.len() != 1 {
         return app.error(
             ErrorKind::WrongNumberOfValues,
