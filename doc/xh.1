@@ -83,9 +83,13 @@ Pass raw request data without extra processing
 .TP
 \fB\-\-pretty\fR=\fISTYLE\fR
 Controls output processing
+
+[possible values: all, colors, format, none]
 .TP
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style
+
+[possible values: auto, solarized, monokai, fruity]
 .TP
 \fB\-\-response\-charset\fR=\fIENCODING\fR
 Override the response encoding for terminal display purposes.
@@ -144,6 +148,8 @@ Create or read a session without updating it form the request/response exchange
 .TP
 \fB\-A\fR, \fB\-\-auth\-type\fR=\fIAUTH_TYPE\fR
 Specify the auth mechanism
+
+[possible values: basic, bearer, digest]
 .TP
 \fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR]|\fITOKEN\fR
 Authenticate as USER with PASS or with TOKEN.
@@ -206,6 +212,8 @@ Only necessary if the private key is not contained in the cert file.
 Force a particular TLS version.
 
 "auto" gives the default behavior of negotiating a version with the server.
+
+[possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
 .TP
 \fB\-\-native\-tls\fR
 Use the system TLS library instead of rustls (if enabled at compile time)
@@ -215,6 +223,8 @@ Make HTTPS requests if not specified in the URL
 .TP
 \fB\-\-http\-version\fR=\fIVERSION\fR
 HTTP version to use
+
+[possible values: 1.0, 1.1, 2]
 .TP
 \fB\-I\fR, \fB\-\-ignore\-stdin\fR
 Do not attempt to read stdin

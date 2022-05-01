@@ -729,6 +729,18 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
             body.push(roman(help));
         }
+        // TODO: render help string for possible values if it exists
+        if let Some(possible_values) = opt.get_possible_values() {
+            let possible_values_text = format!(
+                "\n\n[possible values: {}]",
+                possible_values
+                    .iter()
+                    .map(|v| v.get_name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            body.push(roman(possible_values_text));
+        }
         roff.control("TP", []);
         roff.text(header);
         roff.text(body);
