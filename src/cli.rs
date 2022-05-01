@@ -286,7 +286,7 @@ pub struct Cli {
     /// The request URL, preceded by an optional HTTP method
     ///
     /// If the method is omitted, it will default to either GET or POST
-    /// depending on whether the request sends data or not.
+    /// depending on whether the request contains body or not.
     ///
     ///     $ http example.com               # => GET
     ///     $ http example.com hello=world   # => POST
@@ -741,8 +741,10 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             header.push(italic("METHOD"));
             header.push(roman("]"));
             header.push(italic(" URL"));
-        } else if let Some(value_name) = opt.get_value_names() {
-            header.push(italic(value_name.join(" ")));
+        } else if opt.get_id() == "raw-rest-args" {
+            header.push(roman("["));
+            header.push(italic("REQUEST_ITEM"));
+            header.push(roman(" ...]"));
         } else {
             header.push(italic(opt.get_id()));
         }

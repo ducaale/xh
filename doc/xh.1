@@ -1,4 +1,4 @@
-.TH XH 1 2022-04-30 0.16.0 "User Commands"
+.TH XH 1 2022-05-01 0.16.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -25,7 +25,7 @@ In addition to constructing the requesting body from REQUEST_ITEM or the
 
 .RS
 .EX
-$ cat report.txt | xhs post example.com
+$ cat report.txt | xh post example.com
 .EE
 .RE
 
@@ -231,7 +231,7 @@ Use the long versions of curl's flags
 The request URL, preceded by an optional HTTP method
 
 If the method is omitted, it will default to either GET or POST
-depending on whether the request sends data or not.
+depending on whether the request contains body or not.
 
     $ http example.com               # => GET
     $ http example.com hello=world   # => POST
@@ -246,7 +246,7 @@ with colon plus an optional port number.
     $ xh example.com            # => http://example.com
     $ xh ://example.com         # => http://example.com
 .TP
-\fIREQUEST_ITEM\fR
+[\fIREQUEST_ITEM\fR ...]
 Optional key\-value pairs to be included in the request
 
 The separator is used to determine the type i.e. header,
