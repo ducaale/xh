@@ -46,14 +46,20 @@ pub struct Cli {
     pub httpie_compat_mode: bool,
 
     /// (default) Serialize data items from the command line as a JSON object.
+    ///
+    /// Overrides both --form and --multipart
     #[clap(short = 'j', long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
+    ///
+    /// Overrides both --json and --multipart
     #[clap(short = 'f', long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
+    ///
+    /// Overrides both --json and --form
     #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
@@ -108,6 +114,8 @@ pub struct Cli {
     pub body: bool,
 
     /// Print the whole request as well as the response.
+    ///
+    /// This is equivalent to --print=HhBb --all
     #[clap(short = 'v', long)]
     pub verbose: bool,
 
@@ -132,6 +140,8 @@ pub struct Cli {
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
+    ///
+    /// Additionally, this automatically enables --follow.
     #[clap(short = 'd', long)]
     pub download: bool,
 

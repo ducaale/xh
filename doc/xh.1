@@ -70,13 +70,19 @@ Print help information
 Print version information
 .TP
 \fB\-j\fR, \fB\-\-json\fR
-(default) Serialize data items from the command line as a JSON object
+(default) Serialize data items from the command line as a JSON object.
+
+Overrides both \-\-form and \-\-multipart
 .TP
 \fB\-f\fR, \fB\-\-form\fR
-Serialize data items from the command line as form fields
+Serialize data items from the command line as form fields.
+
+Overrides both \-\-json and \-\-multipart
 .TP
 \fB\-m\fR, \fB\-\-multipart\fR
-Like \-\-form, but force a multipart/form\-data request even without files
+Like \-\-form, but force a multipart/form\-data request even without files.
+
+Overrides both \-\-json and \-\-form
 .TP
 \fB\-\-raw\fR=\fIRAW\fR
 Pass raw request data without extra processing
@@ -84,10 +90,10 @@ Pass raw request data without extra processing
 \fB\-\-pretty\fR=\fISTYLE\fR
 Controls output processing. Possible values are:
 
-    all      (default) enable both coloring and formatting
-    colors   apply syntax highlighting to output
-    format   pretty\-print json and sort headers
-    none     disable both coloring and formatting
+    all      (default) Enable both coloring and formatting
+    colors   Apply syntax highlighting to output
+    format   Pretty\-print json and sort headers
+    none     Disable both coloring and formatting
 
 \-\-pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 
@@ -121,7 +127,9 @@ Print only the response headers. Shortcut for \-\-print=h
 Print only the response body. Shortcut for \-\-print=b
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Print the whole request as well as the response
+Print the whole request as well as the response.
+
+This is equivalent to \-\-print=HhBb \-\-all
 .TP
 \fB\-\-all\fR
 Show any intermediary requests/responses while following redirects with \-\-follow
@@ -139,7 +147,9 @@ Always stream the response body
 Save output to FILE instead of stdout
 .TP
 \fB\-d\fR, \fB\-\-download\fR
-Download the body to a file instead of printing it
+Download the body to a file instead of printing it.
+
+Additionally, this automatically enables \-\-follow.
 .TP
 \fB\-c\fR, \fB\-\-continue\fR
 Resume an interrupted download. Requires \-\-download and \-\-output
@@ -158,7 +168,7 @@ Specify the auth mechanism
 [possible values: basic, bearer, digest]
 .TP
 \fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR]|\fITOKEN\fR
-Authenticate as USER with PASS or with TOKEN.
+Authenticate as USER with PASS (\-A basic|digest) or with TOKEN (\-A bearer).
 
 PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
 
@@ -269,34 +279,34 @@ The separator is used to determine the type i.e. header,
 request body, query string, etc
 
     key==value
-        add a parameter to the URL
+        Add a parameter to the URL
 
     key=value
-        add a JSON field (\-\-json) or form field (\-\-form)
+        Add a JSON field (\-\-json) or form field (\-\-form)
 
     key:=value
-        add a literal JSON value e.g. numbers:=[1,2,3]
+        Add a literal JSON value e.g. numbers:=[1,2,3]
 
     key@file
-        upload a file from filename (with \-\-form)
+        Upload a file from filename (with \-\-form)
 
     key=@file
-        same as key=value but reads the value from a file
+        Same as key=value but reads the value from a file
 
     key:=@file
-        same as key:=value but reads the value from a file
+        Same as key:=value but reads the value from a file
 
     @filename
-        use a file as the request body
+        Use a file as the request body
 
     header:value
-        add a header
+        Add a header
 
     header:
-        unset a header
+        Unset a header
 
     header;
-        add a header with an empty value
+        Add a header with an empty value
 
 A backslash can be used to escape special characters e.g. weird\\:key=value.
 
