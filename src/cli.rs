@@ -12,6 +12,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
 use encoding_rs::Encoding;
+use indoc::indoc;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
@@ -60,8 +61,17 @@ pub struct Cli {
     #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
 
-    /// Controls output processing.
-    #[clap(long, arg_enum, value_name = "STYLE")]
+    /// Controls output processing [possible values: all, colors, format, none]
+    #[clap(long, arg_enum, value_name = "STYLE", hide_possible_values = true, long_help = indoc! {r#"
+        Controls output processing. Possible values are:
+
+            all      (default) enable both coloring and formatting
+            colors   apply syntax highlighting to output
+            format   pretty-print json and sort headers
+            none     disable both coloring and formatting
+        
+        --pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
+    "#})]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
@@ -729,17 +739,18 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
             body.push(roman(help));
         }
-        // TODO: render help string for possible values if it exists
         if let Some(possible_values) = opt.get_possible_values() {
-            let possible_values_text = format!(
-                "\n\n[possible values: {}]",
-                possible_values
-                    .iter()
-                    .map(|v| v.get_name())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-            body.push(roman(possible_values_text));
+            if !opt.is_hide_possible_values_set() {
+                let possible_values_text = format!(
+                    "\n\n[possible values: {}]",
+                    possible_values
+                        .iter()
+                        .map(|v| v.get_name())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                body.push(roman(possible_values_text));
+            }
         }
         roff.control("TP", []);
         roff.text(header);

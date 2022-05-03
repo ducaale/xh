@@ -1,4 +1,4 @@
-.TH XH 1 2022-05-01 0.16.0 "User Commands"
+.TH XH 1 2022-05-03 0.16.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -82,9 +82,15 @@ Like \-\-form, but force a multipart/form\-data request even without files
 Pass raw request data without extra processing
 .TP
 \fB\-\-pretty\fR=\fISTYLE\fR
-Controls output processing
+Controls output processing. Possible values are:
 
-[possible values: all, colors, format, none]
+    all      (default) enable both coloring and formatting
+    colors   apply syntax highlighting to output
+    format   pretty\-print json and sort headers
+    none     disable both coloring and formatting
+
+\-\-pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
+
 .TP
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style
@@ -332,6 +338,9 @@ Sets the proxy server to use for HTTP.
 .TP
 .B NETRC
 Location of the .netrc file.
+.TP
+.B NO_COLOR
+Disables output coloring. See <https://no-color.org>
 
 .SH FILES
 .TP
