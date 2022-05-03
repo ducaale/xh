@@ -80,22 +80,22 @@ pub struct Cli {
 
     /// Override the response encoding for terminal display purposes.
     ///
-    /// Example: `--response-charset=latin1`
+    /// Example: --response-charset=latin1
     #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
     pub response_charset: Option<&'static Encoding>,
 
     /// Override the response mime type for coloring and formatting for the terminal
     ///
-    /// Example: `--response-mime=application/json`
+    /// Example: --response-mime=application/json
     #[clap(long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
     /// String specifying what the output should contain.
     ///
-    /// Use `H` and `B` for request header and body respectively,
-    /// and `h` and `b` for response hader and body.
+    /// Use 'H" and "B" for request header and body respectively,
+    /// and "h" and "b" for response hader and body.
     ///
-    /// Example: `--print=Hb`
+    /// Example: --print=Hb
     #[clap(short = 'p', long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
@@ -170,10 +170,10 @@ pub struct Cli {
 
     /// Authenticate as USER with PASS or with TOKEN.
     ///
-    /// PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`)
+    /// PASS will be prompted if missing. Use a trailing colon (i.e. "USER:")
     /// to authenticate with just a username.
     ///
-    /// TOKEN is expected if `--auth-type=bearer`.
+    /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS]|TOKEN")]
     pub auth: Option<String>,
 
@@ -205,26 +205,26 @@ pub struct Cli {
     #[clap(short = 'F', long)]
     pub follow: bool,
 
-    /// Number of redirects to follow, only respected if `follow` is set.
+    /// Number of redirects to follow. Only respected if --follow is used.
     #[clap(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Connection timeout of the request.
     ///
-    /// The default value is `0`, i.e., there is no timeout limit.
+    /// The default value is "0", i.e., there is no timeout limit.
     #[clap(long, value_name = "SEC")]
     pub timeout: Option<Timeout>,
 
-    /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
+    /// Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
     ///
-    /// PROTOCOL can be `http`, `https` or `all`.
+    /// PROTOCOL can be "http", "https" or "all".
     ///
     /// If your proxy requires credentials, put them in the URL, like so:
-    /// `--proxy http:socks5://user:password@proxy.host:8000`.
+    /// --proxy http:socks5://user:password@proxy.host:8000.
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// The environment variables `http_proxy` and `https_proxy` can also be used, but
+    /// The environment variables "http_proxy" and "https_proxy" can also be used, but
     /// are completely ignored if --proxy is passed.
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
@@ -271,7 +271,7 @@ pub struct Cli {
     #[clap(long)]
     pub https: bool,
 
-    /// HTTP version to use
+    /// HTTP version to use.
     #[clap(long, value_name = "VERSION",
         possible_value = clap::PossibleValue::new("1.0"),
         possible_value = clap::PossibleValue::new("1.1").alias("1"),
@@ -283,7 +283,7 @@ pub struct Cli {
     #[clap(short = 'I', long)]
     pub ignore_stdin: bool,
 
-    /// Print a translation to a `curl` command.
+    /// Print a translation to a curl command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
     #[clap(long)]

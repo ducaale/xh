@@ -100,19 +100,19 @@ Output coloring style
 \fB\-\-response\-charset\fR=\fIENCODING\fR
 Override the response encoding for terminal display purposes.
 
-Example: `\-\-response\-charset=latin1`
+Example: \-\-response\-charset=latin1
 .TP
 \fB\-\-response\-mime\fR=\fIMIME_TYPE\fR
 Override the response mime type for coloring and formatting for the terminal
 
-Example: `\-\-response\-mime=application/json`
+Example: \-\-response\-mime=application/json
 .TP
 \fB\-p\fR, \fB\-\-print\fR=\fIFORMAT\fR
 String specifying what the output should contain.
 
-Use `H` and `B` for request header and body respectively, and `h` and `b` for response hader and body.
+Use 'H" and "B" for request header and body respectively, and "h" and "b" for response hader and body.
 
-Example: `\-\-print=Hb`
+Example: \-\-print=Hb
 .TP
 \fB\-h\fR, \fB\-\-headers\fR
 Print only the response headers. Shortcut for \-\-print=h
@@ -160,9 +160,9 @@ Specify the auth mechanism
 \fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR]|\fITOKEN\fR
 Authenticate as USER with PASS or with TOKEN.
 
-PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
+PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
 
-TOKEN is expected if `\-\-auth\-type=bearer`.
+TOKEN is expected if \-\-auth\-type=bearer.
 .TP
 \fB\-\-ignore\-netrc\fR
 Do not use credentials from .netrc
@@ -181,23 +181,23 @@ If stdout is redirected then a warning is written to stderr.
 Do follow redirects
 .TP
 \fB\-\-max\-redirects\fR=\fINUM\fR
-Number of redirects to follow, only respected if `follow` is set
+Number of redirects to follow. Only respected if \-\-follow is used
 .TP
 \fB\-\-timeout\fR=\fISEC\fR
 Connection timeout of the request.
 
-The default value is `0`, i.e., there is no timeout limit.
+The default value is "0", i.e., there is no timeout limit.
 .TP
 \fB\-\-proxy\fR=\fIPROTOCOL:URL\fR
-Use a proxy for a protocol. For example: `\-\-proxy https:http://proxy.host:8080`.
+Use a proxy for a protocol. For example: \-\-proxy https:http://proxy.host:8080.
 
-PROTOCOL can be `http`, `https` or `all`.
+PROTOCOL can be "http", "https" or "all".
 
-If your proxy requires credentials, put them in the URL, like so: `\-\-proxy http:socks5://user:password@proxy.host:8000`.
+If your proxy requires credentials, put them in the URL, like so: \-\-proxy http:socks5://user:password@proxy.host:8000.
 
 You can specify proxies for multiple protocols by repeating this option.
 
-The environment variables `http_proxy` and `https_proxy` can also be used, but are completely ignored if \-\-proxy is passed.
+The environment variables "http_proxy" and "https_proxy" can also be used, but are completely ignored if \-\-proxy is passed.
 .TP
 \fB\-\-verify\fR=\fIVERIFY\fR
 If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -236,7 +236,7 @@ HTTP version to use
 Do not attempt to read stdin
 .TP
 \fB\-\-curl\fR
-Print a translation to a `curl` command.
+Print a translation to a curl command.
 
 For translating the other way, try https://curl2httpie.online/.
 .TP
