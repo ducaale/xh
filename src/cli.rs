@@ -65,10 +65,10 @@ pub struct Cli {
     #[clap(long, arg_enum, value_name = "STYLE", hide_possible_values = true, long_help = indoc! {r#"
         Controls output processing. Possible values are:
 
-            all      (default) enable both coloring and formatting
-            colors   apply syntax highlighting to output
-            format   pretty-print json and sort headers
-            none     disable both coloring and formatting
+            all      (default) Enable both coloring and formatting
+            colors   Apply syntax highlighting to output
+            format   Pretty-print json and sort headers
+            none     Disable both coloring and formatting
         
         --pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
     "#})]
@@ -319,34 +319,34 @@ pub struct Cli {
     /// request body, query string, etc
     ///
     ///     key==value
-    ///         add a parameter to the URL
+    ///         Add a parameter to the URL
     ///
     ///     key=value
-    ///         add a JSON field (--json) or form field (--form)
+    ///         Add a JSON field (--json) or form field (--form)
     ///
     ///     key:=value
-    ///         add a literal JSON value e.g. numbers:=[1,2,3]
+    ///         Add a literal JSON value e.g. numbers:=[1,2,3]
     ///
     ///     key@file
-    ///         upload a file from filename (with --form)
+    ///         Upload a file from filename (with --form)
     ///
     ///     key=@file
-    ///         same as key=value but reads the value from a file
+    ///         Same as key=value but reads the value from a file
     ///
     ///     key:=@file
-    ///         same as key:=value but reads the value from a file
+    ///         Same as key:=value but reads the value from a file
     ///
     ///     @filename
-    ///         use a file as the request body
+    ///         Use a file as the request body
     ///
     ///     header:value
-    ///         add a header
+    ///         Add a header
     ///
     ///     header:
-    ///         unset a header
+    ///         Unset a header
     ///
     ///     header;
-    ///         add a header with an empty value
+    ///         Add a header with an empty value
     ///
     /// A backslash can be used to escape special characters e.g. weird\:key=value.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
