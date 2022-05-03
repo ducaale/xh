@@ -99,7 +99,7 @@ pub struct Cli {
     /// String specifying what the output should contain.
     ///
     /// Use 'H" and "B" for request header and body respectively,
-    /// and "h" and "b" for response hader and body.
+    /// and "h" and "b" for response header and body.
     ///
     /// Example: --print=Hb
     #[clap(short = 'p', long, value_name = "FORMAT")]
@@ -338,7 +338,11 @@ pub struct Cli {
     ///         Add a literal JSON value e.g. numbers:=[1,2,3]
     ///
     ///     key@file
-    ///         Upload a file from filename (with --form)
+    ///         include file in multipart request. Requires enabling
+    ///         either --form or --multipart.
+    ///
+    ///         Additionally, both filename and mime type can be set e.g
+    ///         picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg
     ///
     ///     key=@file
     ///         Same as key=value but reads the value from a file
