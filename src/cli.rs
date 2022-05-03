@@ -168,7 +168,7 @@ pub struct Cli {
     #[clap(short = 'A', long, arg_enum)]
     pub auth_type: Option<AuthType>,
 
-    /// Authenticate as USER with PASS or with TOKEN.
+    /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
     ///
     /// PASS will be prompted if missing. Use a trailing colon (i.e. "USER:")
     /// to authenticate with just a username.
