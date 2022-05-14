@@ -2869,3 +2869,28 @@ fn empty_response_with_content_encoding() {
 
         "#});
 }
+
+#[test]
+fn empty_response_with_content_encoding_and_content_length() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .header("content-length", "100")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("head")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 100
+            Date: N/A
+
+
+        "#});
+}
