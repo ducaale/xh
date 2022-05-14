@@ -59,35 +59,19 @@ case $PATH in
         ;;
 esac
 
-while [ $# -gt 0 ]
-do
-    key="$1"
-    case "$key" in
-        --install-dir)
-            install_dir="$2"
-            shift
-            shift
-            ;;
-        *)
-            echo "Unknown option ${key}"
-            exit 1
-            ;;
-    esac
-done
-
-if [ -z "$install_dir" ]; then
+_read_bindir() {
     printf "Install location [default: %s]: " "$default_bin"
     read -r XH_BINDIR < /dev/tty
     XH_BINDIR=${XH_BINDIR:-$default_bin}
+}
+
+if [ -z "$XH_BINDIR" ]; then
+    _read_bindir
 
     while ! test -d "$XH_BINDIR"; do
       echo "Directory $XH_BINDIR does not exist"
-      printf "Install location [default: %s]: " "$default_bin"
-      read -r XH_BINDIR < /dev/tty
-      XH_BINDIR=${XH_BINDIR:-$default_bin}
+      _read_bindir
     done
-else
-    XH_BINDIR=${install_dir}
 fi
 
 tar xzf xh.tar.gz
