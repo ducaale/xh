@@ -59,9 +59,25 @@ case $PATH in
         ;;
 esac
 
-printf "Install location [default: %s]: " "$default_bin"
-read -r bindir < /dev/tty
-bindir=${bindir:-$default_bin}
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case "$key" in
+        --install-dir)
+            install_dir="$2"
+            shift
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$install_dir" ]]; then
+    printf "Install location [default: %s]: " "$default_bin"
+    read -r bindir < /dev/tty
+    bindir=${bindir:-$default_bin}
+else
+    bindir=${install_dir}
+fi
 
 while ! test -d "$bindir"; do
     echo "Directory $bindir does not exist"
