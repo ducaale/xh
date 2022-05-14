@@ -59,7 +59,7 @@ case $PATH in
         ;;
 esac
 
-while [[ $# -gt 0 ]]
+while [ $# -gt 0 ]
 do
     key="$1"
     case "$key" in
@@ -68,34 +68,38 @@ do
             shift
             shift
             ;;
+        *)
+            echo "Unknown option ${key}"
+            exit 1
+            ;;
     esac
 done
 
-if [[ -z "$install_dir" ]]; then
+if [ -z "$install_dir" ]; then
     printf "Install location [default: %s]: " "$default_bin"
-    read -r bindir < /dev/tty
-    bindir=${bindir:-$default_bin}
-else
-    bindir=${install_dir}
-fi
+    read -r XH_BINDIR < /dev/tty
+    XH_BINDIR=${XH_BINDIR:-$default_bin}
 
-while ! test -d "$bindir"; do
-    echo "Directory $bindir does not exist"
-    printf "Install location [default: %s]: " "$default_bin"
-    read -r bindir < /dev/tty
-    bindir=${bindir:-$default_bin}
-done
+    while ! test -d "$XH_BINDIR"; do
+      echo "Directory $XH_BINDIR does not exist"
+      printf "Install location [default: %s]: " "$default_bin"
+      read -r XH_BINDIR < /dev/tty
+      XH_BINDIR=${XH_BINDIR:-$default_bin}
+    done
+else
+    XH_BINDIR=${install_dir}
+fi
 
 tar xzf xh.tar.gz
 
-if test -w "$bindir"; then
-    mv xh-*/xh "$bindir/"
-    ln -sf "$bindir/xh" "$bindir/xhs"
+if test -w "$XH_BINDIR"; then
+    mv xh-*/xh "$XH_BINDIR/"
+    ln -sf "$XH_BINDIR/xh" "$XH_BINDIR/xhs"
 else
-    sudo mv xh-*/xh "$bindir/"
-    sudo ln -sf "$bindir/xh" "$bindir/xhs"
+    sudo mv xh-*/xh "$XH_BINDIR/"
+    sudo ln -sf "$XH_BINDIR/xh" "$XH_BINDIR/xhs"
 fi
 
-echo "$("$bindir"/xh -V) has been installed to:"
-echo " • $bindir/xh"
-echo " • $bindir/xhs"
+echo "$("$XH_BINDIR"/xh -V) has been installed to:"
+echo " • $XH_BINDIR/xh"
+echo " • $XH_BINDIR/xhs"
