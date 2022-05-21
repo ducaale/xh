@@ -1,4 +1,4 @@
-.TH XH 1 2022-05-03 0.16.0 "User Commands"
+.TH XH 1 2022-05-21 0.16.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -9,7 +9,7 @@ xh \- Friendly and fast tool for sending HTTP requests
 [\fIMETHOD\fR]
 \fIURL\fR
 [\-\-\]
-[\fIREQUEST_ITEM\fR \&.\|.\|.\&]
+[\fIREQUEST_ITEM\fR ...]
 
 .SH DESCRIPTION
 
@@ -17,11 +17,11 @@ xh is an HTTP client that aims to reimplement as much as possible of
 HTTPie's excellent design, with a focus on improved performance.
 
 xh uses HTTPie's request-item syntax to set headers, request body,
-query string, etc. For more details, see REQUEST_ITEM in the
+query string, etc. For more details, refer to REQUEST_ITEM in the
 OPTIONS section.
 
-In addition to constructing the requesting body from REQUEST_ITEM or the
-\-\-raw flag, xh supports reading body from stdin.
+In addition to constructing the request body from REQUEST_ITEM or the
+\-\-raw flag, xh can read it from stdin:
 
 .RS
 .EX
@@ -29,27 +29,28 @@ $ cat report.txt | xh post example.com
 .EE
 .RE
 
-xh will default to HTTPS scheme if the xhs symlink is used. For example,
-the following will send an HTTPS request to example.com:
+Most xh distrubtions come with an xhs symlink that defaults to HTTPS
+if the URL scheme is not specified.
 
 .RS
 .EX
-$ xhs example.com
+$ xh example.com   # => http://example.com
+$ xhs example.com  # => https://example.com
 .EE
 .RE
 
-If xh is invoked as http or https (by renaming the binary), or if the
-XH_HTTPIE_COMPAT_MODE environment variable is set, it will run in HTTPie
-compatibility mode. The only current difference is that \-\-check\-status
-is not enabled by default.
+If xh is renamed to either http or https, or if the XH_HTTPIE_COMPAT_MODE
+environment variable is set, it will enable HTTPie compatibility mode.
+The only current difference is that \-\-check\-status is not enabled by
+default.
 
 By default, rustls is used instead of the system's TLS library. However,
-one can opt-out by passing the --native-tls option (requires compiling xh
-with the native-tls feature).
+one can opt-out by passing the \-\-native\-tls option (requires compiling
+xh with the native\-tls feature).
 
 xh can be configured via ~/.config/xh/config.json. The only configurable
-option is default_options which is a list of default shell arguments that
-gets passed to xh.
+option is "default_options" which is a list of default shell arguments
+that gets passed to xh.
 
 .RS
 .EX
@@ -95,8 +96,7 @@ Controls output processing. Possible values are:
     format   Pretty\-print json and sort headers
     none     Disable both coloring and formatting
 
-\-\-pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
-
+Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 .TP
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style
@@ -116,7 +116,7 @@ Example: \-\-response\-mime=application/json
 \fB\-p\fR, \fB\-\-print\fR=\fIFORMAT\fR
 String specifying what the output should contain.
 
-Use 'H" and "B" for request header and body respectively, and "h" and "b" for response header and body.
+Use "H" and "B" for request header and body respectively, and "h" and "b" for response header and body.
 
 Example: \-\-print=Hb
 .TP
@@ -129,7 +129,9 @@ Print only the response body. Shortcut for \-\-print=b
 \fB\-v\fR, \fB\-\-verbose\fR
 Print the whole request as well as the response.
 
-This is equivalent to \-\-print=HhBb \-\-all
+Additionally, this enables \-\-all for printing intermediary requests/responses while following redirects
+
+Equivalent to \-\-print=HhBb \-\-all
 .TP
 \fB\-\-all\fR
 Show any intermediary requests/responses while following redirects with \-\-follow
@@ -149,7 +151,7 @@ Save output to FILE instead of stdout
 \fB\-d\fR, \fB\-\-download\fR
 Download the body to a file instead of printing it.
 
-Additionally, this automatically enables \-\-follow.
+Additionally, accept\-encoding is set to identify and any redirects will be followed.
 .TP
 \fB\-c\fR, \fB\-\-continue\fR
 Resume an interrupted download. Requires \-\-download and \-\-output
@@ -271,6 +273,7 @@ with colon plus an optional port number.
     $ xh :/users                # => http://localhost:80/users
     $ xh example.com            # => http://example.com
     $ xh ://example.com         # => http://example.com
+    $ xhs example.com           # => https://example.com
 .TP
 [\fIREQUEST_ITEM\fR ...]
 Optional key\-value pairs to be included in the request

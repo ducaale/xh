@@ -76,8 +76,8 @@ pub struct Cli {
             format   Pretty-print json and sort headers
             none     Disable both coloring and formatting
         
-        --pretty defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
-    "#})]
+        Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty."#}
+    )]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
@@ -98,7 +98,7 @@ pub struct Cli {
 
     /// String specifying what the output should contain.
     ///
-    /// Use 'H" and "B" for request header and body respectively,
+    /// Use "H" and "B" for request header and body respectively,
     /// and "h" and "b" for response header and body.
     ///
     /// Example: --print=Hb
@@ -115,7 +115,10 @@ pub struct Cli {
 
     /// Print the whole request as well as the response.
     ///
-    /// This is equivalent to --print=HhBb --all
+    /// Additionally, this enables --all for printing intermediary
+    /// requests/responses while following redirects
+    ///
+    /// Equivalent to --print=HhBb --all
     #[clap(short = 'v', long)]
     pub verbose: bool,
 
@@ -141,7 +144,7 @@ pub struct Cli {
 
     /// Download the body to a file instead of printing it.
     ///
-    /// Additionally, this automatically enables --follow.
+    /// Additionally, accept-encoding is set to identify and any redirects will be followed.
     #[clap(short = 'd', long)]
     pub download: bool,
 
@@ -320,6 +323,7 @@ pub struct Cli {
     ///     $ xh :/users                # => http://localhost:80/users
     ///     $ xh example.com            # => http://example.com
     ///     $ xh ://example.com         # => http://example.com
+    ///     $ xhs example.com           # => https://example.com
     #[clap(value_name = "[METHOD] URL", verbatim_doc_comment)]
     raw_method_or_url: String,
 
@@ -803,7 +807,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     manpage = manpage.replace("{{date}}", &current_date);
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());
-    manpage = manpage.replace("{{options}}", &roff.to_roff());
+    manpage = manpage.replace("{{options}}", &roff.to_roff().trim());
 
     fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
     safe_exit();
