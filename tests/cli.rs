@@ -544,7 +544,7 @@ fn timeout() {
     get_command()
         .args(&["--timeout=0.1", &server.base_url()])
         .assert()
-        .failure()
+        .code(2)
         .stderr(contains("operation timed out"));
 }
 
@@ -2370,7 +2370,7 @@ fn max_redirects_is_enforced() {
         .args(&[&server.base_url(), "--follow", "--max-redirects=5"])
         .assert()
         .stderr(contains("Too many redirects (--max-redirects=5)"))
-        .failure();
+        .code(6);
 }
 
 #[test]

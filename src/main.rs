@@ -84,7 +84,13 @@ fn main() {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
             }
-            process::exit(1);
+            if msg == "operation timed out" {
+                process::exit(2);
+            } else if msg.starts_with("Too many redirects") {
+                process::exit(6);
+            } else {
+                process::exit(1);
+            }
         }
     }
 }
