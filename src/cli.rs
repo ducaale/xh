@@ -309,14 +309,14 @@ pub struct Cli {
     /// The request URL, preceded by an optional HTTP method
     ///
     /// If the method is omitted, it will default to either GET or POST
-    /// depending on whether the request contains body or not.
+    /// depending on whether the request contains a body or not.
     ///
     ///     $ http example.com               # => GET
     ///     $ http example.com hello=world   # => POST
     ///
     /// Specifying the scheme portion of the request URL is optional.
     /// localhost can also be omitted from the URL as long it starts
-    /// with colon plus an optional port number.
+    /// with a colon plus an optional port number.
     ///
     ///     $ xh localhost:3000/users   # => http://localhost:3000/users
     ///     $ xh :3000/users            # => http://localhost:3000/users
