@@ -807,7 +807,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     manpage = manpage.replace("{{date}}", &current_date);
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());
-    manpage = manpage.replace("{{options}}", &roff.to_roff().trim());
+    manpage = manpage.replace("{{options}}", roff.to_roff().trim());
 
     fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
     safe_exit();
