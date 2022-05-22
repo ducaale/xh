@@ -84,6 +84,14 @@ fn main() {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
             }
+            if let Some(err) = err.downcast_ref::<reqwest::Error>() {
+                if err.is_timeout() {
+                    process::exit(2);
+                }
+            }
+            if msg.starts_with("Too many redirects") {
+                process::exit(6);
+            }
             process::exit(1);
         }
     }
