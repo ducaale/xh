@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.16.1] - 2022-05-22
 ### Bug fixes
 - fix HEAD request failing on compressed response, see #257 (@ducaale)
 
