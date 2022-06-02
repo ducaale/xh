@@ -20,19 +20,15 @@ xh uses HTTPie's request-item syntax to set headers, request body,
 query string, etc. For more details, refer to REQUEST_ITEM in the
 OPTIONS section.
 
-In addition to constructing the request body from REQUEST_ITEM or the
-\-\-raw flag, xh can read it from stdin:
+If stdin is detected as not tty, xh will attempt to read the request body
+from stdin (you might want to opt-out of this behaviour in non-interactive
+sessions via \-\-ignore\-stdin).
 
 .RS
 .EX
 $ cat report.txt | xh post example.com
 .EE
 .RE
-
-If xh is renamed to either http or https, or if the XH_HTTPIE_COMPAT_MODE
-environment variable is set, it will enable HTTPie compatibility mode.
-The only current difference is that \-\-check\-status is not enabled by
-default.
 
 By default, rustls is used instead of the system's TLS library. However,
 one can opt-out by passing the \-\-native\-tls option (requires compiling
@@ -334,7 +330,8 @@ The default is $XDG_CONFIG_HOME/xh.
 .TP
 .B XH_HTTPIE_COMPAT_MODE
 Enables the HTTPie Compatibility Mode. The only current difference is that
-\-\-check-status is not enabled by default.
+\-\-check-status is not enabled by default. An alternative to setting this
+environment variable is to rename the binary to either http or https.
 .TP
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
