@@ -29,16 +29,6 @@ $ cat report.txt | xh post example.com
 .EE
 .RE
 
-Most xh distributions come with an xhs symlink that defaults to HTTPS
-if the URL scheme is not specified.
-
-.RS
-.EX
-$ xh example.com   # => http://example.com
-$ xhs example.com  # => https://example.com
-.EE
-.RE
-
 If xh is renamed to either http or https, or if the XH_HTTPIE_COMPAT_MODE
 environment variable is set, it will enable HTTPie compatibility mode.
 The only current difference is that \-\-check\-status is not enabled by
@@ -261,25 +251,21 @@ The request URL, preceded by an optional HTTP method
 If the method is omitted, it will default to either GET or POST
 depending on whether the request contains a body or not.
 
-    $ http example.com               # => GET
-    $ http example.com hello=world   # => POST
+The URL scheme defaults to "http://" unless xhs symlink is used
+(should be available if xh is installed via a package manager).
 
-Specifying the scheme portion of the request URL is optional.
-localhost can also be omitted from the URL as long it starts
-with a colon plus an optional port number.
+A leading colon works as shorthand for localhost. ":8000" is equivalent
+to "localhost:8000", and ":/path" is equivalent to "localhost/path".
 
-    $ xh localhost:3000/users   # => http://localhost:3000/users
-    $ xh :3000/users            # => http://localhost:3000/users
-    $ xh :/users                # => http://localhost:80/users
-    $ xh example.com            # => http://example.com
-    $ xh ://example.com         # => http://example.com
-    $ xhs example.com           # => https://example.com
+URLs can have a leading "://" which allows quickly converting a URL
+into a valid xh or HTTPie command. For example "http://httpbin.org/json"
+becomes "http ://httpbin.org/json".
 .TP
 [\fIREQUEST_ITEM\fR ...]
 Optional key\-value pairs to be included in the request
 
-The separator is used to determine the type i.e. header,
-request body, query string, etc
+The separator is used to determine the type i.e. header, request body,
+query string, etc.
 
 A backslash can be used to escape special characters e.g. weird\\:key=value.
 .RS 12
