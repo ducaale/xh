@@ -51,6 +51,7 @@ pub fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
 
 struct InnerReader<R: Read> {
     reader: R,
+    has_read_data: bool,
     has_errored: bool,
 }
 
@@ -58,6 +59,7 @@ impl<R: Read> InnerReader<R> {
     fn new(reader: R) -> Self {
         InnerReader {
             reader,
+            has_read_data: false,
             has_errored: false,
         }
     }
@@ -66,7 +68,11 @@ impl<R: Read> InnerReader<R> {
 impl<R: Read> Read for InnerReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.reader.read(buf) {
-            Ok(len) => Ok(len),
+            Ok(0) => Ok(0),
+            Ok(len) => {
+                self.has_read_data = true;
+                Ok(len)
+            }
             Err(e) => {
                 self.has_errored = true;
                 Err(e)
@@ -86,36 +92,33 @@ impl<R: Read> Read for Decoder<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Decoder::PlainText(decoder) => decoder.read(buf),
-            Decoder::Gzip(decoder) => decoder.read(buf).map_err(|e| {
-                if decoder.get_ref().has_errored {
-                    e
-                } else {
-                    io::Error::new(
-                        e.kind(),
-                        format!("error decoding gzip response body: {}", e),
-                    )
-                }
-            }),
-            Decoder::Deflate(decoder) => decoder.read(buf).map_err(|e| {
-                if decoder.get_ref().has_errored {
-                    e
-                } else {
-                    io::Error::new(
-                        e.kind(),
-                        format!("error decoding deflate response body: {}", e),
-                    )
-                }
-            }),
-            Decoder::Brotli(decoder) => decoder.read(buf).map_err(|e| {
-                if decoder.get_ref().has_errored {
-                    e
-                } else {
-                    io::Error::new(
-                        e.kind(),
-                        format!("error decoding brotli response body: {}", e),
-                    )
-                }
-            }),
+            Decoder::Gzip(decoder) => match decoder.read(buf) {
+                Ok(n) => Ok(n),
+                Err(e) if decoder.get_ref().has_errored => Err(e),
+                Err(_) if !decoder.get_ref().has_read_data => Ok(0),
+                Err(e) => Err(io::Error::new(
+                    e.kind(),
+                    format!("error decoding gzip response body: {}", e),
+                )),
+            },
+            Decoder::Deflate(decoder) => match decoder.read(buf) {
+                Ok(n) => Ok(n),
+                Err(e) if decoder.get_ref().has_errored => Err(e),
+                Err(_) if !decoder.get_ref().has_read_data => Ok(0),
+                Err(e) => Err(io::Error::new(
+                    e.kind(),
+                    format!("error decoding deflate response body: {}", e),
+                )),
+            },
+            Decoder::Brotli(decoder) => match decoder.read(buf) {
+                Ok(n) => Ok(n),
+                Err(e) if decoder.get_ref().has_errored => Err(e),
+                Err(_) if !decoder.get_ref().has_read_data => Ok(0),
+                Err(e) => Err(io::Error::new(
+                    e.kind(),
+                    format!("error decoding brotli response body: {}", e),
+                )),
+            },
         }
     }
 }

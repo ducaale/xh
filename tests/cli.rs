@@ -544,7 +544,7 @@ fn timeout() {
     get_command()
         .args(&["--timeout=0.1", &server.base_url()])
         .assert()
-        .failure()
+        .code(2)
         .stderr(contains("operation timed out"));
 }
 
@@ -2370,7 +2370,7 @@ fn max_redirects_is_enforced() {
         .args(&[&server.base_url(), "--follow", "--max-redirects=5"])
         .assert()
         .stderr(contains("Too many redirects (--max-redirects=5)"))
-        .failure();
+        .code(6);
 }
 
 #[test]
@@ -2864,6 +2864,31 @@ fn empty_response_with_content_encoding() {
             HTTP/1.1 200 OK
             Content-Encoding: gzip
             Content-Length: 0
+            Date: N/A
+
+
+        "#});
+}
+
+#[test]
+fn empty_response_with_content_encoding_and_content_length() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .header("content-length", "100")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("head")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 100
             Date: N/A
 
 

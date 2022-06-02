@@ -1,3 +1,13 @@
+## [0.16.1] - 2022-05-22
+### Bug fixes
+- fix HEAD request failing on compressed response, see #257 (@ducaale)
+
+### Other
+- Configurable install dir for `install.sh` via `XH_BINDIR` env variable,
+  see #256 (@lispyclouds)
+- Use exit status 2 and 6 for `request timeout` and `too many redirects` errors
+  respectively, see #258 (@sorairolake)
+
 ## [0.16.0] - 2022-04-17
 ### Features
 - Add support for URLs with leading `://` to allow quick conversion of
