@@ -1,4 +1,4 @@
-.TH XH 1 2022-05-22 0.16.0 "User Commands"
+.TH XH 1 2022-06-02 0.16.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -281,41 +281,41 @@ Optional key\-value pairs to be included in the request
 The separator is used to determine the type i.e. header,
 request body, query string, etc
 
-    key==value
-        Add a parameter to the URL
-
-    key=value
-        Add a JSON field (\-\-json) or form field (\-\-form)
-
-    key:=value
-        Add a literal JSON value e.g. numbers:=[1,2,3]
-
-    key@file
-        include file in multipart request. Requires enabling
-        either \-\-form or \-\-multipart.
-
-        Additionally, both filename and mime type can be set e.g
-        picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg
-
-    key=@file
-        Same as key=value but reads the value from a file
-
-    key:=@file
-        Same as key:=value but reads the value from a file
-
-    @filename
-        Use a file as the request body
-
-    header:value
-        Add a header
-
-    header:
-        Unset a header
-
-    header;
-        Add a header with an empty value
-
 A backslash can be used to escape special characters e.g. weird\\:key=value.
+.RS 12
+.TP
+key==value
+Add a parameter to the URL
+.TP
+key=value
+Add a JSON field (\-\-json) or form field (\-\-form)
+.TP
+key=@file
+Add a JSON field (\-\-json) or form field (\-\-form) from a file
+.TP
+key:=value
+Add a literal JSON value e.g. numbers:=[1,2,3]
+.TP
+key:=@file
+Add a literal JSON value from a file
+.TP
+key@file
+Upload a file from filename. Requires enabling either \-\-form  or \-\-multipart.
+To set  the filename and mimetype, ";type=" and ";filename=" can be used
+respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+.TP
+@filename
+Use a file as the request body
+.TP
+header:value
+Add a header
+.TP
+header:
+Unset a header
+.TP
+header;
+Add a header with an empty value
+.RE
 
 .SH EXIT STATUS
 .TP

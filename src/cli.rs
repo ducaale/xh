@@ -332,27 +332,27 @@ pub struct Cli {
     /// The separator is used to determine the type i.e. header,
     /// request body, query string, etc
     ///
+    /// A backslash can be used to escape special characters e.g. weird\:key=value.
+    ///
     ///     key==value
     ///         Add a parameter to the URL
     ///
     ///     key=value
     ///         Add a JSON field (--json) or form field (--form)
     ///
+    ///     key=@file
+    ///         Add a JSON field (--json) or form field (--form) from a file
+    ///
     ///     key:=value
     ///         Add a literal JSON value e.g. numbers:=[1,2,3]
     ///
-    ///     key@file
-    ///         include file in multipart request. Requires enabling
-    ///         either --form or --multipart.
-    ///
-    ///         Additionally, both filename and mime type can be set e.g
-    ///         picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg
-    ///
-    ///     key=@file
-    ///         Same as key=value but reads the value from a file
-    ///
     ///     key:=@file
-    ///         Same as key:=value but reads the value from a file
+    ///         Add a literal JSON value from a file
+    ///
+    ///     key@file
+    ///         Upload a file from filename. Requires enabling either --form  or --multipart.
+    ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used
+    ///         respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
     ///
     ///     @filename
     ///         Use a file as the request body
@@ -365,8 +365,6 @@ pub struct Cli {
     ///
     ///     header;
     ///         Add a header with an empty value
-    ///
-    /// A backslash can be used to escape special characters e.g. weird\:key=value.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
@@ -775,29 +773,72 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         roff.text(body);
     }
 
-    for opt in items.iter().filter(|a| a.is_positional()) {
-        let mut header = vec![];
-        if opt.get_id() == "raw-method-or-url" {
-            header.push(roman("["));
-            header.push(italic("METHOD"));
-            header.push(roman("]"));
-            header.push(italic(" URL"));
-        } else if opt.get_id() == "raw-rest-args" {
-            header.push(roman("["));
-            header.push(italic("REQUEST_ITEM"));
-            header.push(roman(" ...]"));
-        } else {
-            header.push(italic(opt.get_id()));
-        }
-
-        let mut body = vec![];
-        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
-            body.push(roman(help));
-        }
-
+    if let Some(opt) = items.iter().find(|opt| opt.get_id() == "raw-method-or-url") {
         roff.control("TP", []);
-        roff.text(header);
-        roff.text(body);
+        roff.text(vec![
+            roman("["),
+            italic("METHOD"),
+            roman("]"),
+            italic(" URL"),
+        ]);
+        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
+            roff.text(vec![roman(help)]);
+        }
+    }
+
+    if let Some(opt) = items.iter().find(|opt| opt.get_id() == "raw-rest-args") {
+        roff.control("TP", []);
+        roff.text(vec![roman("["), italic("REQUEST_ITEM"), roman(" ...]")]);
+        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
+            // replace the indents in request_item help with proper roff controls
+            // For example:
+            //
+            // ```
+            // normal help normal help
+            // normal help normal help
+            //
+            //   request-item-1
+            //     help help
+            //
+            //   request-item-2
+            //     help help
+            // ```
+            //
+            // Should look like this with roff controls
+            //
+            // ```
+            // normal help normal help
+            // normal help normal help
+            // .RS 12
+            // .TP
+            // request-item-1
+            // help help
+            // .TP
+            // request-item-2
+            // help help
+            // .RE
+            // ```
+            let lines: Vec<&str> = help.lines().collect();
+            let mut tp = false;
+            for i in 0..lines.len() {
+                if lines[i].is_empty() {
+                    let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
+                    let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
+                    if prev != next {
+                        if !tp {
+                            roff.control("RS", ["12"]);
+                        }
+                        tp = true;
+                        roff.control("TP", []);
+                    } else {
+                        roff.text(vec![roman(lines[i])]);
+                    }
+                } else {
+                    roff.text(vec![roman(lines[i].trim())]);
+                }
+            }
+            roff.control("RE", []);
+        }
     }
 
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
