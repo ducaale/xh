@@ -381,6 +381,14 @@ mod tests {
             parse_path(r"foo[\\0]").unwrap(),
             &[Key("foo".into(), (0, 3)), Key(r"\0".into(), (3, 8)),]
         );
+        // HTTPie currently escapes numbers regardless of whether they are between
+        // square brackets or not:
+        //
+        // $ http --offline --pretty=none --print=B : \\0[\\5]=x
+        // {"0":{"5": "x"}}
+        // $ xh --offline --pretty=none --print=B : \\0[\\5]=x
+        // {"\\0": {"5": "x"}}
+        assert_eq!(parse_path(r"\5").unwrap(), &[Key(r"\5".into(), (0, 2))]);
         assert_eq!(
             parse_path(r"5[x]").unwrap(),
             &[Key("5".into(), (0, 1)), Key("x".into(), (1, 4))]
