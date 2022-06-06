@@ -245,6 +245,39 @@ fn json_path_with_escaped_characters() {
 }
 
 #[test]
+fn nested_json_type_error() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("x[x][2]=5")
+        .arg("x[x][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'key' based access on 'x[x]' which has a type of 'array' but this operation requires a type of 'object'.
+
+              x[x][x]
+                  ^^^
+        "#});
+
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("foo[x]=5")
+        .arg("[][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'append' based access on '' which has a type of 'object' but this operation requires a type of 'array'.
+            
+              [][x]
+              ^^
+        "#});
+}
+
+#[test]
 fn header() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["X-Foo"], "Bar");
