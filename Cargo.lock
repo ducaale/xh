@@ -2196,6 +2196,7 @@ dependencies = [
  "termcolor",
  "time",
  "tokio",
+ "unicode-width",
  "url",
 ]
 

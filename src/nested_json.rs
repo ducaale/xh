@@ -157,12 +157,12 @@ impl TypeError {
 }
 
 fn highlight_error(text: &str, start: usize, end: usize) -> String {
-    // Note that this doesn't take into account the visible width of unicode characters
+    use unicode_width::UnicodeWidthStr;
     format!(
         "  {}\n  {}{}",
         text,
-        " ".repeat(start),
-        "^".repeat(end - start)
+        " ".repeat(text[0..start].width()),
+        "^".repeat(text[start..end].width())
     )
 }
 
