@@ -294,38 +294,26 @@ impl RequestItems {
         use serde_json::Value;
         let mut body = None;
         for item in self.items {
-            match item {
-                RequestItem::JsonField(raw_key, value) => {
-                    let json_path = nested_json::parse_path(&raw_key)?;
-                    body = nested_json::insert(body, &json_path, value)
-                        .map_err(|e| e.with_json_path(raw_key))?
-                        .into();
-                }
+            let (raw_key, value) = match item {
+                RequestItem::JsonField(raw_key, value) => (raw_key, value),
                 RequestItem::JsonFieldFromFile(raw_key, value) => {
                     let value = serde_json::from_str(&fs::read_to_string(expand_tilde(value))?)?;
-                    let json_path = nested_json::parse_path(&raw_key)?;
-                    body = nested_json::insert(body, &json_path, value)
-                        .map_err(|e| e.with_json_path(raw_key))?
-                        .into()
+                    (raw_key, value)
                 }
-                RequestItem::DataField { raw_key, value, .. } => {
-                    let json_path = nested_json::parse_path(&raw_key)?;
-                    body = nested_json::insert(body, &json_path, Value::String(value))
-                        .map_err(|e| e.with_json_path(raw_key))?
-                        .into();
-                }
+                RequestItem::DataField { raw_key, value, .. } => (raw_key, Value::String(value)),
                 RequestItem::DataFieldFromFile { raw_key, value, .. } => {
                     let value = fs::read_to_string(expand_tilde(value))?;
-                    let json_path = nested_json::parse_path(&raw_key)?;
-                    body = nested_json::insert(body, &json_path, Value::String(value))
-                        .map_err(|e| e.with_json_path(raw_key))?
-                        .into();
+                    (raw_key, Value::String(value))
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
-                RequestItem::HttpHeader(..) => {}
-                RequestItem::HttpHeaderToUnset(..) => {}
-                RequestItem::UrlParam(..) => {}
-            }
+                RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderToUnset(..)
+                | RequestItem::UrlParam(..) => continue,
+            };
+            let json_path = nested_json::parse_path(&raw_key)?;
+            body = nested_json::insert(body, &json_path, value)
+                .map_err(|e| e.with_json_path(raw_key))?
+                .into();
         }
         Ok(Body::Json(body.unwrap_or(Value::Null)))
     }
