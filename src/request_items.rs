@@ -70,9 +70,9 @@ impl FromStr for RequestItem {
             None
         }
 
-        if let Some((key, sep, value)) = split(request_item) {
-            let raw_key = key.to_string();
-            let key = unescape(key, SPECIAL_CHARS);
+        if let Some((raw_key, sep, value)) = split(request_item) {
+            let raw_key = raw_key.to_string();
+            let key = unescape(&raw_key, SPECIAL_CHARS);
             let value = unescape(value, SPECIAL_CHARS);
             match sep {
                 "==" => Ok(RequestItem::UrlParam(key, value)),
