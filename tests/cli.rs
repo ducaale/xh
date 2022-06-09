@@ -278,6 +278,21 @@ fn nested_json_type_error() {
 }
 
 #[test]
+fn json_path_special_chars_not_escaped_in_form() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg("--form")
+        .arg(":")
+        .arg(r"\]=a")
+        .assert()
+        .stdout(indoc! {r#"
+            %5C%5D=a
+
+        "#});
+}
+
+#[test]
 fn header() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["X-Foo"], "Bar");
