@@ -382,7 +382,7 @@ mod tests {
             &[Key("foo".into(), (0, 3)), Key(r"\0".into(), (3, 8)),]
         );
         // HTTPie currently escapes numbers regardless of whether they are between
-        // square brackets or not:
+        // square brackets or not. See https://github.com/httpie/httpie/issues/1408
         //
         // $ http --offline --pretty=none --print=B : \\0[\\5]=x
         // {"0":{"5": "x"}}
