@@ -44,6 +44,7 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
 termcolor = "1.1.2"
 time = "0.2.26"
+unicode-width = "0.1.9"
 url = "2.2.2"
 
 [dependencies.reqwest]

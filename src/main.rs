@@ -6,6 +6,7 @@ mod decoder;
 mod download;
 mod formatting;
 mod middleware;
+mod nested_json;
 mod netrc;
 mod printer;
 mod redirect;
@@ -355,9 +356,9 @@ fn run(args: Cli) -> Result<i32> {
             Body::Form(body) => request_builder.form(&body),
             Body::Multipart(body) => request_builder.multipart(body),
             Body::Json(body) => {
-                // An empty JSON body would produce "{}" instead of "", so
-                // this is the one kind of body that needs an is_empty() check
-                if !body.is_empty() {
+                // An empty JSON body would produce null instead of "", so
+                // this is the one kind of body that needs an is_null() check
+                if !body.is_null() {
                     request_builder
                         .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                         .json(&body)
