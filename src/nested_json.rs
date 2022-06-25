@@ -231,18 +231,18 @@ fn syntax_error(expected: &'static str, pos: usize, json_path: &str) -> anyhow::
     anyhow!(
         "expected {}\n\n{}",
         expected,
-        highlight_error(&json_path, pos, pos + 1)
+        highlight_error(json_path, pos, pos + 1)
     )
 }
 
 fn highlight_error(text: &str, start: usize, mut end: usize) -> String {
     use unicode_width::UnicodeWidthStr;
-    // Ensure end doesn't fall on non-char boundary
-    while !text.is_char_boundary(end) {
-        end = end + 1;
-    }
     // Apply right-padding so outside of the text could be highlighted
     let text = format!("{:<min_width$}", text, min_width = end);
+    // Ensure end doesn't fall on non-char boundary
+    while !text.is_char_boundary(end) && end < text.len() {
+        end += 1;
+    }
     format!(
         "  {}\n  {}{}",
         text,
