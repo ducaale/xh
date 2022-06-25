@@ -7,9 +7,10 @@ use serde_json::Value;
 use crate::utils::unescape;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PathComponent {
+pub enum PathAction {
     Key(String, (usize, usize)),
-    Index(Option<usize>, (usize, usize)),
+    Index(usize, (usize, usize)),
+    Append((usize, usize)),
 }
 
 /// Parses a JSON path.
@@ -29,8 +30,8 @@ pub enum PathComponent {
 /// Additionally, a backslash character can be used to:
 /// - Escape characters with especial meaning such as `\`, `[` and `]`.
 /// - Treat numbers as a key rather than as an index.
-pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
-    use PathComponent::*;
+pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathAction>> {
+    use PathAction::*;
     const SPECIAL_CHARS: &str = "=@:;[]\\";
     let mut delims = vec![];
     let mut backslashes = 0;
@@ -120,9 +121,9 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
         let path_component = &raw_json_path[(start + 1)..(end - 1)];
 
         if let Ok(index) = path_component.parse::<usize>() {
-            json_path.push(Index(Some(index), (start, end)));
+            json_path.push(Index(index, (start, end)));
         } else if path_component.is_empty() {
-            json_path.push(Index(None, (start, end)));
+            json_path.push(Append((start, end)));
         } else if path_component.starts_with('\\') && path_component[1..].parse::<usize>().is_ok() {
             // No need to escape `path_component[1..]` as it was successfully parsed as a number before.
             json_path.push(Key(path_component[1..].to_string(), (start, end)));
@@ -137,12 +138,12 @@ pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
 #[derive(Debug, Clone)]
 pub struct TypeError {
     root: Value,
-    path_component: PathComponent,
+    path_component: PathAction,
     json_path: Option<String>,
 }
 
 impl TypeError {
-    fn new(root: Value, path_component: PathComponent) -> Self {
+    fn new(root: Value, path_component: PathAction) -> Self {
         TypeError {
             root,
             path_component,
@@ -179,9 +180,9 @@ impl fmt::Display for TypeError {
             Value::Object(_) => "object",
         };
         let (access_type, expected_root_type, (start, end)) = match self.path_component {
-            PathComponent::Index(None, pos) => ("append", "array", pos),
-            PathComponent::Index(Some(_), pos) => ("index", "array", pos),
-            PathComponent::Key(_, pos) => ("key", "object", pos),
+            PathAction::Append(pos) => ("append", "array", pos),
+            PathAction::Index(_, pos) => ("index", "array", pos),
+            PathAction::Key(_, pos) => ("key", "object", pos),
         };
 
         if let Some(json_path) = &self.json_path {
@@ -206,7 +207,7 @@ impl fmt::Display for TypeError {
 
 pub fn insert(
     root: Option<Value>,
-    path: &[PathComponent],
+    path: &[PathAction],
     value: Value,
 ) -> std::result::Result<Value, TypeError> {
     assert!(!path.is_empty(), "path should not be empty");
@@ -214,8 +215,8 @@ pub fn insert(
     Ok(match root {
         Some(Value::Object(mut obj)) => {
             let key = match &path[0] {
-                PathComponent::Key(v, ..) => v.to_string(),
-                path_component @ PathComponent::Index(..) => {
+                PathAction::Key(v, ..) => v.to_string(),
+                path_component @ (PathAction::Index(..) | PathAction::Append(..)) => {
                     return Err(TypeError::new(Value::Object(obj), path_component.clone()))
                 }
             };
@@ -230,11 +231,11 @@ pub fn insert(
         }
         Some(Value::Array(mut arr)) => {
             let index = match &path[0] {
-                path_component @ PathComponent::Key(..) => {
+                path_component @ PathAction::Key(..) => {
                     return Err(TypeError::new(Value::Array(arr), path_component.clone()))
                 }
-                PathComponent::Index(Some(v), ..) => *v,
-                PathComponent::Index(None, ..) => arr.len(),
+                PathAction::Index(v, ..) => *v,
+                PathAction::Append(..) => arr.len(),
             };
             if path.len() == 1 {
                 arr_insert(&mut arr, index, value);
@@ -249,8 +250,10 @@ pub fn insert(
             return Err(TypeError::new(root, path[0].clone()));
         }
         None => match path[0] {
-            PathComponent::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
-            PathComponent::Index(..) => insert(Some(Value::Array(vec![])), path, value)?,
+            PathAction::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
+            PathAction::Index(..) | PathAction::Append(..) => {
+                insert(Some(Value::Array(vec![])), path, value)?
+            }
         },
     })
 }
@@ -343,11 +346,11 @@ mod tests {
 
     #[test]
     fn json_path_parser() {
-        use PathComponent::*;
+        use PathAction::*;
 
         assert_eq!(
             parse_path(r"foo\[x\][]").unwrap(),
-            &[Key(r"foo[x]".into(), (0, 8)), Index(None, (8, 10))]
+            &[Key(r"foo[x]".into(), (0, 8)), Append((8, 10))]
         );
         assert_eq!(
             parse_path(r"foo\\[x]").unwrap(),
@@ -358,20 +361,20 @@ mod tests {
             &[
                 Key("foo".into(), (0, 3)),
                 Key("ba[ar".into(), (3, 11)),
-                Index(Some(9), (11, 14))
+                Index(9, (11, 14))
             ]
         );
         assert_eq!(
             parse_path(r"[0][foo]").unwrap(),
-            &[Index(Some(0), (0, 3)), Key("foo".into(), (3, 8))]
+            &[Index(0, (0, 3)), Key("foo".into(), (3, 8))]
         );
         assert_eq!(
             parse_path(r"[][foo]").unwrap(),
-            &[Index(None, (0, 2)), Key("foo".into(), (2, 7))]
+            &[Append((0, 2)), Key("foo".into(), (2, 7))]
         );
         assert_eq!(
             parse_path(r"foo[0]").unwrap(),
-            &[Key("foo".into(), (0, 3)), Index(Some(0), (3, 6))]
+            &[Key("foo".into(), (0, 3)), Index(0, (3, 6))]
         );
         assert_eq!(
             parse_path(r"foo[\0]").unwrap(),
