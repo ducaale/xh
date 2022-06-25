@@ -1,3 +1,21 @@
+//! Insert value into JSON at an arbitrary location specified by a JSON path.
+//!
+//! Where JSON path is a string that satisfies the following syntax grammar:
+//! ```
+//!   start: root_path path*
+//!   root_path: (literal | index_path | append_path)
+//!   literal: TEXT | NUMBER
+//!
+//!   path: key_path | index_path | append_path
+//!   key_path: LEFT_BRACKET TEXT RIGHT_BRACKET
+//!   index_path: LEFT_BRACKET NUMBER RIGHT_BRACKET
+//!   append_path: LEFT_BRACKET RIGHT_BRACKET
+//! ```
+//!
+//! Additionally, a backslash character can be used to:
+//! - Escape characters with especial meaning such as `\`, `[` and `]`.
+//! - Treat numbers as a key rather than as an index.
+
 use std::{fmt, mem};
 
 use anyhow::{anyhow, Result};
@@ -6,6 +24,72 @@ use serde_json::Value;
 
 use crate::utils::unescape;
 
+#[derive(Debug, Clone)]
+enum Token {
+    LeftBracket(usize),
+    RightBracket(usize),
+    Text(String, (usize, usize)),
+    Number(usize, (usize, usize)),
+}
+
+impl Token {
+    fn literal(json_path: &str, start: Option<usize>, end: Option<usize>) -> Token {
+        const SPECIAL_CHARS: &str = "=@:;[]\\";
+        let start = start.map_or(0, |s| s + 1);
+        let end = end.unwrap_or(json_path.len());
+        let span = (start, end);
+
+        if start == 0 {
+            // The first token is never interpreted as a number and therefore
+            // the number escaping rule doesn't apply to it.
+            Token::Text(unescape(&json_path[start..end], SPECIAL_CHARS), span)
+        } else {
+            let literal = &json_path[start..end];
+            if literal.starts_with('\\') && literal[1..].parse::<usize>().is_ok() {
+                Token::Text(literal[1..].to_string(), span)
+            } else if let Ok(n) = literal.parse::<usize>() {
+                Token::Number(n, span)
+            } else {
+                Token::Text(unescape(literal, SPECIAL_CHARS), span)
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Token::Text(_, (start, end)) => start == end,
+            _ => false,
+        }
+    }
+}
+
+fn tokenize(json_path: &str) -> impl IntoIterator<Item = Token> {
+    let mut tokens = vec![];
+    let mut escaped = false;
+    let mut last_delim_pos = None;
+
+    for (i, ch) in json_path.char_indices() {
+        if ch == '\\' {
+            escaped = !escaped;
+        } else if ch == '[' && !escaped {
+            tokens.push(Token::literal(json_path, last_delim_pos, Some(i)));
+            tokens.push(Token::LeftBracket(i));
+            last_delim_pos = Some(i);
+            escaped = false;
+        } else if ch == ']' && !escaped {
+            tokens.push(Token::literal(json_path, last_delim_pos, Some(i)));
+            tokens.push(Token::RightBracket(i));
+            last_delim_pos = Some(i);
+            escaped = false;
+        } else {
+            escaped = false;
+        }
+    }
+    tokens.push(Token::literal(json_path, last_delim_pos, None));
+
+    tokens.into_iter().filter(|t| !t.is_empty())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathAction {
     Key(String, (usize, usize)),
@@ -13,196 +97,64 @@ pub enum PathAction {
     Append((usize, usize)),
 }
 
-/// Parses a JSON path.
-///
-/// A JSON path is a string that satisfies the following syntax grammar:
-/// ```
-///   start: root_path path*
-///   root_path: (literal | index_path | append_path)
-///   literal: TEXT | NUMBER
-///
-///   path: key_path | index_path | append_path
-///   key_path: LEFT_BRACKET TEXT RIGHT_BRACKET
-///   index_path: LEFT_BRACKET NUMBER RIGHT_BRACKET
-///   append_path: LEFT_BRACKET RIGHT_BRACKET
-/// ```
-///
-/// Additionally, a backslash character can be used to:
-/// - Escape characters with especial meaning such as `\`, `[` and `]`.
-/// - Treat numbers as a key rather than as an index.
-pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathAction>> {
+pub fn parse_path(json_path: &str) -> Result<Vec<PathAction>> {
     use PathAction::*;
-    const SPECIAL_CHARS: &str = "=@:;[]\\";
-    let mut delims = vec![];
-    let mut backslashes = 0;
+    use Token::*;
 
-    for (i, ch) in raw_json_path.char_indices() {
-        if ch == '\\' {
-            backslashes += 1;
-        } else {
-            if (ch == '[' || ch == ']') && backslashes % 2 == 0 {
-                delims.push((i, ch));
+    let mut path = vec![];
+    let mut tokens_iter = tokenize(json_path).into_iter();
+
+    match tokens_iter.next() {
+        Some(LeftBracket(start)) => match tokens_iter.next() {
+            Some(Number(index, _)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Index(index, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", start + 1, json_path));
+                }
             }
-            backslashes = 0;
-        }
-    }
-
-    if delims.is_empty() {
-        return Ok(vec![Key(
-            unescape(raw_json_path, SPECIAL_CHARS),
-            (0, raw_json_path.len()),
-        )]);
-    }
-    if delims.len() % 2 != 0 {
-        return Err(anyhow!("{:?} unbalanced number of brackets", raw_json_path));
-    }
-    let mut prev_closing_bracket = None;
-    for pair in delims.chunks_exact(2) {
-        if let Some(prev_closing_bracket) = prev_closing_bracket {
-            let current_opening_bracket = pair[0].0;
-            if current_opening_bracket - prev_closing_bracket > 1 {
-                return Err(anyhow!(
-                    "{:?} unexpected string after closing bracket at index {}",
-                    raw_json_path,
-                    prev_closing_bracket + 1
-                ));
+            Some(RightBracket(end)) => path.push(Append((start, end + 1))),
+            Some(Text(..)) | Some(LeftBracket(..)) | None => {
+                return Err(syntax_error("number or ']'", start + 1, json_path))
             }
-        }
-        if pair[0].1 == ']' {
-            return Err(anyhow!(
-                "{:?} unexpected closing bracket at index {}",
-                raw_json_path,
-                pair[0].0
-            ));
-        }
-        if pair[1].1 == '[' {
-            return Err(anyhow!(
-                "{:?} unexpected opening bracket at index {}",
-                raw_json_path,
-                pair[1].0
-            ));
-        }
-        prev_closing_bracket = Some(pair[1].0);
-    }
-
-    if let Some(last_closing_bracket) = prev_closing_bracket {
-        if last_closing_bracket != raw_json_path.len() - 1 {
-            return Err(anyhow!(
-                "{:?} unexpected string after closing bracket at index {}",
-                raw_json_path,
-                last_closing_bracket + 1
-            ));
+        },
+        Some(Text(key, span)) => path.push(Key(key, span)),
+        Some(Number(..)) | Some(RightBracket(..)) | None => {
+            return Err(syntax_error("text or '['", 0, json_path))
         }
     }
 
-    let mut json_path = vec![];
-
-    // handle any literals found before the first `[`
-    if delims[0].0 > 0 {
-        // raw_json_path starts with a literal e.g `foo[x]`, `foo[5]` or `foo[]`
-        json_path.push(Key(
-            unescape(&raw_json_path[0..delims[0].0], SPECIAL_CHARS),
-            (0, delims[0].0),
-        ));
-    } else {
-        let key = &raw_json_path[delims[0].0 + 1..delims[1].0];
-        if !key.is_empty() && key.parse::<usize>().is_err() {
-            // raw_json_path starts with `[string]`
-            return Err(anyhow!(
-                "{:?} Unexpected string after opening bracket at index {}",
-                raw_json_path,
-                1
-            ));
-        }
-    }
-
-    for pair in delims.chunks_exact(2) {
-        let (start, end) = (pair[0].0, pair[1].0 + 1);
-        let path_component = &raw_json_path[(start + 1)..(end - 1)];
-
-        if let Ok(index) = path_component.parse::<usize>() {
-            json_path.push(Index(index, (start, end)));
-        } else if path_component.is_empty() {
-            json_path.push(Append((start, end)));
-        } else if path_component.starts_with('\\') && path_component[1..].parse::<usize>().is_ok() {
-            // No need to escape `path_component[1..]` as it was successfully parsed as a number before.
-            json_path.push(Key(path_component[1..].to_string(), (start, end)));
-        } else {
-            json_path.push(Key(unescape(path_component, SPECIAL_CHARS), (start, end)));
-        }
-    }
-
-    Ok(json_path)
-}
-
-#[derive(Debug, Clone)]
-pub struct TypeError {
-    root: Value,
-    path_component: PathAction,
-    json_path: Option<String>,
-}
-
-impl TypeError {
-    fn new(root: Value, path_component: PathAction) -> Self {
-        TypeError {
-            root,
-            path_component,
-            json_path: None,
-        }
-    }
-
-    pub fn with_json_path(mut self, json_path: String) -> TypeError {
-        self.json_path = Some(json_path);
-        self
-    }
-}
-
-fn highlight_error(text: &str, start: usize, end: usize) -> String {
-    use unicode_width::UnicodeWidthStr;
-    format!(
-        "  {}\n  {}{}",
-        text,
-        " ".repeat(text[0..start].width()),
-        "^".repeat(text[start..end].width())
-    )
-}
-
-impl std::error::Error for TypeError {}
-
-impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let root_type = match self.root {
-            Value::Null => "null",
-            Value::Bool(_) => "bool",
-            Value::Number(_) => "number",
-            Value::String(_) => "string",
-            Value::Array(_) => "array",
-            Value::Object(_) => "object",
-        };
-        let (access_type, expected_root_type, (start, end)) = match self.path_component {
-            PathAction::Append(pos) => ("append", "array", pos),
-            PathAction::Index(_, pos) => ("index", "array", pos),
-            PathAction::Key(_, pos) => ("key", "object", pos),
+    while let Some(token) = tokens_iter.next() {
+        let start = match token {
+            LeftBracket(start) => start,
+            RightBracket(start) | Text(_, (start, _)) | Number(_, (start, _)) => {
+                return Err(syntax_error("'['", start, json_path));
+            }
         };
 
-        if let Some(json_path) = &self.json_path {
-            write!(
-                f,
-                "Can't perform '{}' based access on '{}' which has a type of '{}' but this operation requires a type of '{}'.\n\n{}",
-                access_type,
-                &json_path[..start],
-                root_type,
-                expected_root_type,
-                highlight_error(json_path, start, end)
-            )
-        } else {
-            write!(
-                f,
-                "Can't perform '{}' based access on '{}'",
-                access_type, root_type
-            )
+        match tokens_iter.next() {
+            Some(Number(index, span)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Index(index, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", span.1, json_path));
+                }
+            }
+            Some(Text(key, span)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Key(key, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", span.1, json_path));
+                }
+            }
+            Some(RightBracket(end)) => path.push(Append((start, end + 1))),
+            Some(LeftBracket(..)) | None => {
+                return Err(syntax_error("text, number or ']'", start + 1, json_path))
+            }
         }
     }
+
+    Ok(path)
 }
 
 pub fn insert(
@@ -272,6 +224,86 @@ fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
         Some(mem::replace(&mut arr[index], Value::Null))
     } else {
         None
+    }
+}
+
+fn syntax_error(expected: &'static str, pos: usize, json_path: &str) -> anyhow::Error {
+    anyhow!(
+        "expected {}\n\n{}",
+        expected,
+        highlight_error(&json_path, pos, pos + 1)
+    )
+}
+
+fn highlight_error(text: &str, start: usize, end: usize) -> String {
+    use unicode_width::UnicodeWidthStr;
+    let text = format!("{:<min_width$}", text, min_width = end);
+    format!(
+        "  {}\n  {}{}",
+        text,
+        // TODO: don't panic text containing unicode e.g '[😀=5'
+        " ".repeat(text[0..start].width()),
+        "^".repeat(text[start..end].width())
+    )
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeError {
+    root: Value,
+    path_component: PathAction,
+    json_path: Option<String>,
+}
+
+impl TypeError {
+    fn new(root: Value, path_component: PathAction) -> Self {
+        TypeError {
+            root,
+            path_component,
+            json_path: None,
+        }
+    }
+
+    pub fn with_json_path(mut self, json_path: String) -> TypeError {
+        self.json_path = Some(json_path);
+        self
+    }
+}
+
+impl std::error::Error for TypeError {}
+
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let root_type = match self.root {
+            Value::Null => "null",
+            Value::Bool(_) => "bool",
+            Value::Number(_) => "number",
+            Value::String(_) => "string",
+            Value::Array(_) => "array",
+            Value::Object(_) => "object",
+        };
+        let (access_type, expected_root_type, (start, end)) = match self.path_component {
+            PathAction::Append(pos) => ("append", "array", pos),
+            PathAction::Index(_, pos) => ("index", "array", pos),
+            PathAction::Key(_, pos) => ("key", "object", pos),
+        };
+
+        if let Some(json_path) = &self.json_path {
+            write!(
+                f,
+                "Can't perform '{}' based access on '{}' which has a type of '{}' but this operation requires a type of '{}'.\n\n{}",
+                access_type,
+                &json_path[..start],
+                root_type,
+                expected_root_type,
+                highlight_error(json_path, start, end)
+            )
+        } else {
+            write!(
+                f,
+                "Can't perform '{}' based access on '{}'",
+                access_type, root_type
+            )
+        }
     }
 }
 
