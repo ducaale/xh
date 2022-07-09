@@ -326,9 +326,7 @@ pub struct Cli {
     /// Optional key-value pairs to be included in the request
     ///
     /// The separator is used to determine the type i.e. header, request body,
-    /// query string, etc.
-    ///
-    /// A backslash can be used to escape special characters e.g. weird\:key=value.
+    /// query string, etc. Possible REQUEST_ITEM types are:
     ///
     ///     key==value
     ///         Add a parameter to the URL
@@ -346,7 +344,7 @@ pub struct Cli {
     ///         Add a literal JSON value from a file
     ///
     ///     key@file
-    ///         Upload a file from filename. Requires enabling either --form  or --multipart.
+    ///         Upload a file from filename (requires either --form  or --multipart).
     ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used
     ///         respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
     ///
@@ -361,6 +359,8 @@ pub struct Cli {
     ///
     ///     header;
     ///         Add a header with an empty value
+    ///
+    /// A backslash can be used to escape special characters e.g. weird\:key=value.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
@@ -798,6 +798,8 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             //
             //   request-item-2
             //     help help
+            //
+            // normal help normal help
             // ```
             //
             // Should look like this with roff controls
@@ -813,19 +815,27 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             // request-item-2
             // help help
             // .RE
+            //
+            // .RS
+            // normal help normal help
+            // .RE
             // ```
             let lines: Vec<&str> = help.lines().collect();
-            let mut tp = false;
+            let mut rs = false;
             for i in 0..lines.len() {
                 if lines[i].is_empty() {
                     let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
                     let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
-                    if prev != next {
-                        if !tp {
+                    if prev != next && next > 0 {
+                        if !rs {
                             roff.control("RS", ["12"]);
+                            rs = true;
                         }
-                        tp = true;
                         roff.control("TP", []);
+                    } else if prev != next && next == 0 {
+                        roff.control("RE", []);
+                        roff.text(vec![roman("")]);
+                        roff.control("RS", []);
                     } else {
                         roff.text(vec![roman(lines[i])]);
                     }
