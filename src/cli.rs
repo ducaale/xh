@@ -460,9 +460,9 @@ impl Cli {
                 safe_exit();
             }
             #[cfg(feature = "man-completion-gen")]
-            "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
             #[cfg(feature = "man-completion-gen")]
-            "generate_manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
+            "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
@@ -690,7 +690,7 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
     if rest_args.len() != 1 {
         return app.error(
             ErrorKind::WrongNumberOfValues,
-            "Usage: xh generate_completions <DIRECTORY>",
+            "Usage: xh generate-completions <DIRECTORY>",
         );
     }
     for &shell in clap_complete::Shell::value_variants() {
@@ -712,7 +712,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     if rest_args.len() != 1 {
         return app.error(
             ErrorKind::WrongNumberOfValues,
-            "Usage: xh generate_manpages <DIRECTORY>",
+            "Usage: xh generate-manpages <DIRECTORY>",
         );
     }
 

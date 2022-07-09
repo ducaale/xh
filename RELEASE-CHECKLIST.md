@@ -5,7 +5,7 @@
 - Bump up the version in `Cargo.toml` and run `cargo check` to update `Cargo.lock`.
 - Run the following to update man pages and shell-completion files.
   ```sh
-  cargo run --all-features -- generate_completions completions && cargo run --all-features -- generate_manpages doc
+  cargo run --all-features -- generate-completions completions && cargo run --all-features -- generate-manpages doc
   ```
 - Commit changes and push them to remote.
 - Add git tag e.g `git tag v0.9.0`.
