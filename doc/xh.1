@@ -361,25 +361,25 @@ Session data directory grouped by domain and port number.
 
 .SH EXAMPLES
 .TP 4
-xh \fIhttpbin.org/json\fR
+\fBxh\fR \fIhttpbin.org/json\fR
 Send a GET request.
 .TP
-xh \fIhttpbin.org/post name=ahmed \fIage:=24\fR
+\fBxh\fR \fIhttpbin.org/post name=ahmed \fIage:=24\fR
 Send a POST request with body {"name": "ahmed", "age": 24}.
 .TP
-xh get \fIhttpbin.org/json id==5 sort==true\fR
+\fBxh\fR get \fIhttpbin.org/json id==5 sort==true\fR
 Send a GET request with querystring id=5&sort=true.
 .TP
-xh get \fIhttpbin.org/json x-api-key:12345\fR
+\fBxh\fR get \fIhttpbin.org/json x-api-key:12345\fR
 Send a GET request and include a header named x-api-key with value 12345.
 .TP
-xh put \fIhttpbin.org/put id:=49 age:=25\fR | less
+\fBxh\fR put \fIhttpbin.org/put id:=49 age:=25\fR | less
 Send a PUT request and pipe the result to less.
 .TP
-xh -d \fIhttpbin.org/json\fR -o \fIres.json\fR
+\fBxh\fR -d \fIhttpbin.org/json\fR -o \fIres.json\fR
 Download and save to res.json.
 .TP
-xh \fIhttpbin.org/get user-agent:foobar\fR
+\fBxh\fR \fIhttpbin.org/get user-agent:foobar\fR
 Make a request with a custom user agent.
 
 .SH REPORTING BUGS
