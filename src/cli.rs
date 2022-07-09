@@ -1179,7 +1179,7 @@ fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
 
     {
         let mut encoding = normalized_encoding.replace(&['-', '_'][..], "");
-        if let Some(first_digit_index) = encoding.find(|c: char| c.is_digit(10)) {
+        if let Some(first_digit_index) = encoding.find(|c: char| c.is_ascii_digit()) {
             encoding.insert(first_digit_index, '-');
             if let Some(encoding) = Encoding::for_label(encoding.as_bytes()) {
                 return Ok(encoding);
@@ -1302,7 +1302,11 @@ mod tests {
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
             cli.request_items.items,
-            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+            vec![RequestItem::DataField {
+                key: "foo".to_string(),
+                raw_key: "foo".to_string(),
+                value: "bar".to_string()
+            }]
         );
     }
 
@@ -1313,7 +1317,11 @@ mod tests {
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
             cli.request_items.items,
-            vec![RequestItem::DataField("foo".to_string(), "bar".to_string())]
+            vec![RequestItem::DataField {
+                key: "foo".to_string(),
+                raw_key: "foo".to_string(),
+                value: "bar".to_string()
+            }]
         );
     }
 

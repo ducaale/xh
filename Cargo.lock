@@ -2202,6 +2202,7 @@ dependencies = [
  "termcolor",
  "time 0.2.27",
  "tokio",
+ "unicode-width",
  "url",
 ]
 

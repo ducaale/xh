@@ -203,6 +203,96 @@ fn multiline_value() {
 }
 
 #[test]
+fn nested_json() {
+    let server = server::http(|req| async move {
+        assert_eq!(
+            req.body_as_string().await,
+            r#"{"shallow":"value","object":{"key":"value"},"array":[1,2,3],"wow":{"such":{"deep":[null,null,null,{"much":{"power":{"!":"Amaze"}}}]}}}"#
+        );
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(&["post", &server.base_url()])
+        .arg("shallow=value")
+        .arg("object[key]=value")
+        .arg("array[]:=1")
+        .arg("array[1]:=2")
+        .arg("array[2]:=3")
+        .arg("wow[such][deep][3][much][power][!]=Amaze")
+        .assert()
+        .success();
+}
+
+#[test]
+fn json_path_with_escaped_characters() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg(r"f\=\:\;oo\[\\[\@]=b\:\:\:ar")
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "f=:;oo[\\": {
+                    "@": "b:::ar"
+                }
+            }
+
+
+
+        "#});
+}
+
+#[test]
+fn nested_json_type_error() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("x[x][2]=5")
+        .arg("x[x][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'key' based access on 'x[x]' which has a type of 'array' but this operation requires a type of 'object'.
+
+              x[x][x]
+                  ^^^
+        "#});
+
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("foo[x]=5")
+        .arg("[][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'append' based access on '' which has a type of 'object' but this operation requires a type of 'array'.
+            
+              [][x]
+              ^^
+        "#});
+}
+
+#[test]
+fn json_path_special_chars_not_escaped_in_form() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg("--form")
+        .arg(":")
+        .arg(r"\]=a")
+        .assert()
+        .stdout(indoc! {r#"
+            %5C%5D=a
+
+        "#});
+}
+
+#[test]
 fn header() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["X-Foo"], "Bar");
