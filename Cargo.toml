@@ -74,6 +74,9 @@ default = ["online-tests"]
 online-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 
+[package.metadata.cross.build.env]
+passthrough = ["CARGO_PROFILE_RELEASE_LTO"]
+
 [package.metadata.deb]
 features = []
 section = "web"
