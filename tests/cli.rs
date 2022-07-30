@@ -78,7 +78,7 @@ fn get_base_command() -> Command {
     if let Some(runner) = find_runner() {
         let mut runner = runner.split_whitespace();
         cmd = Command::new(runner.next().unwrap());
-        while let Some(arg) = runner.next() {
+        for arg in runner {
             cmd.arg(arg);
         }
         cmd.arg(path);
