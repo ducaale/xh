@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::env;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -10,7 +10,10 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
+use clap::{
+    self, builder::ValueParser, AppSettings, ArgAction, ArgEnum, Error, ErrorKind, FromArgMatches,
+    Result,
+};
 use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
@@ -38,46 +41,45 @@ use crate::utils::config_dir;
     version,
     long_version = long_version(),
     setting(AppSettings::DeriveDisplayOrder),
-    args_override_self = true,
 )]
 pub struct Cli {
     #[clap(skip)]
     pub httpie_compat_mode: bool,
 
     /// (default) Serialize data items from the command line as a JSON object.
-    #[clap(short = 'j', long, overrides_with_all = &["form", "multipart"])]
+    #[clap(action = ArgAction::SetTrue, short = 'j', long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
-    #[clap(short = 'f', long, overrides_with_all = &["json", "multipart"])]
+    #[clap(action = ArgAction::SetTrue, short = 'f', long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
-    #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
+    #[clap(action = ArgAction::SetTrue, short = 'm', long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
-    #[clap(long, value_name = "RAW")]
+    #[clap(action = ArgAction::Set, long, value_name = "RAW")]
     pub raw: Option<String>,
 
     /// Controls output processing.
-    #[clap(long, arg_enum, value_name = "STYLE")]
+    #[clap(action = ArgAction::Set, long, arg_enum, value_name = "STYLE")]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
-    #[clap(short = 's', long, arg_enum, value_name = "THEME")]
+    #[clap(action = ArgAction::Set, short = 's', long, arg_enum, value_name = "THEME")]
     pub style: Option<Theme>,
 
     /// Override the response encoding for terminal display purposes.
     ///
     /// Example: `--response-charset=latin1`
-    #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
+    #[clap(action = ArgAction::Set, long, value_name = "ENCODING", value_parser = parse_encoding)]
     pub response_charset: Option<&'static Encoding>,
 
     /// Override the response mime type for coloring and formatting for the terminal
     ///
     /// Example: `--response-mime=application/json`
-    #[clap(long, value_name = "MIME_TYPE")]
+    #[clap(action = ArgAction::Set, long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
     /// String specifying what the output should contain.
@@ -86,47 +88,48 @@ pub struct Cli {
     /// and `h` and `b` for response hader and body.
     ///
     /// Example: `--print=Hb`
-    #[clap(short = 'p', long, value_name = "FORMAT")]
+    #[clap(action = ArgAction::Set, short = 'p', long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
     /// Print only the response headers. Shortcut for --print=h.
-    #[clap(short = 'h', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'h', long)]
     pub headers: bool,
 
     /// Print only the response body. Shortcut for --print=b.
-    #[clap(short = 'b', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'b', long)]
     pub body: bool,
 
     /// Print the whole request as well as the response.
-    #[clap(short = 'v', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'v', long)]
     pub verbose: bool,
 
     /// Show any intermediary requests/responses while following redirects with --follow.
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub all: bool,
 
     /// The same as --print but applies only to intermediary requests/responses.
-    #[clap(short = 'P', long, value_name = "FORMAT")]
+    #[clap(action = ArgAction::Set, short = 'P', long, value_name = "FORMAT")]
     pub history_print: Option<Print>,
 
     /// Do not print to stdout or stderr.
-    #[clap(short = 'q', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'q', long)]
     pub quiet: bool,
 
     /// Always stream the response body.
-    #[clap(short = 'S', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'S', long)]
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[clap(short = 'o', long, value_name = "FILE", parse(from_os_str))]
+    #[clap(action = ArgAction::Set, short = 'o', long, value_name = "FILE", value_parser = ValueParser::path_buf())]
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
-    #[clap(short = 'd', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'd', long)]
     pub download: bool,
 
     /// Resume an interrupted download. Requires --download and --output.
     #[clap(
+        action = ArgAction::SetTrue,
         short = 'c',
         long = "continue",
         name = "continue",
@@ -139,15 +142,16 @@ pub struct Cli {
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::os_string())]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it form the request/response exchange.
     #[clap(
+        action = ArgAction::Set,
         long,
         value_name = "FILE",
         conflicts_with = "session",
-        parse(from_os_str)
+        value_parser = ValueParser::os_string()
     )]
     pub session_read_only: Option<OsString>,
 
@@ -155,7 +159,7 @@ pub struct Cli {
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism.
-    #[clap(short = 'A', long, arg_enum)]
+    #[clap(action = ArgAction::Set, short = 'A', long, arg_enum)]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS or with TOKEN.
@@ -164,19 +168,19 @@ pub struct Cli {
     /// to authenticate with just a username.
     ///
     /// TOKEN is expected if `--auth-type=bearer`.
-    #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
+    #[clap(action = ArgAction::Set, short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
-    #[clap(long, value_name = "TOKEN", hide = true)]
+    #[clap(action = ArgAction::Set, long, value_name = "TOKEN", hide = true)]
     pub bearer: Option<String>,
 
     /// Do not use credentials from .netrc
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub ignore_netrc: bool,
 
     /// Construct HTTP requests without sending them anywhere.
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub offline: bool,
 
     /// (default) Exit with an error status code if the server replies with an error.
@@ -185,24 +189,24 @@ pub struct Cli {
     /// or 3 on 3xx (Redirect) if --follow isn't set.
     ///
     /// If stdout is redirected then a warning is written to stderr.
-    #[clap(long = "check-status", name = "check-status")]
+    #[clap(action = ArgAction::SetTrue, long = "check-status", name = "check-status")]
     pub check_status_raw: bool,
 
     #[clap(skip)]
     pub check_status: Option<bool>,
 
     /// Do follow redirects.
-    #[clap(short = 'F', long)]
+    #[clap(action = ArgAction::SetTrue, short = 'F', long)]
     pub follow: bool,
 
     /// Number of redirects to follow, only respected if `follow` is set.
-    #[clap(long, value_name = "NUM")]
+    #[clap(action = ArgAction::Set, long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Connection timeout of the request.
     ///
     /// The default value is `0`, i.e., there is no timeout limit.
-    #[clap(long, value_name = "SEC")]
+    #[clap(action = ArgAction::Set, long, value_name = "SEC")]
     pub timeout: Option<Timeout>,
 
     /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
@@ -216,7 +220,7 @@ pub struct Cli {
     ///
     /// The environment variables `http_proxy` and `https_proxy` can also be used, but
     /// are completely ignored if --proxy is passed.
-    #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
+    #[clap(action = ArgAction::Append, long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
     /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -224,63 +228,54 @@ pub struct Cli {
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[clap(long, value_name = "VERIFY", parse(from_os_str))]
+    #[clap(action = ArgAction::Set, long, value_name = "VERIFY", value_parser = VerifyParser)]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::os_string())]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::os_string())]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
     ///
     /// "auto" gives the default behavior of negotiating a version
     /// with the server.
-    #[clap(long, value_name = "VERSION", parse(from_str = parse_tls_version),
-      possible_value = clap::PossibleValue::new("auto").alias("ssl2.3"),
-      possible_values = &["tls1", "tls1.1", "tls1.2", "tls1.3"]
-    )]
-    // The nested option is weird, but parse_tls_version can return None.
-    // If the inner option doesn't use a qualified path clap gets confused.
-    pub ssl: Option<std::option::Option<tls::Version>>,
+    #[clap(action = ArgAction::Set, long, value_name = "VERSION", value_parser)]
+    pub ssl: Option<TlsVersion>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub native_tls: bool,
 
     /// The default scheme to use if not specified in the URL.
-    #[clap(long, value_name = "SCHEME", hide = true)]
+    #[clap(action = ArgAction::Set, long, value_name = "SCHEME", hide = true)]
     pub default_scheme: Option<String>,
 
     /// Make HTTPS requests if not specified in the URL.
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub https: bool,
 
     /// HTTP version to use
-    #[clap(long, value_name = "VERSION",
-        possible_value = clap::PossibleValue::new("1.0"),
-        possible_value = clap::PossibleValue::new("1.1").alias("1"),
-        possible_value = clap::PossibleValue::new("2")
-    )]
+    #[clap(action = ArgAction::Set, long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
 
     /// Do not attempt to read stdin.
-    #[clap(short = 'I', long)]
+    #[clap(action = ArgAction::SetTrue ,short = 'I', long)]
     pub ignore_stdin: bool,
 
     /// Print a translation to a `curl` command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub curl: bool,
 
     /// Use the long versions of curl's flags.
-    #[clap(long)]
+    #[clap(action = ArgAction::SetTrue, long)]
     pub curl_long: bool,
 
     /// The request URL, preceded by an optional HTTP method.
@@ -472,7 +467,10 @@ impl Cli {
             self.auth_type = Some(AuthType::bearer);
             self.auth = self.bearer.take();
         }
-        self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
+        self.check_status = match (
+            self.check_status_raw,
+            matches.contains_id("no-check-status"),
+        ) {
             (true, true) => unreachable!(),
             (true, false) => Some(true),
             (false, true) => Some(false),
@@ -690,16 +688,41 @@ pub enum Pretty {
     none,
 }
 
-/// The caller must check in advance if the string is valid. (clap does this.)
-fn parse_tls_version(text: &str) -> Option<tls::Version> {
-    match text {
-        // ssl2.3 is not a real version but it's how HTTPie spells "auto"
-        "auto" | "ssl2.3" => None,
-        "tls1" => Some(tls::Version::TLS_1_0),
-        "tls1.1" => Some(tls::Version::TLS_1_1),
-        "tls1.2" => Some(tls::Version::TLS_1_2),
-        "tls1.3" => Some(tls::Version::TLS_1_3),
-        _ => unreachable!(),
+#[derive(Debug, Clone)]
+pub enum TlsVersion {
+    Auto,
+    Tls1_0,
+    Tls1_1,
+    Tls1_2,
+    Tls1_3,
+}
+
+impl clap::ValueEnum for TlsVersion {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Tls1_0, Self::Tls1_1, Self::Tls1_2, Self::Tls1_3]
+    }
+
+    fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
+        match self {
+            // ssl2.3 is not a real version but it's how HTTPie spells "auto"
+            Self::Auto => Some(clap::PossibleValue::new("auto").alias("ssl2.3")),
+            Self::Tls1_0 => Some(clap::PossibleValue::new("tls1")),
+            Self::Tls1_1 => Some(clap::PossibleValue::new("tls1.1")),
+            Self::Tls1_2 => Some(clap::PossibleValue::new("tls1.2")),
+            Self::Tls1_3 => Some(clap::PossibleValue::new("tls.1.3")),
+        }
+    }
+}
+
+impl From<TlsVersion> for Option<tls::Version> {
+    fn from(version: TlsVersion) -> Self {
+        match version {
+            TlsVersion::Auto => None,
+            TlsVersion::Tls1_0 => Some(tls::Version::TLS_1_0),
+            TlsVersion::Tls1_1 => Some(tls::Version::TLS_1_1),
+            TlsVersion::Tls1_2 => Some(tls::Version::TLS_1_2),
+            TlsVersion::Tls1_3 => Some(tls::Version::TLS_1_3),
+        }
     }
 }
 
@@ -824,7 +847,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Timeout(Duration);
 
 impl Timeout {
@@ -847,7 +870,7 @@ impl FromStr for Timeout {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Proxy {
     Http(Url),
     Https(Url),
@@ -884,23 +907,36 @@ impl FromStr for Proxy {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Verify {
     Yes,
     No,
     CustomCaBundle(PathBuf),
 }
 
-impl From<&OsStr> for Verify {
-    fn from(verify: &OsStr) -> Verify {
-        if let Some(text) = verify.to_str() {
-            match text.to_lowercase().as_str() {
-                "no" | "false" => return Verify::No,
-                "yes" | "true" => return Verify::Yes,
-                _ => (),
-            }
-        }
-        Verify::CustomCaBundle(PathBuf::from(verify))
+impl clap::builder::ValueParserFactory for Verify {
+    type Parser = VerifyParser;
+    fn value_parser() -> Self::Parser {
+        VerifyParser
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VerifyParser;
+impl clap::builder::TypedValueParser for VerifyParser {
+    type Value = Verify;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &std::ffi::OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        Ok(match value.to_ascii_lowercase().to_str() {
+            Some("no") | Some("false") => Verify::No,
+            Some("yes") | Some("true") => Verify::Yes,
+            _ => Verify::CustomCaBundle(PathBuf::from(value)),
+        })
     }
 }
 
@@ -927,21 +963,23 @@ impl Default for BodyType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HttpVersion {
     Http10,
     Http11,
     Http2,
 }
 
-impl FromStr for HttpVersion {
-    type Err = Error;
-    fn from_str(version: &str) -> Result<HttpVersion> {
-        match version {
-            "1.0" => Ok(HttpVersion::Http10),
-            "1" | "1.1" => Ok(HttpVersion::Http11),
-            "2" => Ok(HttpVersion::Http2),
-            _ => unreachable!(),
+impl clap::ValueEnum for HttpVersion {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Http10, Self::Http11, Self::Http2]
+    }
+
+    fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
+        match self {
+            Self::Http10 => Some(clap::PossibleValue::new("1.0").alias("1")),
+            Self::Http11 => Some(clap::PossibleValue::new("1.1")),
+            Self::Http2 => Some(clap::PossibleValue::new("2")),
         }
     }
 }
