@@ -12,6 +12,9 @@
 //!
 //! - The default entry doesn't have to be at the end of the file.
 //!
+//! This implementation additionally handles entries with just a password and no login,
+//! to support using .netrc for bearer auth.
+//!
 //! HTTPie uses the implementation from Python's standard library
 //! (with a wrapper from requests).
 //!
@@ -35,7 +38,7 @@ use crate::utils::get_home_dir;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Entry {
-    pub login: String,
+    pub login: Option<String>,
     pub password: String,
 }
 
@@ -217,7 +220,7 @@ impl<'a, R: BufRead> Parser<'a, R> {
         let state = self.state;
         self.state = EntryState::Wrong;
 
-        if let (Some(login), Some(password)) = (login.or(account), password) {
+        if let (login, Some(password)) = (login.or(account), password) {
             let entry = Entry { login, password };
             match state {
                 EntryState::Wrong => unreachable!("netrc: Should not have been storing info"),
@@ -317,8 +320,15 @@ mod tests {
             machine example.com password pass
             default login user
         ";
-        notfound(MISSING_USER, COM);
+        found(MISSING_USER, COM, None, "pass");
         notfound(MISSING_USER, ORG);
+
+        const DEFAULT_PASSWORD_MISSING_USER: &str = "
+            machine example.com password pass
+            default password def
+        ";
+        found(DEFAULT_PASSWORD_MISSING_USER, COM, None, "pass");
+        found(DEFAULT_PASSWORD_MISSING_USER, ORG, None, "def");
 
         const DEFAULT_LAST: &str = "
             machine example.com login ex password am
@@ -438,13 +448,20 @@ mod tests {
         notfound(STRANGE_CHARACTERS, COM);
     }
 
-    fn found(netrc: &str, host: url::Host<&str>, login: &str, password: &str) {
+    #[track_caller]
+    fn found(
+        netrc: &str,
+        host: url::Host<&str>,
+        login: impl Into<Option<&'static str>>,
+        password: &str,
+    ) {
         let entry = Parser::new(netrc.as_bytes(), host).parse().unwrap();
         let entry = entry.expect("Didn't find entry");
-        assert_eq!(entry.login, login);
+        assert_eq!(entry.login.as_deref(), login.into());
         assert_eq!(entry.password, password);
     }
 
+    #[track_caller]
     fn notfound(netrc: &str, host: url::Host<&str>) {
         let entry = Parser::new(netrc.as_bytes(), host).parse().unwrap();
         assert!(entry.is_none(), "Found entry");
