@@ -329,22 +329,25 @@ pub struct Cli {
     /// query string, etc. Possible REQUEST_ITEM types are:
     ///
     ///     key==value
-    ///         Add a parameter to the URL
+    ///         Add a query string to the URL
     ///
     ///     key=value
-    ///         Add a JSON field (--json) or form field (--form)
+    ///         Add a JSON field (--json) or form field (--form) to the request body
     ///
     ///     key=@file
-    ///         Add a JSON field (--json) or form field (--form) from a file
+    ///         Add a JSON field (--json) or form field (--form) from a file to the
+    ///         request body
     ///
     ///     key:=value
-    ///         Add a literal JSON value e.g. numbers:=[1,2,3]
+    ///         Add a field with literal JSON value to the request body e.g. numbers:=[1,2,3]
+    ///         enabled:=true
     ///
     ///     key:=@file
-    ///         Add a literal JSON value from a file
+    ///         Add a field with literal JSON value from a file to the request body
     ///
     ///     key@file
     ///         Upload a file from filename (requires either --form  or --multipart).
+    ///
     ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used
     ///         respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
     ///
@@ -352,15 +355,19 @@ pub struct Cli {
     ///         Use a file as the request body
     ///
     ///     header:value
-    ///         Add a header
+    ///         Add a header e.g. user-agent:foobar
     ///
     ///     header:
-    ///         Unset a header
+    ///         Unset a header e.g. connection:
     ///
     ///     header;
     ///         Add a header with an empty value
     ///
     /// A backslash can be used to escape special characters e.g. weird\:key=value.
+    ///
+    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
+    /// instead of a field name. For more information on the nested json syntax, refer to
+    /// <https://httpie.io/docs/cli/nested-json>.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
