@@ -47,19 +47,19 @@ pub struct Cli {
 
     /// (default) Serialize data items from the command line as a JSON object.
     ///
-    /// Overrides both --form and --multipart
+    /// Overrides both --form and --multipart.
     #[clap(short = 'j', long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
     ///
-    /// Overrides both --json and --multipart
+    /// Overrides both --json and --multipart.
     #[clap(short = 'f', long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
     ///
-    /// Overrides both --json and --form
+    /// Overrides both --json and --form.
     #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
@@ -116,9 +116,9 @@ pub struct Cli {
     /// Print the whole request as well as the response.
     ///
     /// Additionally, this enables --all for printing intermediary
-    /// requests/responses while following redirects
+    /// requests/responses while following redirects.
     ///
-    /// Equivalent to --print=HhBb --all
+    /// Equivalent to --print=HhBb --all.
     #[clap(short = 'v', long)]
     pub verbose: bool,
 
@@ -306,7 +306,7 @@ pub struct Cli {
     #[clap(long)]
     pub curl_long: bool,
 
-    /// The request URL, preceded by an optional HTTP method
+    /// The request URL, preceded by an optional HTTP method.
     ///
     /// If the method is omitted, it will default to either GET or POST
     /// depending on whether the request contains a body or not.
@@ -329,41 +329,41 @@ pub struct Cli {
     /// query string, etc. Possible REQUEST_ITEM types are:
     ///
     ///     key==value
-    ///         Add a query string to the URL
+    ///         Add a query string to the URL.
     ///
     ///     key=value
-    ///         Add a JSON field (--json) or form field (--form) to the request body
+    ///         Add a JSON property (--json) or form field (--form) to the request body.
     ///
     ///     key=@file
-    ///         Add a JSON field (--json) or form field (--form) from a file to the
-    ///         request body
+    ///         Add a JSON property (--json) or form field (--form) from a file to the
+    ///         request body.
     ///
     ///     key:=value
-    ///         Add a field with literal JSON value to the request body e.g. numbers:=[1,2,3]
-    ///         enabled:=true
+    ///         Add a field with literal JSON value to the request body, e.g. numbers:=[1,2,3]
+    ///         enabled:=true.
     ///
     ///     key:=@file
-    ///         Add a field with literal JSON value from a file to the request body
+    ///         Add a field with literal JSON value from a file to the request body.
     ///
     ///     key@file
     ///         Upload a file from filename (requires either --form  or --multipart).
     ///
-    ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used
-    ///         respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+    ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used,
+    ///         e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
     ///
     ///     @filename
-    ///         Use a file as the request body
+    ///         Use a file as the request body.
     ///
     ///     header:value
-    ///         Add a header e.g. user-agent:foobar
+    ///         Add a header, e.g. user-agent:foobar
     ///
     ///     header:
-    ///         Unset a header e.g. connection:
+    ///         Unset a header, e.g. connection:
     ///
     ///     header;
-    ///         Add a header with an empty value
+    ///         Add a header with an empty value.
     ///
-    /// A backslash can be used to escape special characters e.g. weird\:key=value.
+    /// A backslash can be used to escape special characters, e.g. weird\:key=value.
     ///
     /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
     /// instead of a field name. For more information on the nested json syntax, refer to
