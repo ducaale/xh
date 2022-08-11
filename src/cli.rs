@@ -187,7 +187,7 @@ pub struct Cli {
     /// to authenticate with just a username.
     ///
     /// TOKEN is expected if --auth-type=bearer.
-    #[clap(short = 'a', long, value_name = "USER[:PASS]|TOKEN")]
+    #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
     /// Authenticate with a bearer token.
