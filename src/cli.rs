@@ -702,7 +702,6 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
     }
     for &shell in clap_complete::Shell::value_variants() {
         // Elvish complains about multiple deprecations and these don't seem to work
-        // If you must use them, generate them manually with xh print_completions elvish
         if shell != clap_complete::Shell::Elvish {
             clap_complete::generate_to(shell, &mut app, &bin_name, &rest_args[0]).unwrap();
         }
