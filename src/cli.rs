@@ -144,7 +144,7 @@ pub struct Cli {
 
     /// Download the body to a file instead of printing it.
     ///
-    /// Additionally, accept-encoding is set to identify and any redirects will be followed.
+    /// The Accept-Encoding header is set to identify and any redirects will be followed.
     #[clap(short = 'd', long)]
     pub download: bool,
 
@@ -311,8 +311,8 @@ pub struct Cli {
     /// If the method is omitted, it will default to either GET or POST
     /// depending on whether the request contains a body or not.
     ///
-    /// The URL scheme defaults to "http://" unless xhs symlink is used
-    /// (should be available if xh is installed via a package manager).
+    /// The URL scheme defaults to "http://" normally, or "https://" if
+    /// the program is invoked as "xhs".
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".

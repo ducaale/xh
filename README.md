@@ -122,7 +122,7 @@ The request body can also be read from standard input, or from a file using `@fi
 
 ### Shorthand form for URLs
 
-Similar to HTTPie, specifying the scheme portion of the request URL is optional. A leading colon works as shorthand
+Similar to HTTPie, specifying the scheme portion of the request URL is optional, and a leading colon works as shorthand
 for localhost. `:8000` is equivalent to `localhost:8000`, and `:/path` is equivalent to `localhost/path`.
 
 URLs can have a leading `://` which allows quickly converting a URL into a valid xh or HTTPie command. For example
