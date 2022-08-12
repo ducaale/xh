@@ -12,7 +12,6 @@ use std::time::Duration;
 use anyhow::anyhow;
 use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
 use encoding_rs::Encoding;
-use indoc::indoc;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
@@ -68,15 +67,20 @@ pub struct Cli {
     pub raw: Option<String>,
 
     /// Controls output processing [possible values: all, colors, format, none]
-    #[clap(long, arg_enum, value_name = "STYLE", hide_possible_values = true, long_help = indoc! {r#"
-        Controls output processing. Possible values are:
+    #[clap(
+        long,
+        arg_enum,
+        value_name = "STYLE",
+        hide_possible_values = true,
+        long_help = "\
+Controls output processing. Possible values are:
 
-            all      (default) Enable both coloring and formatting
-            colors   Apply syntax highlighting to output
-            format   Pretty-print json and sort headers
-            none     Disable both coloring and formatting
-        
-        Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty."#}
+    all      (default) Enable both coloring and formatting
+    colors   Apply syntax highlighting to output
+    format   Pretty-print json and sort headers
+    none     Disable both coloring and formatting
+
+Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is not tty."
     )]
     pub pretty: Option<Pretty>,
 
