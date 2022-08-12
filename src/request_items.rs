@@ -17,7 +17,7 @@ pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
 pub const JSON_ACCEPT: &str = "application/json, */*;q=0.5";
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RequestItem {
     HttpHeader(String, String),
     HttpHeaderToUnset(String),
@@ -138,7 +138,7 @@ impl FromStr for RequestItem {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 struct PartWithParams {
     value: String,
     file_type: Option<String>,
