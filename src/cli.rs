@@ -720,61 +720,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     }
 
     let mut roff = Roff::new();
-
     let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
-    for opt in items.iter().filter(|a| !a.is_positional()) {
-        let mut header = vec![];
-        if let Some(short) = opt.get_short() {
-            header.push(bold(format!("-{}", short)));
-        }
-        if let Some(long) = opt.get_long() {
-            if !header.is_empty() {
-                header.push(roman(", "));
-            }
-            header.push(bold(format!("--{}", long)));
-        }
-        if let Some(value) = &opt.get_value_names() {
-            if opt.get_long().is_some() {
-                header.push(roman("="));
-            } else {
-                header.push(roman(" "));
-            }
-
-            if opt.get_id() == "auth" {
-                header.push(italic("USER"));
-                header.push(roman("["));
-                header.push(italic(":PASS"));
-                header.push(roman("]|"));
-                header.push(italic("TOKEN"));
-            } else {
-                header.push(italic(&value.join(" ")));
-            }
-        }
-        let mut body = vec![];
-
-        let help = opt
-            .get_long_help()
-            .or_else(|| opt.get_help())
-            .expect("option is missing help");
-        body.push(roman(help));
-
-        if let Some(possible_values) = opt.get_possible_values() {
-            if !opt.is_hide_possible_values_set() {
-                let possible_values_text = format!(
-                    "\n\n[possible values: {}]",
-                    possible_values
-                        .iter()
-                        .map(|v| v.get_name())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                body.push(roman(possible_values_text));
-            }
-        }
-        roff.control("TP", []);
-        roff.text(header);
-        roff.text(body);
-    }
 
     let method_url = items
         .iter()
@@ -863,6 +809,71 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         }
     }
     roff.control("RE", []);
+
+    let non_pos_items = items
+        .iter()
+        .filter(|a| !a.is_positional())
+        .collect::<Vec<_>>();
+    // move the first two items (i.e. --help, --version) to the end
+    let non_pos_items = non_pos_items
+        .iter()
+        .cycle()
+        .skip(2)
+        .take(non_pos_items.len());
+
+    for opt in non_pos_items {
+        let mut header = vec![];
+        if let Some(short) = opt.get_short() {
+            header.push(bold(format!("-{}", short)));
+        }
+        if let Some(long) = opt.get_long() {
+            if !header.is_empty() {
+                header.push(roman(", "));
+            }
+            header.push(bold(format!("--{}", long)));
+        }
+        if let Some(value) = &opt.get_value_names() {
+            if opt.get_long().is_some() {
+                header.push(roman("="));
+            } else {
+                header.push(roman(" "));
+            }
+
+            if opt.get_id() == "auth" {
+                header.push(italic("USER"));
+                header.push(roman("["));
+                header.push(italic(":PASS"));
+                header.push(roman("]|"));
+                header.push(italic("TOKEN"));
+            } else {
+                header.push(italic(&value.join(" ")));
+            }
+        }
+        let mut body = vec![];
+
+        let help = opt
+            .get_long_help()
+            .or_else(|| opt.get_help())
+            .expect("option is missing help");
+        body.push(roman(help));
+
+        if let Some(possible_values) = opt.get_possible_values() {
+            if !opt.is_hide_possible_values_set() {
+                let possible_values_text = format!(
+                    "\n\n[possible values: {}]",
+                    possible_values
+                        .iter()
+                        .map(|v| v.get_name())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                body.push(roman(possible_values_text));
+            }
+        }
+        roff.control("TP", []);
+        roff.text(header);
+        roff.text(body);
+    }
 
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
 
