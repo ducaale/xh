@@ -459,16 +459,13 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
-        #[allow(clippy::single_match)]
         match cli.raw_method_or_url.as_str() {
             "help" => {
                 app.print_long_help().unwrap();
                 println!();
                 safe_exit();
             }
-            #[cfg(feature = "man-completion-gen")]
             "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
-            #[cfg(feature = "man-completion-gen")]
             "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
@@ -878,6 +875,16 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
     safe_exit();
+}
+
+#[cfg(not(feature = "man-completion-gen"))]
+fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+    panic!("man-completion-gen feature is not enabled");
+}
+
+#[cfg(not(feature = "man-completion-gen"))]
+fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+    panic!("man-completion-gen feature is not enabled");
 }
 
 #[allow(non_camel_case_types)]
