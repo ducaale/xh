@@ -754,9 +754,13 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             }
         }
         let mut body = vec![];
-        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
-            body.push(roman(help));
-        }
+
+        let help = opt
+            .get_long_help()
+            .or_else(|| opt.get_help())
+            .expect("option is missing help");
+        body.push(roman(help));
+
         if let Some(possible_values) = opt.get_possible_values() {
             if !opt.is_hide_possible_values_set() {
                 let possible_values_text = format!(
@@ -775,83 +779,93 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         roff.text(body);
     }
 
-    if let Some(opt) = items.iter().find(|opt| opt.get_id() == "raw-method-or-url") {
-        roff.control("TP", []);
-        roff.text(vec![
-            roman("["),
-            italic("METHOD"),
-            roman("]"),
-            italic(" URL"),
-        ]);
-        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
-            roff.text(vec![roman(help)]);
-        }
-    }
+    let method_url = items
+        .iter()
+        .find(|opt| opt.get_id() == "raw-method-or-url")
+        .unwrap();
+    let method_url_help = method_url
+        .get_long_help()
+        .or_else(|| method_url.get_help())
+        .expect("[method] url is missing help");
 
-    if let Some(opt) = items.iter().find(|opt| opt.get_id() == "raw-rest-args") {
-        roff.control("TP", []);
-        roff.text(vec![roman("["), italic("REQUEST_ITEM"), roman(" ...]")]);
-        if let Some(help) = opt.get_long_help().or_else(|| opt.get_help()) {
-            // replace the indents in request_item help with proper roff controls
-            // For example:
-            //
-            // ```
-            // normal help normal help
-            // normal help normal help
-            //
-            //   request-item-1
-            //     help help
-            //
-            //   request-item-2
-            //     help help
-            //
-            // normal help normal help
-            // ```
-            //
-            // Should look like this with roff controls
-            //
-            // ```
-            // normal help normal help
-            // normal help normal help
-            // .RS 12
-            // .TP
-            // request-item-1
-            // help help
-            // .TP
-            // request-item-2
-            // help help
-            // .RE
-            //
-            // .RS
-            // normal help normal help
-            // .RE
-            // ```
-            let lines: Vec<&str> = help.lines().collect();
-            let mut rs = false;
-            for i in 0..lines.len() {
-                if lines[i].is_empty() {
-                    let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
-                    let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
-                    if prev != next && next > 0 {
-                        if !rs {
-                            roff.control("RS", ["12"]);
-                            rs = true;
-                        }
-                        roff.control("TP", []);
-                    } else if prev != next && next == 0 {
-                        roff.control("RE", []);
-                        roff.text(vec![roman("")]);
-                        roff.control("RS", []);
-                    } else {
-                        roff.text(vec![roman(lines[i])]);
-                    }
-                } else {
-                    roff.text(vec![roman(lines[i].trim())]);
+    roff.control("TP", []);
+    roff.text(vec![
+        roman("["),
+        italic("METHOD"),
+        roman("]"),
+        italic(" URL"),
+    ]);
+    roff.text(vec![roman(method_url_help)]);
+
+    let request_items = items
+        .iter()
+        .find(|opt| opt.get_id() == "raw-rest-args")
+        .unwrap();
+    let request_items_help = request_items
+        .get_long_help()
+        .or_else(|| request_items.get_help())
+        .expect("request_items is missing help");
+
+    roff.control("TP", []);
+    roff.text(vec![roman("["), italic("REQUEST_ITEM"), roman(" ...]")]);
+    // replace the indents in request_item help with proper roff controls
+    // For example:
+    //
+    // ```
+    // normal help normal help
+    // normal help normal help
+    //
+    //   request-item-1
+    //     help help
+    //
+    //   request-item-2
+    //     help help
+    //
+    // normal help normal help
+    // ```
+    //
+    // Should look like this with roff controls
+    //
+    // ```
+    // normal help normal help
+    // normal help normal help
+    // .RS 12
+    // .TP
+    // request-item-1
+    // help help
+    // .TP
+    // request-item-2
+    // help help
+    // .RE
+    //
+    // .RS
+    // normal help normal help
+    // .RE
+    // ```
+    let lines: Vec<&str> = request_items_help.lines().collect();
+    let mut rs = false;
+    for i in 0..lines.len() {
+        if lines[i].is_empty() {
+            let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
+            let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
+            if prev != next && next > 0 {
+                if !rs {
+                    roff.control("RS", ["12"]);
+                    rs = true;
                 }
+                roff.control("TP", []);
+            } else if prev != next && next == 0 {
+                roff.control("RE", []);
+                roff.text(vec![roman("")]);
+                roff.control("RS", []);
+            } else {
+                roff.text(vec![roman(lines[i])]);
             }
-            roff.control("RE", []);
+        } else {
+            roff.text(vec![roman(lines[i].trim())]);
         }
     }
+    roff.control("RE", []);
 
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
 
