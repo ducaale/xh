@@ -38,19 +38,9 @@ impl Auth {
 
     pub fn from_netrc(auth_type: AuthType, entry: netrc::Entry) -> Option<Auth> {
         match auth_type {
-            AuthType::basic => Some(Auth::Basic(entry.login, Some(entry.password))),
-            AuthType::bearer => None,
-            AuthType::digest => Some(Auth::Digest(entry.login, entry.password)),
-        }
-    }
-
-    // Could be a method on AuthType instead, but it's helpful
-    // to put next to `Auth::from_netrc`
-    pub fn supports_netrc(auth_type: AuthType) -> bool {
-        match auth_type {
-            AuthType::basic => true,
-            AuthType::bearer => false,
-            AuthType::digest => true,
+            AuthType::basic => Some(Auth::Basic(entry.login?, Some(entry.password))),
+            AuthType::bearer => Some(Auth::Bearer(entry.password)),
+            AuthType::digest => Some(Auth::Digest(entry.login?, entry.password)),
         }
     }
 }
