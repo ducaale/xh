@@ -77,6 +77,9 @@ online-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 man-completion-gen = ["clap_complete", "chrono", "roff"]
 
+[package.metadata.cross.build.env]
+passthrough = ["CARGO_PROFILE_RELEASE_LTO"]
+
 [package.metadata.deb]
 features = []
 section = "web"

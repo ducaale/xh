@@ -44,7 +44,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.job.target }}
+          key: v2-${{ matrix.job.target }}
       - uses: actions-rs/cargo@v1
         with:
           use-cross: ${{ matrix.job.use-cross }}

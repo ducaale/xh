@@ -76,7 +76,11 @@ fn get_base_command() -> Command {
     let mut cmd;
     let path = assert_cmd::cargo::cargo_bin("xh");
     if let Some(runner) = find_runner() {
-        cmd = Command::new(runner);
+        let mut runner = runner.split_whitespace();
+        cmd = Command::new(runner.next().unwrap());
+        for arg in runner {
+            cmd.arg(arg);
+        }
         cmd.arg(path);
     } else {
         cmd = Command::new(path);
