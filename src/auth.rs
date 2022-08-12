@@ -43,16 +43,6 @@ impl Auth {
             AuthType::digest => Some(Auth::Digest(entry.login?, entry.password)),
         }
     }
-
-    // Could be a method on AuthType instead, but it's helpful
-    // to put next to `Auth::from_netrc`
-    pub fn supports_netrc(auth_type: AuthType) -> bool {
-        match auth_type {
-            AuthType::basic => true,
-            AuthType::bearer => true,
-            AuthType::digest => true,
-        }
-    }
 }
 
 pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)> {
