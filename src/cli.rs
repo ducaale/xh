@@ -879,12 +879,18 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
 #[cfg(not(feature = "man-completion-gen"))]
 fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
-    panic!("man-completion-gen feature is not enabled");
+    clap::Error::raw(
+        clap::ErrorKind::InvalidSubcommand,
+        "generate-completions requires enabling man-completion-gen feature\n",
+    )
 }
 
 #[cfg(not(feature = "man-completion-gen"))]
 fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
-    panic!("man-completion-gen feature is not enabled");
+    clap::Error::raw(
+        clap::ErrorKind::InvalidSubcommand,
+        "generate-manpages requires enabling man-completion-gen feature\n",
+    )
 }
 
 #[allow(non_camel_case_types)]
