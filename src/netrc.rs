@@ -12,9 +12,6 @@
 //!
 //! - The default entry doesn't have to be at the end of the file.
 //!
-//! This implementation additionally handles entries with just a password and no login,
-//! to support using .netrc for bearer auth.
-//!
 //! HTTPie uses the implementation from Python's standard library
 //! (with a wrapper from requests).
 //!
@@ -22,6 +19,9 @@
 //! We'd ignore errors anyway to match HTTPie so that might be for the best.
 //! (HTTPie's parser is strict, so a minor problem will silently stop the file
 //! from being used.)
+//!
+//! This implementation additionally handles entries with just a password and no login,
+//! to support using .netrc for bearer auth.
 //!
 //! This is too specialized for our use case to be a crate, but feel free to
 //! copy/paste into another project and modify.
