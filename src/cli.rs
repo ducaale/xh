@@ -843,7 +843,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(italic("USER"));
                 header.push(roman("["));
                 header.push(italic(":PASS"));
-                header.push(roman("]|"));
+                header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
                 header.push(italic(&value.join(" ")));
