@@ -723,9 +723,9 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         );
     }
 
-    let mut roff = Roff::new();
     let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
 
+    let mut pos_args_roff = Roff::new();
     let method_url = items
         .iter()
         .find(|opt| opt.get_id() == "raw-method-or-url")
@@ -735,14 +735,14 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         .or_else(|| method_url.get_help())
         .expect("[method] url is missing help");
 
-    roff.control("TP", []);
-    roff.text(vec![
+    pos_args_roff.control("TP", []);
+    pos_args_roff.text(vec![
         roman("["),
         italic("METHOD"),
         roman("]"),
         italic(" URL"),
     ]);
-    roff.text(vec![roman(method_url_help)]);
+    pos_args_roff.text(vec![roman(method_url_help)]);
 
     let request_items = items
         .iter()
@@ -753,8 +753,8 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         .or_else(|| request_items.get_help())
         .expect("request_items is missing help");
 
-    roff.control("TP", []);
-    roff.text(vec![roman("["), italic("REQUEST_ITEM"), roman(" ...]")]);
+    pos_args_roff.control("TP", []);
+    pos_args_roff.text(vec![roman("["), italic("REQUEST_ITEM"), roman(" ...]")]);
     // replace the indents in request_item help with proper roff controls
     // For example:
     //
@@ -797,23 +797,24 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
             if prev != next && next > 0 {
                 if !rs {
-                    roff.control("RS", ["12"]);
+                    pos_args_roff.control("RS", ["12"]);
                     rs = true;
                 }
-                roff.control("TP", []);
+                pos_args_roff.control("TP", []);
             } else if prev != next && next == 0 {
-                roff.control("RE", []);
-                roff.text(vec![roman("")]);
-                roff.control("RS", []);
+                pos_args_roff.control("RE", []);
+                pos_args_roff.text(vec![roman("")]);
+                pos_args_roff.control("RS", []);
             } else {
-                roff.text(vec![roman(lines[i])]);
+                pos_args_roff.text(vec![roman(lines[i])]);
             }
         } else {
-            roff.text(vec![roman(lines[i].trim())]);
+            pos_args_roff.text(vec![roman(lines[i].trim())]);
         }
     }
-    roff.control("RE", []);
+    pos_args_roff.control("RE", []);
 
+    let mut options_roff = Roff::new();
     let non_pos_items = items
         .iter()
         .filter(|a| !a.is_positional())
@@ -874,9 +875,9 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 body.push(roman(possible_values_text));
             }
         }
-        roff.control("TP", []);
-        roff.text(header);
-        roff.text(body);
+        options_roff.control("TP", []);
+        options_roff.text(header);
+        options_roff.text(body);
     }
 
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
@@ -886,7 +887,8 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     manpage = manpage.replace("{{date}}", &current_date);
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());
-    manpage = manpage.replace("{{options}}", roff.to_roff().trim());
+    manpage = manpage.replace("{{pos_args}}", pos_args_roff.to_roff().trim());
+    manpage = manpage.replace("{{options}}", options_roff.to_roff().trim());
 
     fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
     safe_exit();
