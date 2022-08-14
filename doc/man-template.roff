@@ -25,7 +25,28 @@ from stdin (you might want to opt-out of this behaviour in non-interactive
 sessions via \-\-ignore\-stdin).
 
 .SH POSITIONAL ARGUMENTS
-{{pos_args}}
+.TP
+[\fIMETHOD\fR]\fI
+HTTP method to use for the request.
+
+If the method is omitted, it will default to either GET or POST
+depending on whether the request contains a body or not.
+.TP
+\fIURL\fR
+The URL to request.
+
+The URL scheme defaults to "http://" normally, or "https://" if
+the program is invoked as "xhs".
+
+A leading colon works as shorthand for localhost. ":8000" is equivalent
+to "localhost:8000", and ":/path" is equivalent to "localhost/path".
+
+URLs can have a leading "://" which allows quickly converting a URL
+into a valid xh or HTTPie command. For example "http://httpbin.org/json"
+becomes "http ://httpbin.org/json".
+.TP
+[\fIREQUEST_ITEM\fR ...]
+{{request_items}}
 
 .SH OPTIONS
 Each --OPTION can be reset with a --no-OPTION argument.
