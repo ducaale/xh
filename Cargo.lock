@@ -702,6 +702,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adab1eaa3408fb7f0c777a73e7465fd5656136fc93b670eb6df3c88c2c1344e3"
+
+[[package]]
 name = "ipnet"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2164,6 +2170,7 @@ dependencies = [
  "form_urlencoded",
  "hyper",
  "indicatif",
+ "indoc",
  "jsonxf",
  "memchr",
  "mime",
