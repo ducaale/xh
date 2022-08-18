@@ -688,36 +688,19 @@ pub enum Pretty {
     none,
 }
 
-#[derive(Debug, Clone)]
+#[derive(ArgEnum, Debug, Clone)]
 pub enum TlsVersion {
+    // ssl2.3 is not a real version but it's how HTTPie spells "auto"
+    #[clap(name = "auto", alias = "ssl2.3")]
     Auto,
+    #[clap(name = "tls1")]
     Tls1_0,
+    #[clap(name = "tls1.1")]
     Tls1_1,
+    #[clap(name = "tls1.2")]
     Tls1_2,
+    #[clap(name = "tls1.3")]
     Tls1_3,
-}
-
-impl clap::ValueEnum for TlsVersion {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[
-            Self::Auto,
-            Self::Tls1_0,
-            Self::Tls1_1,
-            Self::Tls1_2,
-            Self::Tls1_3,
-        ]
-    }
-
-    fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
-        match self {
-            // ssl2.3 is not a real version but it's how HTTPie spells "auto"
-            Self::Auto => Some(clap::PossibleValue::new("auto").alias("ssl2.3")),
-            Self::Tls1_0 => Some(clap::PossibleValue::new("tls1")),
-            Self::Tls1_1 => Some(clap::PossibleValue::new("tls1.1")),
-            Self::Tls1_2 => Some(clap::PossibleValue::new("tls1.2")),
-            Self::Tls1_3 => Some(clap::PossibleValue::new("tls1.3")),
-        }
-    }
 }
 
 impl From<TlsVersion> for Option<tls::Version> {
@@ -969,25 +952,14 @@ impl Default for BodyType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(ArgEnum, Debug, Clone)]
 pub enum HttpVersion {
+    #[clap(name = "1.0", alias = "1")]
     Http10,
+    #[clap(name = "1.1")]
     Http11,
+    #[clap(name = "2")]
     Http2,
-}
-
-impl clap::ValueEnum for HttpVersion {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Http10, Self::Http11, Self::Http2]
-    }
-
-    fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
-        match self {
-            Self::Http10 => Some(clap::PossibleValue::new("1.0").alias("1")),
-            Self::Http11 => Some(clap::PossibleValue::new("1.1")),
-            Self::Http2 => Some(clap::PossibleValue::new("2")),
-        }
-    }
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.
