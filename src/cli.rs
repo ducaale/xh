@@ -232,13 +232,13 @@ pub struct Cli {
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::os_string())]
+    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::path_buf())]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::os_string())]
+    #[clap(action = ArgAction::Set, long, value_name = "FILE", value_parser = ValueParser::path_buf())]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
