@@ -699,7 +699,13 @@ pub enum TlsVersion {
 
 impl clap::ValueEnum for TlsVersion {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Tls1_0, Self::Tls1_1, Self::Tls1_2, Self::Tls1_3]
+        &[
+            Self::Auto,
+            Self::Tls1_0,
+            Self::Tls1_1,
+            Self::Tls1_2,
+            Self::Tls1_3,
+        ]
     }
 
     fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
@@ -709,7 +715,7 @@ impl clap::ValueEnum for TlsVersion {
             Self::Tls1_0 => Some(clap::PossibleValue::new("tls1")),
             Self::Tls1_1 => Some(clap::PossibleValue::new("tls1.1")),
             Self::Tls1_2 => Some(clap::PossibleValue::new("tls1.2")),
-            Self::Tls1_3 => Some(clap::PossibleValue::new("tls.1.3")),
+            Self::Tls1_3 => Some(clap::PossibleValue::new("tls1.3")),
         }
     }
 }
