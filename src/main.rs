@@ -167,7 +167,7 @@ fn run(args: Cli) -> Result<i32> {
         .no_deflate()
         .no_brotli();
 
-    if let Some(tls_version) = args.ssl.and_then(|v| v.into()) {
+    if let Some(tls_version) = args.ssl.and_then(Into::into) {
         client = client
             .min_tls_version(tls_version)
             .max_tls_version(tls_version);
