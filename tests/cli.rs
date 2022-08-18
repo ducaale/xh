@@ -76,7 +76,11 @@ fn get_base_command() -> Command {
     let mut cmd;
     let path = assert_cmd::cargo::cargo_bin("xh");
     if let Some(runner) = find_runner() {
-        cmd = Command::new(runner);
+        let mut runner = runner.split_whitespace();
+        cmd = Command::new(runner.next().unwrap());
+        for arg in runner {
+            cmd.arg(arg);
+        }
         cmd.arg(path);
     } else {
         cmd = Command::new(path);
@@ -922,6 +926,45 @@ fn netrc_env_user_password_auth() {
     get_command()
         .env("NETRC", netrc.path())
         .arg(server.base_url())
+        .assert()
+        .success();
+}
+
+#[test]
+fn netrc_env_no_bearer_auth_unless_specified() {
+    // Test that we don't pass an authorization header if the .netrc contains no username,
+    // and the --auth-type=bearer flag isn't explicitly specified.
+    let server = server::http(|req| async move {
+        assert!(req.headers().get("Authorization").is_none());
+        hyper::Response::default()
+    });
+
+    let mut netrc = NamedTempFile::new().unwrap();
+    writeln!(netrc, "machine {}\npassword pass", server.host()).unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .assert()
+        .success();
+}
+
+#[test]
+fn netrc_env_auth_type_bearer() {
+    // If we're using --auth-type=bearer, test that it's properly sent with a .netrc that
+    // contains only a password and no username.
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Bearer pass");
+        hyper::Response::default()
+    });
+
+    let mut netrc = NamedTempFile::new().unwrap();
+    writeln!(netrc, "machine {}\npassword pass", server.host()).unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .arg("--auth-type=bearer")
         .assert()
         .success();
 }

@@ -665,7 +665,7 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
 }
 
 #[allow(non_camel_case_types)]
-#[derive(ArgEnum, Copy, Clone, Debug, PartialEq)]
+#[derive(ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     basic,
     bearer,
@@ -680,7 +680,7 @@ impl Default for AuthType {
 
 // Uppercase variant names would show up as such in the help text
 #[allow(non_camel_case_types)]
-#[derive(ArgEnum, Debug, PartialEq, Clone, Copy)]
+#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
     all,
     colors,
@@ -743,7 +743,7 @@ impl Pretty {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(ArgEnum, Debug, PartialEq, Clone, Copy)]
+#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
     auto,
     solarized,
@@ -876,7 +876,7 @@ impl FromStr for Timeout {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Proxy {
     Http(Url),
     Https(Url),
@@ -913,7 +913,7 @@ impl FromStr for Proxy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verify {
     Yes,
     No,
@@ -956,7 +956,7 @@ impl fmt::Display for Verify {
     }
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum BodyType {
     Json,
     Form,
