@@ -2,7 +2,8 @@
 name = "xh"
 version = "0.16.1"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -55,7 +56,7 @@ features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", 
 [dependencies.syntect]
 version = "4.4"
 default-features = false
-features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+features = ["parsing", "dump-load", "regex-onig"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -66,8 +67,10 @@ hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 tempfile = "3.2.0"
 
-[build-dependencies]
-syntect = { version = "4.4", default-features = false }
+[build-dependencies.syntect]
+version = "4.4"
+default-features = false
+features = ["yaml-load", "dump-create", "regex-onig"]
 
 [features]
 default = ["online-tests"]
