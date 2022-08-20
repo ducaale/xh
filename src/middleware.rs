@@ -24,16 +24,18 @@ impl ResponseExt for Response {
     }
 }
 
+type Printer<'a, 'b> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b);
+
 pub struct Context<'a, 'b> {
     client: &'a Client,
-    printer: Option<&'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b)>,
+    printer: Option<Printer<'a, 'b>>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
 impl<'a, 'b> Context<'a, 'b> {
     fn new(
         client: &'a Client,
-        printer: Option<&'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b)>,
+        printer: Option<Printer<'a, 'b>>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
         Context {

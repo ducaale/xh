@@ -311,11 +311,11 @@ pub fn translate(args: Cli) -> Result<Command> {
                 RequestItem::JsonField(..) | RequestItem::JsonFieldFromFile(..) => {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
-                RequestItem::DataField(key, value) => {
+                RequestItem::DataField { key, value, .. } => {
                     cmd.opt("-F", "--form");
                     cmd.arg(format!("{}={}", key, value));
                 }
-                RequestItem::DataFieldFromFile(key, value) => {
+                RequestItem::DataFieldFromFile { key, value, .. } => {
                     cmd.opt("-F", "--form");
                     cmd.arg(format!("{}=<{}", key, value));
                 }
@@ -361,11 +361,11 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg(encoded);
                 }
             }
-            Body::Json(map) if !map.is_empty() => {
+            Body::Json(value) if !value.is_null() => {
                 cmd.header("content-type", JSON_CONTENT_TYPE);
                 cmd.header("accept", JSON_ACCEPT);
 
-                let json_string = serde_json::Value::from(map).to_string();
+                let json_string = value.to_string();
                 cmd.opt("-d", "--data");
                 cmd.arg(json_string);
             }

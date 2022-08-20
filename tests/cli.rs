@@ -76,7 +76,11 @@ fn get_base_command() -> Command {
     let mut cmd;
     let path = assert_cmd::cargo::cargo_bin("xh");
     if let Some(runner) = find_runner() {
-        cmd = Command::new(runner);
+        let mut runner = runner.split_whitespace();
+        cmd = Command::new(runner.next().unwrap());
+        for arg in runner {
+            cmd.arg(arg);
+        }
         cmd.arg(path);
     } else {
         cmd = Command::new(path);
@@ -200,6 +204,96 @@ fn multiline_value() {
         .args(&["--form", "post", &server.base_url(), "foo=bar\nbaz"])
         .assert()
         .success();
+}
+
+#[test]
+fn nested_json() {
+    let server = server::http(|req| async move {
+        assert_eq!(
+            req.body_as_string().await,
+            r#"{"shallow":"value","object":{"key":"value"},"array":[1,2,3],"wow":{"such":{"deep":[null,null,null,{"much":{"power":{"!":"Amaze"}}}]}}}"#
+        );
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(&["post", &server.base_url()])
+        .arg("shallow=value")
+        .arg("object[key]=value")
+        .arg("array[]:=1")
+        .arg("array[1]:=2")
+        .arg("array[2]:=3")
+        .arg("wow[such][deep][3][much][power][!]=Amaze")
+        .assert()
+        .success();
+}
+
+#[test]
+fn json_path_with_escaped_characters() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg(r"f\=\:\;oo\[\\[\@]=b\:\:\:ar")
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "f=:;oo[\\": {
+                    "@": "b:::ar"
+                }
+            }
+
+
+
+        "#});
+}
+
+#[test]
+fn nested_json_type_error() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("x[x][2]=5")
+        .arg("x[x][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'key' based access on 'x[x]' which has a type of 'array' but this operation requires a type of 'object'.
+
+              x[x][x]
+                  ^^^
+        "#});
+
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("foo[x]=5")
+        .arg("[][x]=2")
+        .assert()
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Can't perform 'append' based access on '' which has a type of 'object' but this operation requires a type of 'array'.
+            
+              [][x]
+              ^^
+        "#});
+}
+
+#[test]
+fn json_path_special_chars_not_escaped_in_form() {
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg("--form")
+        .arg(":")
+        .arg(r"\]=a")
+        .assert()
+        .stdout(indoc! {r#"
+            %5C%5D=a
+
+        "#});
 }
 
 #[test]
@@ -544,7 +638,7 @@ fn timeout() {
     get_command()
         .args(&["--timeout=0.1", &server.base_url()])
         .assert()
-        .failure()
+        .code(2)
         .stderr(contains("operation timed out"));
 }
 
@@ -832,6 +926,45 @@ fn netrc_env_user_password_auth() {
     get_command()
         .env("NETRC", netrc.path())
         .arg(server.base_url())
+        .assert()
+        .success();
+}
+
+#[test]
+fn netrc_env_no_bearer_auth_unless_specified() {
+    // Test that we don't pass an authorization header if the .netrc contains no username,
+    // and the --auth-type=bearer flag isn't explicitly specified.
+    let server = server::http(|req| async move {
+        assert!(req.headers().get("Authorization").is_none());
+        hyper::Response::default()
+    });
+
+    let mut netrc = NamedTempFile::new().unwrap();
+    writeln!(netrc, "machine {}\npassword pass", server.host()).unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .assert()
+        .success();
+}
+
+#[test]
+fn netrc_env_auth_type_bearer() {
+    // If we're using --auth-type=bearer, test that it's properly sent with a .netrc that
+    // contains only a password and no username.
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["Authorization"], "Bearer pass");
+        hyper::Response::default()
+    });
+
+    let mut netrc = NamedTempFile::new().unwrap();
+    writeln!(netrc, "machine {}\npassword pass", server.host()).unwrap();
+
+    get_command()
+        .env("NETRC", netrc.path())
+        .arg(server.base_url())
+        .arg("--auth-type=bearer")
         .assert()
         .success();
 }
@@ -2370,7 +2503,7 @@ fn max_redirects_is_enforced() {
         .args(&[&server.base_url(), "--follow", "--max-redirects=5"])
         .assert()
         .stderr(contains("Too many redirects (--max-redirects=5)"))
-        .failure();
+        .code(6);
 }
 
 #[test]
@@ -2864,6 +2997,31 @@ fn empty_response_with_content_encoding() {
             HTTP/1.1 200 OK
             Content-Encoding: gzip
             Content-Length: 0
+            Date: N/A
+
+
+        "#});
+}
+
+#[test]
+fn empty_response_with_content_encoding_and_content_length() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "gzip")
+            .header("content-length", "100")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("head")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: gzip
+            Content-Length: 100
             Date: N/A
 
 

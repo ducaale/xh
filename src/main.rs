@@ -6,6 +6,7 @@ mod decoder;
 mod download;
 mod formatting;
 mod middleware;
+mod nested_json;
 mod netrc;
 mod printer;
 mod redirect;
@@ -83,6 +84,14 @@ fn main() {
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
+            }
+            if let Some(err) = err.downcast_ref::<reqwest::Error>() {
+                if err.is_timeout() {
+                    process::exit(2);
+                }
+            }
+            if msg.starts_with("Too many redirects") {
+                process::exit(6);
             }
             process::exit(1);
         }
@@ -347,9 +356,9 @@ fn run(args: Cli) -> Result<i32> {
             Body::Form(body) => request_builder.form(&body),
             Body::Multipart(body) => request_builder.multipart(body),
             Body::Json(body) => {
-                // An empty JSON body would produce "{}" instead of "", so
-                // this is the one kind of body that needs an is_empty() check
-                if !body.is_empty() {
+                // An empty JSON body would produce null instead of "", so
+                // this is the one kind of body that needs an is_null() check
+                if !body.is_null() {
                     request_builder
                         .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                         .json(&body)
@@ -399,7 +408,7 @@ fn run(args: Cli) -> Result<i32> {
                 auth_type,
                 args.url.host_str().unwrap_or("<host>"),
             )?);
-        } else if !args.ignore_netrc && Auth::supports_netrc(auth_type) {
+        } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
             let host = args.url.host().unwrap_or(url::Host::Domain(""));

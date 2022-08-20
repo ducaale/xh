@@ -1,6 +1,6 @@
 [package]
 name = "xh"
-version = "0.15.0"
+version = "0.16.1"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -44,6 +44,7 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
 termcolor = "1.1.2"
 time = "0.2.26"
+unicode-width = "0.1.9"
 url = "2.2.2"
 
 [dependencies.reqwest]
@@ -72,6 +73,9 @@ syntect = { version = "4.4", default-features = false }
 default = ["online-tests"]
 online-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
+
+[package.metadata.cross.build.env]
+passthrough = ["CARGO_PROFILE_RELEASE_LTO"]
 
 [package.metadata.deb]
 features = []

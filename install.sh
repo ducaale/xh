@@ -59,27 +59,33 @@ case $PATH in
         ;;
 esac
 
-printf "Install location [default: %s]: " "$default_bin"
-read -r bindir < /dev/tty
-bindir=${bindir:-$default_bin}
-
-while ! test -d "$bindir"; do
-    echo "Directory $bindir does not exist"
+_read_installdir() {
     printf "Install location [default: %s]: " "$default_bin"
-    read -r bindir < /dev/tty
-    bindir=${bindir:-$default_bin}
-done
+    read -r xh_installdir < /dev/tty
+    xh_installdir=${xh_installdir:-$default_bin}
+}
+
+if [ -z "$XH_BINDIR" ]; then
+    _read_installdir
+
+    while ! test -d "$xh_installdir"; do
+        echo "Directory $xh_installdir does not exist"
+        _read_installdir
+    done
+else
+    xh_installdir=${XH_BINDIR}
+fi
 
 tar xzf xh.tar.gz
 
-if test -w "$bindir"; then
-    mv xh-*/xh "$bindir/"
-    ln -sf "$bindir/xh" "$bindir/xhs"
+if test -w "$xh_installdir" || [ -n "$XH_BINDIR" ]; then
+    mv xh-*/xh "$xh_installdir/"
+    ln -sf "$xh_installdir/xh" "$xh_installdir/xhs"
 else
-    sudo mv xh-*/xh "$bindir/"
-    sudo ln -sf "$bindir/xh" "$bindir/xhs"
+    sudo mv xh-*/xh "$xh_installdir/"
+    sudo ln -sf "$xh_installdir/xh" "$xh_installdir/xhs"
 fi
 
-echo "$("$bindir"/xh -V) has been installed to:"
-echo " • $bindir/xh"
-echo " • $bindir/xhs"
+echo "$("$xh_installdir"/xh -V) has been installed to:"
+echo " • $xh_installdir/xh"
+echo " • $xh_installdir/xhs"
