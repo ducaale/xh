@@ -81,15 +81,21 @@ pub struct Cli {
     pub response_mime: Option<String>,
 
     /// String specifying what the output should contain
-    ///
-    ///     'H' request headers
-    ///     'B' request body
-    ///     'h' response headers
-    ///     'b' response body
-    ///     'm' response metadata
-    ///
-    /// Example: `--print=Hb`
-    #[clap(short = 'p', long, value_name = "FORMAT", verbatim_doc_comment)]
+    #[clap(
+        short = 'p',
+        long,
+        value_name = "FORMAT",
+        long_help = "\
+String specifying what the output should contain
+
+    'H' request headers
+    'B' request body
+    'h' response headers
+    'b' response body
+    'm' response metadata
+
+Example: `--print=Hb`"
+    )]
     pub print: Option<Print>,
 
     /// Print only the response headers. Shortcut for --print=h.
@@ -105,6 +111,8 @@ pub struct Cli {
     pub meta: bool,
 
     /// Print the whole request as well as the response.
+    ///
+    /// Using verbose twice i.e. -vv will print the response metadata as well.
     #[clap(short = 'v', long, parse(from_occurrences))]
     pub verbose: usize,
 
