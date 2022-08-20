@@ -3027,3 +3027,64 @@ fn empty_response_with_content_encoding_and_content_length() {
 
         "#});
 }
+
+#[test]
+fn response_meta() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .body("Hello!".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--print=m")
+        .arg(server.base_url())
+        .assert()
+        .stdout(contains("Elapsed time: "));
+}
+
+#[test]
+fn redirect_with_respone_meta() {
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => hyper::Response::builder()
+                .status(302)
+                .header("Date", "N/A")
+                .header("Location", "/second_page")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/second_page" => hyper::Response::builder()
+                .header("Date", "N/A")
+                .body("final destination".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .arg(server.url("/first_page"))
+        .arg("--follow")
+        .arg("-vv")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(2));
+
+    get_command()
+        .arg(server.url("/first_page"))
+        .arg("--follow")
+        .arg("--meta")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(1));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn digest_auth_with_response_meta() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("-vv")
+        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(2));
+}
