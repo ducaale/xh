@@ -440,5 +440,9 @@ mod tests {
         assert!(parse_path("foo[😀]x").is_err());
         assert!(parse_path(r"foo[bar]\[baz]").is_err());
         assert!(parse_path(r"foo\[bar][baz]").is_err());
+
+        // shouldn't panic when highlighting a key with unicode chars
+        assert!(parse_path("[😀").is_err());
+        assert!(parse_path("[][😀").is_err());
     }
 }
