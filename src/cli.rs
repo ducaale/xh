@@ -297,6 +297,14 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     pub http_version: Option<HttpVersion>,
 
     /// Do not attempt to read stdin.
+    ///
+    /// By default, stdin's TTY status is checked to detect redirected input and,
+    /// in turn, read the request body from stdin.
+    ///
+    /// For example: cat report.txt | xh post example.com
+    ///
+    /// However, this might cause xh to hang in certain non-interactive sessions
+    /// e.g. cron jobs, so --ignore-stdin should be used to opt-out of this behavior.
     #[clap(short = 'I', long)]
     pub ignore_stdin: bool,
 
