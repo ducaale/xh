@@ -1,4 +1,4 @@
-.TH XH 1 2022-08-07 0.16.1 "User Commands"
+.TH XH 1 2022-08-21 0.16.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -16,59 +16,95 @@ xh \- Friendly and fast tool for sending HTTP requests
 xh is an HTTP client that aims to reimplement as much as possible of
 HTTPie's excellent design, with a focus on improved performance.
 
-xh uses HTTPie's request-item syntax to set headers, request body,
-query string, etc. For more details, refer to REQUEST_ITEM in the
-OPTIONS section.
+.SH POSITIONAL ARGUMENTS
+.TP
+[\fIMETHOD\fR]\fI
+HTTP method to use for the request.
 
-If stdin is detected as not tty, xh will attempt to read the request body
-from stdin (you might want to opt-out of this behaviour in non-interactive
-sessions via \-\-ignore\-stdin).
+If the method is omitted, it will default to either GET or POST
+depending on whether the request contains a body or not.
+.TP
+\fIURL\fR
+The URL to request.
 
-.RS
-.EX
-$ cat report.txt | xh post example.com
-.EE
+The URL scheme defaults to "http://" normally, or "https://" if
+the program is invoked as "xhs".
+
+A leading colon works as shorthand for localhost. ":8000" is equivalent
+to "localhost:8000", and ":/path" is equivalent to "localhost/path".
+
+URLs can have a leading "://" which allows quickly converting a URL
+into a valid xh or HTTPie command. For example "http://httpbin.org/json"
+becomes "http ://httpbin.org/json".
+.TP
+[\fIREQUEST_ITEM\fR ...]
+Optional key\-value pairs to be included in the request
+
+The separator is used to determine the type i.e. header, request body,
+query string, etc. Possible REQUEST_ITEM types are:
+.RS 12
+.TP
+key==value
+Add a query string to the URL.
+.TP
+key=value
+Add a JSON property (\-\-json) or form field (\-\-form) to the request body.
+.TP
+key=@file
+Add a JSON property (\-\-json) or form field (\-\-form) from a file to the
+request body.
+.TP
+key:=value
+Add a field with literal JSON value to the request body, e.g. numbers:=[1,2,3]
+enabled:=true.
+.TP
+key:=@file
+Add a field with literal JSON value from a file to the request body.
+.TP
+key@file
+Upload a file from filename (requires either \-\-form  or \-\-multipart).
+
+To set  the filename and mimetype, ";type=" and ";filename=" can be used,
+e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+.TP
+@filename
+Use a file as the request body.
+.TP
+header:value
+Add a header, e.g. user\-agent:foobar
+.TP
+header:
+Unset a header, e.g. connection:
+.TP
+header;
+Add a header with an empty value.
 .RE
 
-By default, rustls is used instead of the system's TLS library. However,
-one can opt-out by passing the \-\-native\-tls option (requires compiling
-xh with the native\-tls feature).
-
-xh can be configured via ~/.config/xh/config.json. The only configurable
-option is "default_options" which is a list of default shell arguments
-that gets passed to xh.
-
 .RS
-.EX
-{
-  "default_options": ["--native-tls", "--style=solarized"]
-}
-.EE
+A backslash can be used to escape special characters, e.g. weird\\:key=value.
+
+To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
+instead of a field name. For more information on the nested json syntax, refer to
+<https://httpie.io/docs/cli/nested\-json>.
 .RE
 
 .SH OPTIONS
-Each of the following options can be reset with a --no-OPTION argument.
-.TP
-\fB\-\-help\fR
-Print help information
-.TP
-\fB\-V\fR, \fB\-\-version\fR
-Print version information
+Each --OPTION can be reset with a --no-OPTION argument.
 .TP
 \fB\-j\fR, \fB\-\-json\fR
 (default) Serialize data items from the command line as a JSON object.
 
-Overrides both \-\-form and \-\-multipart
+Overrides both \-\-form and \-\-multipart.
 .TP
 \fB\-f\fR, \fB\-\-form\fR
 Serialize data items from the command line as form fields.
 
-Overrides both \-\-json and \-\-multipart
+Overrides both \-\-json and \-\-multipart.
 .TP
 \fB\-m\fR, \fB\-\-multipart\fR
 Like \-\-form, but force a multipart/form\-data request even without files.
 
-Overrides both \-\-json and \-\-form
+Overrides both \-\-json and \-\-form.
 .TP
 \fB\-\-raw\fR=\fIRAW\fR
 Pass raw request data without extra processing
@@ -114,9 +150,9 @@ Print only the response body. Shortcut for \-\-print=b
 \fB\-v\fR, \fB\-\-verbose\fR
 Print the whole request as well as the response.
 
-Additionally, this enables \-\-all for printing intermediary requests/responses while following redirects
+Additionally, this enables \-\-all for printing intermediary requests/responses while following redirects.
 
-Equivalent to \-\-print=HhBb \-\-all
+Equivalent to \-\-print=HhBb \-\-all.
 .TP
 \fB\-\-all\fR
 Show any intermediary requests/responses while following redirects with \-\-follow
@@ -136,7 +172,7 @@ Save output to FILE instead of stdout
 \fB\-d\fR, \fB\-\-download\fR
 Download the body to a file instead of printing it.
 
-Additionally, accept\-encoding is set to identify and any redirects will be followed.
+The Accept\-Encoding header is set to identify and any redirects will be followed.
 .TP
 \fB\-c\fR, \fB\-\-continue\fR
 Resume an interrupted download. Requires \-\-download and \-\-output
@@ -154,7 +190,7 @@ Specify the auth mechanism
 
 [possible values: basic, bearer, digest]
 .TP
-\fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR]|\fITOKEN\fR
+\fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR] | \fITOKEN\fR
 Authenticate as USER with PASS (\-A basic|digest) or with TOKEN (\-A bearer).
 
 PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
@@ -230,7 +266,13 @@ HTTP version to use
 [possible values: 1.0, 1.1, 2]
 .TP
 \fB\-I\fR, \fB\-\-ignore\-stdin\fR
-Do not attempt to read stdin
+Do not attempt to read stdin.
+
+By default, stdin's TTY status is checked to detect redirected input and, in turn, read the request body from stdin.
+
+For example: cat report.txt | xh post example.com
+
+However, this might cause xh to hang in certain non\-interactive sessions e.g. cron jobs, so \-\-ignore\-stdin should be used to opt\-out of this behavior.
 .TP
 \fB\-\-curl\fR
 Print a translation to a curl command.
@@ -240,72 +282,11 @@ For translating the other way, try https://curl2httpie.online/.
 \fB\-\-curl\-long\fR
 Use the long versions of curl's flags
 .TP
-[\fIMETHOD\fR]\fI URL\fR
-The request URL, preceded by an optional HTTP method
-
-If the method is omitted, it will default to either GET or POST
-depending on whether the request contains a body or not.
-
-The URL scheme defaults to "http://" unless xhs symlink is used
-(should be available if xh is installed via a package manager).
-
-A leading colon works as shorthand for localhost. ":8000" is equivalent
-to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-
-URLs can have a leading "://" which allows quickly converting a URL
-into a valid xh or HTTPie command. For example "http://httpbin.org/json"
-becomes "http ://httpbin.org/json".
+\fB\-\-help\fR
+Print help information
 .TP
-[\fIREQUEST_ITEM\fR ...]
-Optional key\-value pairs to be included in the request
-
-The separator is used to determine the type i.e. header, request body,
-query string, etc. Possible REQUEST_ITEM types are:
-.RS 12
-.TP
-key==value
-Add a query string to the URL
-.TP
-key=value
-Add a JSON field (\-\-json) or form field (\-\-form) to the request body
-.TP
-key=@file
-Add a JSON field (\-\-json) or form field (\-\-form) from a file to the
-request body
-.TP
-key:=value
-Add a field with literal JSON value to the request body e.g. numbers:=[1,2,3]
-enabled:=true
-.TP
-key:=@file
-Add a field with literal JSON value from a file to the request body
-.TP
-key@file
-Upload a file from filename (requires either \-\-form  or \-\-multipart).
-
-To set  the filename and mimetype, ";type=" and ";filename=" can be used
-respectively e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
-.TP
-@filename
-Use a file as the request body
-.TP
-header:value
-Add a header e.g. user\-agent:foobar
-.TP
-header:
-Unset a header e.g. connection:
-.TP
-header;
-Add a header with an empty value
-.RE
-
-.RS
-A backslash can be used to escape special characters e.g. weird\\:key=value.
-
-To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
-instead of a field name. For more information on the nested json syntax, refer to
-<https://httpie.io/docs/cli/nested\-json>.
-.RE
+\fB\-V\fR, \fB\-\-version\fR
+Print version information
 
 .SH EXIT STATUS
 .TP
@@ -334,7 +315,7 @@ Too many redirects.
 .TP
 .B XH_CONFIG_DIR
 Specifies where to look for config.json and named session data.
-The default is $XDG_CONFIG_HOME/xh.
+The default is ~/.config/xh for Linux/macOS and %APPDATA%\\xh for Windows.
 .TP
 .B XH_HTTPIE_COMPAT_MODE
 Enables the HTTPie Compatibility Mode. The only current difference is that
@@ -359,7 +340,13 @@ Disables output coloring. See <https://no-color.org>
 .SH FILES
 .TP
 .I ~/.config/xh/config.json
-xh configuration file.
+xh configuration file. The only configurable option is "default_options"
+which is a list of default shell arguments that gets passed to xh.
+Example:
+
+.RS
+{ "default_options": ["--native-tls", "--style=solarized"] }
+.RE
 .TP
 .IR ~/.netrc ", " ~/_netrc
 Auto-login information file.
