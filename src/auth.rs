@@ -21,26 +21,26 @@ pub enum Auth {
 impl Auth {
     pub fn from_str(auth: &str, auth_type: AuthType, host: &str) -> Result<Auth> {
         match auth_type {
-            AuthType::basic => {
+            AuthType::Basic => {
                 let (username, password) = parse_auth(auth, host)?;
                 Ok(Auth::Basic(username, password))
             }
-            AuthType::digest => {
+            AuthType::Digest => {
                 let (username, password) = parse_auth(auth, host)?;
                 Ok(Auth::Digest(
                     username,
                     password.unwrap_or_else(|| "".into()),
                 ))
             }
-            AuthType::bearer => Ok(Auth::Bearer(auth.into())),
+            AuthType::Bearer => Ok(Auth::Bearer(auth.into())),
         }
     }
 
     pub fn from_netrc(auth_type: AuthType, entry: netrc::Entry) -> Option<Auth> {
         match auth_type {
-            AuthType::basic => Some(Auth::Basic(entry.login?, Some(entry.password))),
-            AuthType::bearer => Some(Auth::Bearer(entry.password)),
-            AuthType::digest => Some(Auth::Digest(entry.login?, entry.password)),
+            AuthType::Basic => Some(Auth::Basic(entry.login?, Some(entry.password))),
+            AuthType::Bearer => Some(Auth::Bearer(entry.password)),
+            AuthType::Digest => Some(Auth::Digest(entry.login?, entry.password)),
         }
     }
 }

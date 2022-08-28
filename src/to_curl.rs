@@ -284,19 +284,19 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
     if let Some(auth) = args.auth {
         match args.auth_type.unwrap_or_default() {
-            AuthType::basic => {
+            AuthType::Basic => {
                 cmd.arg("--basic");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
-            AuthType::digest => {
+            AuthType::Digest => {
                 cmd.arg("--digest");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
-            AuthType::bearer => {
+            AuthType::Bearer => {
                 cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
             }
