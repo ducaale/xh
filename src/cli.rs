@@ -546,7 +546,7 @@ impl Cli {
             self.default_scheme = Some("https".to_string());
         }
         if self.bearer.is_some() {
-            self.auth_type = Some(AuthType::bearer);
+            self.auth_type = Some(AuthType::Bearer);
             self.auth = self.bearer.take();
         }
         self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
@@ -898,28 +898,25 @@ fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error 
     )
 }
 
-#[allow(non_camel_case_types)]
 #[derive(ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
-    basic,
-    bearer,
-    digest,
+    Basic,
+    Bearer,
+    Digest,
 }
 
 impl Default for AuthType {
     fn default() -> Self {
-        AuthType::basic
+        AuthType::Basic
     }
 }
 
-// Uppercase variant names would show up as such in the help text
-#[allow(non_camel_case_types)]
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
-    all,
-    colors,
-    format,
-    none,
+    All,
+    Colors,
+    Format,
+    None,
 }
 
 /// The caller must check in advance if the string is valid. (clap does this.)
@@ -937,30 +934,29 @@ fn parse_tls_version(text: &str) -> Option<tls::Version> {
 
 impl Pretty {
     pub fn color(self) -> bool {
-        matches!(self, Pretty::colors | Pretty::all)
+        matches!(self, Pretty::Colors | Pretty::All)
     }
 
     pub fn format(self) -> bool {
-        matches!(self, Pretty::format | Pretty::all)
+        matches!(self, Pretty::Format | Pretty::All)
     }
 }
 
-#[allow(non_camel_case_types)]
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
-    auto,
-    solarized,
-    monokai,
-    fruity,
+    Auto,
+    Solarized,
+    Monokai,
+    Fruity,
 }
 
 impl Theme {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Theme::auto => "ansi",
-            Theme::solarized => "solarized",
-            Theme::monokai => "monokai",
-            Theme::fruity => "fruity",
+            Theme::Auto => "ansi",
+            Theme::Solarized => "solarized",
+            Theme::Monokai => "monokai",
+            Theme::Fruity => "fruity",
         }
     }
 }

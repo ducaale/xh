@@ -305,25 +305,25 @@ impl Buffer {
 
     pub fn guess_pretty(&self) -> Pretty {
         if test_default_color() {
-            Pretty::all
+            Pretty::All
         } else if test_pretend_term() {
-            Pretty::format
+            Pretty::Format
         } else if self.is_terminal() {
             // Based on termcolor's logic for ColorChoice::Auto
             if cfg!(test) {
-                Pretty::all
+                Pretty::All
             } else if var_os("NO_COLOR").is_some() {
-                Pretty::format
+                Pretty::Format
             } else {
                 match var_os("TERM") {
-                    Some(term) if term == "dumb" => Pretty::format,
-                    Some(_) => Pretty::all,
-                    None if cfg!(windows) => Pretty::all,
-                    None => Pretty::format,
+                    Some(term) if term == "dumb" => Pretty::Format,
+                    Some(_) => Pretty::All,
+                    None if cfg!(windows) => Pretty::All,
+                    None => Pretty::Format,
                 }
             }
         } else {
-            Pretty::none
+            Pretty::None
         }
     }
 }

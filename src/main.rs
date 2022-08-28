@@ -408,7 +408,7 @@ fn run(args: Cli) -> Result<i32> {
                 auth_type,
                 args.url.host_str().unwrap_or("<host>"),
             )?);
-        } else if !args.ignore_netrc && Auth::supports_netrc(auth_type) {
+        } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
             let host = args.url.host().unwrap_or(url::Host::Domain(""));
