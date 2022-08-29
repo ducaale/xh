@@ -913,9 +913,13 @@ impl Default for AuthType {
 
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
+    /// (default) Enable both coloring and formatting
     All,
+    /// Apply syntax highlighting to output
     Colors,
+    /// Pretty-print json and sort headers
     Format,
+    /// Disable both coloring and formatting
     None,
 }
 

@@ -1,5 +1,5 @@
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
-complete -c xh -l pretty -d 'Controls output processing' -r -f -a "{all	,colors	,format	,none	}"
+complete -c xh -l pretty -d 'Controls output processing [possible values: all, colors, format, none]' -r -f -a "{all	(default) Enable both coloring and formatting,colors	Apply syntax highlighting to output,format	Pretty-print json and sort headers,none	Disable both coloring and formatting}"
 complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "{auto	,solarized	,monokai	,fruity	}"
 complete -c xh -l response-charset -d 'Override the response encoding for terminal display purposes' -r
 complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal' -r
@@ -9,11 +9,11 @@ complete -c xh -s o -l output -d 'Save output to FILE instead of stdout' -r
 complete -c xh -l session -d 'Create, or reuse and update a session' -r
 complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange' -r
 complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "{basic	,bearer	,digest	}"
-complete -c xh -s a -l auth -d 'Authenticate as USER with PASS or with TOKEN' -r
+complete -c xh -s a -l auth -d 'Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)' -r
 complete -c xh -l bearer -d 'Authenticate with a bearer token' -r
-complete -c xh -l max-redirects -d 'Number of redirects to follow, only respected if `follow` is set' -r
+complete -c xh -l max-redirects -d 'Number of redirects to follow. Only respected if --follow is used' -r
 complete -c xh -l timeout -d 'Connection timeout of the request' -r
-complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`' -r
+complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080' -r
 complete -c xh -l verify -d 'If "no", skip SSL verification. If a file path, use it as a CA bundle' -r
 complete -c xh -l cert -d 'Use a client side certificate for SSL' -r
 complete -c xh -l cert-key -d 'A private key file to use with --cert' -r
@@ -40,7 +40,7 @@ complete -c xh -s F -l follow -d 'Do follow redirects'
 complete -c xh -l native-tls -d 'Use the system TLS library instead of rustls (if enabled at compile time)'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
-complete -c xh -l curl -d 'Print a translation to a `curl` command'
+complete -c xh -l curl -d 'Print a translation to a curl command'
 complete -c xh -l curl-long -d 'Use the long versions of curl\'s flags'
 complete -c xh -l no-help
 complete -c xh -l no-version
