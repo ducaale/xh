@@ -709,6 +709,10 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
             "Usage: xh generate-completions <DIRECTORY>",
         );
     }
+
+    // remove hardcoded possible values from --pretty
+    app = app.mut_arg("pretty", |a| a.help("Controls output processing"));
+
     for &shell in clap_complete::Shell::value_variants() {
         // Elvish complains about multiple deprecations and these don't seem to work
         if shell != clap_complete::Shell::Elvish {

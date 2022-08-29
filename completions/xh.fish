@@ -1,5 +1,4 @@
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
-complete -c xh -l pretty -d 'Controls output processing [possible values: all, colors, format, none]' -r -f -a "{all	(default) Enable both coloring and formatting,colors	Apply syntax highlighting to output,format	Pretty-print json and sort headers,none	Disable both coloring and formatting}"
 complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "{auto	,solarized	,monokai	,fruity	}"
 complete -c xh -l response-charset -d 'Override the response encoding for terminal display purposes' -r
 complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal' -r
@@ -20,6 +19,7 @@ complete -c xh -l cert-key -d 'A private key file to use with --cert' -r
 complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "{auto	,tls1	,tls1.1	,tls1.2	,tls1.3	}"
 complete -c xh -l default-scheme -d 'The default scheme to use if not specified in the URL' -r
 complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0	,1.1	,2	}"
+complete -c xh -l pretty -d 'Controls output processing' -r -f -a "{all	(default) Enable both coloring and formatting,colors	Apply syntax highlighting to output,format	Pretty-print json and sort headers,none	Disable both coloring and formatting}"
 complete -c xh -l help -d 'Print help information'
 complete -c xh -s V -l version -d 'Print version information'
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'

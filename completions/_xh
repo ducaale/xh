@@ -16,10 +16,6 @@ _xh() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--raw=[Pass raw request data without extra processing]:RAW: ' \
-'--pretty=[Controls output processing \[possible values: all, colors, format, none\]]:STYLE:((all\:"(default) Enable both coloring and formatting"
-colors\:"Apply syntax highlighting to output"
-format\:"Pretty-print json and sort headers"
-none\:"Disable both coloring and formatting"))' \
 '-s+[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--style=[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--response-charset=[Override the response encoding for terminal display purposes]:ENCODING: ' \
@@ -46,6 +42,10 @@ none\:"Disable both coloring and formatting"))' \
 '--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
 '--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME: ' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2)' \
+'--pretty=[Controls output processing]:STYLE:((all\:"(default) Enable both coloring and formatting"
+colors\:"Apply syntax highlighting to output"
+format\:"Pretty-print json and sort headers"
+none\:"Disable both coloring and formatting"))' \
 '--help[Print help information]' \
 '-V[Print version information]' \
 '--version[Print version information]' \
