@@ -433,28 +433,11 @@ impl Cli {
                 // would print long help and print short help instead. And if we do
                 // want to print long help, then we handle that in try_parse_from
                 // instead of here.
-                if env::var_os("XH_HELP2MAN").is_some() {
-                    Self::into_app()
-                        .help_template(
-                            "\
-                                Usage: {usage}\n\
-                                \n\
-                                {about}\n\
-                                \n\
-                                Options:\n\
-                                {options}\n\
-                                {after-help}\
-                            ",
-                        )
-                        .print_long_help()
-                        .unwrap();
-                } else {
-                    Self::into_app().print_help().unwrap();
-                    println!(
-                        "\nRun `{} help` for more complete documentation.",
-                        env!("CARGO_PKG_NAME")
-                    );
-                }
+                Self::into_app().print_help().unwrap();
+                println!(
+                    "\nRun `{} help` for more complete documentation.",
+                    env!("CARGO_PKG_NAME")
+                );
                 safe_exit();
             }
             Err(err) => err.exit(),
@@ -470,7 +453,7 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
-        // opt-out of claps auto-generated possible values for --pretty
+        // opt-out of clap's auto-generated possible values help for --pretty
         // as we already list them in the long_help
         app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
 
