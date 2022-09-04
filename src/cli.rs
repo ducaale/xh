@@ -66,12 +66,11 @@ pub struct Cli {
     #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
 
-    /// Controls output processing [possible values: all, colors, format, none]
+    /// Controls output processing
     #[clap(
         long,
         arg_enum,
         value_name = "STYLE",
-        hide_possible_values = true,
         long_help = "\
 Controls output processing. Possible values are:
 
@@ -471,6 +470,10 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
+        // opt-out of claps auto-generated possible values for --pretty
+        // as we already list them in the long_help
+        app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+
         match cli.raw_method_or_url.as_str() {
             "help" => {
                 app.print_long_help().unwrap();
@@ -709,9 +712,6 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
             "Usage: xh generate-completions <DIRECTORY>",
         );
     }
-
-    // remove hardcoded possible values from --pretty
-    app = app.mut_arg("pretty", |a| a.help("Controls output processing"));
 
     for &shell in clap_complete::Shell::value_variants() {
         // Elvish complains about multiple deprecations and these don't seem to work
