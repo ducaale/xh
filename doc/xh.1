@@ -1,4 +1,4 @@
-.TH XH 1 2022-08-29 0.16.1 "User Commands"
+.TH XH 1 2022-09-04 0.16.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -43,39 +43,39 @@ Optional key\-value pairs to be included in the request
 The separator is used to determine the type i.e. header, request body,
 query string, etc. Possible REQUEST_ITEM types are:
 .RS 12
-.TP
+.TP 4
 key==value
 Add a query string to the URL.
-.TP
+.TP 4
 key=value
 Add a JSON property (\-\-json) or form field (\-\-form) to the request body.
-.TP
+.TP 4
 key=@file
 Add a JSON property (\-\-json) or form field (\-\-form) from a file to the
 request body.
-.TP
+.TP 4
 key:=value
 Add a field with literal JSON value to the request body, e.g. numbers:=[1,2,3]
 enabled:=true.
-.TP
+.TP 4
 key:=@file
 Add a field with literal JSON value from a file to the request body.
-.TP
+.TP 4
 key@file
 Upload a file from filename (requires either \-\-form  or \-\-multipart).
 
 To set  the filename and mimetype, ";type=" and ";filename=" can be used,
 e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
-.TP
+.TP 4
 @filename
 Use a file as the request body.
-.TP
+.TP 4
 header:value
 Add a header, e.g. user\-agent:foobar
-.TP
+.TP 4
 header:
 Unset a header, e.g. connection:
-.TP
+.TP 4
 header;
 Add a header with an empty value.
 .RE

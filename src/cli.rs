@@ -792,7 +792,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                     request_items_roff.control("RS", ["12"]);
                     rs = true;
                 }
-                request_items_roff.control("TP", []);
+                request_items_roff.control("TP", ["4"]);
             } else if prev != next && next == 0 {
                 request_items_roff.control("RE", []);
                 request_items_roff.text(vec![roman("")]);
