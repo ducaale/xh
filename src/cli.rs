@@ -297,13 +297,11 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
 
     /// Do not attempt to read stdin.
     ///
-    /// By default, stdin's TTY status is checked to detect redirected input and,
-    /// in turn, read the request body from stdin.
+    /// This disables the default behaviour of reading the request body from stdin
+    /// when a redirected input is detected.
     ///
-    /// For example: cat report.txt | xh post example.com
-    ///
-    /// However, this might cause xh to hang in certain non-interactive sessions
-    /// e.g. cron jobs, so --ignore-stdin should be used to opt-out of this behavior.
+    /// It is recommended to pass this flag when using xh for scripting purposes.
+    /// For more information, refer to https://httpie.io/docs/cli/best-practices.
     #[clap(short = 'I', long)]
     pub ignore_stdin: bool,
 
