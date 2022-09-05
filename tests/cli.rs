@@ -1,4 +1,5 @@
 #![allow(clippy::bool_assert_comparison)]
+
 mod server;
 
 use std::collections::{HashMap, HashSet};
@@ -6,11 +7,14 @@ use std::fs::{self, File, OpenOptions};
 use std::future::Future;
 use std::io::Write;
 use std::iter::FromIterator;
+use std::net::IpAddr;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
+use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
 
@@ -1189,6 +1193,41 @@ fn cert_without_key() {
         .assert()
         .stdout(contains("400 No required SSL certificate was sent"))
         .stderr(predicates::str::is_empty());
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn use_ipv4() {
+    get_command()
+        .args(&["https://v6.ipv6-test.com/api/myip.php", "--body", "--ipv4"])
+        .assert()
+        .failure();
+
+    get_command()
+        .args(&[
+            "https://v4v6.ipv6-test.com/api/myip.php",
+            "--body",
+            "--ipv4",
+        ])
+        .assert()
+        .stdout(function(|output: &str| {
+            IpAddr::from_str(output.trim()).unwrap().is_ipv4()
+        }))
+        .stderr(predicates::str::is_empty());
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn use_ipv6() {
+    get_command()
+        .args(&["https://v4.ipv6-test.com/api/myip.php", "--body", "--ipv4"])
+        .assert()
+        .success();
+
+    get_command()
+        .args(&["https://v4.ipv6-test.com/api/myip.php", "--body", "--ipv6"])
+        .assert()
+        .failure();
 }
 
 #[cfg(feature = "online-tests")]

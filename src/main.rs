@@ -19,8 +19,10 @@ mod vendored;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -294,6 +296,12 @@ fn run(args: Cli) -> Result<i32> {
 
     let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
+
+    client = match (args.ipv4, args.ipv6) {
+        (true, false) => client.local_address(IpAddr::from_str("0.0.0.0")?),
+        (false, true) => client.local_address(IpAddr::from_str("::")?),
+        _ => client,
+    };
 
     let client = client.build()?;
 
