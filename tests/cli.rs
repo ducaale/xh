@@ -279,7 +279,7 @@ fn nested_json_type_error() {
         .failure()
         .stderr(indoc! {r#"
             xh: error: Can't perform 'append' based access on '' which has a type of 'object' but this operation requires a type of 'array'.
-            
+
               [][x]
               ^^
         "#});
@@ -1228,6 +1228,23 @@ fn use_ipv6() {
         .args(&["https://v4.ipv6-test.com/api/myip.php", "--body", "--ipv6"])
         .assert()
         .failure();
+}
+
+// real use ipv6
+#[cfg(all(feature = "ipv6-tests", feature = "online-tests"))]
+#[test]
+fn use_ipv6_real() {
+    get_command()
+        .args(&[
+            "https://v4v6.ipv6-test.com/api/myip.php",
+            "--body",
+            "--ipv6",
+        ])
+        .assert()
+        .stdout(function(|output: &str| {
+            IpAddr::from_str(output.trim()).unwrap().is_ipv6()
+        }))
+        .stderr(predicates::str::is_empty());
 }
 
 #[cfg(feature = "online-tests")]
