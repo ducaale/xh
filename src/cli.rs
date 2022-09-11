@@ -461,13 +461,7 @@ impl Cli {
                 println!();
                 safe_exit();
             }
-            "generate-completions" => {
-                // opt-out of clap's auto-generated possible values help for --pretty
-                // as we already list them in the long_help
-                app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
-
-                return Err(generate_completions(app, cli.raw_rest_args));
-            }
+            "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
             "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }

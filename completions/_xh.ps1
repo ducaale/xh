@@ -22,6 +22,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
     $completions = @(switch ($command) {
         'xh' {
             [CompletionResult]::new('--raw', 'raw', [CompletionResultType]::ParameterName, 'Pass raw request data without extra processing')
+            [CompletionResult]::new('--pretty', 'pretty', [CompletionResultType]::ParameterName, 'Controls output processing')
             [CompletionResult]::new('-s', 's', [CompletionResultType]::ParameterName, 'Output coloring style')
             [CompletionResult]::new('--style', 'style', [CompletionResultType]::ParameterName, 'Output coloring style')
             [CompletionResult]::new('--response-charset', 'response-charset', [CompletionResultType]::ParameterName, 'Override the response encoding for terminal display purposes')
@@ -48,7 +49,6 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--ssl', 'ssl', [CompletionResultType]::ParameterName, 'Force a particular TLS version')
             [CompletionResult]::new('--default-scheme', 'default-scheme', [CompletionResultType]::ParameterName, 'The default scheme to use if not specified in the URL')
             [CompletionResult]::new('--http-version', 'http-version', [CompletionResultType]::ParameterName, 'HTTP version to use')
-            [CompletionResult]::new('--pretty', 'pretty', [CompletionResultType]::ParameterName, 'Controls output processing')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
             [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')

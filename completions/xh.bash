@@ -19,7 +19,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts="-V -j -f -m -s -p -h -b -v -P -q -S -o -d -c -A -a -F -I --help --version --json --form --multipart --raw --style --response-charset --response-mime --print --headers --body --verbose --all --history-print --quiet --stream --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --ignore-stdin --curl --curl-long --no-help --no-version --no-json --no-form --no-multipart --no-raw --no-pretty --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-verbose --no-all --no-history-print --no-quiet --no-stream --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-ignore-stdin --no-curl --no-curl-long --pretty <[METHOD] URL> <REQUEST_ITEM>..."
+            opts="-V -j -f -m -s -p -h -b -v -P -q -S -o -d -c -A -a -F -I --help --version --json --form --multipart --raw --pretty --style --response-charset --response-mime --print --headers --body --verbose --all --history-print --quiet --stream --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --ignore-stdin --curl --curl-long --no-help --no-version --no-json --no-form --no-multipart --no-raw --no-pretty --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-verbose --no-all --no-history-print --no-quiet --no-stream --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-ignore-stdin --no-curl --no-curl-long <[METHOD] URL> <REQUEST_ITEM>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -27,6 +27,10 @@ _xh() {
             case "${prev}" in
                 --raw)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --pretty)
+                    COMPREPLY=($(compgen -W "all colors format none" -- "${cur}"))
                     return 0
                     ;;
                 --style)
@@ -131,10 +135,6 @@ _xh() {
                     ;;
                 --http-version)
                     COMPREPLY=($(compgen -W "1.0 1.1 2" -- "${cur}"))
-                    return 0
-                    ;;
-                --pretty)
-                    COMPREPLY=($(compgen -W "all colors format none" -- "${cur}"))
                     return 0
                     ;;
                 *)
