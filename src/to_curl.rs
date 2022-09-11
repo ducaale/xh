@@ -265,6 +265,13 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     cmd.arg(args.url.to_string());
 
+    // Force ipv4/ipv6 options
+    match (args.ipv4, args.ipv6) {
+        (true, false) => cmd.opt("-4", "--ipv4"),
+        (false, true) => cmd.opt("-6", "--ipv6"),
+        _ => (),
+    };
+
     // Payload
     for (header, value) in headers.iter() {
         cmd.opt("-H", "--header");
@@ -405,6 +412,8 @@ mod tests {
     fn examples() {
         let expected = vec![
             ("xh httpbin.org/get", "curl http://httpbin.org/get"),
+            ("xh httpbin.org/get -4", "curl http://httpbin.org/get -4"),
+            ("xh httpbin.org/get -6", "curl http://httpbin.org/get -6"),
             (
                 "xh httpbin.org/post x=3",
                 #[cfg(not(windows))]
