@@ -862,7 +862,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     let current_date = {
         let (year, month, day) = DateTime::now_utc().date().as_ymd();
-        format!("{}-{:02}-{:02}", year, u8::from(month), day)
+        format!("{}-{:02}-{:02}", year, month, day)
     };
 
     manpage = manpage.replace("{{date}}", &current_date);
