@@ -169,6 +169,9 @@ xh get httpbin.org/json id==5 sort==true
 # Send a GET request and include a header named x-api-key with value 12345
 xh get httpbin.org/json x-api-key:12345
 
+# Send a POST request with body read from stdin.
+echo "[1, 2, 3]" | xh post httpbin.org/post
+
 # Send a PUT request and pipe the result to less
 xh put httpbin.org/put id:=49 age:=25 | less
 
