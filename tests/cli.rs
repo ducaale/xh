@@ -1199,11 +1199,7 @@ fn cert_without_key() {
 #[test]
 fn use_ipv4() {
     get_command()
-        .args(&[
-            "https://v4v6.ipv6-test.com/api/myip.php",
-            "--body",
-            "--ipv4",
-        ])
+        .args(&["https://api64.ipify.org", "--body", "--ipv4"])
         .assert()
         .stdout(function(|output: &str| {
             IpAddr::from_str(output.trim()).unwrap().is_ipv4()
@@ -1211,30 +1207,12 @@ fn use_ipv4() {
         .stderr(predicates::str::is_empty());
 }
 
-#[cfg(feature = "online-tests")]
-#[test]
-fn use_ipv6() {
-    get_command()
-        .args(&["https://v4.ipv6-test.com/api/myip.php", "--body", "--ipv4"])
-        .assert()
-        .success();
-
-    get_command()
-        .args(&["https://v4.ipv6-test.com/api/myip.php", "--body", "--ipv6"])
-        .assert()
-        .failure();
-}
-
 // real use ipv6
 #[cfg(all(feature = "ipv6-tests", feature = "online-tests"))]
 #[test]
-fn use_ipv6_real() {
+fn use_ipv6() {
     get_command()
-        .args(&[
-            "https://v4v6.ipv6-test.com/api/myip.php",
-            "--body",
-            "--ipv6",
-        ])
+        .args(&["https://api64.ipify.org", "--body", "--ipv6"])
         .assert()
         .stdout(function(|output: &str| {
             IpAddr::from_str(output.trim()).unwrap().is_ipv6()
