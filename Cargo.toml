@@ -72,8 +72,10 @@ syntect = { version = "4.4", default-features = false }
 
 [features]
 default = ["online-tests"]
-online-tests = []
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
+
+online-tests = []
+ipv6-tests=[]
 man-completion-gen = ["clap_complete", "roff"]
 
 [package.metadata.cross.build.env]

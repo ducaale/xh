@@ -133,6 +133,14 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(short = 'P', long, value_name = "FORMAT")]
     pub history_print: Option<Print>,
 
+    /// Resolve hostname to ipv4 addresses only.
+    #[clap(short = '4', long)]
+    pub ipv4: bool,
+
+    /// Resolve hostname to ipv6 addresses only.
+    #[clap(short = '6', long)]
+    pub ipv6: bool,
+
     /// Do not print to stdout or stderr.
     #[clap(short = 'q', long)]
     pub quiet: bool,

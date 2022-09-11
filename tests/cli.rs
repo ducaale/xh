@@ -1,4 +1,5 @@
 #![allow(clippy::bool_assert_comparison)]
+
 mod server;
 
 use std::collections::{HashMap, HashSet};
@@ -6,11 +7,14 @@ use std::fs::{self, File, OpenOptions};
 use std::future::Future;
 use std::io::Write;
 use std::iter::FromIterator;
+use std::net::IpAddr;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
+use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
 
@@ -275,7 +279,7 @@ fn nested_json_type_error() {
         .failure()
         .stderr(indoc! {r#"
             xh: error: Can't perform 'append' based access on '' which has a type of 'object' but this operation requires a type of 'array'.
-            
+
               [][x]
               ^^
         "#});
@@ -1188,6 +1192,31 @@ fn cert_without_key() {
         .args(&["-v", "https://client.badssl.com"])
         .assert()
         .stdout(contains("400 No required SSL certificate was sent"))
+        .stderr(predicates::str::is_empty());
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn use_ipv4() {
+    get_command()
+        .args(&["https://api64.ipify.org", "--body", "--ipv4"])
+        .assert()
+        .stdout(function(|output: &str| {
+            IpAddr::from_str(output.trim()).unwrap().is_ipv4()
+        }))
+        .stderr(predicates::str::is_empty());
+}
+
+// real use ipv6
+#[cfg(all(feature = "ipv6-tests", feature = "online-tests"))]
+#[test]
+fn use_ipv6() {
+    get_command()
+        .args(&["https://api64.ipify.org", "--body", "--ipv6"])
+        .assert()
+        .stdout(function(|output: &str| {
+            IpAddr::from_str(output.trim()).unwrap().is_ipv6()
+        }))
         .stderr(predicates::str::is_empty());
 }
 
