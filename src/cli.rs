@@ -705,9 +705,8 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
 
 #[cfg(feature = "man-completion-gen")]
 fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
-    use chrono::{DateTime, Utc};
     use roff::{bold, italic, roman, Roff};
-    use std::time::SystemTime;
+    use time::OffsetDateTime as DateTime;
 
     if rest_args.len() != 1 {
         return app.error(
@@ -855,8 +854,10 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
 
-    let now: DateTime<Utc> = SystemTime::now().into();
-    let current_date = now.format("%F").to_string();
+    let current_date = {
+        let (year, month, day) = DateTime::now_utc().date().as_ymd();
+        format!("{}-{:02}-{:02}", year, u8::from(month), day)
+    };
 
     manpage = manpage.replace("{{date}}", &current_date);
     manpage = manpage.replace("{{version}}", app.get_version().unwrap());

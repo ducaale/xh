@@ -184,11 +184,8 @@ version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
 dependencies = [
- "libc",
  "num-integer",
  "num-traits",
- "time 0.1.43",
- "winapi",
 ]
 
 [[package]]
@@ -257,7 +254,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5f1c7727e460397e56abc4bddc1d49e07a1ad78fc98eb2e1c8f032a58a2f80d"
 dependencies = [
  "percent-encoding",
- "time 0.2.27",
+ "time",
  "version_check",
 ]
 
@@ -273,7 +270,7 @@ dependencies = [
  "publicsuffix",
  "serde",
  "serde_json",
- "time 0.2.27",
+ "time",
  "url",
 ]
 
@@ -1731,16 +1728,6 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
-name = "time"
 version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4752a97f8eebd6854ff91f1c1824cd6160626ac4bd44287f7f4ea2035a02a242"
@@ -2157,7 +2144,6 @@ dependencies = [
  "atty",
  "brotli",
  "chardetng",
- "chrono",
  "clap",
  "clap_complete",
  "cookie",
@@ -2191,7 +2177,7 @@ dependencies = [
  "syntect",
  "tempfile",
  "termcolor",
- "time 0.2.27",
+ "time",
  "tokio",
  "unicode-width",
  "url",
