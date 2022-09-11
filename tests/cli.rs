@@ -1199,11 +1199,6 @@ fn cert_without_key() {
 #[test]
 fn use_ipv4() {
     get_command()
-        .args(&["https://v6.ipv6-test.com/api/myip.php", "--body", "--ipv4"])
-        .assert()
-        .failure();
-
-    get_command()
         .args(&[
             "https://v4v6.ipv6-test.com/api/myip.php",
             "--body",
