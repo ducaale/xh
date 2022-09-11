@@ -451,17 +451,23 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
-        // opt-out of clap's auto-generated possible values help for --pretty
-        // as we already list them in the long_help
-        app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
-
         match cli.raw_method_or_url.as_str() {
             "help" => {
+                // opt-out of clap's auto-generated possible values help for --pretty
+                // as we already list them in the long_help
+                app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+
                 app.print_long_help().unwrap();
                 println!();
                 safe_exit();
             }
-            "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            "generate-completions" => {
+                // opt-out of clap's auto-generated possible values help for --pretty
+                // as we already list them in the long_help
+                app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+
+                return Err(generate_completions(app, cli.raw_rest_args));
+            }
             "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
@@ -835,7 +841,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         body.push(roman(help));
 
         if let Some(possible_values) = opt.get_possible_values() {
-            if !opt.is_hide_possible_values_set() {
+            if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
                 let possible_values_text = format!(
                     "\n\n[possible values: {}]",
                     possible_values

@@ -109,6 +109,16 @@ Overrides both \-\-json and \-\-form.
 \fB\-\-raw\fR=\fIRAW\fR
 Pass raw request data without extra processing
 .TP
+\fB\-\-pretty\fR=\fISTYLE\fR
+Controls output processing. Possible values are:
+
+    all      (default) Enable both coloring and formatting
+    colors   Apply syntax highlighting to output
+    format   Pretty\-print json and sort headers
+    none     Disable both coloring and formatting
+
+Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
+.TP
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style
 
@@ -269,16 +279,6 @@ For translating the other way, try https://curl2httpie.online/.
 .TP
 \fB\-\-curl\-long\fR
 Use the long versions of curl's flags
-.TP
-\fB\-\-pretty\fR=\fISTYLE\fR
-Controls output processing. Possible values are:
-
-    all      (default) Enable both coloring and formatting
-    colors   Apply syntax highlighting to output
-    format   Pretty\-print json and sort headers
-    none     Disable both coloring and formatting
-
-Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 .TP
 \fB\-\-help\fR
 Print help information
