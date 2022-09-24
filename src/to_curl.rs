@@ -118,6 +118,10 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
+    if args.curl && args.follow && args.method.as_ref().map(|m| m != &Method::GET).unwrap_or(false) {
+        cmd.warn("Using a combination of -X/--request and -L/--location which may cause unintended side effects.");
+    }
+
     // Silently ignored:
     // - .ignore_stdin: assumed by default
     //   (to send stdin, --data-binary @- -H 'Content-Type: application/octet-stream')
