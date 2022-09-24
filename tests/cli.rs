@@ -3058,7 +3058,7 @@ fn empty_response_with_content_encoding_and_content_length() {
 }
 
 #[test]
-fn check_non_get_redirect_warning() {
+fn non_get_redirect_translation_warning() {
     get_command()
         .args(&["--follow", "--curl", "POST", "http://example.com"])
         .assert()
