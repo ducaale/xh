@@ -29,6 +29,8 @@ complete -c xh -s h -l headers -d 'Print only the response headers. Shortcut for
 complete -c xh -s b -l body -d 'Print only the response body. Shortcut for --print=b'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
+complete -c xh -s 4 -l ipv4 -d 'Resolve hostname to ipv4 addresses only'
+complete -c xh -s 6 -l ipv6 -d 'Resolve hostname to ipv6 addresses only'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
 complete -c xh -s S -l stream -d 'Always stream the response body'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
@@ -58,6 +60,8 @@ complete -c xh -l no-body
 complete -c xh -l no-verbose
 complete -c xh -l no-all
 complete -c xh -l no-history-print
+complete -c xh -l no-ipv4
+complete -c xh -l no-ipv6
 complete -c xh -l no-quiet
 complete -c xh -l no-stream
 complete -c xh -l no-output
