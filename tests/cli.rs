@@ -2894,3 +2894,19 @@ fn empty_response_with_content_encoding_and_content_length() {
 
         "#});
 }
+
+#[test]
+fn check_non_get_redirect_warning() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("".into())
+            .unwrap()
+    });
+
+    redirecting_command()
+        .args(&["--follow", "POST", &server.base_url()])
+        .assert()
+        .code(0)
+        .stderr("xh: warning: HTTP redirections do not retain the HTTP method. Use --method GET to silence this warning.\n");
+}

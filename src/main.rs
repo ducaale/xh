@@ -197,6 +197,10 @@ fn run(args: Cli) -> Result<i32> {
         return Err(anyhow!("This binary was built without native-tls support"));
     }
 
+    if args.follow && method != reqwest::Method::GET {
+        warn("HTTP redirections do not retain the HTTP method. Use --method GET to silence this warning.");
+    }
+
     let mut exit_code: i32 = 0;
     let mut resume: Option<u64> = None;
     let mut auth = None;
