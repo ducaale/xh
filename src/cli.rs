@@ -384,7 +384,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
     /// instead of a field name. For more information on the nested json syntax, refer to
-    /// <https://httpie.io/docs/cli/nested-json>.
+    /// https://httpie.io/docs/cli/nested-json.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
