@@ -118,7 +118,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
-    if args.follow && !matches!(args.method, Some(Method::GET) | None){
+    if args.follow && !matches!(args.method, Some(Method::GET) | None) {
         cmd.warn("Using a combination of -X/--request and -L/--location which may cause unintended side effects.");
     }
 
