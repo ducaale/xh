@@ -337,7 +337,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     /// URLs can have a leading "://" which allows quickly converting a URL
     /// into a valid xh or HTTPie command. For example "http://httpbin.org/json"
     /// becomes "http ://httpbin.org/json".
-    #[clap(value_name = "[METHOD] URL", verbatim_doc_comment)]
+    #[clap(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
     /// Optional key-value pairs to be included in the request
