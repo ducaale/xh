@@ -1298,7 +1298,7 @@ fn improved_https_ip_error_with_support() {
         .stderr(contains("using the --native-tls flag"));
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "rustls"))]
 #[test]
 fn auto_nativetls() {
     get_command()
@@ -1362,6 +1362,7 @@ fn unsupported_tls_version_nativetls() {
         .stderr(contains("running without the --native-tls"));
 }
 
+#[cfg(feature = "rustls")]
 #[test]
 fn unsupported_tls_version_rustls() {
     #[cfg(feature = "native-tls")]

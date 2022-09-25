@@ -45,6 +45,9 @@ use crate::session::Session;
 use crate::utils::{test_mode, test_pretend_term};
 use crate::vendored::reqwest_cookie_store;
 
+#[cfg(not(any(feature = "native-tls", feature = "rustls")))]
+compile_error!("Either native-tls or rustls feature must be enabled!");
+
 fn get_user_agent() -> &'static str {
     if test_mode() {
         // Hard-coded user agent for the benefit of tests
@@ -161,13 +164,17 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut client = Client::builder()
         .http1_title_case_headers()
-        .use_rustls_tls()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout)
         .no_gzip()
         .no_deflate()
         .no_brotli();
+
+    #[cfg(feature = "rustls")]
+    if !args.native_tls {
+        client = client.use_rustls_tls();
+    }
 
     if let Some(Some(tls_version)) = args.ssl {
         client = client
@@ -252,30 +259,37 @@ fn run(args: Cli) -> Result<i32> {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
                 // not an outright bug, but it's still imaginable that it'll start working
-                warn("Client certificates are not supported for native-tls");
+                if cfg!(feature = "rustls") {
+                    warn("Client certificates are not supported for native-tls");
+                } else {
+                    warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
+                }
             }
 
-            let mut buffer = Vec::new();
-            let mut file = File::open(&cert)
-                .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
-            file.read_to_end(&mut buffer)
-                .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
+            #[cfg(feature = "rustls")]
+            {
+                let mut buffer = Vec::new();
+                let mut file = File::open(&cert)
+                    .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
+                file.read_to_end(&mut buffer)
+                    .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
 
-            if let Some(cert_key) = args.cert_key {
-                buffer.push(b'\n');
+                if let Some(cert_key) = args.cert_key {
+                    buffer.push(b'\n');
 
-                let mut file = File::open(&cert_key).with_context(|| {
-                    format!("Failed to open the cert key file: {}", cert_key.display())
-                })?;
-                file.read_to_end(&mut buffer).with_context(|| {
-                    format!("Failed to read the cert key file: {}", cert_key.display())
-                })?;
+                    let mut file = File::open(&cert_key).with_context(|| {
+                        format!("Failed to open the cert key file: {}", cert_key.display())
+                    })?;
+                    file.read_to_end(&mut buffer).with_context(|| {
+                        format!("Failed to read the cert key file: {}", cert_key.display())
+                    })?;
+                }
+
+                // We may fail here if we can't parse it but also if we don't have the key
+                let identity = reqwest::Identity::from_pem(&buffer)
+                    .context("Failed to load the cert/cert key files")?;
+                client = client.identity(identity);
             }
-
-            // We may fail here if we can't parse it but also if we don't have the key
-            let identity = reqwest::Identity::from_pem(&buffer)
-                .context("Failed to load the cert/cert key files")?;
-            client = client.identity(identity);
         };
     }
 
