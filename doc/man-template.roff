@@ -125,7 +125,7 @@ Send a GET request with querystring id=5&sort=true.
 Send a GET request and include a header named x-api-key with value 12345.
 .TP
 echo "[1, 2, 3]" | \fBxh\fR post \fIhttpbin.org/post
-Read request body from stdin.
+Send a POST request with body read from stdin.
 .TP
 \fBxh\fR put \fIhttpbin.org/put id:=49 age:=25\fR | less
 Send a PUT request and pipe the result to less.
