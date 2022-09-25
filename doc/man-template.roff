@@ -17,7 +17,7 @@ xh is an HTTP client that aims to reimplement as much as possible of
 HTTPie's excellent design, with a focus on improved performance.
 
 .SH POSITIONAL ARGUMENTS
-.TP
+.TP 4
 [\fIMETHOD\fR]\fI
 HTTP method to use for the request.
 
@@ -45,7 +45,7 @@ Each --OPTION can be reset with a --no-OPTION argument.
 {{options}}
 
 .SH EXIT STATUS
-.TP
+.TP 4
 .B 0
 Successful program execution.
 .TP
@@ -68,7 +68,7 @@ HTTP 5xx Server Error.
 Too many redirects.
 
 .SH ENVIRONMENT
-.TP
+.TP 4
 .B XH_CONFIG_DIR
 Specifies where to look for config.json and named session data.
 The default is ~/.config/xh for Linux/macOS and %APPDATA%\\xh for Windows.
@@ -94,7 +94,7 @@ Location of the .netrc file.
 Disables output coloring. See <https://no-color.org>
 
 .SH FILES
-.TP
+.TP 4
 .I ~/.config/xh/config.json
 xh configuration file. The only configurable option is "default_options"
 which is a list of default shell arguments that gets passed to xh.

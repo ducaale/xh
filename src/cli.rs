@@ -781,7 +781,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
             if prev != next && next > 0 {
                 if !rs {
-                    request_items_roff.control("RS", ["12"]);
+                    request_items_roff.control("RS", ["8"]);
                     rs = true;
                 }
                 request_items_roff.control("TP", ["4"]);
@@ -859,7 +859,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 body.push(roman(possible_values_text));
             }
         }
-        options_roff.control("TP", []);
+        options_roff.control("TP", ["4"]);
         options_roff.text(header);
         options_roff.text(body);
     }

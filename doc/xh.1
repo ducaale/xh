@@ -17,7 +17,7 @@ xh is an HTTP client that aims to reimplement as much as possible of
 HTTPie's excellent design, with a focus on improved performance.
 
 .SH POSITIONAL ARGUMENTS
-.TP
+.TP 4
 [\fIMETHOD\fR]\fI
 HTTP method to use for the request.
 
@@ -43,7 +43,7 @@ Optional key\-value pairs to be included in the request
 The separator is used to determine the type i.e. header, request body, query string, etc.
 
 Possible REQUEST_ITEM types are:
-.RS 12
+.RS 8
 .TP 4
 key==value
 Add a query string to the URL.
@@ -94,25 +94,25 @@ For more information on the nested json syntax, refer to https://httpie.io/docs/
 
 .SH OPTIONS
 Each --OPTION can be reset with a --no-OPTION argument.
-.TP
+.TP 4
 \fB\-j\fR, \fB\-\-json\fR
 (default) Serialize data items from the command line as a JSON object.
 
 Overrides both \-\-form and \-\-multipart.
-.TP
+.TP 4
 \fB\-f\fR, \fB\-\-form\fR
 Serialize data items from the command line as form fields.
 
 Overrides both \-\-json and \-\-multipart.
-.TP
+.TP 4
 \fB\-m\fR, \fB\-\-multipart\fR
 Like \-\-form, but force a multipart/form\-data request even without files.
 
 Overrides both \-\-json and \-\-form.
-.TP
+.TP 4
 \fB\-\-raw\fR=\fIRAW\fR
 Pass raw request data without extra processing
-.TP
+.TP 4
 \fB\-\-pretty\fR=\fISTYLE\fR
 Controls output processing. Possible values are:
 
@@ -122,115 +122,115 @@ Controls output processing. Possible values are:
     none     Disable both coloring and formatting
 
 Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
-.TP
+.TP 4
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style
 
 [possible values: auto, solarized, monokai, fruity]
-.TP
+.TP 4
 \fB\-\-response\-charset\fR=\fIENCODING\fR
 Override the response encoding for terminal display purposes.
 
 Example: \-\-response\-charset=latin1
-.TP
+.TP 4
 \fB\-\-response\-mime\fR=\fIMIME_TYPE\fR
 Override the response mime type for coloring and formatting for the terminal
 
 Example: \-\-response\-mime=application/json
-.TP
+.TP 4
 \fB\-p\fR, \fB\-\-print\fR=\fIFORMAT\fR
 String specifying what the output should contain.
 
 Use "H" and "B" for request header and body respectively, and "h" and "b" for response header and body.
 
 Example: \-\-print=Hb
-.TP
+.TP 4
 \fB\-h\fR, \fB\-\-headers\fR
 Print only the response headers. Shortcut for \-\-print=h
-.TP
+.TP 4
 \fB\-b\fR, \fB\-\-body\fR
 Print only the response body. Shortcut for \-\-print=b
-.TP
+.TP 4
 \fB\-v\fR, \fB\-\-verbose\fR
 Print the whole request as well as the response.
 
 Additionally, this enables \-\-all for printing intermediary requests/responses while following redirects.
 
 Equivalent to \-\-print=HhBb \-\-all.
-.TP
+.TP 4
 \fB\-\-all\fR
 Show any intermediary requests/responses while following redirects with \-\-follow
-.TP
+.TP 4
 \fB\-P\fR, \fB\-\-history\-print\fR=\fIFORMAT\fR
 The same as \-\-print but applies only to intermediary requests/responses
-.TP
+.TP 4
 \fB\-4\fR, \fB\-\-ipv4\fR
 Resolve hostname to ipv4 addresses only
-.TP
+.TP 4
 \fB\-6\fR, \fB\-\-ipv6\fR
 Resolve hostname to ipv6 addresses only
-.TP
+.TP 4
 \fB\-q\fR, \fB\-\-quiet\fR
 Do not print to stdout or stderr
-.TP
+.TP 4
 \fB\-S\fR, \fB\-\-stream\fR
 Always stream the response body
-.TP
+.TP 4
 \fB\-o\fR, \fB\-\-output\fR=\fIFILE\fR
 Save output to FILE instead of stdout
-.TP
+.TP 4
 \fB\-d\fR, \fB\-\-download\fR
 Download the body to a file instead of printing it.
 
 The Accept\-Encoding header is set to identify and any redirects will be followed.
-.TP
+.TP 4
 \fB\-c\fR, \fB\-\-continue\fR
 Resume an interrupted download. Requires \-\-download and \-\-output
-.TP
+.TP 4
 \fB\-\-session\fR=\fIFILE\fR
 Create, or reuse and update a session.
 
 Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
-.TP
+.TP 4
 \fB\-\-session\-read\-only\fR=\fIFILE\fR
 Create or read a session without updating it form the request/response exchange
-.TP
+.TP 4
 \fB\-A\fR, \fB\-\-auth\-type\fR=\fIAUTH_TYPE\fR
 Specify the auth mechanism
 
 [possible values: basic, bearer, digest]
-.TP
+.TP 4
 \fB\-a\fR, \fB\-\-auth\fR=\fIUSER\fR[\fI:PASS\fR] | \fITOKEN\fR
 Authenticate as USER with PASS (\-A basic|digest) or with TOKEN (\-A bearer).
 
 PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
 
 TOKEN is expected if \-\-auth\-type=bearer.
-.TP
+.TP 4
 \fB\-\-ignore\-netrc\fR
 Do not use credentials from .netrc
-.TP
+.TP 4
 \fB\-\-offline\fR
 Construct HTTP requests without sending them anywhere
-.TP
+.TP 4
 \fB\-\-check\-status\fR
 (default) Exit with an error status code if the server replies with an error.
 
 The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error), or 3 on 3xx (Redirect) if \-\-follow isn't set.
 
 If stdout is redirected then a warning is written to stderr.
-.TP
+.TP 4
 \fB\-F\fR, \fB\-\-follow\fR
 Do follow redirects
-.TP
+.TP 4
 \fB\-\-max\-redirects\fR=\fINUM\fR
 Number of redirects to follow. Only respected if \-\-follow is used
-.TP
+.TP 4
 \fB\-\-timeout\fR=\fISEC\fR
 Connection timeout of the request.
 
 The default value is "0", i.e., there is no timeout limit.
-.TP
+.TP 4
 \fB\-\-proxy\fR=\fIPROTOCOL:URL\fR
 Use a proxy for a protocol. For example: \-\-proxy https:http://proxy.host:8080.
 
@@ -241,63 +241,63 @@ If your proxy requires credentials, put them in the URL, like so: \-\-proxy http
 You can specify proxies for multiple protocols by repeating this option.
 
 The environment variables "http_proxy" and "https_proxy" can also be used, but are completely ignored if \-\-proxy is passed.
-.TP
+.TP 4
 \fB\-\-verify\fR=\fIVERIFY\fR
 If "no", skip SSL verification. If a file path, use it as a CA bundle.
 
 Specifying a CA bundle will disable the system's built\-in root certificates.
 
 "false" instead of "no" also works. The default is "yes" ("true").
-.TP
+.TP 4
 \fB\-\-cert\fR=\fIFILE\fR
 Use a client side certificate for SSL
-.TP
+.TP 4
 \fB\-\-cert\-key\fR=\fIFILE\fR
 A private key file to use with \-\-cert.
 
 Only necessary if the private key is not contained in the cert file.
-.TP
+.TP 4
 \fB\-\-ssl\fR=\fIVERSION\fR
 Force a particular TLS version.
 
 "auto" gives the default behavior of negotiating a version with the server.
 
 [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
-.TP
+.TP 4
 \fB\-\-native\-tls\fR
 Use the system TLS library instead of rustls (if enabled at compile time)
-.TP
+.TP 4
 \fB\-\-https\fR
 Make HTTPS requests if not specified in the URL
-.TP
+.TP 4
 \fB\-\-http\-version\fR=\fIVERSION\fR
 HTTP version to use
 
 [possible values: 1.0, 1.1, 2]
-.TP
+.TP 4
 \fB\-I\fR, \fB\-\-ignore\-stdin\fR
 Do not attempt to read stdin.
 
 This disables the default behaviour of reading the request body from stdin when a redirected input is detected.
 
 It is recommended to pass this flag when using xh for scripting purposes. For more information, refer to https://httpie.io/docs/cli/best\-practices.
-.TP
+.TP 4
 \fB\-\-curl\fR
 Print a translation to a curl command.
 
 For translating the other way, try https://curl2httpie.online/.
-.TP
+.TP 4
 \fB\-\-curl\-long\fR
 Use the long versions of curl's flags
-.TP
+.TP 4
 \fB\-\-help\fR
 Print help information
-.TP
+.TP 4
 \fB\-V\fR, \fB\-\-version\fR
 Print version information
 
 .SH EXIT STATUS
-.TP
+.TP 4
 .B 0
 Successful program execution.
 .TP
@@ -320,7 +320,7 @@ HTTP 5xx Server Error.
 Too many redirects.
 
 .SH ENVIRONMENT
-.TP
+.TP 4
 .B XH_CONFIG_DIR
 Specifies where to look for config.json and named session data.
 The default is ~/.config/xh for Linux/macOS and %APPDATA%\\xh for Windows.
@@ -346,7 +346,7 @@ Location of the .netrc file.
 Disables output coloring. See <https://no-color.org>
 
 .SH FILES
-.TP
+.TP 4
 .I ~/.config/xh/config.json
 xh configuration file. The only configurable option is "default_options"
 which is a list of default shell arguments that gets passed to xh.
