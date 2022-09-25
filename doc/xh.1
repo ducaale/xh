@@ -1,4 +1,4 @@
-.TH XH 1 2022-09-24 0.16.1 "User Commands"
+.TH XH 1 2022-09-25 0.16.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -40,32 +40,36 @@ becomes "http ://httpbin.org/json".
 [\fIREQUEST_ITEM\fR ...]
 Optional key\-value pairs to be included in the request
 
-The separator is used to determine the type i.e. header, request body,
-query string, etc. Possible REQUEST_ITEM types are:
+The separator is used to determine the type i.e. header, request body, query string, etc.
+
+Possible REQUEST_ITEM types are:
 .RS 12
 .TP 4
 key==value
 Add a query string to the URL.
 .TP 4
 key=value
-Add a JSON property (\-\-json) or form field (\-\-form) to the request body.
+Add a JSON property (\-\-json) or form field (\-\-form) to
+the request body.
 .TP 4
 key=@file
-Add a JSON property (\-\-json) or form field (\-\-form) from a file to the
-request body.
+Add a JSON property (\-\-json) or form field (\-\-form) from a
+file to the request body.
 .TP 4
 key:=value
-Add a field with literal JSON value to the request body, e.g. numbers:=[1,2,3]
-enabled:=true.
+Add a field with literal JSON value to the request body,
+e.g. numbers:=[1,2,3] enabled:=true.
 .TP 4
 key:=@file
-Add a field with literal JSON value from a file to the request body.
+Add a field with literal JSON value from a file to the
+request body.
 .TP 4
 key@file
-Upload a file from filename (requires either \-\-form  or \-\-multipart).
+Upload a file (requires \-\-form or \-\-multipart).
 
-To set  the filename and mimetype, ";type=" and ";filename=" can be used,
-e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+To set the filename and mimetype, ";type=" and
+";filename=" can be used respectively, e.g
+pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
 .TP 4
 @filename
 Use a file as the request body.
@@ -83,9 +87,9 @@ Add a header with an empty value.
 .RS
 A backslash can be used to escape special characters, e.g. weird\\:key=value.
 
-To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
-instead of a field name. For more information on the nested json syntax, refer to
-https://httpie.io/docs/cli/nested\-json.
+To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
+
+For more information on the nested json syntax, refer to https://httpie.io/docs/cli/nested\-json.
 .RE
 
 .SH OPTIONS

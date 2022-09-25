@@ -342,31 +342,35 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
 
     /// Optional key-value pairs to be included in the request
     ///
-    /// The separator is used to determine the type i.e. header, request body,
-    /// query string, etc. Possible REQUEST_ITEM types are:
+    /// The separator is used to determine the type i.e. header, request body, query string, etc.
+    ///
+    /// Possible REQUEST_ITEM types are:
     ///
     ///     key==value
     ///         Add a query string to the URL.
     ///
     ///     key=value
-    ///         Add a JSON property (--json) or form field (--form) to the request body.
+    ///         Add a JSON property (--json) or form field (--form) to
+    ///         the request body.
     ///
     ///     key=@file
-    ///         Add a JSON property (--json) or form field (--form) from a file to the
-    ///         request body.
+    ///         Add a JSON property (--json) or form field (--form) from a
+    ///         file to the request body.
     ///
     ///     key:=value
-    ///         Add a field with literal JSON value to the request body, e.g. numbers:=[1,2,3]
-    ///         enabled:=true.
+    ///         Add a field with literal JSON value to the request body,
+    ///         e.g. numbers:=[1,2,3] enabled:=true.
     ///
     ///     key:=@file
-    ///         Add a field with literal JSON value from a file to the request body.
+    ///         Add a field with literal JSON value from a file to the
+    ///         request body.
     ///
     ///     key@file
-    ///         Upload a file from filename (requires either --form  or --multipart).
+    ///         Upload a file (requires --form or --multipart).
     ///
-    ///         To set  the filename and mimetype, ";type=" and ";filename=" can be used,
-    ///         e.g. pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+    ///         To set the filename and mimetype, ";type=" and
+    ///         ";filename=" can be used respectively, e.g
+    ///         pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
     ///
     ///     @filename
     ///         Use a file as the request body.
@@ -382,9 +386,9 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     /// A backslash can be used to escape special characters, e.g. weird\:key=value.
     ///
-    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path
-    /// instead of a field name. For more information on the nested json syntax, refer to
-    /// https://httpie.io/docs/cli/nested-json.
+    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
+    ///
+    /// For more information on the nested json syntax, refer to https://httpie.io/docs/cli/nested-json.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
