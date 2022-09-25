@@ -462,6 +462,10 @@ impl Cli {
             )
         })?;
 
+        if cfg!(not(feature = "rustls")) {
+            cli.native_tls = true;
+        }
+
         Ok(cli)
     }
 

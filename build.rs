@@ -28,7 +28,11 @@ fn feature_status(feature: &str) -> String {
 }
 
 fn features() -> String {
-    feature_status("native-tls")
+    format!(
+        "{} {}",
+        &feature_status("native-tls"),
+        &feature_status("rustls")
+    )
 }
 
 fn main() {

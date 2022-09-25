@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
+use predicates::boolean::PredicateBooleanExt;
 use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
@@ -1134,7 +1135,8 @@ fn verify_default_yes() {
         .assert()
         .failure()
         .stdout(contains("GET / HTTP/1.1"))
-        .stderr(contains("UnknownIssuer"));
+        // rustls or native-tls
+        .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
 }
 
 #[cfg(feature = "online-tests")]
@@ -1145,7 +1147,8 @@ fn verify_explicit_yes() {
         .assert()
         .failure()
         .stdout(contains("GET / HTTP/1.1"))
-        .stderr(contains("UnknownIssuer"));
+        // rustls or native-tls
+        .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
 }
 
 #[cfg(feature = "online-tests")]
@@ -1159,7 +1162,7 @@ fn verify_no() {
         .stderr(predicates::str::is_empty());
 }
 
-#[cfg(feature = "online-tests")]
+#[cfg(all(feature = "rustls", feature = "online-tests"))]
 #[test]
 fn verify_valid_file() {
     get_command()
@@ -1280,7 +1283,7 @@ fn native_tls_works() {
         .success();
 }
 
-#[cfg(all(feature = "native-tls", feature = "online-tests"))]
+#[cfg(all(feature = "native-tls", feature = "rustls", feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_with_support() {
     let server = server::http(|_req| async move {
@@ -1298,7 +1301,7 @@ fn improved_https_ip_error_with_support() {
         .stderr(contains("using the --native-tls flag"));
 }
 
-#[cfg(feature = "native-tls")]
+#[cfg(all(feature = "native-tls", feature = "rustls"))]
 #[test]
 fn auto_nativetls() {
     get_command()
@@ -1362,6 +1365,7 @@ fn unsupported_tls_version_nativetls() {
         .stderr(contains("running without the --native-tls"));
 }
 
+#[cfg(feature = "rustls")]
 #[test]
 fn unsupported_tls_version_rustls() {
     #[cfg(feature = "native-tls")]

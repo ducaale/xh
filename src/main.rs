@@ -45,6 +45,9 @@ use crate::session::Session;
 use crate::utils::{test_mode, test_pretend_term};
 use crate::vendored::reqwest_cookie_store;
 
+#[cfg(not(any(feature = "native-tls", feature = "rustls")))]
+compile_error!("Either native-tls or rustls feature must be enabled!");
+
 fn get_user_agent() -> &'static str {
     if test_mode() {
         // Hard-coded user agent for the benefit of tests
@@ -161,13 +164,17 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut client = Client::builder()
         .http1_title_case_headers()
-        .use_rustls_tls()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(timeout)
         .no_gzip()
         .no_deflate()
         .no_brotli();
+
+    #[cfg(feature = "rustls")]
+    if !args.native_tls {
+        client = client.use_rustls_tls();
+    }
 
     if let Some(Some(tls_version)) = args.ssl {
         client = client
@@ -248,6 +255,7 @@ fn run(args: Cli) -> Result<i32> {
             }
         };
 
+        #[cfg(feature = "rustls")]
         if let Some(cert) = args.cert {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
@@ -276,6 +284,12 @@ fn run(args: Cli) -> Result<i32> {
             let identity = reqwest::Identity::from_pem(&buffer)
                 .context("Failed to load the cert/cert key files")?;
             client = client.identity(identity);
+        };
+        #[cfg(not(feature = "rustls"))]
+        if args.cert.is_some() {
+            // Unlike the --verify case this is advertised to not work, so it's
+            // not an outright bug, but it's still imaginable that it'll start working
+            warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
         };
     }
 
