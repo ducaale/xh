@@ -3,6 +3,7 @@ name = "xh"
 version = "0.16.1"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
+resolver = "2"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -37,7 +38,7 @@ once_cell = "1.8.0"
 os_display = "0.1.3"
 pem = "0.8.2"
 rand = "0.8.3"
-regex = "1"
+regex = { version = "1", default-features = false, features = ["std"] }
 rpassword = "5.0.0"
 serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
@@ -54,7 +55,12 @@ features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", 
 [dependencies.syntect]
 version = "4.4"
 default-features = false
-features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+features = ["parsing", "dump-load", "regex-onig"]
+
+[build-dependencies.syntect]
+version = "4.4"
+default-features = false
+features = ["yaml-load", "dump-create", "regex-onig"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -64,9 +70,6 @@ predicates = "1.0.7"
 hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 tempfile = "3.2.0"
-
-[build-dependencies]
-syntect = { version = "4.4", default-features = false }
 
 [features]
 default = ["online-tests"]
