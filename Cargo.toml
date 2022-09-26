@@ -54,7 +54,12 @@ features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", 
 [dependencies.syntect]
 version = "4.4"
 default-features = false
-features = ["parsing", "html", "yaml-load", "dump-load", "dump-create", "regex-onig"]
+features = ["parsing", "dump-load", "regex-onig"]
+
+[build-dependencies.syntect]
+version = "4.4"
+default-features = false
+features = ["yaml-load", "dump-create", "regex-onig"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -64,9 +69,6 @@ predicates = "1.0.7"
 hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 tempfile = "3.2.0"
-
-[build-dependencies]
-syntect = { version = "4.4", default-features = false }
 
 [features]
 default = ["online-tests"]
