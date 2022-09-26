@@ -3,6 +3,7 @@ name = "xh"
 version = "0.16.1"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2018"
+resolver = "2"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
