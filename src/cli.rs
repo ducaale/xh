@@ -258,7 +258,7 @@ pub struct Cli {
     pub ssl: Option<std::option::Option<tls::Version>>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
-    #[clap(long)]
+    #[clap(long, hide = cfg!(not(all(feature = "native-tls", feature = "rustls"))))]
     pub native_tls: bool,
 
     /// The default scheme to use if not specified in the URL.
