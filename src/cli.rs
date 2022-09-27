@@ -333,10 +333,6 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    ///
-    /// URLs can have a leading "://" which allows quickly converting a URL
-    /// into a valid xh or HTTPie command. For example "http://httpbin.org/json"
-    /// becomes "http ://httpbin.org/json".
     #[clap(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
