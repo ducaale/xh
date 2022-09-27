@@ -340,7 +340,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
-    /// Optional key-value pairs to be included in the request
+    /// Optional key-value pairs to be included in the request.
     ///
     /// The separator is used to determine the type i.e. header, request body, query string, etc.
     ///
@@ -358,11 +358,11 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         file to the request body.
     ///
     ///     key:=value
-    ///         Add a field with literal JSON value to the request body,
+    ///         Add a field with a literal JSON value to the request body,
     ///         e.g. numbers:=[1,2,3] enabled:=true.
     ///
     ///     key:=@file
-    ///         Add a field with literal JSON value from a file to the
+    ///         Add a field with a literal JSON value from a file to the
     ///         request body.
     ///
     ///     key@file
