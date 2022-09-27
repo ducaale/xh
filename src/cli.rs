@@ -352,8 +352,9 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         file to the request body.
     ///
     ///     key:=value
-    ///         Add a field with a literal JSON value to the request body,
-    ///         e.g. numbers:=[1,2,3] enabled:=true.
+    ///         Add a field with a literal JSON value to the request body.
+    ///
+    ///         Example: "numbers:=[1,2,3] enabled:=true"
     ///
     ///     key:=@filename
     ///         Add a field with a literal JSON value from a file to the
@@ -363,22 +364,23 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Upload a file (requires --form or --multipart).
     ///
     ///         To set the filename and mimetype, ";type=" and
-    ///         ";filename=" can be used respectively, e.g
-    ///         pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+    ///         ";filename=" can be used respectively.
+    ///         
+    ///         Example: "pfp@ra.jpg;type=image/jpeg;filename=profile.jpg"
     ///
     ///     @filename
     ///         Use a file as the request body.
     ///
     ///     header:value
-    ///         Add a header, e.g. user-agent:foobar
+    ///         Add a header, e.g. "user-agent:foobar"
     ///
     ///     header:
-    ///         Unset a header, e.g. connection:
+    ///         Unset a header, e.g. "connection:"
     ///
     ///     header;
     ///         Add a header with an empty value.
     ///
-    /// A backslash can be used to escape special characters, e.g. weird\:key=value.
+    /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
     /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
     /// For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
