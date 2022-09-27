@@ -325,8 +325,8 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
 
     /// The request URL, preceded by an optional HTTP method.
     ///
-    /// If the method is omitted, it will default to either GET or POST
-    /// depending on whether the request contains a body or not.
+    /// If the method is omitted, it will default to GET, or to POST
+    /// if the request contains a body.
     ///
     /// The URL scheme defaults to "http://" normally, or "https://" if
     /// the program is invoked as "xhs".
