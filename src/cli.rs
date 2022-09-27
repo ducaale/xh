@@ -353,7 +353,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a JSON property (--json) or form field (--form) to
     ///         the request body.
     ///
-    ///     key=@file
+    ///     key=@filename
     ///         Add a JSON property (--json) or form field (--form) from a
     ///         file to the request body.
     ///
@@ -361,11 +361,11 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a field with a literal JSON value to the request body,
     ///         e.g. numbers:=[1,2,3] enabled:=true.
     ///
-    ///     key:=@file
+    ///     key:=@filename
     ///         Add a field with a literal JSON value from a file to the
     ///         request body.
     ///
-    ///     key@file
+    ///     key@filename
     ///         Upload a file (requires --form or --multipart).
     ///
     ///         To set the filename and mimetype, ";type=" and
