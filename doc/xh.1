@@ -1,4 +1,4 @@
-.TH XH 1 2022-09-25 0.16.1 "User Commands"
+.TH XH 1 2022-09-27 0.16.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -19,10 +19,9 @@ HTTPie's excellent design, with a focus on improved performance.
 .SH POSITIONAL ARGUMENTS
 .TP 4
 [\fIMETHOD\fR]\fI
-HTTP method to use for the request.
+The HTTP method to use for the request.
 
-If the method is omitted, it will default to either GET or POST
-depending on whether the request contains a body or not.
+This defaults to GET, or to POST if the request contains a body.
 .TP
 \fIURL\fR
 The URL to request.
@@ -32,17 +31,11 @@ the program is invoked as "xhs".
 
 A leading colon works as shorthand for localhost. ":8000" is equivalent
 to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-
-URLs can have a leading "://" which allows quickly converting a URL
-into a valid xh or HTTPie command. For example "http://httpbin.org/json"
-becomes "http ://httpbin.org/json".
 .TP
 [\fIREQUEST_ITEM\fR ...]
-Optional key\-value pairs to be included in the request
+Optional key\-value pairs to be included in the request.
 
-The separator is used to determine the type i.e. header, request body, query string, etc.
-
-Possible REQUEST_ITEM types are:
+The separator is used to determine the type:
 .RS 8
 .TP 4
 key==value
@@ -52,44 +45,45 @@ key=value
 Add a JSON property (\-\-json) or form field (\-\-form) to
 the request body.
 .TP 4
-key=@file
+key=@filename
 Add a JSON property (\-\-json) or form field (\-\-form) from a
 file to the request body.
 .TP 4
 key:=value
-Add a field with literal JSON value to the request body,
-e.g. numbers:=[1,2,3] enabled:=true.
+Add a field with a literal JSON value to the request body.
+
+Example: "numbers:=[1,2,3] enabled:=true"
 .TP 4
-key:=@file
-Add a field with literal JSON value from a file to the
+key:=@filename
+Add a field with a literal JSON value from a file to the
 request body.
 .TP 4
-key@file
+key@filename
 Upload a file (requires \-\-form or \-\-multipart).
 
 To set the filename and mimetype, ";type=" and
-";filename=" can be used respectively, e.g
-pfp@ra.jpg;type=image/jpeg;filename=profile.jpg
+";filename=" can be used respectively.
+
+Example: "pfp@ra.jpg;type=image/jpeg;filename=profile.jpg"
 .TP 4
 @filename
 Use a file as the request body.
 .TP 4
 header:value
-Add a header, e.g. user\-agent:foobar
+Add a header, e.g. "user\-agent:foobar"
 .TP 4
 header:
-Unset a header, e.g. connection:
+Unset a header, e.g. "connection:"
 .TP 4
 header;
 Add a header with an empty value.
 .RE
 
 .RS
-A backslash can be used to escape special characters, e.g. weird\\:key=value.
+A backslash can be used to escape special characters, e.g. "weird\\:key=value".
 
 To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
-
-For more information on the nested json syntax, refer to https://httpie.io/docs/cli/nested\-json.
+For more information on this syntax, refer to https://httpie.io/docs/cli/nested\-json.
 .RE
 
 .SH OPTIONS
@@ -371,10 +365,10 @@ Send a GET request.
 Send a POST request with body {"name": "ahmed", "age": 24}.
 .TP
 \fBxh\fR get \fIhttpbin.org/json id==5 sort==true\fR
-Send a GET request with querystring id=5&sort=true.
+Send a GET request to http://httpbin.org/json?id=5&sort=true.
 .TP
 \fBxh\fR get \fIhttpbin.org/json x-api-key:12345\fR
-Send a GET request and include a header named x-api-key with value 12345.
+Send a GET request and include a header named X-Api-Key with value 12345.
 .TP
 echo "[1, 2, 3]" | \fBxh\fR post \fIhttpbin.org/post
 Send a POST request with body read from stdin.
