@@ -338,9 +338,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
 
     /// Optional key-value pairs to be included in the request.
     ///
-    /// The separator is used to determine the type i.e. header, request body, query string, etc.
-    ///
-    /// Possible REQUEST_ITEM types are:
+    /// The separator is used to determine the type:
     ///
     ///     key==value
     ///         Add a query string to the URL.
