@@ -30,8 +30,9 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Any              | Cargo\*    | `cargo install xh`      |
 | Any              | [Huber]    | `huber install xh`      |
 | Android (Termux) | pkg        | `pkg install xh`        |
+| Alpine Linux     | apk\*\*    | `apk add xh`            |
 | Arch Linux       | Pacman     | `pacman -S xh`          |
-| Debian & Ubuntu  | Apt**      | `sudo apt install xh`   |
+| Debian & Ubuntu  | Apt\*\*\*  | `sudo apt install xh`   |
 | FreeBSD          | FreshPorts | `pkg install xh`        |
 | Linux & macOS    | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
 | Linux & macOS    | Homebrew   | `brew install xh`       |
@@ -41,7 +42,9 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 \* Make sure that you have Rust 1.54 or later installed
 
-\*\* You will need to add the apt repository from https://apt.cli.rs/
+\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
+
+\*\*\* You will need to add the apt repository from https://apt.cli.rs/
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 
