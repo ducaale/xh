@@ -1202,7 +1202,7 @@ fn use_ipv4() {
         .args(&["https://httpbin.org/ip", "--body", "--ipv4"])
         .assert()
         .stdout(function(|output: &str| {
-            let output = serde_json::from_str::<serde_json::Value>(&output).unwrap();
+            let output = serde_json::from_str::<serde_json::Value>(output).unwrap();
             IpAddr::from_str(output["origin"].as_str().unwrap())
                 .unwrap()
                 .is_ipv4()
@@ -1217,7 +1217,7 @@ fn use_ipv6() {
         .args(&["https://httpbin.org/ip", "--body", "--ipv6"])
         .assert()
         .stdout(function(|output: &str| {
-            let output = serde_json::from_str::<serde_json::Value>(&output).unwrap();
+            let output = serde_json::from_str::<serde_json::Value>(output).unwrap();
             IpAddr::from_str(output["origin"].as_str().unwrap())
                 .unwrap()
                 .is_ipv6()
