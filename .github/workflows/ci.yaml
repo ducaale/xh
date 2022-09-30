@@ -16,7 +16,7 @@ jobs:
         job:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            flags: --features=native-tls
+            flags: --features=native-tls,ipv6-tests
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --features=native-tls
