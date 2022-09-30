@@ -1199,23 +1199,28 @@ fn cert_without_key() {
 #[test]
 fn use_ipv4() {
     get_command()
-        .args(&["https://api64.ipify.org", "--body", "--ipv4"])
+        .args(&["https://httpbin.org/ip", "--body", "--ipv4"])
         .assert()
         .stdout(function(|output: &str| {
-            IpAddr::from_str(output.trim()).unwrap().is_ipv4()
+            let output = serde_json::from_str::<serde_json::Value>(&output).unwrap();
+            IpAddr::from_str(&output["origin"].as_str().unwrap())
+                .unwrap()
+                .is_ipv4()
         }))
         .stderr(predicates::str::is_empty());
 }
 
-// real use ipv6
 #[cfg(all(feature = "ipv6-tests", feature = "online-tests"))]
 #[test]
 fn use_ipv6() {
     get_command()
-        .args(&["https://api64.ipify.org", "--body", "--ipv6"])
+        .args(&["https://httpbin.org/ip", "--body", "--ipv6"])
         .assert()
         .stdout(function(|output: &str| {
-            IpAddr::from_str(output.trim()).unwrap().is_ipv6()
+            let output = serde_json::from_str::<serde_json::Value>(&output).unwrap();
+            IpAddr::from_str(&output["origin"].as_str().unwrap())
+                .unwrap()
+                .is_ipv6()
         }))
         .stderr(predicates::str::is_empty());
 }
