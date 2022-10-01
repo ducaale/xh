@@ -1199,7 +1199,7 @@ fn cert_without_key() {
 #[test]
 fn use_ipv4() {
     get_command()
-        .args(&["https://api64.ipify.org", "--body", "--ipv4"])
+        .args(&["https://ipv4.icanhazip.com", "--body", "--ipv4"])
         .assert()
         .stdout(function(|output: &str| {
             IpAddr::from_str(output.trim()).unwrap().is_ipv4()
@@ -1212,7 +1212,7 @@ fn use_ipv4() {
 #[test]
 fn use_ipv6() {
     get_command()
-        .args(&["https://api64.ipify.org", "--body", "--ipv6"])
+        .args(&["https://ipv6.icanhazip.com", "--body", "--ipv6"])
         .assert()
         .stdout(function(|output: &str| {
             IpAddr::from_str(output.trim()).unwrap().is_ipv6()
