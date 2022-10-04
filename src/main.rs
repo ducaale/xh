@@ -255,41 +255,41 @@ fn run(args: Cli) -> Result<i32> {
             }
         };
 
+        #[cfg(feature = "rustls")]
         if let Some(cert) = args.cert {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
                 // not an outright bug, but it's still imaginable that it'll start working
-                if cfg!(feature = "rustls") {
-                    warn("Client certificates are not supported for native-tls");
-                } else {
-                    warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
-                }
+                warn("Client certificates are not supported for native-tls");
             }
 
-            #[cfg(feature = "rustls")]
-            {
-                let mut buffer = Vec::new();
-                let mut file = File::open(&cert)
-                    .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
-                file.read_to_end(&mut buffer)
-                    .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
+            let mut buffer = Vec::new();
+            let mut file = File::open(&cert)
+                .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
+            file.read_to_end(&mut buffer)
+                .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
 
-                if let Some(cert_key) = args.cert_key {
-                    buffer.push(b'\n');
+            if let Some(cert_key) = args.cert_key {
+                buffer.push(b'\n');
 
-                    let mut file = File::open(&cert_key).with_context(|| {
-                        format!("Failed to open the cert key file: {}", cert_key.display())
-                    })?;
-                    file.read_to_end(&mut buffer).with_context(|| {
-                        format!("Failed to read the cert key file: {}", cert_key.display())
-                    })?;
-                }
-
-                // We may fail here if we can't parse it but also if we don't have the key
-                let identity = reqwest::Identity::from_pem(&buffer)
-                    .context("Failed to load the cert/cert key files")?;
-                client = client.identity(identity);
+                let mut file = File::open(&cert_key).with_context(|| {
+                    format!("Failed to open the cert key file: {}", cert_key.display())
+                })?;
+                file.read_to_end(&mut buffer).with_context(|| {
+                    format!("Failed to read the cert key file: {}", cert_key.display())
+                })?;
             }
+
+            // We may fail here if we can't parse it but also if we don't have the key
+            let identity = reqwest::Identity::from_pem(&buffer)
+                .context("Failed to load the cert/cert key files")?;
+            client = client.identity(identity);
+        };
+        #[cfg(not(feature = "rustls"))]
+        if args.cert.is_some() {
+            // Unlike the --verify case this is advertised to not work, so it's
+            // not an outright bug, but it's still imaginable that it'll start working
+            warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
         };
     }
 
