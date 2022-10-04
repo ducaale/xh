@@ -1280,7 +1280,7 @@ fn native_tls_works() {
         .success();
 }
 
-#[cfg(all(feature = "native-tls", feature = "online-tests"))]
+#[cfg(all(feature = "native-tls", feature = "rustls", feature = "online-tests"))]
 #[test]
 fn improved_https_ip_error_with_support() {
     let server = server::http(|_req| async move {
