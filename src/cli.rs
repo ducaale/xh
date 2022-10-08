@@ -347,18 +347,10 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a JSON property (--json) or form field (--form) to
     ///         the request body.
     ///
-    ///     key=@filename
-    ///         Add a JSON property (--json) or form field (--form) from a
-    ///         file to the request body.
-    ///
     ///     key:=value
     ///         Add a field with a literal JSON value to the request body.
     ///
     ///         Example: "numbers:=[1,2,3] enabled:=true"
-    ///
-    ///     key:=@filename
-    ///         Add a field with a literal JSON value from a file to the
-    ///         request body.
     ///
     ///     key@filename
     ///         Upload a file (requires --form or --multipart).
@@ -379,6 +371,8 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     ///     header;
     ///         Add a header with an empty value.
+    ///
+    /// "@" postfix can be added to "=",":=","==" and ":" to read the value from a file e.g. "x-api-key:@api-key.txt".
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
