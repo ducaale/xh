@@ -349,6 +349,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg(val);
                 }
                 RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderFromFile(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
                 RequestItem::UrlParam(..) => {}
             }
