@@ -510,12 +510,7 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(
-            &raw_url,
-            cli.default_scheme.as_deref(),
-            cli.request_items.query(),
-        )
-        .map_err(|err| {
+        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
@@ -662,13 +657,12 @@ fn parse_method(method: &str) -> Option<Method> {
 fn construct_url(
     url: &str,
     default_scheme: Option<&str>,
-    query: Vec<(&str, &str)>,
 ) -> std::result::Result<Url, url::ParseError> {
     let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if let Some(url) = url.strip_prefix("://") {
+    let url: Url = if let Some(url) = url.strip_prefix("://") {
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
@@ -680,14 +674,6 @@ fn construct_url(
     } else {
         url.parse()?
     };
-    if !query.is_empty() {
-        // If we run this even without adding pairs it adds a `?`, hence
-        // the .is_empty() check
-        let mut pairs = url.query_pairs_mut();
-        for (name, value) in query {
-            pairs.append_pair(name, value);
-        }
-    }
     Ok(url)
 }
 
