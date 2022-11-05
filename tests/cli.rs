@@ -1264,6 +1264,7 @@ fn native_tls_flag_disabled() {
 }
 
 #[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
+#[ignore = "https://1.1.1.1 randomly times out in CI"]
 #[test]
 fn improved_https_ip_error_no_support() {
     get_command()
@@ -1284,6 +1285,7 @@ fn native_tls_works() {
 }
 
 #[cfg(all(feature = "native-tls", feature = "rustls", feature = "online-tests"))]
+#[ignore = "https://1.1.1.1 randomly times out in CI"]
 #[test]
 fn improved_https_ip_error_with_support() {
     let server = server::http(|_req| async move {
