@@ -62,7 +62,7 @@ fn open_netrc() -> Option<File> {
         Some(path) => File::open(path).ok(),
         None => {
             let home_dir = get_home_dir()?;
-            for &name in &[".netrc", "_netrc"] {
+            for name in [".netrc", "_netrc"] {
                 let path = home_dir.join(name);
                 if let Ok(file) = File::open(path) {
                     return Some(file);

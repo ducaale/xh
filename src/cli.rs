@@ -980,9 +980,9 @@ fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
         _ => (),
     }
 
-    for encoding in &[
+    for encoding in [
         &normalized_encoding,
-        &normalized_encoding.replace(&['-', '_'][..], ""),
+        &normalized_encoding.replace(['-', '_'], ""),
         &normalized_encoding.replace('_', "-"),
         &normalized_encoding.replace('-', "_"),
     ] {
@@ -992,7 +992,7 @@ fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
     }
 
     {
-        let mut encoding = normalized_encoding.replace(&['-', '_'][..], "");
+        let mut encoding = normalized_encoding.replace(['-', '_'], "");
         if let Some(first_digit_index) = encoding.find(|c: char| c.is_ascii_digit()) {
             encoding.insert(first_digit_index, '-');
             if let Some(encoding) = Encoding::for_label(encoding.as_bytes()) {
@@ -1025,17 +1025,21 @@ mod tests {
 
     use crate::request_items::RequestItem;
 
-    fn parse(args: &[&str]) -> Result<Cli> {
+    fn parse<I>(args: I) -> Result<Cli>
+    where
+        I: IntoIterator,
+        I::Item: Into<OsString> + Clone,
+    {
         Cli::try_parse_from(
-            Some("xh".to_string())
+            Some("xh".into())
                 .into_iter()
-                .chain(args.iter().map(ToString::to_string)),
+                .chain(args.into_iter().map(Into::into)),
         )
     }
 
     #[test]
     fn implicit_method() {
-        let cli = parse(&["example.org"]).unwrap();
+        let cli = parse(["example.org"]).unwrap();
         assert_eq!(cli.method, None);
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert!(cli.request_items.items.is_empty());
@@ -1043,7 +1047,7 @@ mod tests {
 
     #[test]
     fn explicit_method() {
-        let cli = parse(&["get", "example.org"]).unwrap();
+        let cli = parse(["get", "example.org"]).unwrap();
         assert_eq!(cli.method, Some(Method::GET));
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert!(cli.request_items.items.is_empty());
@@ -1052,25 +1056,25 @@ mod tests {
     #[test]
     fn method_edge_cases() {
         // "localhost" is interpreted as method; this is undesirable, but expected
-        parse(&["localhost"]).unwrap_err();
+        parse(["localhost"]).unwrap_err();
 
         // Non-standard method used by varnish
-        let cli = parse(&["purge", ":"]).unwrap();
+        let cli = parse(["purge", ":"]).unwrap();
         assert_eq!(cli.method, Some("PURGE".parse().unwrap()));
         assert_eq!(cli.url.to_string(), "http://localhost/");
 
         // Zero-length arg should not be interpreted as method, but fail to parse as URL
-        parse(&[""]).unwrap_err();
+        parse([""]).unwrap_err();
     }
 
     #[test]
     fn missing_url() {
-        parse(&["get"]).unwrap_err();
+        parse(["get"]).unwrap_err();
     }
 
     #[test]
     fn space_in_url() {
-        let cli = parse(&["post", "example.org/foo bar"]).unwrap();
+        let cli = parse(["post", "example.org/foo bar"]).unwrap();
         assert_eq!(cli.method, Some(Method::POST));
         assert_eq!(cli.url.to_string(), "http://example.org/foo%20bar");
         assert!(cli.request_items.items.is_empty());
@@ -1078,40 +1082,40 @@ mod tests {
 
     #[test]
     fn url_with_leading_double_slash_colon() {
-        let cli = parse(&["://example.org"]).unwrap();
+        let cli = parse(["://example.org"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://example.org/");
     }
 
     #[test]
     fn url_with_leading_colon() {
-        let cli = parse(&[":3000"]).unwrap();
+        let cli = parse([":3000"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://localhost:3000/");
 
-        let cli = parse(&[":3000/users"]).unwrap();
+        let cli = parse([":3000/users"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://localhost:3000/users");
 
-        let cli = parse(&[":"]).unwrap();
+        let cli = parse([":"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://localhost/");
 
-        let cli = parse(&[":/users"]).unwrap();
+        let cli = parse([":/users"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://localhost/users");
     }
 
     #[test]
     fn url_with_scheme() {
-        let cli = parse(&["https://example.org"]).unwrap();
+        let cli = parse(["https://example.org"]).unwrap();
         assert_eq!(cli.url.to_string(), "https://example.org/");
     }
 
     #[test]
     fn url_without_scheme() {
-        let cli = parse(&["example.org"]).unwrap();
+        let cli = parse(["example.org"]).unwrap();
         assert_eq!(cli.url.to_string(), "http://example.org/");
     }
 
     #[test]
     fn request_items() {
-        let cli = parse(&["get", "example.org", "foo=bar"]).unwrap();
+        let cli = parse(["get", "example.org", "foo=bar"]).unwrap();
         assert_eq!(cli.method, Some(Method::GET));
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
@@ -1126,7 +1130,7 @@ mod tests {
 
     #[test]
     fn request_items_implicit_method() {
-        let cli = parse(&["example.org", "foo=bar"]).unwrap();
+        let cli = parse(["example.org", "foo=bar"]).unwrap();
         assert_eq!(cli.method, None);
         assert_eq!(cli.url.to_string(), "http://example.org/");
         assert_eq!(
@@ -1141,19 +1145,19 @@ mod tests {
 
     #[test]
     fn request_type_overrides() {
-        let cli = parse(&["--form", "--json", ":"]).unwrap();
+        let cli = parse(["--form", "--json", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
-        let cli = parse(&["--json", "--form", ":"]).unwrap();
+        let cli = parse(["--json", "--form", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Form);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, true);
         assert_eq!(cli.multipart, false);
 
-        let cli = parse(&[":"]).unwrap();
+        let cli = parse([":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
@@ -1162,22 +1166,22 @@ mod tests {
 
     #[test]
     fn superfluous_arg() {
-        parse(&["get", "example.org", "foobar"]).unwrap_err();
+        parse(["get", "example.org", "foobar"]).unwrap_err();
     }
 
     #[test]
     fn superfluous_arg_implicit_method() {
-        parse(&["example.org", "foobar"]).unwrap_err();
+        parse(["example.org", "foobar"]).unwrap_err();
     }
 
     #[test]
     fn multiple_methods() {
-        parse(&["get", "post", "example.org"]).unwrap_err();
+        parse(["get", "post", "example.org"]).unwrap_err();
     }
 
     #[test]
     fn proxy_invalid_protocol() {
-        Cli::try_parse_from(&[
+        Cli::try_parse_from([
             "xh",
             "--proxy=invalid:http://127.0.0.1:8000",
             "get",
@@ -1188,13 +1192,13 @@ mod tests {
 
     #[test]
     fn proxy_invalid_proxy_url() {
-        Cli::try_parse_from(&["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
+        Cli::try_parse_from(["xh", "--proxy=http:127.0.0.1:8000", "get", "example.org"])
             .unwrap_err();
     }
 
     #[test]
     fn proxy_http() {
-        let proxy = parse(&["--proxy=http:http://127.0.0.1:8000", "get", "example.org"])
+        let proxy = parse(["--proxy=http:http://127.0.0.1:8000", "get", "example.org"])
             .unwrap()
             .proxy;
 
@@ -1206,7 +1210,7 @@ mod tests {
 
     #[test]
     fn proxy_https() {
-        let proxy = parse(&["--proxy=https:http://127.0.0.1:8000", "get", "example.org"])
+        let proxy = parse(["--proxy=https:http://127.0.0.1:8000", "get", "example.org"])
             .unwrap()
             .proxy;
 
@@ -1218,7 +1222,7 @@ mod tests {
 
     #[test]
     fn proxy_all() {
-        let proxy = parse(&["--proxy=all:http://127.0.0.1:8000", "get", "example.org"])
+        let proxy = parse(["--proxy=all:http://127.0.0.1:8000", "get", "example.org"])
             .unwrap()
             .proxy;
 
@@ -1230,66 +1234,66 @@ mod tests {
 
     #[test]
     fn executable_name() {
-        let args = Cli::try_parse_from(&["xhs", "example.org"]).unwrap();
+        let args = Cli::try_parse_from(["xhs", "example.org"]).unwrap();
         assert_eq!(args.https, true);
     }
 
     #[test]
     fn executable_name_extension() {
-        let args = Cli::try_parse_from(&["xhs.exe", "example.org"]).unwrap();
+        let args = Cli::try_parse_from(["xhs.exe", "example.org"]).unwrap();
         assert_eq!(args.https, true);
     }
 
     #[test]
     fn negated_flags() {
-        let cli = parse(&["--no-offline", ":"]).unwrap();
+        let cli = parse(["--no-offline", ":"]).unwrap();
         assert_eq!(cli.offline, false);
 
         // In HTTPie, the order doesn't matter, so this would be false
-        let cli = parse(&["--no-offline", "--offline", ":"]).unwrap();
+        let cli = parse(["--no-offline", "--offline", ":"]).unwrap();
         assert_eq!(cli.offline, true);
 
         // In HTTPie, this resolves to json, but that seems wrong
-        let cli = parse(&["--no-form", "--multipart", ":"]).unwrap();
+        let cli = parse(["--no-form", "--multipart", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
-        let cli = parse(&["--multipart", "--no-form", ":"]).unwrap();
+        let cli = parse(["--multipart", "--no-form", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Multipart);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, true);
 
-        let cli = parse(&["--form", "--no-form", ":"]).unwrap();
+        let cli = parse(["--form", "--no-form", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, false);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
-        let cli = parse(&["--form", "--json", "--no-form", ":"]).unwrap();
+        let cli = parse(["--form", "--json", "--no-form", ":"]).unwrap();
         assert_eq!(cli.request_items.body_type, BodyType::Json);
         assert_eq!(cli.json, true);
         assert_eq!(cli.form, false);
         assert_eq!(cli.multipart, false);
 
-        let cli = parse(&["--curl-long", "--no-curl-long", ":"]).unwrap();
+        let cli = parse(["--curl-long", "--no-curl-long", ":"]).unwrap();
         assert_eq!(cli.curl_long, false);
-        let cli = parse(&["--no-curl-long", "--curl-long", ":"]).unwrap();
+        let cli = parse(["--no-curl-long", "--curl-long", ":"]).unwrap();
         assert_eq!(cli.curl_long, true);
 
-        let cli = parse(&["-do=fname", "--continue", "--no-continue", ":"]).unwrap();
+        let cli = parse(["-do=fname", "--continue", "--no-continue", ":"]).unwrap();
         assert_eq!(cli.resume, false);
-        let cli = parse(&["-do=fname", "--no-continue", "--continue", ":"]).unwrap();
+        let cli = parse(["-do=fname", "--no-continue", "--continue", ":"]).unwrap();
         assert_eq!(cli.resume, true);
 
-        let cli = parse(&["-I", "--no-ignore-stdin", ":"]).unwrap();
+        let cli = parse(["-I", "--no-ignore-stdin", ":"]).unwrap();
         assert_eq!(cli.ignore_stdin, false);
-        let cli = parse(&["--no-ignore-stdin", "-I", ":"]).unwrap();
+        let cli = parse(["--no-ignore-stdin", "-I", ":"]).unwrap();
         assert_eq!(cli.ignore_stdin, true);
 
-        let cli = parse(&[
+        let cli = parse([
             "--proxy=http:http://foo",
             "--proxy=http:http://bar",
             "--no-proxy",
@@ -1298,7 +1302,7 @@ mod tests {
         .unwrap();
         assert!(cli.proxy.is_empty());
 
-        let cli = parse(&[
+        let cli = parse([
             "--no-proxy",
             "--proxy=http:http://foo",
             "--proxy=https:http://bar",
@@ -1313,7 +1317,7 @@ mod tests {
             ]
         );
 
-        let cli = parse(&[
+        let cli = parse([
             "--proxy=http:http://foo",
             "--no-proxy",
             "--proxy=https:http://bar",
@@ -1322,13 +1326,13 @@ mod tests {
         .unwrap();
         assert_eq!(cli.proxy, vec![Proxy::Https("http://bar".parse().unwrap())]);
 
-        let cli = parse(&["--bearer=baz", "--no-bearer", ":"]).unwrap();
+        let cli = parse(["--bearer=baz", "--no-bearer", ":"]).unwrap();
         assert_eq!(cli.bearer, None);
 
-        let cli = parse(&["--style=solarized", "--no-style", ":"]).unwrap();
+        let cli = parse(["--style=solarized", "--no-style", ":"]).unwrap();
         assert_eq!(cli.style, None);
 
-        let cli = parse(&[
+        let cli = parse([
             "--auth=foo:bar",
             "--auth-type=bearer",
             "--no-auth-type",
@@ -1341,19 +1345,19 @@ mod tests {
 
     #[test]
     fn negating_check_status() {
-        let cli = parse(&[":"]).unwrap();
+        let cli = parse([":"]).unwrap();
         assert_eq!(cli.check_status, None);
 
-        let cli = parse(&["--check-status", ":"]).unwrap();
+        let cli = parse(["--check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(true));
 
-        let cli = parse(&["--no-check-status", ":"]).unwrap();
+        let cli = parse(["--no-check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(false));
 
-        let cli = parse(&["--check-status", "--no-check-status", ":"]).unwrap();
+        let cli = parse(["--check-status", "--no-check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(false));
 
-        let cli = parse(&["--no-check-status", "--check-status", ":"]).unwrap();
+        let cli = parse(["--no-check-status", "--check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(true));
     }
 

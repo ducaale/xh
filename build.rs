@@ -36,7 +36,7 @@ fn features() -> String {
 }
 
 fn main() {
-    for dir in &["assets", "assets/basic", "assets/large"] {
+    for dir in ["assets", "assets/basic", "assets/large"] {
         println!("cargo:rerun-if-changed={}", dir);
         for entry in read_dir(dir).unwrap() {
             let path = entry.unwrap().path();

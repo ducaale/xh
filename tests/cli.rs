@@ -976,7 +976,7 @@ fn netrc_env_auth_type_bearer() {
 
 #[test]
 fn netrc_file_user_password_auth() {
-    for netrc_file in &[".netrc", "_netrc"] {
+    for netrc_file in [".netrc", "_netrc"] {
         let server = server::http(|req| async move {
             assert_eq!(req.headers()["Authorization"], "Basic dXNlcjpwYXNz");
             hyper::Response::default()
@@ -1215,7 +1215,7 @@ fn use_ipv4() {
 #[test]
 fn use_ipv6() {
     get_command()
-        .args(&["https://api64.ipify.org", "--body", "--ipv6"])
+        .args(["https://api64.ipify.org", "--body", "--ipv6"])
         .assert()
         .stdout(function(|output: &str| {
             IpAddr::from_str(output.trim()).unwrap().is_ipv6()
@@ -1278,7 +1278,7 @@ fn improved_https_ip_error_no_support() {
 #[test]
 fn native_tls_works() {
     get_command()
-        .args(&["--native-tls", "https://example.org"])
+        .args(["--native-tls", "https://example.org"])
         .assert()
         .success();
 }
@@ -1294,7 +1294,7 @@ fn improved_https_ip_error_with_support() {
             .unwrap()
     });
     get_command()
-        .args(&["--follow", &server.base_url()])
+        .args(["--follow", &server.base_url()])
         .assert()
         .failure()
         .stderr(contains("rustls does not support"))
@@ -1305,7 +1305,7 @@ fn improved_https_ip_error_with_support() {
 #[test]
 fn auto_nativetls() {
     get_command()
-        .args(&["--offline", "https://1.1.1.1"])
+        .args(["--offline", "https://1.1.1.1"])
         .assert()
         .success()
         .stderr(contains("native-tls will be enabled"));
