@@ -386,15 +386,15 @@ mod tests {
 
         assert_eq!(
             parse_path(r"foo\[x\][]").unwrap(),
-            &[Key(r"foo[x]".into(), (0, 8)), Append((8, 10))]
+            [Key(r"foo[x]".into(), (0, 8)), Append((8, 10))]
         );
         assert_eq!(
             parse_path(r"foo\\[x]").unwrap(),
-            &[Key(r"foo\".into(), (0, 5)), Key("x".into(), (5, 8))]
+            [Key(r"foo\".into(), (0, 5)), Key("x".into(), (5, 8))]
         );
         assert_eq!(
             parse_path(r"foo[ba\[ar][9]").unwrap(),
-            &[
+            [
                 Key("foo".into(), (0, 3)),
                 Key("ba[ar".into(), (3, 11)),
                 Index(9, (11, 14))
@@ -402,23 +402,23 @@ mod tests {
         );
         assert_eq!(
             parse_path(r"[0][foo]").unwrap(),
-            &[Index(0, (0, 3)), Key("foo".into(), (3, 8))]
+            [Index(0, (0, 3)), Key("foo".into(), (3, 8))]
         );
         assert_eq!(
             parse_path(r"[][foo]").unwrap(),
-            &[Append((0, 2)), Key("foo".into(), (2, 7))]
+            [Append((0, 2)), Key("foo".into(), (2, 7))]
         );
         assert_eq!(
             parse_path(r"foo[0]").unwrap(),
-            &[Key("foo".into(), (0, 3)), Index(0, (3, 6))]
+            [Key("foo".into(), (0, 3)), Index(0, (3, 6))]
         );
         assert_eq!(
             parse_path(r"foo[\0]").unwrap(),
-            &[Key("foo".into(), (0, 3)), Key("0".into(), (3, 7))]
+            [Key("foo".into(), (0, 3)), Key("0".into(), (3, 7))]
         );
         assert_eq!(
             parse_path(r"foo[\\0]").unwrap(),
-            &[Key("foo".into(), (0, 3)), Key(r"\0".into(), (3, 8)),]
+            [Key("foo".into(), (0, 3)), Key(r"\0".into(), (3, 8)),]
         );
         // HTTPie currently escapes numbers regardless of whether they are between
         // square brackets or not. See https://github.com/httpie/httpie/issues/1408
@@ -427,10 +427,10 @@ mod tests {
         // {"0":{"5": "x"}}
         // $ xh --offline --pretty=none --print=B : \\0[\\5]=x
         // {"\\0": {"5": "x"}}
-        assert_eq!(parse_path(r"\5").unwrap(), &[Key(r"\5".into(), (0, 2))]);
+        assert_eq!(parse_path(r"\5").unwrap(), [Key(r"\5".into(), (0, 2))]);
         assert_eq!(
             parse_path(r"5[x]").unwrap(),
-            &[Key("5".into(), (0, 1)), Key("x".into(), (1, 4))]
+            [Key("5".into(), (0, 1)), Key("x".into(), (1, 4))]
         );
 
         assert!(parse_path(r"[y][5]").is_err());

@@ -1,4 +1,0 @@
-[build.env]
-passthrough = [
-    "CARGO_PROFILE_RELEASE_LTO",
-]

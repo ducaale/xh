@@ -28,11 +28,15 @@ fn feature_status(feature: &str) -> String {
 }
 
 fn features() -> String {
-    feature_status("native-tls")
+    format!(
+        "{} {}",
+        &feature_status("native-tls"),
+        &feature_status("rustls")
+    )
 }
 
 fn main() {
-    for dir in &["assets", "assets/basic", "assets/large"] {
+    for dir in ["assets", "assets/basic", "assets/large"] {
         println!("cargo:rerun-if-changed={}", dir);
         for entry in read_dir(dir).unwrap() {
             let path = entry.unwrap().path();

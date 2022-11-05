@@ -17,6 +17,9 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             flags: --features=native-tls
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --features=native-tls
@@ -44,7 +47,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.job.target }}
+          key: v2-${{ matrix.job.target }}
       - uses: actions-rs/cargo@v1
         with:
           use-cross: ${{ matrix.job.use-cross }}
@@ -72,7 +75,7 @@ jobs:
           command: fmt
           args: -- --check
 
-      - name: Clippy
+      - name: Clippy (default features)
         uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -83,3 +86,9 @@ jobs:
         with:
           command: clippy
           args: --all-features --tests -- -D warnings -A unknown-lints
+
+      - name: Clippy (native-tls only)
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --no-default-features --features=native-tls,online-tests --tests -- -D warnings -A unknown-lints
