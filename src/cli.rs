@@ -982,7 +982,7 @@ fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
 
     for encoding in [
         &normalized_encoding,
-        &normalized_encoding.replace(['-', '_'], ""),
+        &normalized_encoding.replace(&['-', '_'][..], ""),
         &normalized_encoding.replace('_', "-"),
         &normalized_encoding.replace('-', "_"),
     ] {
@@ -992,7 +992,7 @@ fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
     }
 
     {
-        let mut encoding = normalized_encoding.replace(['-', '_'], "");
+        let mut encoding = normalized_encoding.replace(&['-', '_'][..], "");
         if let Some(first_digit_index) = encoding.find(|c: char| c.is_ascii_digit()) {
             encoding.insert(first_digit_index, '-');
             if let Some(encoding) = Encoding::for_label(encoding.as_bytes()) {
