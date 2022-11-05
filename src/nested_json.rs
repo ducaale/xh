@@ -114,12 +114,12 @@ pub fn parse_path(json_path: &str) -> Result<Vec<PathAction>> {
                 }
             }
             Some(RightBracket(end)) => path.push(Append((start, end + 1))),
-            Some(Text(..)) | Some(LeftBracket(..)) | None => {
+            Some(Text(..) | LeftBracket(..)) | None => {
                 return Err(syntax_error("number or ']'", start + 1, json_path))
             }
         },
         Some(Text(key, span)) => path.push(Key(key, span)),
-        Some(Number(..)) | Some(RightBracket(..)) | None => {
+        Some(Number(..) | RightBracket(..)) | None => {
             return Err(syntax_error("text or '['", 0, json_path))
         }
     }
@@ -210,7 +210,8 @@ pub fn insert(
     })
 }
 
-/// Inserts value into array at any index greater or equal to 0.
+/// Inserts value into array at any index and pads empty slots
+/// with Value::null if needed
 fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
     while index >= arr.len() {
         arr.push(Value::Null);
