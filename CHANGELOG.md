@@ -1,3 +1,13 @@
+## Unreleased
+### Features
+- Add support for nested json syntax, see #217 (@ducaale)
+- Add Support for bearer auth in `.netrc`, see #267 (@porglezomp)
+- Support forcing ipv4/ipv6, see #276 (@zuisong)
+
+### Other
+- Allow building xh using native-tls only, see #281 (@jirutka)
+- Warn users when translating `--follow` + non GET method, see #280 (@jgoday)
+
 ## [0.16.1] - 2022-05-22
 ### Bug fixes
 - fix HEAD request failing on compressed response, see #257 (@ducaale)
