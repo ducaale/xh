@@ -84,7 +84,7 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     let mut cmd = Command::new(args.curl_long);
 
-    let ignored = &[
+    let ignored = [
         // No equivalent
         (args.offline, "--offline"),
         // Already the default
@@ -113,7 +113,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     ];
 
     for (present, flag) in ignored {
-        if *present {
+        if present {
             cmd.warn(format!("Ignored {}", flag));
         }
     }
@@ -367,7 +367,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg("--data-urlencode");
                     // Encoding this is tricky: --data-urlencode expects name
                     // to be encoded but not value and doesn't take strings
-                    let mut encoded = serde_urlencoded::to_string(&[(key, "")])?;
+                    let mut encoded = serde_urlencoded::to_string([(key, "")])?;
                     encoded.push_str(&value);
                     cmd.arg(encoded);
                 }

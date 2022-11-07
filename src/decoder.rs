@@ -81,6 +81,7 @@ impl<R: Read> Read for InnerReader<R> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum Decoder<R: Read> {
     PlainText(InnerReader<R>),
     Gzip(GzDecoder<InnerReader<R>>),

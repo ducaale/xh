@@ -52,7 +52,7 @@ url = "2.2.2"
 [dependencies.reqwest]
 version = "0.11.10"
 default-features = false
-features = ["rustls-tls", "rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "multipart", "blocking", "socks", "cookies"]
+features = ["json", "multipart", "blocking", "socks", "cookies"]
 
 [dependencies.syntect]
 version = "4.4"
@@ -74,11 +74,12 @@ tokio = { version = "1", features = ["rt", "sync", "time"] }
 tempfile = "3.2.0"
 
 [features]
-default = ["online-tests"]
+default = ["online-tests", "rustls"]
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
+rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots"]
 
 online-tests = []
-ipv6-tests=[]
+ipv6-tests = []
 man-completion-gen = ["clap_complete", "roff"]
 
 [package.metadata.cross.build.env]
