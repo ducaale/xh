@@ -1,4 +1,4 @@
-## Unreleased
+## [0.17.0] - 2022-11-08
 ### Features
 - Add support for nested json syntax, see #217 (@ducaale)
 - Add Support for bearer auth in `.netrc`, see #267 (@porglezomp)

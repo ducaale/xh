@@ -132,7 +132,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-curl[]' \
 '--no-curl-long[]' \
 ':raw-method-or-url -- The request URL, preceded by an optional HTTP method:' \
-'*::raw-rest-args -- Optional key-value pairs to be included in the request:' \
+'*::raw-rest-args -- Optional key-value pairs to be included in the request.:' \
 && ret=0
 }
 
