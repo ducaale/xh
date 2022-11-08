@@ -45,14 +45,20 @@ pub struct Cli {
     pub httpie_compat_mode: bool,
 
     /// (default) Serialize data items from the command line as a JSON object.
+    ///
+    /// Overrides both --form and --multipart.
     #[clap(short = 'j', long, overrides_with_all = &["form", "multipart"])]
     pub json: bool,
 
     /// Serialize data items from the command line as form fields.
+    ///
+    /// Overrides both --json and --multipart.
     #[clap(short = 'f', long, overrides_with_all = &["json", "multipart"])]
     pub form: bool,
 
     /// Like --form, but force a multipart/form-data request even without files.
+    ///
+    /// Overrides both --json and --form.
     #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
@@ -60,8 +66,21 @@ pub struct Cli {
     #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
 
-    /// Controls output processing.
-    #[clap(long, arg_enum, value_name = "STYLE")]
+    /// Controls output processing
+    #[clap(
+        long,
+        arg_enum,
+        value_name = "STYLE",
+        long_help = "\
+Controls output processing. Possible values are:
+
+    all      (default) Enable both coloring and formatting
+    colors   Apply syntax highlighting to output
+    format   Pretty-print json and sort headers
+    none     Disable both coloring and formatting
+
+Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is not tty."
+    )]
     pub pretty: Option<Pretty>,
 
     /// Output coloring style.
@@ -70,22 +89,22 @@ pub struct Cli {
 
     /// Override the response encoding for terminal display purposes.
     ///
-    /// Example: `--response-charset=latin1`
+    /// Example: --response-charset=latin1
     #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
     pub response_charset: Option<&'static Encoding>,
 
-    /// Override the response mime type for coloring and formatting for the terminal
+    /// Override the response mime type for coloring and formatting for the terminal.
     ///
-    /// Example: `--response-mime=application/json`
+    /// Example: --response-mime=application/json
     #[clap(long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
     /// String specifying what the output should contain.
     ///
-    /// Use `H` and `B` for request header and body respectively,
-    /// and `h` and `b` for response hader and body.
+    /// Use "H" and "B" for request header and body respectively,
+    /// and "h" and "b" for response header and body.
     ///
-    /// Example: `--print=Hb`
+    /// Example: --print=Hb
     #[clap(short = 'p', long, value_name = "FORMAT")]
     pub print: Option<Print>,
 
@@ -98,6 +117,11 @@ pub struct Cli {
     pub body: bool,
 
     /// Print the whole request as well as the response.
+    ///
+    /// Additionally, this enables --all for printing intermediary
+    /// requests/responses while following redirects.
+    ///
+    /// Equivalent to --print=HhBb --all.
     #[clap(short = 'v', long)]
     pub verbose: bool,
 
@@ -130,6 +154,8 @@ pub struct Cli {
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
+    ///
+    /// The Accept-Encoding header is set to identify and any redirects will be followed.
     #[clap(short = 'd', long)]
     pub download: bool,
 
@@ -166,12 +192,12 @@ pub struct Cli {
     #[clap(short = 'A', long, arg_enum)]
     pub auth_type: Option<AuthType>,
 
-    /// Authenticate as USER with PASS or with TOKEN.
+    /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
     ///
-    /// PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`)
+    /// PASS will be prompted if missing. Use a trailing colon (i.e. "USER:")
     /// to authenticate with just a username.
     ///
-    /// TOKEN is expected if `--auth-type=bearer`.
+    /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
     pub auth: Option<String>,
 
@@ -203,26 +229,26 @@ pub struct Cli {
     #[clap(short = 'F', long)]
     pub follow: bool,
 
-    /// Number of redirects to follow, only respected if `follow` is set.
+    /// Number of redirects to follow. Only respected if --follow is used.
     #[clap(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
     /// Connection timeout of the request.
     ///
-    /// The default value is `0`, i.e., there is no timeout limit.
+    /// The default value is "0", i.e., there is no timeout limit.
     #[clap(long, value_name = "SEC")]
     pub timeout: Option<Timeout>,
 
-    /// Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`.
+    /// Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
     ///
-    /// PROTOCOL can be `http`, `https` or `all`.
+    /// PROTOCOL can be "http", "https" or "all".
     ///
     /// If your proxy requires credentials, put them in the URL, like so:
-    /// `--proxy http:socks5://user:password@proxy.host:8000`.
+    /// --proxy http:socks5://user:password@proxy.host:8000.
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// The environment variables `http_proxy` and `https_proxy` can also be used, but
+    /// The environment variables "http_proxy" and "https_proxy" can also be used, but
     /// are completely ignored if --proxy is passed.
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
@@ -269,7 +295,7 @@ pub struct Cli {
     #[clap(long)]
     pub https: bool,
 
-    /// HTTP version to use
+    /// HTTP version to use.
     #[clap(long, value_name = "VERSION",
         possible_value = clap::PossibleValue::new("1.0"),
         possible_value = clap::PossibleValue::new("1.1").alias("1"),
@@ -278,10 +304,16 @@ pub struct Cli {
     pub http_version: Option<HttpVersion>,
 
     /// Do not attempt to read stdin.
+    ///
+    /// This disables the default behaviour of reading the request body from stdin
+    /// when a redirected input is detected.
+    ///
+    /// It is recommended to pass this flag when using xh for scripting purposes.
+    /// For more information, refer to https://httpie.io/docs/cli/best-practices.
     #[clap(short = 'I', long)]
     pub ignore_stdin: bool,
 
-    /// Print a translation to a `curl` command.
+    /// Print a translation to a curl command.
     ///
     /// For translating the other way, try https://curl2httpie.online/.
     #[clap(long)]
@@ -293,24 +325,65 @@ pub struct Cli {
 
     /// The request URL, preceded by an optional HTTP method.
     ///
-    /// METHOD can be `get`, `post`, `head`, `put`, `patch`, `delete` or `options`.
-    /// If omitted, either a GET or a POST will be done depending on whether the
-    /// request sends data.
+    /// If the method is omitted, it will default to GET, or to POST
+    /// if the request contains a body.
+    ///
+    /// The URL scheme defaults to "http://" normally, or "https://" if
+    /// the program is invoked as "xhs".
+    ///
+    /// A leading colon works as shorthand for localhost. ":8000" is equivalent
+    /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
     #[clap(value_name = "[METHOD] URL")]
     raw_method_or_url: String,
 
-    /// Optional key-value pairs to be included in the request
+    /// Optional key-value pairs to be included in the request.
     ///
-    ///   - key==value to add a parameter to the URL
-    ///   - key=value to add a JSON field (--json) or form field (--form)
-    ///   - key:=value to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-    ///   - key@filename to upload a file from filename (with --form)
-    ///   - @filename to use a file as the request body
-    ///   - header:value to add a header
-    ///   - header: to unset a header
-    ///   - header; to add a header with an empty value
+    /// The separator is used to determine the type:
     ///
-    /// A backslash can be used to escape special characters (e.g. weird\:key=value).
+    ///     key==value
+    ///         Add a query string to the URL.
+    ///
+    ///     key=value
+    ///         Add a JSON property (--json) or form field (--form) to
+    ///         the request body.
+    ///
+    ///     key=@filename
+    ///         Add a JSON property (--json) or form field (--form) from a
+    ///         file to the request body.
+    ///
+    ///     key:=value
+    ///         Add a field with a literal JSON value to the request body.
+    ///
+    ///         Example: "numbers:=[1,2,3] enabled:=true"
+    ///
+    ///     key:=@filename
+    ///         Add a field with a literal JSON value from a file to the
+    ///         request body.
+    ///
+    ///     key@filename
+    ///         Upload a file (requires --form or --multipart).
+    ///
+    ///         To set the filename and mimetype, ";type=" and
+    ///         ";filename=" can be used respectively.
+    ///         
+    ///         Example: "pfp@ra.jpg;type=image/jpeg;filename=profile.jpg"
+    ///
+    ///     @filename
+    ///         Use a file as the request body.
+    ///
+    ///     header:value
+    ///         Add a header, e.g. "user-agent:foobar"
+    ///
+    ///     header:
+    ///         Unset a header, e.g. "connection:"
+    ///
+    ///     header;
+    ///         Add a header with an empty value.
+    ///
+    /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
+    ///
+    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
+    /// For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
@@ -365,28 +438,11 @@ impl Cli {
                 // would print long help and print short help instead. And if we do
                 // want to print long help, then we handle that in try_parse_from
                 // instead of here.
-                if env::var_os("XH_HELP2MAN").is_some() {
-                    Self::into_app()
-                        .help_template(
-                            "\
-                                Usage: {usage}\n\
-                                \n\
-                                {about}\n\
-                                \n\
-                                Options:\n\
-                                {options}\n\
-                                {after-help}\
-                            ",
-                        )
-                        .print_long_help()
-                        .unwrap();
-                } else {
-                    Self::into_app().print_help().unwrap();
-                    println!(
-                        "\nRun `{} help` for more complete documentation.",
-                        env!("CARGO_PKG_NAME")
-                    );
-                }
+                Self::into_app().print_help().unwrap();
+                println!(
+                    "\nRun `{} help` for more complete documentation.",
+                    env!("CARGO_PKG_NAME")
+                );
                 safe_exit();
             }
             Err(err) => err.exit(),
@@ -404,12 +460,16 @@ impl Cli {
 
         match cli.raw_method_or_url.as_str() {
             "help" => {
+                // opt-out of clap's auto-generated possible values help for --pretty
+                // as we already list them in the long_help
+                app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+
                 app.print_long_help().unwrap();
                 println!();
                 safe_exit();
             }
-            "print_completions" => return Err(print_completions(app, cli.raw_rest_args)),
-            "generate_completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
+            "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
             _ => {}
         }
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
@@ -631,32 +691,8 @@ fn construct_url(
     Ok(url)
 }
 
-// This signature is a little weird: we either return an error or don't
-// return at all
-fn print_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
-    let bin_name = match app.get_bin_name() {
-        // This name is borrowed from `app`, and `gen_completions_to()` mutably
-        // borrows `app`, so we need to do a clone
-        Some(name) => name.to_owned(),
-        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
-    };
-    if rest_args.len() != 1 {
-        return app.error(
-            ErrorKind::WrongNumberOfValues,
-            "Usage: xh print_completions <SHELL>",
-        );
-    }
-    let shell = match rest_args[0].parse::<clap_complete::Shell>() {
-        Ok(shell) => shell,
-        Err(_) => return app.error(ErrorKind::InvalidValue, "Unknown shell name"),
-    };
-    let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut app, bin_name, &mut buf);
-    let completions = String::from_utf8(buf).unwrap();
-    print!("{}", completions);
-    safe_exit();
-}
-
+#[cfg(feature = "man-completion-gen")]
+// This signature is a little weird: we either return an error or don't return at all
 fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     let bin_name = match app.get_bin_name() {
         Some(name) => name.to_owned(),
@@ -665,17 +701,202 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
     if rest_args.len() != 1 {
         return app.error(
             ErrorKind::WrongNumberOfValues,
-            "Usage: xh generate_completions <DIRECTORY>",
+            "Usage: xh generate-completions <DIRECTORY>",
         );
     }
+
     for &shell in clap_complete::Shell::value_variants() {
         // Elvish complains about multiple deprecations and these don't seem to work
-        // If you must use them, generate them manually with xh print_completions elvish
         if shell != clap_complete::Shell::Elvish {
             clap_complete::generate_to(shell, &mut app, &bin_name, &rest_args[0]).unwrap();
         }
     }
     safe_exit();
+}
+
+#[cfg(feature = "man-completion-gen")]
+fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+    use roff::{bold, italic, roman, Roff};
+    use time::OffsetDateTime as DateTime;
+
+    if rest_args.len() != 1 {
+        return app.error(
+            ErrorKind::WrongNumberOfValues,
+            "Usage: xh generate-manpages <DIRECTORY>",
+        );
+    }
+
+    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
+
+    let mut request_items_roff = Roff::new();
+    let request_items = items
+        .iter()
+        .find(|opt| opt.get_id() == "raw-rest-args")
+        .unwrap();
+    let request_items_help = request_items
+        .get_long_help()
+        .or_else(|| request_items.get_help())
+        .expect("request_items is missing help");
+
+    // replace the indents in request_item help with proper roff controls
+    // For example:
+    //
+    // ```
+    // normal help normal help
+    // normal help normal help
+    //
+    //   request-item-1
+    //     help help
+    //
+    //   request-item-2
+    //     help help
+    //
+    // normal help normal help
+    // ```
+    //
+    // Should look like this with roff controls
+    //
+    // ```
+    // normal help normal help
+    // normal help normal help
+    // .RS 12
+    // .TP
+    // request-item-1
+    // help help
+    // .TP
+    // request-item-2
+    // help help
+    // .RE
+    //
+    // .RS
+    // normal help normal help
+    // .RE
+    // ```
+    let lines: Vec<&str> = request_items_help.lines().collect();
+    let mut rs = false;
+    for i in 0..lines.len() {
+        if lines[i].is_empty() {
+            let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
+            let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
+            if prev != next && next > 0 {
+                if !rs {
+                    request_items_roff.control("RS", ["8"]);
+                    rs = true;
+                }
+                request_items_roff.control("TP", ["4"]);
+            } else if prev != next && next == 0 {
+                request_items_roff.control("RE", []);
+                request_items_roff.text(vec![roman("")]);
+                request_items_roff.control("RS", []);
+            } else {
+                request_items_roff.text(vec![roman(lines[i])]);
+            }
+        } else {
+            request_items_roff.text(vec![roman(lines[i].trim())]);
+        }
+    }
+    request_items_roff.control("RE", []);
+
+    let mut options_roff = Roff::new();
+    let non_pos_items = items
+        .iter()
+        .filter(|a| !a.is_positional())
+        .collect::<Vec<_>>();
+    // move the first two items (i.e. --help, --version) to the end
+    let non_pos_items = non_pos_items
+        .iter()
+        .cycle()
+        .skip(2)
+        .take(non_pos_items.len());
+
+    for opt in non_pos_items {
+        let mut header = vec![];
+        if let Some(short) = opt.get_short() {
+            header.push(bold(format!("-{}", short)));
+        }
+        if let Some(long) = opt.get_long() {
+            if !header.is_empty() {
+                header.push(roman(", "));
+            }
+            header.push(bold(format!("--{}", long)));
+        }
+        if let Some(value) = &opt.get_value_names() {
+            if opt.get_long().is_some() {
+                header.push(roman("="));
+            } else {
+                header.push(roman(" "));
+            }
+
+            if opt.get_id() == "auth" {
+                header.push(italic("USER"));
+                header.push(roman("["));
+                header.push(italic(":PASS"));
+                header.push(roman("] | "));
+                header.push(italic("TOKEN"));
+            } else {
+                header.push(italic(&value.join(" ")));
+            }
+        }
+        let mut body = vec![];
+
+        let mut help = opt
+            .get_long_help()
+            .or_else(|| opt.get_help())
+            .expect("option is missing help")
+            .to_owned();
+        if !help.ends_with('.') {
+            help.push('.')
+        }
+        body.push(roman(help));
+
+        if let Some(possible_values) = opt.get_possible_values() {
+            if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
+                let possible_values_text = format!(
+                    "\n\n[possible values: {}]",
+                    possible_values
+                        .iter()
+                        .map(|v| v.get_name())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                body.push(roman(possible_values_text));
+            }
+        }
+        options_roff.control("TP", ["4"]);
+        options_roff.text(header);
+        options_roff.text(body);
+    }
+
+    let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
+
+    let current_date = {
+        let (year, month, day) = DateTime::now_utc().date().as_ymd();
+        format!("{}-{:02}-{:02}", year, month, day)
+    };
+
+    manpage = manpage.replace("{{date}}", &current_date);
+    manpage = manpage.replace("{{version}}", app.get_version().unwrap());
+    manpage = manpage.replace("{{request_items}}", request_items_roff.to_roff().trim());
+    manpage = manpage.replace("{{options}}", options_roff.to_roff().trim());
+
+    fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
+    safe_exit();
+}
+
+#[cfg(not(feature = "man-completion-gen"))]
+fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+    clap::Error::raw(
+        clap::ErrorKind::InvalidSubcommand,
+        "generate-completions requires enabling man-completion-gen feature\n",
+    )
+}
+
+#[cfg(not(feature = "man-completion-gen"))]
+fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+    clap::Error::raw(
+        clap::ErrorKind::InvalidSubcommand,
+        "generate-manpages requires enabling man-completion-gen feature\n",
+    )
 }
 
 #[derive(ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
@@ -693,9 +914,13 @@ impl Default for AuthType {
 
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
+    /// (default) Enable both coloring and formatting
     All,
+    /// Apply syntax highlighting to output
     Colors,
+    /// Pretty-print json and sort headers
     Format,
+    /// Disable both coloring and formatting
     None,
 }
 
