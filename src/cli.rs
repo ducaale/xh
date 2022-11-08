@@ -93,7 +93,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
     pub response_charset: Option<&'static Encoding>,
 
-    /// Override the response mime type for coloring and formatting for the terminal
+    /// Override the response mime type for coloring and formatting for the terminal.
     ///
     /// Example: --response-mime=application/json
     #[clap(long, value_name = "MIME_TYPE")]
