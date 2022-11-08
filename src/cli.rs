@@ -839,10 +839,14 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         }
         let mut body = vec![];
 
-        let help = opt
+        let mut help = opt
             .get_long_help()
             .or_else(|| opt.get_help())
-            .expect("option is missing help");
+            .expect("option is missing help")
+            .to_owned();
+        if !help.ends_with('.') {
+            help.push('.')
+        }
         body.push(roman(help));
 
         if let Some(possible_values) = opt.get_possible_values() {
