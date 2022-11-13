@@ -76,6 +76,8 @@ OPTIONS:
     -v, --verbose                        Print the whole request as well as the response
         --all                            Show any intermediary requests/responses while following redirects with --follow
     -P, --history-print <FORMAT>         The same as --print but applies only to intermediary requests/responses
+    -4, --ipv4                           Resolve hostname to ipv4 addresses only
+    -6, --ipv6                           Resolve hostname to ipv6 addresses only
     -q, --quiet                          Do not print to stdout or stderr
     -S, --stream                         Always stream the response body
     -o, --output <FILE>                  Save output to FILE instead of stdout
@@ -84,14 +86,14 @@ OPTIONS:
         --session <FILE>                 Create, or reuse and update a session
         --session-read-only <FILE>       Create or read a session without updating it form the request/response exchange
     -A, --auth-type <AUTH_TYPE>          Specify the auth mechanism [possible values: basic, bearer, digest]
-    -a, --auth <USER[:PASS] | TOKEN>     Authenticate as USER with PASS or with TOKEN
+    -a, --auth <USER[:PASS] | TOKEN>     Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
         --ignore-netrc                   Do not use credentials from .netrc
         --offline                        Construct HTTP requests without sending them anywhere
         --check-status                   (default) Exit with an error status code if the server replies with an error
     -F, --follow                         Do follow redirects
-        --max-redirects <NUM>            Number of redirects to follow, only respected if `follow` is set
+        --max-redirects <NUM>            Number of redirects to follow. Only respected if --follow is used
         --timeout <SEC>                  Connection timeout of the request
-        --proxy <PROTOCOL:URL>           Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`
+        --proxy <PROTOCOL:URL>           Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080
         --verify <VERIFY>                If "no", skip SSL verification. If a file path, use it as a CA bundle
         --cert <FILE>                    Use a client side certificate for SSL
         --cert-key <FILE>                A private key file to use with --cert
@@ -100,7 +102,7 @@ OPTIONS:
         --https                          Make HTTPS requests if not specified in the URL
         --http-version <VERSION>         HTTP version to use [possible values: 1.0, 1.1, 2]
     -I, --ignore-stdin                   Do not attempt to read stdin
-        --curl                           Print a translation to a `curl` command
+        --curl                           Print a translation to a curl command
         --curl-long                      Use the long versions of curl's flags
         --help                           Print help information
     -V, --version                        Print version information
@@ -123,10 +125,17 @@ Run `xh help` for more detailed information.
 
 The request body can also be read from standard input, or from a file using `@filename`.
 
+To construct a complex JSON object, a JSON path can be used as a key e.g `app[container][0][id]=090-5`.
+For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
+
 ### Shorthand form for URLs
 
-Similar to HTTPie, specifying the scheme portion of the request URL is optional. `xh` also supports
-omitting `localhost` from the URL as long it starts with colon plus an optional port number. 
+Similar to HTTPie, specifying the scheme portion of the request URL is optional, and a leading colon works as shorthand
+for localhost. `:8000` is equivalent to `localhost:8000`, and `:/path` is equivalent to `localhost/path`.
+
+URLs can have a leading `://` which allows quickly converting a URL into a valid xh or HTTPie command. For example
+`http://httpbin.org/json` becomes `http ://httpbin.org/json`.
+
 
 ```sh
 xh http://localhost:3000/users # resolves to http://localhost:3000/users
@@ -167,6 +176,9 @@ xh get httpbin.org/json id==5 sort==true
 
 # Send a GET request and include a header named x-api-key with value 12345
 xh get httpbin.org/json x-api-key:12345
+
+# Send a POST request with body read from stdin.
+echo "[1, 2, 3]" | xh post httpbin.org/post
 
 # Send a PUT request and pipe the result to less
 xh put httpbin.org/put id:=49 age:=25 | less
