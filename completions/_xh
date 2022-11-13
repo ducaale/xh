@@ -16,7 +16,10 @@ _xh() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--raw=[Pass raw request data without extra processing]:RAW: ' \
-'--pretty=[Controls output processing]:STYLE:(all colors format none)' \
+'--pretty=[Controls output processing]:STYLE:((all\:"(default) Enable both coloring and formatting"
+colors\:"Apply syntax highlighting to output"
+format\:"Pretty-print json and sort headers"
+none\:"Disable both coloring and formatting"))' \
 '-s+[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--style=[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--response-charset=[Override the response encoding for terminal display purposes]:ENCODING: ' \
@@ -31,12 +34,12 @@ _xh() {
 '(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE: ' \
 '-A+[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
 '--auth-type=[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
-'-a+[Authenticate as USER with PASS or with TOKEN]:USER[:PASS] | TOKEN: ' \
-'--auth=[Authenticate as USER with PASS or with TOKEN]:USER[:PASS] | TOKEN: ' \
+'-a+[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN: ' \
+'--auth=[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN: ' \
 '--bearer=[Authenticate with a bearer token]:TOKEN: ' \
-'--max-redirects=[Number of redirects to follow, only respected if `follow` is set]:NUM: ' \
+'--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM: ' \
 '--timeout=[Connection timeout of the request]:SEC: ' \
-'*--proxy=[Use a proxy for a protocol. For example: `--proxy https:http://proxy.host:8080`]:PROTOCOL:URL: ' \
+'*--proxy=[Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080]:PROTOCOL:URL: ' \
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY: ' \
 '--cert=[Use a client side certificate for SSL]:FILE: ' \
 '--cert-key=[A private key file to use with --cert]:FILE: ' \
@@ -59,6 +62,10 @@ _xh() {
 '-v[Print the whole request as well as the response]' \
 '--verbose[Print the whole request as well as the response]' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
+'-4[Resolve hostname to ipv4 addresses only]' \
+'--ipv4[Resolve hostname to ipv4 addresses only]' \
+'-6[Resolve hostname to ipv6 addresses only]' \
+'--ipv6[Resolve hostname to ipv6 addresses only]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
@@ -76,7 +83,7 @@ _xh() {
 '--https[Make HTTPS requests if not specified in the URL]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
-'--curl[Print a translation to a `curl` command]' \
+'--curl[Print a translation to a curl command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
 '--no-help[]' \
 '--no-version[]' \
@@ -94,6 +101,8 @@ _xh() {
 '--no-verbose[]' \
 '--no-all[]' \
 '--no-history-print[]' \
+'--no-ipv4[]' \
+'--no-ipv6[]' \
 '--no-quiet[]' \
 '--no-stream[]' \
 '--no-output[]' \
@@ -123,7 +132,7 @@ _xh() {
 '--no-curl[]' \
 '--no-curl-long[]' \
 ':raw-method-or-url -- The request URL, preceded by an optional HTTP method:' \
-'*::raw-rest-args -- Optional key-value pairs to be included in the request:' \
+'*::raw-rest-args -- Optional key-value pairs to be included in the request.:' \
 && ret=0
 }
 

@@ -1,45 +1,148 @@
-[OPTIONS]
-.SS "Positional Arguments"
-.HP
-METHOD
-.IP
-The HTTP method to use. One of \fBget\fR, \fBpost\fR, \fBhead\fR, \fBput\fR, \fBpatch\fR, \fBdelete\fR, or \fBoptions\fR.
-.IP
-Optional. If omitted, a GET or a POST will be done depending on whether the request sends data.
-.HP
-URL
-.IP
-The URL to request. The scheme defaults to 'http://' unless \fB\-\-https\fR is used.
-.IP
-A leading colon works as shorthand for localhost. :8000 is equivalent to localhost:8000, and :/path is equivalent to localhost/path.
-.HP
-REQUEST_ITEM...
-.IP
-Optional key-value pairs to be included in the request.
-.IP
-\fBkey==value\fR to add a parameter to the URL
-.IP
-\fBkey=value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR)
-.IP
-\fBkey=@value\fR to add a JSON field (\fB\-\-json\fR) or form field (\fB\-\-form\fR) from a file.
-.IP
-\fBkey:=value\fR to add a complex JSON value (e.g. `numbers:=[1,2,3]`)
-.IP
-\fBkey:=@value\fR to add a complex JSON value (e.g. `numbers:=@data.json`) from a file.
-.IP
-\fBkey@filename\fR to upload a file from filename (with \fB\-\-form\fR)
-.IP
-\fB@filename\fR to use a file as the request body
-.IP
-\fBheader:value\fR to add a header
-.IP
-\fBheader:\fR to unset a header
-.IP
-\fBheader;\fR to add a header with an empty value
-.IP
-A backslash can be used to escape special characters (e.g. weird\\:key=value).
-.IP
-File uploads can take ';type=' and ';filename=' parameters to set the mimetype and filename, respectively. For example:
-.IP
-  key@filename;type=text/html;filename=document.html
-.SS "Options"
+.TH XH 1 {{date}} {{version}} "User Commands"
+
+.SH NAME
+xh \- Friendly and fast tool for sending HTTP requests
+
+.SH SYNOPSIS
+.B xh
+[\fIOPTIONS\fR]
+[\fIMETHOD\fR]
+\fIURL\fR
+[\-\-\]
+[\fIREQUEST_ITEM\fR ...]
+
+.SH DESCRIPTION
+
+\fBxh\fR is an HTTP client with a friendly command line interface. It strives to
+have readable output and easy-to-use options.
+
+xh is mostly compatible with HTTPie: see \fBhttp\fR(1).
+
+The \fB--curl\fR option can be used to print a \fBcurl\fR(1) translation of the
+command instead of sending a request.
+
+.SH POSITIONAL ARGUMENTS
+.TP 4
+[\fIMETHOD\fR]\fI
+The HTTP method to use for the request.
+
+This defaults to GET, or to POST if the request contains a body.
+.TP
+\fIURL\fR
+The URL to request.
+
+The URL scheme defaults to "http://" normally, or "https://" if
+the program is invoked as "xhs".
+
+A leading colon works as shorthand for localhost. ":8000" is equivalent
+to "localhost:8000", and ":/path" is equivalent to "localhost/path".
+.TP
+[\fIREQUEST_ITEM\fR ...]
+{{request_items}}
+
+.SH OPTIONS
+Each --OPTION can be reset with a --no-OPTION argument.
+{{options}}
+
+.SH EXIT STATUS
+.TP 4
+.B 0
+Successful program execution.
+.TP
+.B 1
+Usage, syntax or network error.
+.TP
+.B 2
+Request timeout.
+.TP
+.B 3
+Unexpected HTTP 3xx Redirection.
+.TP
+.B 4
+HTTP 4xx Client Error.
+.TP
+.B 5
+HTTP 5xx Server Error.
+.TP
+.B 6
+Too many redirects.
+
+.SH ENVIRONMENT
+.TP 4
+.B XH_CONFIG_DIR
+Specifies where to look for config.json and named session data.
+The default is ~/.config/xh for Linux/macOS and %APPDATA%\\xh for Windows.
+.TP
+.B XH_HTTPIE_COMPAT_MODE
+Enables the HTTPie Compatibility Mode. The only current difference is that
+\-\-check-status is not enabled by default. An alternative to setting this
+environment variable is to rename the binary to either http or https.
+.TP
+.BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
+Sets a custom CA bundle path.
+.TP
+.B HTTPS_PROXY
+Sets the proxy server to use for HTTPS.
+.TP
+.B http_proxy
+Sets the proxy server to use for HTTP.
+.TP
+.B NETRC
+Location of the .netrc file.
+.TP
+.B NO_COLOR
+Disables output coloring. See <https://no-color.org>
+
+.SH FILES
+.TP 4
+.I ~/.config/xh/config.json
+xh configuration file. The only configurable option is "default_options"
+which is a list of default shell arguments that gets passed to xh.
+Example:
+
+.RS
+{ "default_options": ["--native-tls", "--style=solarized"] }
+.RE
+.TP
+.IR ~/.netrc ", " ~/_netrc
+Auto-login information file.
+.TP
+.I ~/.config/xh/sessions
+Session data directory grouped by domain and port number.
+
+.SH EXAMPLES
+.TP 4
+\fBxh\fR \fIhttpbin.org/json\fR
+Send a GET request.
+.TP
+\fBxh\fR \fIhttpbin.org/post name=ahmed \fIage:=24\fR
+Send a POST request with body {"name": "ahmed", "age": 24}.
+.TP
+\fBxh\fR get \fIhttpbin.org/json id==5 sort==true\fR
+Send a GET request to http://httpbin.org/json?id=5&sort=true.
+.TP
+\fBxh\fR get \fIhttpbin.org/json x-api-key:12345\fR
+Send a GET request and include a header named X-Api-Key with value 12345.
+.TP
+echo "[1, 2, 3]" | \fBxh\fR post \fIhttpbin.org/post
+Send a POST request with body read from stdin.
+.TP
+\fBxh\fR put \fIhttpbin.org/put id:=49 age:=25\fR | less
+Send a PUT request and pipe the result to less.
+.TP
+\fBxh\fR -d \fIhttpbin.org/json\fR -o \fIres.json\fR
+Download and save to res.json.
+.TP
+\fBxh\fR \fIhttpbin.org/get user-agent:foobar\fR
+Make a request with a custom user agent.
+.TP
+\fBxhs\fR \fIexample.com\fR
+Make an HTTPS request to https://example.com.
+
+.SH REPORTING BUGS
+xh's Github issues <https://github.com/ducaale/xh/issues>
+
+.SH SEE ALSO
+\fBcurl\fR(1), \fBhttp\fR(1)
+
+HTTPie's online documentation <https://httpie.io/docs/cli>
