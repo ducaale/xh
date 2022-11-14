@@ -14,6 +14,9 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             flags: --features=native-tls
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
             os: macos-latest
             flags: --features=native-tls

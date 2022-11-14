@@ -84,7 +84,7 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     let mut cmd = Command::new(args.curl_long);
 
-    let ignored = &[
+    let ignored = [
         // No equivalent
         (args.offline, "--offline"),
         // Already the default
@@ -113,9 +113,13 @@ pub fn translate(args: Cli) -> Result<Command> {
     ];
 
     for (present, flag) in ignored {
-        if *present {
+        if present {
             cmd.warn(format!("Ignored {}", flag));
         }
+    }
+
+    if args.follow && !matches!(args.method, Some(Method::GET) | None) {
+        cmd.warn("Using a combination of -X/--request and -L/--location which may cause unintended side effects.");
     }
 
     // Silently ignored:
@@ -265,6 +269,13 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     cmd.arg(args.url.to_string());
 
+    // Force ipv4/ipv6 options
+    match (args.ipv4, args.ipv6) {
+        (true, false) => cmd.opt("-4", "--ipv4"),
+        (false, true) => cmd.opt("-6", "--ipv6"),
+        _ => (),
+    };
+
     // Payload
     for (header, value) in headers.iter() {
         cmd.opt("-H", "--header");
@@ -284,19 +295,19 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
     if let Some(auth) = args.auth {
         match args.auth_type.unwrap_or_default() {
-            AuthType::basic => {
+            AuthType::Basic => {
                 cmd.arg("--basic");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
-            AuthType::digest => {
+            AuthType::Digest => {
                 cmd.arg("--digest");
                 // curl implements this flag the same way, including password prompt
                 cmd.opt("-u", "--user");
                 cmd.arg(auth);
             }
-            AuthType::bearer => {
+            AuthType::Bearer => {
                 cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
             }
@@ -356,7 +367,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg("--data-urlencode");
                     // Encoding this is tricky: --data-urlencode expects name
                     // to be encoded but not value and doesn't take strings
-                    let mut encoded = serde_urlencoded::to_string(&[(key, "")])?;
+                    let mut encoded = serde_urlencoded::to_string([(key, "")])?;
                     encoded.push_str(&value);
                     cmd.arg(encoded);
                 }
@@ -405,6 +416,8 @@ mod tests {
     fn examples() {
         let expected = vec![
             ("xh httpbin.org/get", "curl http://httpbin.org/get"),
+            ("xh httpbin.org/get -4", "curl http://httpbin.org/get -4"),
+            ("xh httpbin.org/get -6", "curl http://httpbin.org/get -6"),
             (
                 "xh httpbin.org/post x=3",
                 #[cfg(not(windows))]
