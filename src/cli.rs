@@ -852,12 +852,11 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         }
         body.push(roman(help));
 
-        if let Some(possible_values) = opt.get_possible_values() {
+        if let Some(possible_values) = opt.get_value_parser().possible_values() {
             if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
                 let possible_values_text = format!(
                     "\n\n[possible values: {}]",
                     possible_values
-                        .iter()
                         .map(|v| v.get_name())
                         .collect::<Vec<_>>()
                         .join(", ")
