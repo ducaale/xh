@@ -14,7 +14,6 @@ use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
-use predicates::boolean::PredicateBooleanExt;
 use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
@@ -1127,9 +1126,12 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_default_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "https://self-signed.badssl.com"])
         .assert()
@@ -1139,9 +1141,12 @@ fn verify_default_yes() {
         .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_explicit_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
