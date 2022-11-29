@@ -465,9 +465,14 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     if args.download {
-        request
-            .headers_mut()
-            .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+        let encoding = args
+            .download_encoding
+            .clone()
+            .unwrap_or_else(|| "identity".to_string());
+        request.headers_mut().insert(
+            ACCEPT_ENCODING,
+            HeaderValue::from_str(encoding.as_str()).unwrap(),
+        );
     }
 
     let buffer = Buffer::new(
@@ -555,6 +560,7 @@ fn run(args: Cli) -> Result<i32> {
             if exit_code == 0 {
                 download_file(
                     response,
+                    args.download_encoding.is_none(),
                     args.output,
                     &args.url,
                     resume,

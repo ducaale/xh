@@ -159,6 +159,10 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(short = 'd', long)]
     pub download: bool,
 
+    /// During download, request a content encoding and skip decompression.
+    #[clap(long)]
+    pub download_encoding: Option<String>,
+
     /// Resume an interrupted download. Requires --download and --output.
     #[clap(
         short = 'c',
