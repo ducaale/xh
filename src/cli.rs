@@ -1070,13 +1070,20 @@ impl FromStr for Timeout {
     type Err = anyhow::Error;
 
     fn from_str(sec: &str) -> anyhow::Result<Timeout> {
-        let pos_sec: f64 = match sec.parse::<f64>() {
-            Ok(sec) if sec.is_sign_positive() => sec,
-            _ => return Err(anyhow!("Invalid seconds as connection timeout")),
-        };
-
-        let dur = Duration::from_secs_f64(pos_sec);
-        Ok(Timeout(dur))
+        match f64::from_str(sec) {
+            Ok(s) => {
+                if !s.is_finite() {
+                    Err(anyhow!("Connection timeout is not finite"))
+                } else if s.is_sign_negative() {
+                    Err(anyhow!("Connection timeout is negative"))
+                } else if s >= Duration::MAX.as_secs_f64() {
+                    Err(anyhow!("Connection timeout is too big"))
+                } else {
+                    Ok(Timeout(Duration::from_secs_f64(s)))
+                }
+            }
+            _ => Err(anyhow!("Connection timeout is not float value")),
+        }
     }
 }
 
