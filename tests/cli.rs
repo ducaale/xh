@@ -662,12 +662,6 @@ fn timeout_no_limit() {
 #[test]
 fn timeout_invalid() {
     get_command()
-        .args(["--timeout=inf", "--offline", ":"])
-        .assert()
-        .failure()
-        .stderr(contains("Connection timeout is not finite"));
-
-    get_command()
         .args(["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
@@ -680,10 +674,22 @@ fn timeout_invalid() {
         .stderr(contains("Connection timeout is too big"));
 
     get_command()
+        .args(["--timeout=inf", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=NaN", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
+
+    get_command()
         .args(["--timeout=SEC", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(contains("Connection timeout is not float value"));
+        .stderr(contains("Connection timeout is not a valid number"));
 }
 
 #[test]
