@@ -81,11 +81,15 @@ environment variable is to rename the binary to either http or https.
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
 .TP
+.B http_proxy
+Sets the proxy server to use for HTTP.
+.TP
 .B HTTPS_PROXY
 Sets the proxy server to use for HTTPS.
 .TP
-.B http_proxy
-Sets the proxy server to use for HTTP.
+.B NO_PROXY
+List of comma seperated host names where proxy server is ignored. Use "*"
+to match all host names.
 .TP
 .B NETRC
 Location of the .netrc file.
