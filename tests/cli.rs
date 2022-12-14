@@ -665,7 +665,31 @@ fn timeout_invalid() {
         .args(["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(contains("Invalid seconds as connection timeout"));
+        .stderr(contains("Connection timeout is negative"));
+
+    get_command()
+        .args(["--timeout=18446744073709552000", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=inf", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=NaN", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
+
+    get_command()
+        .args(["--timeout=SEC", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
 }
 
 #[test]
