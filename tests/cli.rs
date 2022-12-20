@@ -1007,7 +1007,7 @@ fn netrc_file_user_password_auth() {
 
         let homedir = TempDir::new().unwrap();
         let netrc_path = homedir.path().join(netrc_file);
-        let mut netrc = File::create(&netrc_path).unwrap();
+        let mut netrc = File::create(netrc_path).unwrap();
         writeln!(
             netrc,
             "machine {}\nlogin user\npassword pass",
