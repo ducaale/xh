@@ -834,7 +834,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
-                header.push(italic(&value.join(" ")));
+                header.push(italic(value.join(" ")));
             }
         }
         let mut body = vec![];
