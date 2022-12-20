@@ -359,7 +359,7 @@ impl RequestItems {
                     file_type,
                     file_name_header,
                 } => {
-                    let mut part = file_to_part(expand_tilde(&file_name))?;
+                    let mut part = file_to_part(expand_tilde(file_name))?;
                     if let Some(file_type) = file_type {
                         part = part.mime_str(&file_type)?;
                     }
