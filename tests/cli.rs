@@ -413,9 +413,9 @@ fn download() {
 }
 
 #[test]
-fn accept_encoding_not_modifiable_in_download_mode() {
+fn accept_encoding_modifiable_in_download_mode() {
     let server = server::http(|req| async move {
-        assert_eq!(req.headers()["accept-encoding"], "identity");
+        assert_eq!(req.headers()["accept-encoding"], "gzip");
         hyper::Response::builder()
             .body(r#"{"ids":[1,2,3]}"#.into())
             .unwrap()
@@ -427,6 +427,64 @@ fn accept_encoding_not_modifiable_in_download_mode() {
         .args([&server.base_url(), "--download", "accept-encoding:gzip"])
         .assert()
         .success();
+}
+
+#[test]
+fn accept_encoding_identity_default_in_download_mode() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["accept-encoding"], "identity");
+        hyper::Response::builder()
+            .body(r#"{"ids":[1,2,3]}"#.into())
+            .unwrap()
+    });
+
+    let dir = tempdir().unwrap();
+    get_command()
+        .current_dir(&dir)
+        .args([&server.base_url(), "--download"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn accept_encoding_identity_in_resumable_download_mode() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["accept-encoding"], "identity");
+        hyper::Response::builder()
+            .body(r#"{"ids":[1,2,3]}"#.into())
+            .unwrap()
+    });
+
+    let dir = tempdir().unwrap();
+    get_command()
+        .current_dir(&dir)
+        .args([
+            &server.base_url(),
+            "--download",
+            "--output",
+            "foo",
+            "--continue",
+            "accept-encoding:identity",
+        ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn accept_encoding_not_modifiable_in_resumable_download_mode() {
+    let dir = tempdir().unwrap();
+    get_command()
+        .current_dir(&dir)
+        .args([
+            ":",
+            "--download",
+            "--output",
+            "foo",
+            "--continue",
+            "accept-encoding:gzip",
+        ])
+        .assert()
+        .failure();
 }
 
 #[test]

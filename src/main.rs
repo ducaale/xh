@@ -353,11 +353,25 @@ fn run(args: Cli) -> Result<i32> {
     let mut request = {
         let mut request_builder = client
             .request(method, args.url.clone())
-            .header(
+            .header(USER_AGENT, get_user_agent());
+
+        if args.download {
+            if let Some(encoding) = headers.get(ACCEPT_ENCODING) {
+                if args.resume && encoding != HeaderValue::from_static("identity") {
+                    return Err(anyhow!(
+                            "Cannot use --continue with --download, when the encoding is not 'identity'"
+                        ));
+                }
+            } else {
+                request_builder =
+                    request_builder.header(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+            }
+        } else {
+            request_builder = request_builder.header(
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
-            )
-            .header(USER_AGENT, get_user_agent());
+            );
+        }
 
         if matches!(
             args.http_version,
@@ -463,16 +477,6 @@ fn run(args: Cli) -> Result<i32> {
 
         request
     };
-
-    if args.download {
-        if let Some(encoding) = request.headers().get(ACCEPT_ENCODING) {
-            if args.resume && encoding != HeaderValue::from_static("identity") {
-            return Err(anyhow!("Cannot use --continue with --download, when the encoding is not 'identity'"));
-            }
-        } else {
-            request.headers_mut().insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
-        }
-    }
 
     let buffer = Buffer::new(
         args.download,

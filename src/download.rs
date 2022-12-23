@@ -245,7 +245,7 @@ pub fn download_file(
         pb.reset_eta();
     }
 
-    let compression_type = if !preserve_encoding{
+    let compression_type = if !preserve_encoding {
         get_compression_type(response.headers())
     } else {
         None
