@@ -160,7 +160,7 @@ const UNCOLORED_SPINNER_TEMPLATE: &str = "{spinner} {bytes} {bytes_per_sec} {wid
 
 pub fn download_file(
     mut response: Response,
-    do_decompress: bool,
+    preserve_encoding: bool,
     file_name: Option<PathBuf>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
@@ -245,7 +245,7 @@ pub fn download_file(
         pb.reset_eta();
     }
 
-    let compression_type = if do_decompress {
+    let compression_type = if !preserve_encoding{
         get_compression_type(response.headers())
     } else {
         None

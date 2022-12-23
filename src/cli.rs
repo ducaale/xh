@@ -159,9 +159,11 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(short = 'd', long)]
     pub download: bool,
 
-    /// During download, request a content encoding and skip decompression.
-    #[clap(long)]
-    pub download_encoding: Option<String>,
+    /// During download, keep the raw encoding of the body. Requires --download.
+    ///
+    /// For example, set Accept-Encoding: gzip and use --preserve-encoding to skip decompression.
+    #[clap(long, requires = "download")]
+    pub preserve_encoding: bool,
 
     /// Resume an interrupted download. Requires --download and --output.
     #[clap(

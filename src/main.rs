@@ -465,14 +465,13 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     if args.download {
-        let encoding = args
-            .download_encoding
-            .clone()
-            .unwrap_or_else(|| "identity".to_string());
-        request.headers_mut().insert(
-            ACCEPT_ENCODING,
-            HeaderValue::from_str(encoding.as_str()).unwrap(),
-        );
+        if let Some(encoding) = request.headers().get(ACCEPT_ENCODING) {
+            if args.resume && encoding != HeaderValue::from_static("identity") {
+            return Err(anyhow!("Cannot use --continue with --download, when the encoding is not 'identity'"));
+            }
+        } else {
+            request.headers_mut().insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+        }
     }
 
     let buffer = Buffer::new(
@@ -560,7 +559,7 @@ fn run(args: Cli) -> Result<i32> {
             if exit_code == 0 {
                 download_file(
                     response,
-                    args.download_encoding.is_none(),
+                    args.preserve_encoding,
                     args.output,
                     &args.url,
                     resume,
