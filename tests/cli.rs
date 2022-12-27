@@ -14,7 +14,6 @@ use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
-use predicates::boolean::PredicateBooleanExt;
 use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
@@ -666,7 +665,31 @@ fn timeout_invalid() {
         .args(["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(contains("Invalid seconds as connection timeout"));
+        .stderr(contains("Connection timeout is negative"));
+
+    get_command()
+        .args(["--timeout=18446744073709552000", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=inf", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=NaN", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
+
+    get_command()
+        .args(["--timeout=SEC", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
 }
 
 #[test]
@@ -984,7 +1007,7 @@ fn netrc_file_user_password_auth() {
 
         let homedir = TempDir::new().unwrap();
         let netrc_path = homedir.path().join(netrc_file);
-        let mut netrc = File::create(&netrc_path).unwrap();
+        let mut netrc = File::create(netrc_path).unwrap();
         writeln!(
             netrc,
             "machine {}\nlogin user\npassword pass",
@@ -1127,9 +1150,12 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_default_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "https://self-signed.badssl.com"])
         .assert()
@@ -1139,9 +1165,12 @@ fn verify_default_yes() {
         .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_explicit_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
