@@ -372,7 +372,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///     header;
     ///         Add a header with an empty value.
     ///
-    /// "@" postfix can be added to "=",":=","==" and ":" to read the value from a file e.g. "x-api-key:@api-key.txt".
+    /// An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
