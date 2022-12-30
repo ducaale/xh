@@ -121,7 +121,8 @@ Run `xh help` for more detailed information.
 - `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
-- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=@` for strings and `:=@` for other JSON types).
+
+An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
 
 The request body can also be read from standard input, or from a file using `@filename`.
 

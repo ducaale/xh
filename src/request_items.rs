@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashSet,
     fs::{self, File},
     io,
@@ -21,8 +22,10 @@ pub const JSON_ACCEPT: &str = "application/json, */*;q=0.5";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RequestItem {
     HttpHeader(String, String),
+    HttpHeaderFromFile(String, String),
     HttpHeaderToUnset(String),
     UrlParam(String, String),
+    UrlParamFromFile(String, String),
     DataField {
         key: String,
         raw_key: String,
@@ -47,7 +50,7 @@ impl FromStr for RequestItem {
     type Err = clap::Error;
     fn from_str(request_item: &str) -> clap::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
-        const SEPS: &[&str] = &["=@", ":=@", "==", ":=", "=", "@", ":"];
+        const SEPS: &[&str] = &["==@", "=@", ":=@", ":@", "==", ":=", "=", "@", ":"];
 
         fn split(request_item: &str) -> Option<(&str, &'static str, &str)> {
             let mut char_inds = request_item.char_indices();
@@ -108,12 +111,14 @@ impl FromStr for RequestItem {
                 }
                 ":" if value.is_empty() => Ok(RequestItem::HttpHeaderToUnset(key)),
                 ":" => Ok(RequestItem::HttpHeader(key, value)),
+                "==@" => Ok(RequestItem::UrlParamFromFile(key, value)),
                 "=@" => Ok(RequestItem::DataFieldFromFile {
                     key,
                     raw_key,
                     value,
                 }),
                 ":=@" => Ok(RequestItem::JsonFieldFromFile(raw_key, value)),
+                ":@" => Ok(RequestItem::HttpHeaderFromFile(key, value)),
                 _ => unreachable!(),
             }
         } else if let Some(header) = request_item.strip_suffix(';') {
@@ -264,12 +269,20 @@ impl RequestItems {
                     headers_to_unset.remove(&key);
                     headers.append(key, value);
                 }
+                RequestItem::HttpHeaderFromFile(key, value) => {
+                    let key = HeaderName::from_bytes(key.as_bytes())?;
+                    let value = fs::read_to_string(expand_tilde(value))?;
+                    let value = HeaderValue::from_str(value.trim())?;
+                    headers_to_unset.remove(&key);
+                    headers.append(key, value);
+                }
                 RequestItem::HttpHeaderToUnset(key) => {
                     let key = HeaderName::from_bytes(key.as_bytes())?;
                     headers.remove(&key);
                     headers_to_unset.insert(key);
                 }
                 RequestItem::UrlParam(..) => {}
+                RequestItem::UrlParamFromFile(..) => {}
                 RequestItem::DataField { .. } => {}
                 RequestItem::DataFieldFromFile { .. } => {}
                 RequestItem::JsonField(..) => {}
@@ -280,14 +293,17 @@ impl RequestItems {
         Ok((headers, headers_to_unset))
     }
 
-    pub fn query(&self) -> Vec<(&str, &str)> {
-        let mut query = vec![];
+    pub fn query(&self) -> Result<Vec<(&str, Cow<str>)>> {
+        let mut query: Vec<(&str, Cow<str>)> = vec![];
         for item in &self.items {
             if let RequestItem::UrlParam(key, value) = item {
-                query.push((key.as_str(), value.as_str()));
+                query.push((key, Cow::Borrowed(value)));
+            } else if let RequestItem::UrlParamFromFile(key, value) = item {
+                let value = fs::read_to_string(expand_tilde(value))?;
+                query.push((key, Cow::Owned(value)));
             }
         }
-        query
+        Ok(query)
     }
 
     fn body_as_json(self) -> Result<Body> {
@@ -307,8 +323,10 @@ impl RequestItems {
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderFromFile(..)
                 | RequestItem::HttpHeaderToUnset(..)
-                | RequestItem::UrlParam(..) => continue,
+                | RequestItem::UrlParam(..)
+                | RequestItem::UrlParamFromFile(..) => continue,
             };
             let json_path = nested_json::parse_path(&raw_key)?;
             body = nested_json::insert(body, &json_path, value)
@@ -332,8 +350,10 @@ impl RequestItems {
                 }
                 RequestItem::FormFile { .. } => unreachable!(),
                 RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderFromFile(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
                 RequestItem::UrlParam(..) => {}
+                RequestItem::UrlParamFromFile(..) => {}
             }
         }
         Ok(Body::Form(text_fields))
@@ -369,8 +389,10 @@ impl RequestItems {
                     form = form.part(key, part);
                 }
                 RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderFromFile(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
                 RequestItem::UrlParam(..) => {}
+                RequestItem::UrlParamFromFile(..) => {}
             }
         }
         Ok(Body::Multipart(form))
@@ -418,8 +440,10 @@ impl RequestItems {
                     });
                 }
                 RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderFromFile(..)
                 | RequestItem::HttpHeaderToUnset(..)
-                | RequestItem::UrlParam(..) => {}
+                | RequestItem::UrlParam(..)
+                | RequestItem::UrlParamFromFile(..) => {}
             }
         }
         let body = body.expect("Should have had at least one file field");
@@ -459,8 +483,10 @@ impl RequestItems {
         for item in &self.items {
             match item {
                 RequestItem::HttpHeader(..)
+                | RequestItem::HttpHeaderFromFile(..)
                 | RequestItem::HttpHeaderToUnset(..)
-                | RequestItem::UrlParam(..) => continue,
+                | RequestItem::UrlParam(..)
+                | RequestItem::UrlParamFromFile(..) => continue,
                 RequestItem::DataField { .. }
                 | RequestItem::DataFieldFromFile { .. }
                 | RequestItem::JsonField(..)
@@ -522,6 +548,11 @@ mod tests {
         );
         // URL param
         assert_eq!(parse("foo==bar"), UrlParam("foo".into(), "bar".into()));
+        // URL param from file
+        assert_eq!(
+            parse("foo==@data.txt"),
+            UrlParamFromFile("foo".into(), "data.txt".into())
+        );
         // Escaped right before separator
         assert_eq!(
             parse(r"foo\==bar"),
@@ -533,6 +564,11 @@ mod tests {
         );
         // Header
         assert_eq!(parse("foo:bar"), HttpHeader("foo".into(), "bar".into()));
+        // Header from file
+        assert_eq!(
+            parse("foo:@data.txt"),
+            HttpHeaderFromFile("foo".into(), "data.txt".into())
+        );
         // JSON field
         assert_eq!(parse("foo:=[1,2]"), JsonField("foo".into(), json!([1, 2])));
         // JSON field from file

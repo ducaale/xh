@@ -1934,6 +1934,40 @@ fn json_field_from_file() {
 }
 
 #[test]
+fn header_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["x-api-key"], "hello1234");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "hello1234").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("x-api-key:@{}", text_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
+fn query_param_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.query_params()["foo"], "bar+baz\n");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "bar+baz").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("foo==@{}", text_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
 fn can_unset_default_headers() {
     get_command()
         .args([":", "user-agent:", "--offline"])

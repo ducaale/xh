@@ -347,18 +347,10 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a JSON property (--json) or form field (--form) to
     ///         the request body.
     ///
-    ///     key=@filename
-    ///         Add a JSON property (--json) or form field (--form) from a
-    ///         file to the request body.
-    ///
     ///     key:=value
     ///         Add a field with a literal JSON value to the request body.
     ///
     ///         Example: "numbers:=[1,2,3] enabled:=true"
-    ///
-    ///     key:=@filename
-    ///         Add a field with a literal JSON value from a file to the
-    ///         request body.
     ///
     ///     key@filename
     ///         Upload a file (requires --form or --multipart).
@@ -379,6 +371,8 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     ///     header;
     ///         Add a header with an empty value.
+    ///
+    /// An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
@@ -510,12 +504,7 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(
-            &raw_url,
-            cli.default_scheme.as_deref(),
-            cli.request_items.query(),
-        )
-        .map_err(|err| {
+        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
@@ -662,13 +651,12 @@ fn parse_method(method: &str) -> Option<Method> {
 fn construct_url(
     url: &str,
     default_scheme: Option<&str>,
-    query: Vec<(&str, &str)>,
 ) -> std::result::Result<Url, url::ParseError> {
     let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if let Some(url) = url.strip_prefix("://") {
+    let url: Url = if let Some(url) = url.strip_prefix("://") {
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
@@ -680,14 +668,6 @@ fn construct_url(
     } else {
         url.parse()?
     };
-    if !query.is_empty() {
-        // If we run this even without adding pairs it adds a `?`, hence
-        // the .is_empty() check
-        let mut pairs = url.query_pairs_mut();
-        for (name, value) in query {
-            pairs.append_pair(name, value);
-        }
-    }
     Ok(url)
 }
 
