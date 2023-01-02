@@ -53,7 +53,6 @@ none\:"Disable both coloring and formatting"))' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
 '--form[Serialize data items from the command line as form fields]' \
-'-m[Like --form, but force a multipart/form-data request even without files]' \
 '--multipart[Like --form, but force a multipart/form-data request even without files]' \
 '-h[Print only the response headers. Shortcut for --print=h]' \
 '--headers[Print only the response headers. Shortcut for --print=h]' \

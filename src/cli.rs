@@ -59,7 +59,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
+    #[clap(long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -372,7 +372,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///     header;
     ///         Add a header with an empty value.
     ///
-    /// An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
+    /// An "@" prefix can be used to read a value from a file. For example: "x-api-key:@api-key.txt".
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
@@ -434,7 +434,7 @@ impl Cli {
                 // instead of here.
                 Self::into_app().print_help().unwrap();
                 println!(
-                    "\nRun `{} help` for more complete documentation.",
+                    "\nRun \"{} help\" for more complete documentation.",
                     env!("CARGO_PKG_NAME")
                 );
                 safe_exit();
