@@ -7,6 +7,7 @@ use std::ffi::OsString;
 
 use crate::cli::{AuthType, Cli, HttpVersion, Verify};
 use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
+use crate::utils::url_with_query;
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
@@ -263,11 +264,13 @@ pub fn translate(args: Cli) -> Result<Command> {
     } else if let Some(method) = args.method {
         cmd.opt("-X", "--request");
         cmd.arg(method.to_string());
+    } else {
+        // We assume that curl's automatic detection of when to do a POST matches
+        // ours so we can ignore the None case
     }
-    // We assume that curl's automatic detection of when to do a POST matches
-    // ours so we can ignore the None case
 
-    cmd.arg(args.url.to_string());
+    let url = url_with_query(args.url, &args.request_items.query()?);
+    cmd.arg(url.to_string());
 
     // Force ipv4/ipv6 options
     match (args.ipv4, args.ipv6) {
@@ -349,8 +352,10 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg(val);
                 }
                 RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderFromFile(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
                 RequestItem::UrlParam(..) => {}
+                RequestItem::UrlParamFromFile(..) => {}
             }
         }
     } else {

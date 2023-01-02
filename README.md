@@ -64,7 +64,7 @@ ARGS:
 OPTIONS:
     -j, --json                           (default) Serialize data items from the command line as a JSON object
     -f, --form                           Serialize data items from the command line as form fields
-    -m, --multipart                      Like --form, but force a multipart/form-data request even without files
+        --multipart                      Like --form, but force a multipart/form-data request even without files
         --raw <RAW>                      Pass raw request data without extra processing
         --pretty <STYLE>                 Controls output processing [possible values: all, colors, format, none]
     -s, --style <THEME>                  Output coloring style [possible values: auto, solarized, monokai, fruity]
@@ -121,7 +121,8 @@ Run `xh help` for more detailed information.
 - `@` for including files in multipart requests e.g `picture@hello.jpg` or `picture@hello.jpg;type=image/jpeg;filename=goodbye.jpg`.
 - `:` for adding or removing headers e.g `connection:keep-alive` or `connection:`.
 - `;` for including headers with empty values e.g `header-without-value;`.
-- `=@`/`:=@` for setting the request body's JSON or form fields from a file (`=@` for strings and `:=@` for other JSON types).
+
+An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
 
 The request body can also be read from standard input, or from a file using `@filename`.
 

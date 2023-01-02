@@ -1,4 +1,4 @@
-.TH XH 1 2022-11-08 0.17.0 "User Commands"
+.TH XH 1 2023-01-02 0.17.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -50,18 +50,10 @@ key=value
 Add a JSON property (\-\-json) or form field (\-\-form) to
 the request body.
 .TP 4
-key=@filename
-Add a JSON property (\-\-json) or form field (\-\-form) from a
-file to the request body.
-.TP 4
 key:=value
 Add a field with a literal JSON value to the request body.
 
 Example: "numbers:=[1,2,3] enabled:=true"
-.TP 4
-key:=@filename
-Add a field with a literal JSON value from a file to the
-request body.
 .TP 4
 key@filename
 Upload a file (requires \-\-form or \-\-multipart).
@@ -85,6 +77,8 @@ Add a header with an empty value.
 .RE
 
 .RS
+An "@" prefix can be used to read a value from a file. For example: "x\-api\-key:@api\-key.txt".
+
 A backslash can be used to escape special characters, e.g. "weird\\:key=value".
 
 To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
@@ -104,7 +98,7 @@ Serialize data items from the command line as form fields.
 
 Overrides both \-\-json and \-\-multipart.
 .TP 4
-\fB\-m\fR, \fB\-\-multipart\fR
+\fB\-\-multipart\fR
 Like \-\-form, but force a multipart/form\-data request even without files.
 
 Overrides both \-\-json and \-\-form.
@@ -332,11 +326,15 @@ environment variable is to rename the binary to either http or https.
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
 .TP
-.B HTTPS_PROXY
+.BR http_proxy "=[protocol://]<host>[:port]"
+Sets the proxy server to use for HTTP.
+.TP
+.BR HTTPS_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTPS.
 .TP
-.B http_proxy
-Sets the proxy server to use for HTTP.
+.B NO_PROXY
+List of comma-separated hosts for which to ignore the other proxy environment
+variables. "*" matches all host names.
 .TP
 .B NETRC
 Location of the .netrc file.

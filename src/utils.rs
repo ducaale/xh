@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::env::var_os;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -100,6 +101,18 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     } else {
         path.as_ref().into()
     }
+}
+
+pub fn url_with_query(mut url: Url, query: &[(&str, Cow<str>)]) -> Url {
+    if !query.is_empty() {
+        // If we run this even without adding pairs it adds a `?`, hence
+        // the .is_empty() check
+        let mut pairs = url.query_pairs_mut();
+        for (name, value) in query {
+            pairs.append_pair(name, value);
+        }
+    }
+    url
 }
 
 // https://stackoverflow.com/a/45145246/5915221
