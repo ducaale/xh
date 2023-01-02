@@ -56,7 +56,6 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, '(default) Serialize data items from the command line as a JSON object')
             [CompletionResult]::new('-f', 'f', [CompletionResultType]::ParameterName, 'Serialize data items from the command line as form fields')
             [CompletionResult]::new('--form', 'form', [CompletionResultType]::ParameterName, 'Serialize data items from the command line as form fields')
-            [CompletionResult]::new('-m', 'm', [CompletionResultType]::ParameterName, 'Like --form, but force a multipart/form-data request even without files')
             [CompletionResult]::new('--multipart', 'multipart', [CompletionResultType]::ParameterName, 'Like --form, but force a multipart/form-data request even without files')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print only the response headers. Shortcut for --print=h')
             [CompletionResult]::new('--headers', 'headers', [CompletionResultType]::ParameterName, 'Print only the response headers. Shortcut for --print=h')
