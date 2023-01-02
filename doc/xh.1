@@ -132,9 +132,13 @@ Override the response mime type for coloring and formatting for the terminal.
 Example: \-\-response\-mime=application/json.
 .TP 4
 \fB\-p\fR, \fB\-\-print\fR=\fIFORMAT\fR
-String specifying what the output should contain.
+String specifying what the output should contain
 
-Use "H" and "B" for request header and body respectively, and "h" and "b" for response header and body.
+    'H' request headers
+    'B' request body
+    'h' response headers
+    'b' response body
+    'm' response metadata
 
 Example: \-\-print=Hb.
 .TP 4
@@ -144,10 +148,15 @@ Print only the response headers. Shortcut for \-\-print=h.
 \fB\-b\fR, \fB\-\-body\fR
 Print only the response body. Shortcut for \-\-print=b.
 .TP 4
+\fB\-m\fR, \fB\-\-meta\fR
+Print only the response metadata. Shortcut for \-\-print=m.
+.TP 4
 \fB\-v\fR, \fB\-\-verbose\fR
 Print the whole request as well as the response.
 
 Additionally, this enables \-\-all for printing intermediary requests/responses while following redirects.
+
+Using verbose twice i.e. \-vv will print the response metadata as well.
 
 Equivalent to \-\-print=HhBb \-\-all.
 .TP 4
