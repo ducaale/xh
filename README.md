@@ -64,7 +64,7 @@ ARGS:
 OPTIONS:
     -j, --json                           (default) Serialize data items from the command line as a JSON object
     -f, --form                           Serialize data items from the command line as form fields
-    -m, --multipart                      Like --form, but force a multipart/form-data request even without files
+        --multipart                      Like --form, but force a multipart/form-data request even without files
         --raw <RAW>                      Pass raw request data without extra processing
         --pretty <STYLE>                 Controls output processing [possible values: all, colors, format, none]
     -s, --style <THEME>                  Output coloring style [possible values: auto, solarized, monokai, fruity]
