@@ -42,7 +42,7 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-use crate::utils::{test_mode, test_pretend_term};
+use crate::utils::{test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
@@ -115,6 +115,7 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
+    let url = url_with_query(args.url, &args.request_items.query()?);
 
     let use_stdin = !(args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term());
     let body_type = args.request_items.body_type;
@@ -196,7 +197,7 @@ fn run(args: Cli) -> Result<i32> {
     #[cfg(feature = "native-tls")]
     if args.native_tls {
         client = client.use_native_tls();
-    } else if utils::url_requires_native_tls(&args.url) {
+    } else if utils::url_requires_native_tls(&url) {
         // We should be loud about this to prevent confusion
         warn("rustls does not support HTTPS for IP addresses. native-tls will be enabled. Use --native-tls to silence this warning.");
         client = client.use_native_tls();
@@ -212,7 +213,7 @@ fn run(args: Cli) -> Result<i32> {
     let mut auth = None;
     let mut save_auth_in_session = true;
 
-    if args.url.scheme() == "https" {
+    if url.scheme() == "https" {
         let verify = args.verify.unwrap_or_else(|| {
             // requests library which is used by HTTPie checks for both
             // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
@@ -321,7 +322,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
-            Session::load_session(&args.url, name_or_path.clone(), args.is_session_read_only)
+            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
@@ -338,21 +339,21 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
-            match cookie_jar.insert_raw(&cookie, &args.url) {
+            match cookie_jar.insert_raw(&cookie, &url) {
                 Ok(..) | Err(cookie_store::CookieError::Expired) => {}
                 Err(err) => return Err(err.into()),
             }
         }
         if let Some(cookie) = headers.remove(COOKIE) {
             for cookie in cookie.to_str()?.split(';') {
-                cookie_jar.insert_raw(&cookie.parse()?, &args.url)?;
+                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
         }
     }
 
     let mut request = {
         let mut request_builder = client
-            .request(method, args.url.clone())
+            .request(method, url.clone())
             .header(USER_AGENT, get_user_agent());
 
         if args.download {
@@ -442,12 +443,12 @@ fn run(args: Cli) -> Result<i32> {
             auth = Some(Auth::from_str(
                 &auth_from_arg,
                 auth_type,
-                args.url.host_str().unwrap_or("<host>"),
+                url.host_str().unwrap_or("<host>"),
             )?);
         } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
-            let host = args.url.host().unwrap_or(url::Host::Domain(""));
+            let host = url.host().unwrap_or(url::Host::Domain(""));
             if let Some(entry) = netrc::find_entry(host) {
                 auth = Auth::from_netrc(auth_type, entry);
                 save_auth_in_session = false;
@@ -567,7 +568,7 @@ fn run(args: Cli) -> Result<i32> {
                     response,
                     args.preserve_encoding,
                     args.output,
-                    &args.url,
+                    &url,
                     resume,
                     pretty.color(),
                     args.quiet,
@@ -587,7 +588,7 @@ fn run(args: Cli) -> Result<i32> {
         let cookie_jar = cookie_jar.lock().unwrap();
         s.save_cookies(
             cookie_jar
-                .matches(&args.url)
+                .matches(&url)
                 .into_iter()
                 .map(|c| cookie_crate::Cookie::from(c.clone()))
                 .collect(),

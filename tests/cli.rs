@@ -709,7 +709,31 @@ fn timeout_invalid() {
         .args(["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(contains("Invalid seconds as connection timeout"));
+        .stderr(contains("Connection timeout is negative"));
+
+    get_command()
+        .args(["--timeout=18446744073709552000", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=inf", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=NaN", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
+
+    get_command()
+        .args(["--timeout=SEC", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
 }
 
 #[test]
@@ -1027,7 +1051,7 @@ fn netrc_file_user_password_auth() {
 
         let homedir = TempDir::new().unwrap();
         let netrc_path = homedir.path().join(netrc_file);
-        let mut netrc = File::create(&netrc_path).unwrap();
+        let mut netrc = File::create(netrc_path).unwrap();
         writeln!(
             netrc,
             "machine {}\nlogin user\npassword pass",
@@ -1949,6 +1973,40 @@ fn json_field_from_file() {
     get_command()
         .arg(server.base_url())
         .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
+fn header_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["x-api-key"], "hello1234");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "hello1234").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("x-api-key:@{}", text_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
+fn query_param_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.query_params()["foo"], "bar+baz\n");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "bar+baz").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("foo==@{}", text_file.path().to_string_lossy()))
         .assert()
         .success();
 }

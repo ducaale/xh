@@ -59,7 +59,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(short = 'm', long, overrides_with_all = &["json", "form"])]
+    #[clap(long, overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -354,18 +354,10 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a JSON property (--json) or form field (--form) to
     ///         the request body.
     ///
-    ///     key=@filename
-    ///         Add a JSON property (--json) or form field (--form) from a
-    ///         file to the request body.
-    ///
     ///     key:=value
     ///         Add a field with a literal JSON value to the request body.
     ///
     ///         Example: "numbers:=[1,2,3] enabled:=true"
-    ///
-    ///     key:=@filename
-    ///         Add a field with a literal JSON value from a file to the
-    ///         request body.
     ///
     ///     key@filename
     ///         Upload a file (requires --form or --multipart).
@@ -386,6 +378,8 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     ///     header;
     ///         Add a header with an empty value.
+    ///
+    /// An "@" prefix can be used to read a value from a file. For example: "x-api-key:@api-key.txt".
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
@@ -447,7 +441,7 @@ impl Cli {
                 // instead of here.
                 Self::into_app().print_help().unwrap();
                 println!(
-                    "\nRun `{} help` for more complete documentation.",
+                    "\nRun \"{} help\" for more complete documentation.",
                     env!("CARGO_PKG_NAME")
                 );
                 safe_exit();
@@ -517,12 +511,7 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(
-            &raw_url,
-            cli.default_scheme.as_deref(),
-            cli.request_items.query(),
-        )
-        .map_err(|err| {
+        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
@@ -669,13 +658,12 @@ fn parse_method(method: &str) -> Option<Method> {
 fn construct_url(
     url: &str,
     default_scheme: Option<&str>,
-    query: Vec<(&str, &str)>,
 ) -> std::result::Result<Url, url::ParseError> {
     let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if let Some(url) = url.strip_prefix("://") {
+    let url: Url = if let Some(url) = url.strip_prefix("://") {
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
@@ -687,14 +675,6 @@ fn construct_url(
     } else {
         url.parse()?
     };
-    if !query.is_empty() {
-        // If we run this even without adding pairs it adds a `?`, hence
-        // the .is_empty() check
-        let mut pairs = url.query_pairs_mut();
-        for (name, value) in query {
-            pairs.append_pair(name, value);
-        }
-    }
     Ok(url)
 }
 
@@ -841,7 +821,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
-                header.push(italic(&value.join(" ")));
+                header.push(italic(value.join(" ")));
             }
         }
         let mut body = vec![];
@@ -1077,13 +1057,18 @@ impl FromStr for Timeout {
     type Err = anyhow::Error;
 
     fn from_str(sec: &str) -> anyhow::Result<Timeout> {
-        let pos_sec: f64 = match sec.parse::<f64>() {
-            Ok(sec) if sec.is_sign_positive() => sec,
-            _ => return Err(anyhow!("Invalid seconds as connection timeout")),
-        };
-
-        let dur = Duration::from_secs_f64(pos_sec);
-        Ok(Timeout(dur))
+        match f64::from_str(sec) {
+            Ok(s) if !s.is_nan() => {
+                if s.is_sign_negative() {
+                    Err(anyhow!("Connection timeout is negative"))
+                } else if s >= Duration::MAX.as_secs_f64() || s.is_infinite() {
+                    Err(anyhow!("Connection timeout is too big"))
+                } else {
+                    Ok(Timeout(Duration::from_secs_f64(s)))
+                }
+            }
+            _ => Err(anyhow!("Connection timeout is not a valid number")),
+        }
     }
 }
 
