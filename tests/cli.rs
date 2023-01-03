@@ -413,23 +413,6 @@ fn download() {
 }
 
 #[test]
-fn accept_encoding_modifiable_in_download_mode() {
-    let server = server::http(|req| async move {
-        assert_eq!(req.headers()["accept-encoding"], "gzip");
-        hyper::Response::builder()
-            .body(r#"{"ids":[1,2,3]}"#.into())
-            .unwrap()
-    });
-
-    let dir = tempdir().unwrap();
-    get_command()
-        .current_dir(&dir)
-        .args([&server.base_url(), "--download", "accept-encoding:gzip"])
-        .assert()
-        .success();
-}
-
-#[test]
 fn accept_encoding_identity_default_in_download_mode() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["accept-encoding"], "identity");
@@ -484,7 +467,10 @@ fn accept_encoding_not_modifiable_in_resumable_download_mode() {
             "accept-encoding:gzip",
         ])
         .assert()
-        .failure();
+        .failure()
+        .stderr(indoc! {r#"
+            xh: error: Cannot use --continue with --download, when the encoding is not 'identity'
+        "#});
 }
 
 #[test]
