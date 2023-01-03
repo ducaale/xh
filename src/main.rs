@@ -508,6 +508,7 @@ fn run(args: Cli) -> Result<i32> {
         printer.print_request_body(&mut request)?;
     }
 
+    let preserve_encoding = args.preserve_encoding;
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
@@ -522,6 +523,7 @@ fn run(args: Cli) -> Result<i32> {
                             prev_response,
                             response_charset,
                             response_mime,
+                            preserve_encoding,
                         )?;
                         printer.print_separator()?;
                     }
@@ -572,7 +574,12 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else if print.response_body {
-            printer.print_response_body(&mut response, response_charset, response_mime)?;
+            printer.print_response_body(
+                &mut response,
+                response_charset,
+                response_mime,
+                args.preserve_encoding,
+            )?;
         }
     }
 
