@@ -25,29 +25,30 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 ### via a package manager
 
-| OS               | Method     | Command                 |
-|------------------|------------|-------------------------|
-| Any              | Cargo\*    | `cargo install xh`      |
-| Any              | [Huber]    | `huber install xh`      |
-| Android (Termux) | pkg        | `pkg install xh`        |
-| Alpine Linux     | apk\*\*    | `apk add xh`            |
-| Arch Linux       | Pacman     | `pacman -S xh`          |
-| Debian & Ubuntu  | Apt\*\*\*  | `sudo apt install xh`   |
-| FreeBSD          | FreshPorts | `pkg install xh`        |
-| Linux & macOS    | Nixpkgs    | `nix-env -iA nixpkgs.xh`|
-| Linux & macOS    | Homebrew   | `brew install xh`       |
-| macOS            | MacPorts   | `sudo port install xh`  |
-| Windows          | Scoop      | `scoop install xh`      |
-| Windows          | Chocolatey | `choco install xh`      |
+| OS                 | Method     | Command                   |
+|--------------------|------------|---------------------------|
+| Any                | Cargo[^1]  | `cargo install xh`        |
+| Any                | [Huber]    | `huber install xh`        |
+| Android ([Termux]) | pkg        | `pkg install xh`          |
+| Android ([Magisk]) | App[^2]    | `magisk --install-module` |
+| Alpine Linux       | apk[^3]    | `apk add xh`              |
+| Arch Linux         | Pacman     | `pacman -S xh`            |
+| Debian & Ubuntu    | Apt[^4]    | `sudo apt install xh`     |
+| FreeBSD            | FreshPorts | `pkg install xh`          |
+| Linux & macOS      | Nixpkgs    | `nix-env -iA nixpkgs.xh`  |
+| Linux & macOS      | Homebrew   | `brew install xh`         |
+| macOS              | MacPorts   | `sudo port install xh`    |
+| Windows            | Scoop      | `scoop install xh`        |
+| Windows            | Chocolatey | `choco install xh`        |
 
-\* Make sure that you have Rust 1.54 or later installed
-
-\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
-
-\*\*\* You will need to add the apt repository from https://apt.cli.rs/
+[^1]: Make sure that you have Rust 1.54 or later installed
+[^2]: Your device needs to rooted and have [Magisk] installed. To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
+[^3]: The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
+[^4]: You will need to add the apt repository from https://apt.cli.rs/
 
 [Huber]: https://github.com/innobead/huber#installing-huber
-
+[Magisk]: https://github.com/topjohnwu/Magisk
+[Termux]: https://github.com/termux/termux-app
 
 ### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
