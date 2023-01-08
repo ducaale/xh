@@ -30,7 +30,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Any                | Cargo\*    | `cargo install xh`                         |
 | Any                | [Huber]    | `huber install xh`                         |
 | Android ([Termux]) | pkg        | `pkg install xh`                           |
-| Android ([Magisk]) | App\*\*    | `magisk --install-module <path/to/module>` |
+| Android ([Magisk]) | Magisk\*\* | `magisk --install-module <path/to/module>` |
 | Alpine Linux       | apk\*\*\*  | `apk add xh`                               |
 | Arch Linux         | Pacman     | `pacman -S xh`                             |
 | Debian & Ubuntu    | Apt\*\*\*\*| `sudo apt install xh`                      |
