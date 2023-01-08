@@ -27,13 +27,13 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 | OS                 | Method     | Command                   |
 |--------------------|------------|---------------------------|
-| Any                | Cargo[^1]  | `cargo install xh`        |
+| Any                | Cargo\*    | `cargo install xh`        |
 | Any                | [Huber]    | `huber install xh`        |
 | Android ([Termux]) | pkg        | `pkg install xh`          |
-| Android ([Magisk]) | App[^2]    | `magisk --install-module` |
-| Alpine Linux       | apk[^3]    | `apk add xh`              |
+| Android ([Magisk]) | App\*\*    | `magisk --install-module` |
+| Alpine Linux       | apk\*\*\*  | `apk add xh`              |
 | Arch Linux         | Pacman     | `pacman -S xh`            |
-| Debian & Ubuntu    | Apt[^4]    | `sudo apt install xh`     |
+| Debian & Ubuntu    | Apt\*\*\*\*| `sudo apt install xh`     |
 | FreeBSD            | FreshPorts | `pkg install xh`          |
 | Linux & macOS      | Nixpkgs    | `nix-env -iA nixpkgs.xh`  |
 | Linux & macOS      | Homebrew   | `brew install xh`         |
@@ -41,10 +41,13 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Windows            | Scoop      | `scoop install xh`        |
 | Windows            | Chocolatey | `choco install xh`        |
 
-[^1]: Make sure that you have Rust 1.54 or later installed
-[^2]: Your device needs to rooted and have [Magisk] installed. To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
-[^3]: The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
-[^4]: You will need to add the apt repository from https://apt.cli.rs/
+\* Make sure that you have Rust 1.54 or later installed
+
+\*\* Your device needs to rooted and have [Magisk] installed. To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
+
+\*\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
+
+\*\*\*\* You will need to add the apt repository from https://apt.cli.rs/
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 [Magisk]: https://github.com/topjohnwu/Magisk
