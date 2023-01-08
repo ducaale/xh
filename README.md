@@ -43,7 +43,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 \* Make sure that you have Rust 1.54 or later installed
 
-\*\* Your device needs to rooted and have [Magisk] installed. To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
+\*\* To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
 
 \*\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
 
