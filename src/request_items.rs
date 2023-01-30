@@ -189,9 +189,9 @@ fn parse_part_params(mut text: &str) -> PartWithParams {
 }
 
 /// Find the rightmost match of any of the delimiters and do a split.
-fn rsplit_once_any<'a, 'b>(
+fn rsplit_once_any<'a>(
     text: &'a str,
-    delimiters: &'b [&'static str],
+    delimiters: &[&'static str],
 ) -> Option<(&'a str, &'static str, &'a str)> {
     let mut res = None;
     let mut best = 0;
