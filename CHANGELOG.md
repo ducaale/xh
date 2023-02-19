@@ -1,3 +1,13 @@
+## Unreleased
+### Features
+- Support reading query param and header values from a file, see #288 (@ducaale)
+
+### Bug fixes
+- Fix panic when when parsing connection timeout, see #295 (@sorairolake)
+
+### Other
+- Remove `-m` short flag for multipart, see #299 (@ducaale)
+
 ## [0.17.0] - 2022-11-08
 ### Features
 - Add support for nested json syntax, see #217 (@ducaale)
