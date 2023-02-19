@@ -483,6 +483,7 @@ fn run(args: Cli) -> Result<i32> {
             args.verbose,
             args.headers,
             args.body,
+            args.meta,
             args.quiet,
             args.offline,
             &buffer,
@@ -517,6 +518,9 @@ fn run(args: Cli) -> Result<i32> {
                             response_mime,
                         )?;
                         printer.print_separator()?;
+                    }
+                    if history_print.response_meta {
+                        printer.print_response_meta(prev_response)?;
                     }
                     if history_print.request_headers {
                         printer.print_request_headers(next_request, &*cookie_jar)?;
@@ -563,8 +567,16 @@ fn run(args: Cli) -> Result<i32> {
                     args.quiet,
                 )?;
             }
-        } else if print.response_body {
-            printer.print_response_body(&mut response, response_charset, response_mime)?;
+        } else {
+            if print.response_body {
+                printer.print_response_body(&mut response, response_charset, response_mime)?;
+                if print.response_meta {
+                    printer.print_separator()?;
+                }
+            }
+            if print.response_meta {
+                printer.print_response_meta(&response)?;
+            }
         }
     }
 

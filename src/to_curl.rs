@@ -129,7 +129,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     // - .curl and .curl_long: you are here
 
     // Output options
-    if args.verbose {
+    if args.verbose > 0 {
         // Far from an exact match, but it does print the request headers
         cmd.opt("-v", "--verbose");
     }
