@@ -77,6 +77,7 @@ OPTIONS:
     -p, --print <FORMAT>                 String specifying what the output should contain
     -h, --headers                        Print only the response headers. Shortcut for --print=h
     -b, --body                           Print only the response body. Shortcut for --print=b
+    -m, --meta                           Print only the response metadata. Shortcut for --print=m
     -v, --verbose                        Print the whole request as well as the response
         --all                            Show any intermediary requests/responses while following redirects with --follow
     -P, --history-print <FORMAT>         The same as --print but applies only to intermediary requests/responses
