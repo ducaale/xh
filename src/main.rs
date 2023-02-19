@@ -354,11 +354,25 @@ fn run(args: Cli) -> Result<i32> {
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
-            .header(
+            .header(USER_AGENT, get_user_agent());
+
+        if args.download {
+            if let Some(encoding) = headers.get(ACCEPT_ENCODING) {
+                if args.resume && encoding != HeaderValue::from_static("identity") {
+                    return Err(anyhow!(
+                            "Cannot use --continue with --download, when the encoding is not 'identity'"
+                        ));
+                }
+            } else {
+                request_builder =
+                    request_builder.header(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+            }
+        } else {
+            request_builder = request_builder.header(
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
-            )
-            .header(USER_AGENT, get_user_agent());
+            );
+        }
 
         if matches!(
             args.http_version,
@@ -465,12 +479,6 @@ fn run(args: Cli) -> Result<i32> {
         request
     };
 
-    if args.download {
-        request
-            .headers_mut()
-            .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
-    }
-
     let buffer = Buffer::new(
         args.download,
         args.output.as_deref(),
@@ -501,6 +509,7 @@ fn run(args: Cli) -> Result<i32> {
         printer.print_request_body(&mut request)?;
     }
 
+    let preserve_encoding = args.preserve_encoding;
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
@@ -515,6 +524,7 @@ fn run(args: Cli) -> Result<i32> {
                             prev_response,
                             response_charset,
                             response_mime,
+                            preserve_encoding,
                         )?;
                         printer.print_separator()?;
                     }
@@ -556,6 +566,7 @@ fn run(args: Cli) -> Result<i32> {
             if exit_code == 0 {
                 download_file(
                     response,
+                    args.preserve_encoding,
                     args.output,
                     &url,
                     resume,
@@ -564,7 +575,12 @@ fn run(args: Cli) -> Result<i32> {
                 )?;
             }
         } else if print.response_body {
-            printer.print_response_body(&mut response, response_charset, response_mime)?;
+            printer.print_response_body(
+                &mut response,
+                response_charset,
+                response_mime,
+                args.preserve_encoding,
+            )?;
         }
     }
 

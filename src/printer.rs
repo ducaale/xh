@@ -428,15 +428,33 @@ impl Printer {
         response: &mut Response,
         encoding: Option<&'static Encoding>,
         mime: Option<&str>,
+        preserve_encoding: bool,
     ) -> anyhow::Result<()> {
         let url = response.url().clone();
         let content_type =
             mime.map_or_else(|| get_content_type(response.headers()), ContentType::from);
         let encoding = encoding.or_else(|| get_charset(response));
-        let compression_type = get_compression_type(response.headers());
+        let (may_decode, compression_type) = if !preserve_encoding {
+            let compression_type = get_compression_type(response.headers());
+            (true, compression_type)
+        } else {
+            (false, None)
+        };
         let mut body = decompress(response, compression_type);
 
-        if !self.buffer.is_terminal() {
+        if !may_decode {
+            // The user explicitly asked for preserving the encoding. We don't
+            // decode the body, even if it's text, so we can't write it to the terminal.
+            if self.buffer.is_terminal() {
+                self.buffer.print(BINARY_SUPPRESSOR)?;
+            } else if self.stream {
+                copy_largebuf(&mut body, &mut self.buffer, true)?;
+            } else {
+                let mut buf = Vec::new();
+                body.read_to_end(&mut buf)?;
+                self.buffer.print(&buf)?;
+            }
+        } else if !self.buffer.is_terminal() {
             if (self.color || self.indent_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is
                 // going into a file, and the response is at least supposed to be

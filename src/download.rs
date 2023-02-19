@@ -160,6 +160,7 @@ const UNCOLORED_SPINNER_TEMPLATE: &str = "{spinner} {bytes} {bytes_per_sec} {wid
 
 pub fn download_file(
     mut response: Response,
+    preserve_encoding: bool,
     file_name: Option<PathBuf>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
@@ -244,9 +245,13 @@ pub fn download_file(
         pb.reset_eta();
     }
 
+    let compression_type = if !preserve_encoding {
+        get_compression_type(response.headers())
+    } else {
+        None
+    };
     match pb {
         Some(ref pb) => {
-            let compression_type = get_compression_type(response.headers());
             copy_largebuf(
                 &mut decompress(&mut pb.wrap_read(response), compression_type),
                 &mut buffer,
@@ -267,7 +272,6 @@ pub fn download_file(
             }
         }
         None => {
-            let compression_type = get_compression_type(response.headers());
             copy_largebuf(
                 &mut decompress(&mut response, compression_type),
                 &mut buffer,
