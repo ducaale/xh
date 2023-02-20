@@ -1,4 +1,4 @@
-## Unreleased
+## [0.18.0] - 2023-02-20
 ### Features
 - Support reading query param and header values from a file, see #288 (@ducaale)
 - Highlight Syntax errors found while tokenizing a JSON path, see #260 (@ducaale)
