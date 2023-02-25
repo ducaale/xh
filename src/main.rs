@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
 use reqwest::header::{
@@ -317,6 +318,30 @@ fn run(args: Cli) -> Result<i32> {
         (false, true) => client.local_address(IpAddr::from_str("::")?),
         _ => client,
     };
+
+    if let Some(name_or_ip) = &args.interface {
+        let ip_addr = if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
+            Some(ip_addr)
+        } else {
+            // TODO: Directly bind to interface name once hyper/reqwest adds support for it.
+            // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
+            let network_interfaces = NetworkInterface::show()?;
+            network_interfaces.iter().find_map(|interface| {
+                if &interface.name == name_or_ip {
+                    if let Some(addr) = interface.addr {
+                        return Some(addr.ip());
+                    }
+                }
+                None
+            })
+        };
+
+        if let Some(ip_addr) = ip_addr {
+            client = client.local_address(ip_addr);
+        } else {
+            return Err(anyhow!("Couldn't bind to {:?}", name_or_ip));
+        }
+    }
 
     let client = client.build()?;
 

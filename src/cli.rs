@@ -318,6 +318,11 @@ Example: --print=Hb"
     )]
     pub http_version: Option<HttpVersion>,
 
+    /// TODO: add short help
+    /// TODO: determine if this can be used together with --ipv4/--ipv6
+    #[clap(long, value_name = "NAME | IP_ADDRESS")]
+    pub interface: Option<String>,
+
     /// Do not attempt to read stdin.
     ///
     /// This disables the default behaviour of reading the request body from stdin
