@@ -328,7 +328,7 @@ fn run(args: Cli) -> Result<i32> {
             let network_interfaces = NetworkInterface::show()?;
             network_interfaces.iter().find_map(|interface| {
                 if &interface.name == name_or_ip {
-                    if let Some(addr) = interface.addr {
+                    if let Some(addr) = interface.addr.first() {
                         return Some(addr.ip());
                     }
                 }
