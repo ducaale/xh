@@ -883,8 +883,9 @@ dependencies = [
 
 [[package]]
 name = "network-interface"
-version = "0.1.6"
-source = "git+https://github.com/ducaale/network-interface?branch=msrv-1.54#31c3e167eaabe2e58c5619be4a8afbed4389163c"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10c4dbf727f42893b058d7619d5b4da3743dfe9cdb6e440880f7717a68b57e0e"
 dependencies = [
  "cc",
  "libc",
