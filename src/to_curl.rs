@@ -279,6 +279,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         _ => (),
     };
 
+    if let Some(interface) = args.interface {
+        cmd.arg("--interface");
+        cmd.arg(interface);
+    };
+
     // Payload
     for (header, value) in headers.iter() {
         cmd.opt("-H", "--header");
