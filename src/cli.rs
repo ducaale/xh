@@ -148,14 +148,6 @@ Example: --print=Hb"
     #[clap(short = 'P', long, value_name = "FORMAT")]
     pub history_print: Option<Print>,
 
-    /// Resolve hostname to ipv4 addresses only.
-    #[clap(short = '4', long)]
-    pub ipv4: bool,
-
-    /// Resolve hostname to ipv6 addresses only.
-    #[clap(short = '6', long)]
-    pub ipv6: bool,
-
     /// Do not print to stdout or stderr.
     #[clap(short = 'q', long)]
     pub quiet: bool,
@@ -318,10 +310,19 @@ Example: --print=Hb"
     )]
     pub http_version: Option<HttpVersion>,
 
-    /// TODO: add short help
-    /// TODO: determine if this can be used together with --ipv4/--ipv6
-    #[clap(long, value_name = "NAME | IP_ADDRESS")]
+    /// Bind to a network interface or local IP address.
+    ///
+    /// Example: --interface=eth0 --interface=192.168.0.2
+    #[clap(long, value_name = "NAME")]
     pub interface: Option<String>,
+
+    /// Resolve hostname to ipv4 addresses only.
+    #[clap(short = '4', long)]
+    pub ipv4: bool,
+
+    /// Resolve hostname to ipv6 addresses only.
+    #[clap(short = '6', long)]
+    pub ipv6: bool,
 
     /// Do not attempt to read stdin.
     ///
