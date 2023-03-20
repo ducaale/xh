@@ -59,7 +59,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(long, overrides_with_all = &["json", "form"])]
+    #[clap(long, overrides_with_all = &["json", "form"], conflicts_with = "raw")]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -571,6 +571,12 @@ impl Cli {
             self.request_items.body_type = BodyType::Form;
         } else if self.multipart {
             self.request_items.body_type = BodyType::Multipart;
+        }
+        if self.raw.is_some() && !self.request_items.is_body_empty() {
+            return Err(Self::into_app().error(
+                ErrorKind::ValueValidation,
+                "Request body (from --raw) and request data (key=value) cannot be mixed.",
+            ));
         }
         if self.session_read_only.is_some() {
             self.is_session_read_only = true;

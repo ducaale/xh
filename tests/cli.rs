@@ -1668,7 +1668,7 @@ fn multipart_raw() {
         .args(["--offline", "--raw=hello", "--multipart", ":"])
         .assert()
         .failure()
-        .stderr(contains("Cannot build a multipart request body from --raw"));
+        .stderr(contains("'--raw <RAW>' cannot be used with '--multipart'"));
 }
 
 #[test]
