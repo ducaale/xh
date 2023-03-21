@@ -477,8 +477,16 @@ impl RequestItems {
     /// for the benefit of `to_curl`, which sometimes has to process the
     /// request items itself.
     pub fn pick_method(&self) -> Method {
+        if self.is_body_empty() {
+            Method::GET
+        } else {
+            Method::POST
+        }
+    }
+
+    pub fn is_body_empty(&self) -> bool {
         if self.body_type == BodyType::Multipart {
-            return Method::POST;
+            return false;
         }
         for item in &self.items {
             match item {
@@ -491,10 +499,10 @@ impl RequestItems {
                 | RequestItem::DataFieldFromFile { .. }
                 | RequestItem::JsonField(..)
                 | RequestItem::JsonFieldFromFile(..)
-                | RequestItem::FormFile { .. } => return Method::POST,
+                | RequestItem::FormFile { .. } => return false,
             }
         }
-        Method::GET
+        true
     }
 }
 

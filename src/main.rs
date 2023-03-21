@@ -37,7 +37,7 @@ use reqwest::tls;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -119,26 +119,9 @@ fn run(args: Cli) -> Result<i32> {
     let url = url_with_query(args.url, &args.request_items.query()?);
 
     let use_stdin = !(args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term());
-    let body_type = args.request_items.body_type;
-    let body_from_request_items = args.request_items.body()?;
-    let has_request_items = !body_from_request_items.is_empty();
 
-    let body = match (use_stdin, args.raw, has_request_items) {
-        (true, None, false) => {
-            let mut buffer = Vec::new();
-            stdin().read_to_end(&mut buffer)?;
-            Body::Raw(buffer)
-        }
-        (false, Some(raw), false) => Body::Raw(raw.into_bytes()),
-        (false, None, _) => body_from_request_items,
-
-        (true, Some(_), _) => {
-            return Err(anyhow!(
-                "Request body from stdin and --raw cannot be mixed. \
-                Pass --ignore-stdin to ignore standard input."
-            ))
-        }
-        (true, _, true) => {
+    let body = if use_stdin {
+        if !args.request_items.is_body_empty() {
             if args.multipart {
                 // Multipart bodies are never "empty", so we can get here without request items
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
@@ -149,26 +132,28 @@ fn run(args: Cli) -> Result<i32> {
                 ));
             }
         }
-        (_, Some(_), true) => {
-            if args.multipart {
-                // Multipart bodies are never "empty", so we can get here without request items
-                return Err(anyhow!("Cannot build a multipart request body from --raw"));
-            } else {
-                return Err(anyhow!(
-                    "Request body (from --raw) and request data (key=value) cannot be mixed."
-                ));
-            }
+        if args.raw.is_some() {
+            return Err(anyhow!(
+                "Request body from stdin and --raw cannot be mixed. \
+                Pass --ignore-stdin to ignore standard input."
+            ));
         }
+        let mut buffer = Vec::new();
+        stdin().read_to_end(&mut buffer)?;
+        Body::Raw(buffer)
+    } else if let Some(raw) = args.raw {
+        Body::Raw(raw.into_bytes())
+    } else {
+        args.request_items.body()?
     };
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
-    let timeout = args.timeout.and_then(|t| t.as_duration());
 
     let mut client = Client::builder()
         .http1_title_case_headers()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(timeout)
+        .timeout(args.timeout.and_then(|t| t.as_duration()))
         .no_gzip()
         .no_deflate()
         .no_brotli();
@@ -420,13 +405,15 @@ fn run(args: Cli) -> Result<i32> {
                     request_builder
                 }
             }
-            Body::Raw(body) => match body_type {
-                BodyType::Json => request_builder
-                    .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
-                    .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
-                BodyType::Form => request_builder
-                    .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE)),
-                BodyType::Multipart => unreachable!(),
+            Body::Raw(body) => {
+                if args.form {
+                    request_builder
+                        .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE))
+                } else {
+                    request_builder
+                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
+                        .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE))
+                }
             }
             .body(body),
             Body::File {

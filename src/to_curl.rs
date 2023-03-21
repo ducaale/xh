@@ -322,7 +322,17 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
-    if args.request_items.is_multipart() {
+    if let Some(raw) = args.raw {
+        if args.form {
+            cmd.header("content-type", FORM_CONTENT_TYPE);
+        } else {
+            cmd.header("content-type", JSON_CONTENT_TYPE);
+            cmd.header("accept", JSON_ACCEPT);
+        }
+
+        cmd.opt("-d", "--data");
+        cmd.arg(raw);
+    } else if args.request_items.is_multipart() {
         // We can't use .body() here because we can't look inside the multipart
         // form after construction and we don't want to actually read the files
         for item in args.request_items.items {
