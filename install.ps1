@@ -47,21 +47,20 @@ $userPath = [System.Environment]::GetEnvironmentVariable('Path', [System.Environ
 $machinePath = [System.Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine)
 
 # If userPath AND machinePath both do not contain bin, then add it to user path
-if (!($userPath -contains $destdir) -and !($machinePath -contains $destdir))
+if (!($userPath.ToLower().Contains($destdir.ToLower())) -and !($machinePath.ToLower().Contains($destdir.ToLower())))
 {
-    Write-Output "PATH did not contain $destdir"
-    
     # Update userPath
     $userPath = $userPath.Trim(";") + ";$destdir"
-    
+
     # Modify PATH for new windows
-    Write-Output "Adding $destdir to user PATH."
-	[System.Environment]::SetEnvironmentVariable('Path', $userPath, [System.EnvironmentVariableTarget]::User)
-	Write-Output "Done."
-	
-    # Instruct how to modify PATH for the current window
-    Write-Output "Execute the following command to make xh usable immediately in PowerShell:"
-    Write-Host "`$Env:Path = `$Env:Path.Trim(`";`") + `";$destdir`"" -foreground yellow
-    
-    Write-Host "Or restart any terminal to refresh its PATH and use xh."
+    Write-Output "`nAdding $destdir directory to the PATH variable."
+    [System.Environment]::SetEnvironmentVariable('Path', $userPath, [System.EnvironmentVariableTarget]::User)
+
+    # Modify PATH for current terminal
+    Write-Output "`nRefreshing current terminal's PATH for you."
+    $Env:Path = $Env:Path.Trim(";") + ";$destdir"
+
+    # Instruct how to modify PATH for other open terminals
+    Write-Output "`nFor other terminals, restart them (or the entire IDE if they're within one).`n"
+
 }
