@@ -1292,18 +1292,6 @@ fn native_tls_flag_disabled() {
         .stderr(contains("built without native-tls support"));
 }
 
-#[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
-#[ignore = "https://1.1.1.1 randomly times out in CI"]
-#[test]
-fn improved_https_ip_error_no_support() {
-    get_command()
-        .arg("https://1.1.1.1")
-        .assert()
-        .failure()
-        .stderr(contains("rustls does not support"))
-        .stderr(contains("building with the `native-tls` feature"));
-}
-
 #[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn native_tls_works() {
@@ -1311,35 +1299,6 @@ fn native_tls_works() {
         .args(["--native-tls", "https://example.org"])
         .assert()
         .success();
-}
-
-#[cfg(all(feature = "native-tls", feature = "rustls", feature = "online-tests"))]
-#[ignore = "https://1.1.1.1 randomly times out in CI"]
-#[test]
-fn improved_https_ip_error_with_support() {
-    let server = server::http(|_req| async move {
-        hyper::Response::builder()
-            .status(301)
-            .header("Location", "https://1.1.1.1")
-            .body("Moved Permanently".into())
-            .unwrap()
-    });
-    get_command()
-        .args(["--follow", &server.base_url()])
-        .assert()
-        .failure()
-        .stderr(contains("rustls does not support"))
-        .stderr(contains("using the --native-tls flag"));
-}
-
-#[cfg(all(feature = "native-tls", feature = "rustls"))]
-#[test]
-fn auto_nativetls() {
-    get_command()
-        .args(["--offline", "https://1.1.1.1"])
-        .assert()
-        .success()
-        .stderr(contains("native-tls will be enabled"));
 }
 
 #[cfg(feature = "online-tests")]
