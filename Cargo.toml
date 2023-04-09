@@ -2,8 +2,8 @@
 name = "xh"
 version = "0.18.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.57.0"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -51,7 +51,7 @@ unicode-width = "0.1.9"
 url = "2.2.2"
 
 [dependencies.reqwest]
-version = "0.11.10"
+version = "0.11.16"
 default-features = false
 features = ["json", "multipart", "blocking", "socks", "cookies"]
 
@@ -107,3 +107,6 @@ xh is a friendly and fast tool for sending HTTP requests.
 It reimplements as much as possible of HTTPie's excellent design, with a focus
 on improved performance.
 """
+
+[patch.crates-io]
+reqwest = { git = 'https://github.com/cpu/reqwest', branch = 'cpu-rustls-0.21.0-prep' }
