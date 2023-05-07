@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
@@ -39,7 +39,7 @@ struct Auth {
 
 // Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Cookie {
+struct Cookie {
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<i64>,
@@ -49,18 +49,46 @@ pub struct Cookie {
     secure: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Header {
+    key: String,
+    value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum Headers {
+    Map(HashMap<String, String>),
+    List(Vec<Header>),
+}
+
+impl Default for Headers {
+    fn default() -> Self {
+        Headers::List(Vec::new())
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     auth: Auth,
     cookies: HashMap<String, Cookie>,
-    headers: HashMap<String, String>,
+    headers: Headers,
 }
 
 impl Content {
     fn migrate(mut self) -> Self {
         self.meta = Meta::default();
+        if let Headers::Map(headers) = self.headers {
+            self.headers = Headers::List(
+                headers
+                    .into_iter()
+                    .map(|(key, value)| Header { key, value })
+                    .collect(),
+            );
+        }
+
         self
     }
 }
@@ -98,7 +126,13 @@ impl Session {
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
-        Ok(HeaderMap::try_from(&self.content.headers)?)
+        match &self.content.headers {
+            Headers::Map(headers) => Ok(headers.try_into()?),
+            Headers::List(headers) => headers
+                .iter()
+                .map(|Header { key, value }| Ok((key.try_into()?, value.try_into()?)))
+                .collect(),
+        }
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
@@ -108,9 +142,17 @@ impl Session {
             // see https://github.com/httpie/httpie/commit/e09b74021c9c955fd7c3bab11f22801aaf9dc1b8
             // we will also ignore cookies as they are taken care of by save_cookies()
             if key != "cookie" && !key.starts_with("content-") && !key.starts_with("if-") {
-                self.content
-                    .headers
-                    .insert(key.into(), value.to_str()?.into());
+                match self.content.headers {
+                    Headers::Map(ref mut headers) => {
+                        headers.insert(key.into(), value.to_str()?.into());
+                    }
+                    Headers::List(ref mut headers) => {
+                        headers.push(Header {
+                            key: key.into(),
+                            value: value.to_str()?.into(),
+                        });
+                    }
+                }
             }
         }
         Ok(())
@@ -243,6 +285,9 @@ fn path_from_url(url: &Url) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use reqwest::header::HeaderValue;
+
     use crate::utils::random_string;
     use anyhow::Result;
 
@@ -287,8 +332,8 @@ mod tests {
         )?;
 
         assert_eq!(
-            session.content.headers.get("hello"),
-            Some(&"world".to_string()),
+            session.headers()?.get("hello"),
+            Some(&HeaderValue::from_static("world")),
         );
 
         assert_eq!(
@@ -327,7 +372,7 @@ mod tests {
                 {
                     "__meta__": {
                         "about": "xh session file",
-                        "httpie": "0.10.0"
+                        "xh": "0.0.0"
                     },
                     "auth": {
                         "raw_auth": "secret-token",
@@ -355,8 +400,8 @@ mod tests {
         )?;
 
         assert_eq!(
-            session.content.headers.get("hello"),
-            Some(&"world".to_string()),
+            session.headers()?.get("hello"),
+            Some(&HeaderValue::from_static("world")),
         );
 
         assert_eq!(
@@ -381,6 +426,50 @@ mod tests {
             session.content.cookies.get("__cfduid"),
             Some(&expected_cookie)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn can_read_session_with_duplicate_keys() -> Result<()> {
+        let mut path_to_session = std::env::temp_dir();
+        let file_name = random_string();
+        path_to_session.push(file_name);
+        fs::write(
+            &path_to_session,
+            indoc::indoc! {r#"
+                {
+                    "__meta__": {
+                        "about": "xh session file",
+                        "xh": "0.0.0"
+                    },
+                    "auth": {},
+                    "cookies": {},
+                    "headers": [
+                        {"key": "hello", "value": "world"},
+                        {"key": "hello", "value": "people"}
+                    ]
+                }
+            "#},
+        )?;
+
+        let session = Session::load_session(
+            &Url::parse("http://localhost")?,
+            path_to_session.into(),
+            false,
+        )?;
+
+        assert_eq!(
+            session
+                .headers()?
+                .get_all("hello")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            [
+                &HeaderValue::from_static("world"),
+                &HeaderValue::from_static("people")
+            ],
+        );
+
         Ok(())
     }
 }
