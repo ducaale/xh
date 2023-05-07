@@ -2022,7 +2022,7 @@ fn named_sessions() {
                 "cook1": { "value": "one", "path": "/" },
                 "lang": { "value": "en" }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2061,7 +2061,7 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": { "cook1": { "value": "one" } },
-            "headers": { "hello": "world" }
+            "headers": [ {"key": "hello", "value": "world"} ]
         })
     );
 }
@@ -2140,9 +2140,9 @@ fn session_files_are_created_in_read_only_mode() {
             "cookies": {
                 "lang": { "value": "ar" }
             },
-            "headers": {
-                "hello": "world"
-            }
+            "headers": [
+                {"key": "hello", "value": "world"}
+            ]
         })
     );
 }
@@ -2258,7 +2258,7 @@ fn expired_cookies_are_removed_from_session() {
                     "value": "random_string",
                 }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2325,7 +2325,7 @@ fn cookies_override_each_other_in_the_correct_order() {
                 "cook1": { "value": "one" },
                 "cook2": { "value": "two" }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2434,9 +2434,9 @@ fn auth_netrc_is_not_persisted_in_session() {
             },
             "auth": { "type": null, "raw_auth": null },
             "cookies": {},
-            "headers": {
-                "hello": "world"
-            }
+            "headers": [
+                {"key": "hello", "value": "world"}
+            ]
         })
     );
 }
