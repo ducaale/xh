@@ -827,7 +827,7 @@ fn successful_digest_auth() {
     get_command()
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:12345")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"));
 }
@@ -838,7 +838,7 @@ fn unsuccessful_digest_auth() {
     get_command()
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:wrongpass")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("HTTP/1.1 401 Unauthorized"));
 }
@@ -1145,7 +1145,7 @@ fn proxy_multiple_valid_proxies() {
         .arg("--proxy=https:socks5://127.0.0.1:8000")
         .arg("--proxy=all:http://127.0.0.1:8000")
         .arg("GET")
-        .arg("http://httpbin.org/get");
+        .arg("http://httpbingo.org/get");
 
     cmd.assert().success();
 }
@@ -3141,7 +3141,7 @@ fn digest_auth_with_response_meta() {
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:12345")
         .arg("-vv")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("Elapsed time: ").count(2));
 }
