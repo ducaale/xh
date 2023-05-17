@@ -42,10 +42,10 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.54.0 # minimum supported rust version
+          toolchain: 1.64.0 # minimum supported rust version
           target: ${{ matrix.job.target }}
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
       - uses: actions-rs/cargo@v1

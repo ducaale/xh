@@ -2,8 +2,8 @@
 name = "xh"
 version = "0.18.0"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.64.0"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -51,7 +51,7 @@ unicode-width = "0.1.9"
 url = "2.2.2"
 
 [dependencies.reqwest]
-version = "0.11.10"
+version = "0.11.18"
 default-features = false
 features = ["json", "multipart", "blocking", "socks", "cookies"]
 
@@ -66,7 +66,7 @@ default-features = false
 features = ["yaml-load", "dump-create", "regex-onig"]
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.0.8"
 form_urlencoded = "1.0.1"
 indoc = "1.0"
 predicates = "2.1.1"

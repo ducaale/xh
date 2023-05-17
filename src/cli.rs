@@ -906,17 +906,12 @@ fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error 
     )
 }
 
-#[derive(ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
+    #[default]
     Basic,
     Bearer,
     Digest,
-}
-
-impl Default for AuthType {
-    fn default() -> Self {
-        AuthType::Basic
-    }
 }
 
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
@@ -1178,17 +1173,12 @@ impl fmt::Display for Verify {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Copy, Clone)]
 pub enum BodyType {
+    #[default]
     Json,
     Form,
     Multipart,
-}
-
-impl Default for BodyType {
-    fn default() -> Self {
-        BodyType::Json
-    }
 }
 
 #[derive(Debug)]

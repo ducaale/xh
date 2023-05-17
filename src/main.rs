@@ -61,7 +61,6 @@ fn get_user_agent() -> &'static str {
 fn main() {
     let args = Cli::parse();
     let bin_name = args.bin_name.clone();
-    let url = args.url.clone();
     let native_tls = args.native_tls;
 
     match run(args) {
@@ -71,22 +70,6 @@ fn main() {
         Err(err) => {
             eprintln!("{}: error: {:?}", bin_name, err);
             let msg = err.root_cause().to_string();
-            if !native_tls && msg == "invalid dnsname" {
-                eprintln!();
-                if utils::url_requires_native_tls(&url) {
-                    eprintln!("rustls does not support HTTPS for IP addresses.");
-                } else {
-                    // Maybe we went to https://<IP> after a redirect?
-                    eprintln!(
-                        "This may happen because rustls does not support HTTPS for IP addresses."
-                    );
-                }
-                if cfg!(feature = "native-tls") {
-                    eprintln!("Try using the --native-tls flag.");
-                } else {
-                    eprintln!("Consider building with the `native-tls` feature enabled.");
-                }
-            }
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
@@ -182,10 +165,6 @@ fn run(args: Cli) -> Result<i32> {
 
     #[cfg(feature = "native-tls")]
     if args.native_tls {
-        client = client.use_native_tls();
-    } else if utils::url_requires_native_tls(&url) {
-        // We should be loud about this to prevent confusion
-        warn("rustls does not support HTTPS for IP addresses. native-tls will be enabled. Use --native-tls to silence this warning.");
         client = client.use_native_tls();
     }
 

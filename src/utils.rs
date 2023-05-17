@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use reqwest::blocking::Request;
-use url::{Host, Url};
+use url::Url;
 
 pub fn unescape(text: &str, special_chars: &'static str) -> String {
     let mut out = String::new();
@@ -170,8 +170,4 @@ pub fn copy_largebuf(
             Err(e) => return Err(e),
         }
     }
-}
-
-pub fn url_requires_native_tls(url: &Url) -> bool {
-    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
 }

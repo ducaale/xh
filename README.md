@@ -41,7 +41,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Windows            | Scoop      | `scoop install xh`                         |
 | Windows            | Chocolatey | `choco install xh`                         |
 
-\* Make sure that you have Rust 1.54 or later installed
+\* Make sure that you have Rust 1.64 or later installed
 
 \*\* To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
 
