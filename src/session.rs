@@ -51,7 +51,7 @@ struct Cookie {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Header {
-    key: String,
+    name: String,
     value: String,
 }
 
@@ -84,7 +84,7 @@ impl Content {
             self.headers = Headers::List(
                 headers
                     .into_iter()
-                    .map(|(key, value)| Header { key, value })
+                    .map(|(key, value)| Header { name: key, value })
                     .collect(),
             );
         }
@@ -130,7 +130,7 @@ impl Session {
             Headers::Map(headers) => Ok(headers.try_into()?),
             Headers::List(headers) => headers
                 .iter()
-                .map(|Header { key, value }| Ok((key.try_into()?, value.try_into()?)))
+                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
                 .collect(),
         }
     }
@@ -148,7 +148,7 @@ impl Session {
                     }
                     Headers::List(ref mut headers) => {
                         headers.push(Header {
-                            key: key.into(),
+                            name: key.into(),
                             value: value.to_str()?.into(),
                         });
                     }
@@ -445,8 +445,8 @@ mod tests {
                     "auth": {},
                     "cookies": {},
                     "headers": [
-                        {"key": "hello", "value": "world"},
-                        {"key": "hello", "value": "people"}
+                        { "name": "hello", "value": "world" },
+                        { "name": "hello", "value": "people" }
                     ]
                 }
             "#},

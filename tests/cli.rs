@@ -2061,7 +2061,7 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": { "cook1": { "value": "one" } },
-            "headers": [ {"key": "hello", "value": "world"} ]
+            "headers": [ {"name": "hello", "value": "world"} ]
         })
     );
 }
@@ -2141,7 +2141,7 @@ fn session_files_are_created_in_read_only_mode() {
                 "lang": { "value": "ar" }
             },
             "headers": [
-                {"key": "hello", "value": "world"}
+                {"name": "hello", "value": "world"}
             ]
         })
     );
@@ -2435,7 +2435,7 @@ fn auth_netrc_is_not_persisted_in_session() {
             "auth": { "type": null, "raw_auth": null },
             "cookies": {},
             "headers": [
-                {"key": "hello", "value": "world"}
+                {"name": "hello", "value": "world"}
             ]
         })
     );
