@@ -1944,7 +1944,7 @@ fn can_unset_default_headers() {
 #[test]
 fn can_unset_headers() {
     get_command()
-        .args([":", "hello:world", "goodby:world", "goodby:", "--offline"])
+        .args([":", "hello:world", "goodbye:world", "goodbye:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -2439,6 +2439,95 @@ fn auth_netrc_is_not_persisted_in_session() {
             ]
         })
     );
+}
+
+#[test]
+fn multiple_headers_with_same_key_in_session() {
+    let server = server::http(|req| async move {
+        use reqwest::header::HeaderValue;
+        assert_eq!(
+            req.headers()
+                .get_all("hello")
+                .into_iter()
+                .collect::<Vec<_>>()
+                .sort(),
+            [
+                &HeaderValue::from_static("world"),
+                &HeaderValue::from_static("people")
+            ]
+            .sort(),
+        );
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" },
+                { "name": "hello", "value": "people" },
+            ]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+}
+
+#[test]
+fn headers_from_session_are_overwritten() {
+    let server = server::http(|req| async move {
+        use reqwest::header::HeaderValue;
+        assert_eq!(
+            req.headers()
+                .get_all("hello")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            [&HeaderValue::from_static("people")]
+        );
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" },
+            ]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .arg("hello:people")
+        .assert()
+        .success();
 }
 
 #[test]
