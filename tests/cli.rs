@@ -2449,13 +2449,11 @@ fn multiple_headers_with_same_key_in_session() {
             req.headers()
                 .get_all("hello")
                 .into_iter()
-                .collect::<Vec<_>>()
-                .sort(),
+                .collect::<Vec<_>>(),
             [
                 &HeaderValue::from_static("world"),
                 &HeaderValue::from_static("people")
             ]
-            .sort(),
         );
         hyper::Response::default()
     });
