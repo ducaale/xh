@@ -58,7 +58,9 @@ struct Header {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Headers {
+    // old headers format kept for backward compatibility
     Map(HashMap<String, String>),
+    // new header format that supports duplicate keys
     List(Vec<Header>),
 }
 
