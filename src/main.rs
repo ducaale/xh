@@ -321,8 +321,13 @@ fn run(args: Cli) -> Result<i32> {
 
     if let Some(ref mut s) = session {
         auth = s.auth()?;
-        for (key, value) in s.headers()?.iter() {
-            headers.entry(key).or_insert_with(|| value.clone());
+
+        let mut session_headers = s.headers()?;
+        for key in headers.keys() {
+            session_headers.remove(key);
+        }
+        for (key, value) in session_headers.iter() {
+            headers.append(key, value.clone());
         }
         s.save_headers(&headers)?;
 
