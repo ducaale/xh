@@ -136,6 +136,10 @@ impl Session {
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
+        if let Headers::List(ref mut headers) = self.content.headers {
+            headers.clear();
+        }
+
         for (key, value) in request_headers.iter() {
             let key = key.as_str();
             // HTTPie ignores headers that are specific to a particular request e.g content-length
