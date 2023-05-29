@@ -322,13 +322,11 @@ fn run(args: Cli) -> Result<i32> {
     if let Some(ref mut s) = session {
         auth = s.auth()?;
 
-        let mut session_headers = s.headers()?;
-        for key in headers.keys() {
-            session_headers.remove(key);
-        }
-        for (key, value) in session_headers.iter() {
-            headers.append(key, value.clone());
-        }
+        headers = {
+            let mut session_headers = s.headers()?;
+            session_headers.extend(headers);
+            session_headers
+        };
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
