@@ -137,21 +137,21 @@ impl Session {
         }
     }
 
-    pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
-        let headers = match self.content.headers {
+    pub fn save_headers(&mut self, headers: &HeaderMap) -> Result<()> {
+        let session_headers = match self.content.headers {
             Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
             Headers::List(ref mut headers) => headers,
         };
 
-        headers.clear();
+        session_headers.clear();
 
-        for (key, value) in request_headers.iter() {
+        for (key, value) in headers.iter() {
             let key = key.as_str();
             // HTTPie ignores headers that are specific to a particular request e.g content-length
             // see https://github.com/httpie/httpie/commit/e09b74021c9c955fd7c3bab11f22801aaf9dc1b8
             // we will also ignore cookies as they are taken care of by save_cookies()
             if key != "cookie" && !key.starts_with("content-") && !key.starts_with("if-") {
-                headers.push(Header {
+                session_headers.push(Header {
                     name: key.into(),
                     value: value.to_str()?.into(),
                 });
