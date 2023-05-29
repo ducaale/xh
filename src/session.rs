@@ -129,7 +129,7 @@ impl Session {
 
     pub fn headers(&self) -> Result<HeaderMap> {
         match &self.content.headers {
-            Headers::Map(headers) => Ok(headers.try_into()?),
+            Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
             Headers::List(headers) => headers
                 .iter()
                 .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
@@ -138,9 +138,12 @@ impl Session {
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
-        if let Headers::List(ref mut headers) = self.content.headers {
-            headers.clear();
-        }
+        let headers = match &mut self.content.headers {
+            Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
+            Headers::List(headers) => headers,
+        };
+
+        headers.clear();
 
         for (key, value) in request_headers.iter() {
             let key = key.as_str();
@@ -148,17 +151,10 @@ impl Session {
             // see https://github.com/httpie/httpie/commit/e09b74021c9c955fd7c3bab11f22801aaf9dc1b8
             // we will also ignore cookies as they are taken care of by save_cookies()
             if key != "cookie" && !key.starts_with("content-") && !key.starts_with("if-") {
-                match self.content.headers {
-                    Headers::Map(ref mut headers) => {
-                        headers.insert(key.into(), value.to_str()?.into());
-                    }
-                    Headers::List(ref mut headers) => {
-                        headers.push(Header {
-                            name: key.into(),
-                            value: value.to_str()?.into(),
-                        });
-                    }
-                }
+                headers.push(Header {
+                    name: key.into(),
+                    value: value.to_str()?.into(),
+                });
             }
         }
         Ok(())

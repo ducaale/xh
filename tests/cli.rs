@@ -2529,6 +2529,50 @@ fn headers_from_session_are_overwritten() {
 }
 
 #[test]
+fn old_session_format_is_automatically_migrated() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["hello"], "world");
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": { "hello": "world" }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    let session_content = fs::read_to_string(session_file).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
+        })
+    );
+}
+
+#[test]
 fn print_intermediate_requests_and_responses() {
     let server = server::http(|req| async move {
         match req.uri().path() {
