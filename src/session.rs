@@ -138,9 +138,9 @@ impl Session {
     }
 
     pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
-        let headers = match &mut self.content.headers {
+        let headers = match self.content.headers {
             Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
-            Headers::List(headers) => headers,
+            Headers::List(ref mut headers) => headers,
         };
 
         headers.clear();
