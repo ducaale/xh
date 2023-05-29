@@ -46,7 +46,7 @@ struct Auth {
 
 // Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct Cookie {
+struct LegacyCookie {
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<i64>,
@@ -54,6 +54,34 @@ struct Cookie {
     path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     secure: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct Cookie {
+    name: String,
+    value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secure: Option<bool>,
+    // TODO: store cookie domain as well
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum Cookies {
+    // old cookie format kept for backward compatibility
+    Map(HashMap<String, LegacyCookie>),
+    // new cookie format that closely resembles a cookie jar
+    List(Vec<Cookie>),
+}
+
+impl Default for Cookies {
+    fn default() -> Self {
+        Cookies::List(Vec::new())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,7 +110,7 @@ struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     auth: Auth,
-    cookies: HashMap<String, Cookie>,
+    cookies: Cookies,
     headers: Headers,
 }
 
@@ -96,6 +124,20 @@ impl Content {
                     .map(|(key, value)| Header { name: key, value })
                     .collect(),
             );
+        }
+        if let Cookies::Map(cookies) = self.cookies {
+            self.cookies = Cookies::List(
+                cookies
+                    .into_iter()
+                    .map(|(name, legacy_cookie)| Cookie {
+                        name,
+                        value: legacy_cookie.value,
+                        expires: legacy_cookie.expires,
+                        path: legacy_cookie.path,
+                        secure: legacy_cookie.secure,
+                    })
+                    .collect(),
+            )
         }
 
         self
@@ -218,39 +260,48 @@ impl Session {
     }
 
     pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
-        let mut cookies = vec![];
-        for (name, c) in &self.content.cookies {
-            let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
-            if let Some(expires) = c.expires {
-                cookie_builder =
-                    cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
-            }
-            if let Some(ref path) = c.path {
-                cookie_builder = cookie_builder.path(path);
-            }
-            if let Some(secure) = c.secure {
-                cookie_builder = cookie_builder.secure(secure);
-            }
-            cookies.push(cookie_builder.finish());
+        match &self.content.cookies {
+            Cookies::Map(_) => unreachable!(),
+            Cookies::List(cookies) => cookies
+                .iter()
+                .map(|cookie| {
+                    let mut cookie_builder =
+                        cookie_crate::Cookie::build(cookie.name.clone(), cookie.value.clone());
+                    if let Some(expires) = cookie.expires {
+                        cookie_builder = cookie_builder
+                            .expires(time::OffsetDateTime::from_unix_timestamp(expires));
+                    }
+                    if let Some(path) = &cookie.path {
+                        cookie_builder = cookie_builder.path(path.clone());
+                    }
+                    if let Some(secure) = cookie.secure {
+                        cookie_builder = cookie_builder.secure(secure);
+                    }
+                    cookie_builder.finish()
+                })
+                .collect(),
         }
-        cookies
     }
 
     pub fn save_cookies(&mut self, cookies: Vec<cookie_crate::Cookie>) {
-        self.content.cookies.clear();
+        let session_cookies = match self.content.cookies {
+            Cookies::Map(_) => unreachable!(),
+            Cookies::List(ref mut cookies) => cookies,
+        };
+
+        session_cookies.clear();
+
         for cookie in cookies {
-            self.content.cookies.insert(
-                cookie.name().into(),
-                Cookie {
-                    value: cookie.value().into(),
-                    expires: cookie
-                        .expires()
-                        .and_then(|v| v.datetime())
-                        .map(|v| v.unix_timestamp()),
-                    path: cookie.path().map(Into::into),
-                    secure: cookie.secure(),
-                },
-            );
+            session_cookies.push(Cookie {
+                name: cookie.name().into(),
+                value: cookie.value().into(),
+                expires: cookie
+                    .expires()
+                    .and_then(|v| v.datetime())
+                    .map(|v| v.unix_timestamp()),
+                path: cookie.path().map(Into::into),
+                secure: cookie.secure(),
+            });
         }
     }
 
