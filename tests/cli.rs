@@ -2061,7 +2061,9 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": { "cook1": { "value": "one" } },
-            "headers": [ {"name": "hello", "value": "world"} ]
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
         })
     );
 }
@@ -2080,7 +2082,9 @@ fn anonymous_read_only_session() {
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
         "cookies": { "cookie1": { "value": "one" } },
-        "headers": { "hello": "world" }
+        "headers": [
+            { "name": "hello", "value": "world" }
+        ]
     });
 
     std::fs::write(&session_file, old_session_content.to_string()).unwrap();
@@ -2141,7 +2145,7 @@ fn session_files_are_created_in_read_only_mode() {
                 "lang": { "value": "ar" }
             },
             "headers": [
-                {"name": "hello", "value": "world"}
+                { "name": "hello", "value": "world" }
             ]
         })
     );
@@ -2174,9 +2178,9 @@ fn named_read_only_session() {
         "cookies": {
             "cookie1": { "value": "one" }
         },
-        "headers": {
-            "hello": "world"
-        }
+        "headers": [
+            { "name": "hello", "value": "world" }
+        ]
     });
     fs::create_dir_all(path_to_session.parent().unwrap()).unwrap();
     File::create(&path_to_session).unwrap();
@@ -2227,7 +2231,7 @@ fn expired_cookies_are_removed_from_session() {
                     "value": "random_string",
                 }
             },
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2295,7 +2299,7 @@ fn cookies_override_each_other_in_the_correct_order() {
                 "lang": { "value": "fr" },
                 "cook2": { "value": "three" }
             },
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2345,7 +2349,7 @@ fn basic_auth_from_session_is_used() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "basic", "raw_auth": "user:pass" },
             "cookies": {},
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2377,7 +2381,7 @@ fn bearer_auth_from_session_is_used() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "bearer", "raw_auth": "secret-token" },
             "cookies": {},
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2435,7 +2439,7 @@ fn auth_netrc_is_not_persisted_in_session() {
             "auth": { "type": null, "raw_auth": null },
             "cookies": {},
             "headers": [
-                {"name": "hello", "value": "world"}
+                { "name": "hello", "value": "world" }
             ]
         })
     );
