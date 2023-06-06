@@ -16,9 +16,16 @@ use crate::utils::{config_dir, test_mode};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Meta {
-    Xh { about: String, xh: String },
-    Httpie { httpie: String },
-    Other,
+    Xh {
+        about: String,
+        xh: String,
+    },
+    Httpie {
+        about: String,
+        help: String,
+        httpie: String,
+    },
+    Other(serde_json::Value),
 }
 
 impl Default for Meta {
