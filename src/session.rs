@@ -472,4 +472,51 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn can_parse_session_with_new_style_cookies() -> Result<()> {
+        let session = load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {
+                    "about": "HTTPie session file",
+                    "help": "https://httpie.io/docs#sessions",
+                    "httpie": "3.0.2"
+                },
+                "auth": {},
+                "cookies": [
+                    {
+                        "name": "baz",
+                        "value": "quux",
+                        "expires": null,
+                        "path": "/",
+                        "secure": false,
+                        "domain": "example.com"
+                    },
+                    {
+                        "name": "foo",
+                        "value": "bar",
+                        "expires": null,
+                        "path": "/",
+                        "secure": false,
+                        "domain": null
+                    }
+                ],
+                "headers": []
+            }
+        "#})?;
+
+        let cookies = session.cookies();
+
+        assert_eq!(cookies[0].name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].path(), Some("/"));
+        assert_eq!(cookies[0].secure(), Some(false));
+        assert_eq!(cookies[0].domain(), Some("example.com"));
+
+        assert_eq!(cookies[1].name_value(), ("foo", "bar"));
+        assert_eq!(cookies[1].path(), Some("/"));
+        assert_eq!(cookies[1].secure(), Some(false));
+        assert_eq!(cookies[1].domain(), None);
+
+        Ok(())
+    }
 }
