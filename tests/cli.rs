@@ -2018,10 +2018,10 @@ fn named_sessions() {
                 "xh": "0.0.0"
             },
             "auth": { "type": "bearer", "raw_auth": "hello" },
-            "cookies": {
-                "cook1": { "value": "one", "path": "/" },
-                "lang": { "value": "en" }
-            },
+            "cookies": [
+                { "name": "cook1", "value": "one", "path": "/" },
+                { "name": "lang", "value": "en" }
+            ],
             "headers": []
         })
     );
@@ -2060,7 +2060,9 @@ fn anonymous_sessions() {
                 "xh": "0.0.0"
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
-            "cookies": { "cook1": { "value": "one" } },
+            "cookies": [
+                { "name": "cook1", "value": "one" }
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2081,7 +2083,9 @@ fn anonymous_read_only_session() {
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
-        "cookies": { "cookie1": { "value": "one" } },
+        "cookies": [
+            { "name": "cookie1", "value": "one" }
+        ],
         "headers": [
             { "name": "hello", "value": "world" }
         ]
@@ -2141,9 +2145,9 @@ fn session_files_are_created_in_read_only_mode() {
                 "xh": "0.0.0"
             },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "ar" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "ar" }
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2175,9 +2179,9 @@ fn named_read_only_session() {
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
-        "cookies": {
-            "cookie1": { "value": "one" }
-        },
+        "cookies": [
+            { "name": "cookie1", "value": "one" }
+        ],
         "headers": [
             { "name": "hello", "value": "world" }
         ]
@@ -2218,19 +2222,22 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "expired_cookie": {
+            "cookies": [
+                {
+                    "name": "expired_cookie",
                     "value": "random_string",
                     "expires": past_timestamp
                 },
-                "unexpired_cookie": {
+                {
+                    "name": "unexpired_cookie",
                     "value": "random_string",
                     "expires": future_timestamp
                 },
-                "with_out_expiry": {
+                {
+                    "name": "with_out_expiry",
                     "value": "random_string",
                 }
-            },
+            ],
             "headers": []
         })
         .to_string(),
@@ -2253,15 +2260,17 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "unexpired_cookie": {
+            "cookies": [
+                {
+                    "name": "unexpired_cookie",
                     "value": "random_string",
                     "expires": future_timestamp
                 },
-                "with_out_expiry": {
-                    "value": "random_string",
+                {
+                    "name": "with_out_expiry",
+                    "value": "random_string"
                 }
-            },
+            ],
             "headers": []
         })
     );
@@ -2295,10 +2304,10 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "fr" },
-                "cook2": { "value": "three" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "fr" },
+                { "name": "cook2", "value": "three" }
+            ],
             "headers": []
         })
         .to_string(),
@@ -2324,11 +2333,11 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "en" },
-                "cook1": { "value": "one" },
-                "cook2": { "value": "two" }
-            },
+            "cookies": [
+                { "name": "cook1", "value": "one" },
+                { "name": "cook2", "value": "two" },
+                { "name": "lang", "value": "en" }
+            ],
             "headers": []
         })
     );
@@ -2348,7 +2357,7 @@ fn basic_auth_from_session_is_used() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "basic", "raw_auth": "user:pass" },
-            "cookies": {},
+            "cookies": [],
             "headers": []
         })
         .to_string(),
@@ -2380,7 +2389,7 @@ fn bearer_auth_from_session_is_used() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "bearer", "raw_auth": "secret-token" },
-            "cookies": {},
+            "cookies": [],
             "headers": []
         })
         .to_string(),
@@ -2437,7 +2446,7 @@ fn auth_netrc_is_not_persisted_in_session() {
                 "xh": "0.0.0"
             },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2469,7 +2478,7 @@ fn multiple_headers_with_same_key_in_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" },
                 { "name": "hello", "value": "people" },
@@ -2511,7 +2520,7 @@ fn headers_from_session_are_overwritten() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" },
             ]
@@ -2541,6 +2550,7 @@ fn old_session_format_is_automatically_migrated() {
 
     let session_file = NamedTempFile::new().unwrap();
 
+    // TODO
     std::fs::write(
         &session_file,
         serde_json::json!({
@@ -2568,7 +2578,7 @@ fn old_session_format_is_automatically_migrated() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]

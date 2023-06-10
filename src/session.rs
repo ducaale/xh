@@ -288,13 +288,15 @@ impl Session {
         }
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<cookie_crate::Cookie>) {
+    pub fn save_cookies(&mut self, mut cookies: Vec<cookie_crate::Cookie>) {
         let session_cookies = match self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(ref mut cookies) => cookies,
         };
 
         session_cookies.clear();
+
+        cookies.sort_by(|a, b| a.name().cmp(b.name()));
 
         for cookie in cookies {
             session_cookies.push(Cookie {
