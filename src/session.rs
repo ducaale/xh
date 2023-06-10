@@ -66,7 +66,8 @@ struct Cookie {
     path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     secure: Option<bool>,
-    // TODO: store cookie domain as well
+    #[serde(skip_serializing_if = "Option::is_none")]
+    domain: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,6 +136,7 @@ impl Content {
                         expires: legacy_cookie.expires,
                         path: legacy_cookie.path,
                         secure: legacy_cookie.secure,
+                        domain: None,
                     })
                     .collect(),
             )
@@ -277,6 +279,9 @@ impl Session {
                     if let Some(secure) = cookie.secure {
                         cookie_builder = cookie_builder.secure(secure);
                     }
+                    if let Some(domain) = &cookie.domain {
+                        cookie_builder = cookie_builder.domain(domain.clone())
+                    }
                     cookie_builder.finish()
                 })
                 .collect(),
@@ -301,6 +306,7 @@ impl Session {
                     .map(|v| v.unix_timestamp()),
                 path: cookie.path().map(Into::into),
                 secure: cookie.secure(),
+                domain: cookie.domain().map(Into::into),
             });
         }
     }

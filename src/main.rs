@@ -333,7 +333,9 @@ fn run(args: Cli) -> Result<i32> {
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
             match cookie_jar.insert_raw(&cookie, &url) {
-                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
+                Ok(..)
+                | Err(cookie_store::CookieError::Expired)
+                | Err(cookie_store::CookieError::DomainMismatch) => {}
                 Err(err) => return Err(err.into()),
             }
         }
