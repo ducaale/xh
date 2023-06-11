@@ -332,6 +332,7 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
+            // TODO: load cookies from other domains?
             match cookie_jar.insert_raw(&cookie, &url) {
                 Ok(..)
                 | Err(cookie_store::CookieError::Expired)
@@ -586,6 +587,7 @@ fn run(args: Cli) -> Result<i32> {
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
         s.save_cookies(
+            // TODO: save everything in the cookie jar by replacing matches() with iter_unexpired()
             cookie_jar
                 .matches(&url)
                 .into_iter()
