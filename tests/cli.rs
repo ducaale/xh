@@ -2019,8 +2019,8 @@ fn named_sessions() {
             },
             "auth": { "type": "bearer", "raw_auth": "hello" },
             "cookies": [
-                { "name": "cook1", "value": "one", "path": "/" },
-                { "name": "lang", "value": "en" }
+                { "name": "cook1", "value": "one", "path": "/", "domain": "127.0.0.1" },
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" }
             ],
             "headers": []
         })
@@ -2061,7 +2061,7 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": [
-                { "name": "cook1", "value": "one" }
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1" }
             ],
             "headers": [
                 { "name": "hello", "value": "world" }
@@ -2084,7 +2084,7 @@ fn anonymous_read_only_session() {
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
         "cookies": [
-            { "name": "cookie1", "value": "one" }
+            { "name": "cookie1", "value": "one", "domain": "127.0.0.1" }
         ],
         "headers": [
             { "name": "hello", "value": "world" }
@@ -2146,7 +2146,7 @@ fn session_files_are_created_in_read_only_mode() {
             },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "lang", "value": "ar" }
+                { "name": "lang", "value": "ar", "domain": "127.0.0.1" }
             ],
             "headers": [
                 { "name": "hello", "value": "world" }
@@ -2180,7 +2180,7 @@ fn named_read_only_session() {
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
         "cookies": [
-            { "name": "cookie1", "value": "one" }
+            { "name": "cookie1", "value": "one", "domain": "127.0.0.1" }
         ],
         "headers": [
             { "name": "hello", "value": "world" }
@@ -2226,16 +2226,19 @@ fn expired_cookies_are_removed_from_session() {
                 {
                     "name": "expired_cookie",
                     "value": "random_string",
-                    "expires": past_timestamp
+                    "expires": past_timestamp,
+                    "domain": "127.0.0.1"
                 },
                 {
                     "name": "unexpired_cookie",
                     "value": "random_string",
-                    "expires": future_timestamp
+                    "expires": future_timestamp,
+                    "domain": "127.0.0.1"
                 },
                 {
                     "name": "with_out_expiry",
                     "value": "random_string",
+                    "domain": "127.0.0.1"
                 }
             ],
             "headers": []
@@ -2245,7 +2248,7 @@ fn expired_cookies_are_removed_from_session() {
     .unwrap();
 
     get_command()
-        .arg(":")
+        .arg("127.0.0.1")
         .arg(format!(
             "--session={}",
             session_file.path().to_string_lossy()
@@ -2264,11 +2267,13 @@ fn expired_cookies_are_removed_from_session() {
                 {
                     "name": "unexpired_cookie",
                     "value": "random_string",
-                    "expires": future_timestamp
+                    "expires": future_timestamp,
+                    "domain": "127.0.0.1"
                 },
                 {
                     "name": "with_out_expiry",
-                    "value": "random_string"
+                    "value": "random_string",
+                    "domain": "127.0.0.1"
                 }
             ],
             "headers": []
@@ -2305,8 +2310,8 @@ fn cookies_override_each_other_in_the_correct_order() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "lang", "value": "fr" },
-                { "name": "cook2", "value": "three" }
+                { "name": "lang", "value": "fr", "domain": "127.0.0.1" },
+                { "name": "cook2", "value": "three", "domain": "127.0.0.1" }
             ],
             "headers": []
         })
@@ -2334,9 +2339,9 @@ fn cookies_override_each_other_in_the_correct_order() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "cook1", "value": "one" },
-                { "name": "cook2", "value": "two" },
-                { "name": "lang", "value": "en" }
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1" },
+                { "name": "cook2", "value": "two", "domain": "127.0.0.1" },
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" }
             ],
             "headers": []
         })
@@ -2550,7 +2555,7 @@ fn old_session_format_is_automatically_migrated() {
 
     let session_file = NamedTempFile::new().unwrap();
 
-    // TODO
+    // TODO: test migrating old format cookies
     std::fs::write(
         &session_file,
         serde_json::json!({
