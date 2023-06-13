@@ -331,8 +331,8 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
+        // TODO: load all cookies including those from other domains
         for cookie in s.cookies() {
-            // TODO: load cookies from other domains?
             match cookie_jar.insert_raw(&cookie, &url) {
                 Ok(..)
                 | Err(cookie_store::CookieError::Expired)
@@ -341,6 +341,7 @@ fn run(args: Cli) -> Result<i32> {
             }
         }
         if let Some(cookie) = headers.remove(COOKIE) {
+            // TODO: use Cookie::split_parse()
             for cookie in cookie.to_str()?.split(';') {
                 cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
@@ -587,9 +588,8 @@ fn run(args: Cli) -> Result<i32> {
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
         s.save_cookies(
-            // TODO: save everything in the cookie jar by replacing matches() with iter_unexpired()
             cookie_jar
-                .matches(&url)
+                .iter_unexpired()
                 .into_iter()
                 .map(|c| cookie_crate::Cookie::from(c.clone()))
                 .collect(),
