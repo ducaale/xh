@@ -22,7 +22,7 @@ chardetng = "0.1.15"
 clap = { version = "3.1.0", features = ["derive", "wrap_help"] }
 clap_complete = { version = "3.1.0", optional = true }
 cookie_crate = { version = "0.15", package = "cookie" }
-cookie_store = { version = "0.15.0" }
+cookie_store = { version = "0.15.0", features = ["preserve_order"] }
 digest_auth = "0.3.0"
 dirs = "3.0.1"
 encoding_rs = "0.8.28"

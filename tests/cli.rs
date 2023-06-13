@@ -2019,8 +2019,8 @@ fn named_sessions() {
             },
             "auth": { "type": "bearer", "raw_auth": "hello" },
             "cookies": [
-                { "name": "cook1", "value": "one", "path": "/", "domain": "127.0.0.1" },
-                { "name": "lang", "value": "en", "domain": "127.0.0.1" }
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
+                { "name": "cook1", "value": "one", "path": "/", "domain": "127.0.0.1" }
             ],
             "headers": []
         })
@@ -2339,9 +2339,9 @@ fn cookies_override_each_other_in_the_correct_order() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "cook1", "value": "one", "domain": "127.0.0.1" },
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
                 { "name": "cook2", "value": "two", "domain": "127.0.0.1" },
-                { "name": "lang", "value": "en", "domain": "127.0.0.1" }
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1" },
             ],
             "headers": []
         })

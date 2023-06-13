@@ -283,6 +283,7 @@ checksum = "b3f7034c0932dc36f5bd8ec37368d971346809435824f277cb3b8299fc56167c"
 dependencies = [
  "cookie 0.15.2",
  "idna 0.2.3",
+ "indexmap",
  "log",
  "publicsuffix",
  "serde",
