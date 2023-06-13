@@ -590,7 +590,6 @@ fn run(args: Cli) -> Result<i32> {
         s.save_cookies(
             cookie_jar
                 .iter_unexpired()
-                .into_iter()
                 .map(|c| cookie_crate::Cookie::from(c.clone()))
                 .collect(),
         );
