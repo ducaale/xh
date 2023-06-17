@@ -332,12 +332,12 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        // TODO: load all cookies including those from other domains
         for cookie in s.cookies()? {
-            match cookie_jar.insert_raw(&cookie, &url) {
-                Ok(..)
-                | Err(cookie_store::CookieError::Expired)
-                | Err(cookie_store::CookieError::DomainMismatch) => {}
+            let cookie_url = &cookie
+                .domain()
+                .and_then(|d| format!("http://{d}").parse().ok());
+            match cookie_jar.insert_raw(&cookie, cookie_url.as_ref().unwrap_or(&url)) {
+                Ok(..) | Err(CookieError::Expired) | Err(CookieError::DomainMismatch) => {}
                 Err(err) => return Err(err.into()),
             }
         }
