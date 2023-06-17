@@ -332,7 +332,7 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         // TODO: load all cookies including those from other domains
-        for cookie in s.cookies() {
+        for cookie in s.cookies()? {
             match cookie_jar.insert_raw(&cookie, &url) {
                 Ok(..)
                 | Err(cookie_store::CookieError::Expired)

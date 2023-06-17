@@ -261,7 +261,7 @@ impl Session {
         }
     }
 
-    pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
+    pub fn cookies(&self) -> Result<Vec<cookie_crate::Cookie>> {
         match &self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(cookies) => cookies
@@ -271,7 +271,7 @@ impl Session {
                         cookie_crate::Cookie::build(cookie.name.clone(), cookie.value.clone());
                     if let Some(expires) = cookie.expires {
                         cookie_builder = cookie_builder
-                            .expires(time::OffsetDateTime::from_unix_timestamp(expires));
+                            .expires(time::OffsetDateTime::from_unix_timestamp(expires)?);
                     }
                     if let Some(path) = &cookie.path {
                         cookie_builder = cookie_builder.path(path.clone());
@@ -282,7 +282,7 @@ impl Session {
                     if let Some(domain) = &cookie.domain {
                         cookie_builder = cookie_builder.domain(domain.clone());
                     }
-                    cookie_builder.finish()
+                    Ok(cookie_builder.finish())
                 })
                 .collect(),
         }
@@ -384,9 +384,9 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()[0].path(), Some("/"));
-        assert_eq!(session.cookies()[0].secure(), Some(false));
+        assert_eq!(session.cookies()?[0].name_value(), ("baz", "quux"));
+        assert_eq!(session.cookies()?[0].path(), Some("/"));
+        assert_eq!(session.cookies()?[0].secure(), Some(false));
         assert_eq!(session.content.auth, Auth::default());
 
         Ok(())
@@ -412,9 +412,9 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()[0].path(), Some("/"));
-        assert_eq!(session.cookies()[0].secure(), Some(false));
+        assert_eq!(session.cookies()?[0].name_value(), ("baz", "quux"));
+        assert_eq!(session.cookies()?[0].path(), Some("/"));
+        assert_eq!(session.cookies()?[0].secure(), Some(false));
         assert_eq!(
             session.content.auth,
             Auth {
@@ -505,7 +505,7 @@ mod tests {
             }
         "#})?;
 
-        let cookies = session.cookies();
+        let cookies = session.cookies()?;
 
         assert_eq!(cookies[0].name_value(), ("baz", "quux"));
         assert_eq!(cookies[0].path(), Some("/"));
