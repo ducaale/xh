@@ -1944,7 +1944,7 @@ fn can_unset_default_headers() {
 #[test]
 fn can_unset_headers() {
     get_command()
-        .args([":", "hello:world", "goodby:world", "goodby:", "--offline"])
+        .args([":", "hello:world", "goodbye:world", "goodbye:", "--offline"])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -2022,7 +2022,7 @@ fn named_sessions() {
                 "cook1": { "value": "one", "path": "/" },
                 "lang": { "value": "en" }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2061,7 +2061,9 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": { "cook1": { "value": "one" } },
-            "headers": { "hello": "world" }
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
         })
     );
 }
@@ -2080,7 +2082,9 @@ fn anonymous_read_only_session() {
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
         "cookies": { "cookie1": { "value": "one" } },
-        "headers": { "hello": "world" }
+        "headers": [
+            { "name": "hello", "value": "world" }
+        ]
     });
 
     std::fs::write(&session_file, old_session_content.to_string()).unwrap();
@@ -2140,9 +2144,9 @@ fn session_files_are_created_in_read_only_mode() {
             "cookies": {
                 "lang": { "value": "ar" }
             },
-            "headers": {
-                "hello": "world"
-            }
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
         })
     );
 }
@@ -2174,9 +2178,9 @@ fn named_read_only_session() {
         "cookies": {
             "cookie1": { "value": "one" }
         },
-        "headers": {
-            "hello": "world"
-        }
+        "headers": [
+            { "name": "hello", "value": "world" }
+        ]
     });
     fs::create_dir_all(path_to_session.parent().unwrap()).unwrap();
     File::create(&path_to_session).unwrap();
@@ -2227,7 +2231,7 @@ fn expired_cookies_are_removed_from_session() {
                     "value": "random_string",
                 }
             },
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2258,7 +2262,7 @@ fn expired_cookies_are_removed_from_session() {
                     "value": "random_string",
                 }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2295,7 +2299,7 @@ fn cookies_override_each_other_in_the_correct_order() {
                 "lang": { "value": "fr" },
                 "cook2": { "value": "three" }
             },
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2325,7 +2329,7 @@ fn cookies_override_each_other_in_the_correct_order() {
                 "cook1": { "value": "one" },
                 "cook2": { "value": "two" }
             },
-            "headers": {}
+            "headers": []
         })
     );
 }
@@ -2345,7 +2349,7 @@ fn basic_auth_from_session_is_used() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "basic", "raw_auth": "user:pass" },
             "cookies": {},
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2377,7 +2381,7 @@ fn bearer_auth_from_session_is_used() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "bearer", "raw_auth": "secret-token" },
             "cookies": {},
-            "headers": {}
+            "headers": []
         })
         .to_string(),
     )
@@ -2434,9 +2438,140 @@ fn auth_netrc_is_not_persisted_in_session() {
             },
             "auth": { "type": null, "raw_auth": null },
             "cookies": {},
-            "headers": {
-                "hello": "world"
-            }
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
+        })
+    );
+}
+
+#[test]
+fn multiple_headers_with_same_key_in_session() {
+    let server = server::http(|req| async move {
+        use reqwest::header::HeaderValue;
+        assert_eq!(
+            req.headers()
+                .get_all("hello")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            [
+                &HeaderValue::from_static("world"),
+                &HeaderValue::from_static("people")
+            ]
+        );
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" },
+                { "name": "hello", "value": "people" },
+            ]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .assert()
+        .success();
+}
+
+#[test]
+fn headers_from_session_are_overwritten() {
+    let server = server::http(|req| async move {
+        use reqwest::header::HeaderValue;
+        assert_eq!(
+            req.headers()
+                .get_all("hello")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            [&HeaderValue::from_static("people")]
+        );
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" },
+            ]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .arg("--no-check-status")
+        .arg("hello:people")
+        .assert()
+        .success();
+}
+
+#[test]
+fn old_session_format_is_automatically_migrated() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["hello"], "world");
+        hyper::Response::default()
+    });
+
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": {},
+            "cookies": {},
+            "headers": { "hello": "world" }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!(
+            "--session={}",
+            session_file.path().to_string_lossy()
+        ))
+        .assert()
+        .success();
+
+    let session_content = fs::read_to_string(session_file).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": {},
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
         })
     );
 }
