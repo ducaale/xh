@@ -28,6 +28,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cli::FormatOptions;
+use cookie_store::CookieDomain;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -590,7 +591,13 @@ fn run(args: Cli) -> Result<i32> {
         s.save_cookies(
             cookie_jar
                 .iter_unexpired()
-                .map(|c| cookie_crate::Cookie::from(c.clone()))
+                .map(|c| {
+                    let mut cookie = cookie_crate::Cookie::from(c.clone());
+                    if let CookieDomain::HostOnly(s) = &c.domain {
+                        cookie.set_domain(s.clone())
+                    }
+                    cookie
+                })
                 .collect(),
         );
         s.persist()
