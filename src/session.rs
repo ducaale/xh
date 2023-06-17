@@ -147,7 +147,6 @@ impl Content {
 }
 
 pub struct Session {
-    host: Option<String>,
     pub path: PathBuf,
     read_only: bool,
     content: Content,
@@ -173,7 +172,6 @@ impl Session {
         };
 
         Ok(Session {
-            host: url.host_str().map(Into::into),
             path,
             read_only,
             content,
@@ -308,10 +306,7 @@ impl Session {
                     .map(|v| v.unix_timestamp()),
                 path: cookie.path().map(Into::into),
                 secure: cookie.secure(),
-                domain: cookie
-                    .domain()
-                    .map(Into::into)
-                    .or_else(|| self.host.clone()),
+                domain: cookie.domain().map(Into::into),
             });
         }
     }
@@ -363,7 +358,6 @@ mod tests {
     fn load_session_from_str(s: &str) -> Result<Session> {
         Ok(Session {
             content: serde_json::from_str::<Content>(s)?.migrate(),
-            host: Some("example.com".into()),
             path: PathBuf::new(),
             read_only: false,
         })
