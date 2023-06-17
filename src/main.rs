@@ -36,6 +36,7 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
 use reqwest::tls;
+use url::Host;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -332,10 +333,19 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        for cookie in s.cookies()? {
-            let cookie_url = &cookie
+        for mut cookie in s.cookies()? {
+            let cookie_url: &Option<url::Url> = &cookie
                 .domain()
                 .and_then(|d| format!("http://{d}").parse().ok());
+
+            // The cookie's domain attribute cannot be an IP address.
+            // See https://stackoverflow.com/a/30676300/5915221
+            if let Some(url) = &cookie_url {
+                if let Some(Host::Ipv4(_) | Host::Ipv6(_)) = url.host() {
+                    cookie.unset_domain()
+                }
+            }
+
             match cookie_jar.insert_raw(&cookie, cookie_url.as_ref().unwrap_or(&url)) {
                 Ok(..) | Err(CookieError::Expired) | Err(CookieError::DomainMismatch) => {}
                 Err(err) => return Err(err.into()),
@@ -434,7 +444,7 @@ fn run(args: Cli) -> Result<i32> {
         } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
-            let host = url.host().unwrap_or(url::Host::Domain(""));
+            let host = url.host().unwrap_or(Host::Domain(""));
             if let Some(entry) = netrc::find_entry(host) {
                 auth = Auth::from_netrc(auth_type, entry);
                 save_auth_in_session = false;
