@@ -352,9 +352,8 @@ fn run(args: Cli) -> Result<i32> {
             }
         }
         if let Some(cookie) = headers.remove(COOKIE) {
-            // TODO: use Cookie::split_parse()
-            for cookie in cookie.to_str()?.split(';') {
-                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
+            for cookie in cookie_store::RawCookie::split_parse(cookie.to_str()?) {
+                cookie_jar.insert_raw(&cookie?, &url)?;
             }
         }
     }
