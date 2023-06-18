@@ -261,14 +261,14 @@ impl Session {
         }
     }
 
-    pub fn cookies(&self) -> Result<Vec<cookie_crate::Cookie>> {
+    pub fn cookies(&self) -> Result<Vec<cookie_store::RawCookie>> {
         match &self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(cookies) => cookies
                 .iter()
                 .map(|cookie| {
                     let mut cookie_builder =
-                        cookie_crate::Cookie::build(cookie.name.clone(), cookie.value.clone());
+                        cookie_store::RawCookie::build(cookie.name.clone(), cookie.value.clone());
                     if let Some(expires) = cookie.expires {
                         cookie_builder = cookie_builder
                             .expires(time::OffsetDateTime::from_unix_timestamp(expires)?);
@@ -288,7 +288,7 @@ impl Session {
         }
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<cookie_crate::Cookie>) {
+    pub fn save_cookies(&mut self, cookies: Vec<cookie_store::RawCookie>) {
         let session_cookies = match self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(ref mut cookies) => cookies,

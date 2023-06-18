@@ -602,7 +602,7 @@ fn run(args: Cli) -> Result<i32> {
             cookie_jar
                 .iter_unexpired()
                 .map(|c| {
-                    let mut cookie = cookie_crate::Cookie::from(c.clone());
+                    let mut cookie = cookie_store::RawCookie::from(c.clone());
                     if let CookieDomain::HostOnly(s) = &c.domain {
                         cookie.set_domain(s.clone())
                     }
