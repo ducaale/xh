@@ -2348,6 +2348,75 @@ fn cookies_override_each_other_in_the_correct_order() {
 }
 
 #[test]
+fn cookies_are_segmented_by_domain() {
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [
+                // will be overwritten by set-cookie header from example.com
+                { "name": "lang", "value": "fi", "domain": "example.com" },
+                // will not be overwritten
+                { "name": "lang", "value": "fr", "domain": "example.org" },
+            ],
+            "headers": []
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let server = server::http(|req| async move {
+        match req.uri().host() {
+            Some("example.com") => {
+                assert_eq!(req.headers()["cookie"].to_str().unwrap(), "lang=fi");
+                hyper::Response::builder()
+                    .header("set-cookie", "lang=en")
+                    .body("".into())
+                    .unwrap()
+            }
+            Some("example.net") => {
+                assert!(req.headers().get("cookie").is_none());
+                hyper::Response::builder()
+                    .header("set-cookie", "lang=ar")
+                    .body("".into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    for url in ["http://example.com", "http://example.net"] {
+        get_command()
+            .arg(url)
+            .arg(format!("--proxy=all:{}", server.base_url()))
+            .arg(format!(
+                "--session={}",
+                session_file.path().to_string_lossy()
+            ))
+            .assert()
+            .success();
+    }
+
+    let session_content = fs::read_to_string(session_file.path()).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [
+                { "name": "lang", "value": "en", "domain": "example.com" },
+                { "name": "lang", "value": "fr", "domain": "example.org" },
+                { "name": "lang", "value": "ar", "domain": "example.net" }
+            ],
+            "headers": []
+        })
+    );
+}
+
+#[test]
 fn basic_auth_from_session_is_used() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["authorization"], "Basic dXNlcjpwYXNz");
