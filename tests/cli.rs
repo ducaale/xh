@@ -10,7 +10,7 @@ use std::iter::FromIterator;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
@@ -2207,7 +2207,6 @@ fn named_read_only_session() {
 
 #[test]
 fn expired_cookies_are_removed_from_session() {
-    use std::time::{SystemTime, UNIX_EPOCH};
     let future_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -2555,13 +2554,20 @@ fn old_session_format_is_automatically_migrated() {
 
     let session_file = NamedTempFile::new().unwrap();
 
-    // TODO: test migrating old format cookies
+    let future_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 1000;
+
     std::fs::write(
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": {
+                "lang": { "value": "en", "expires": future_timestamp, "path": "/", "secure": false },
+            },
             "headers": { "hello": "world" }
         })
         .to_string(),
@@ -2583,7 +2589,16 @@ fn old_session_format_is_automatically_migrated() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": [],
+            "cookies": [
+                {
+                    "name": "lang",
+                    "value": "en",
+                    "expires": future_timestamp,
+                    "path": "/",
+                    "secure": false,
+                    "domain": "127.0.0.1"
+                },
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]

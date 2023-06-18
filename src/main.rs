@@ -606,6 +606,8 @@ fn run(args: Cli) -> Result<i32> {
                     if let CookieDomain::HostOnly(s) = &c.domain {
                         cookie.set_domain(s.clone())
                     }
+                    // TODO: fix this in cookie_store crate
+                    cookie.set_secure(c.secure());
                     cookie
                 })
                 .collect(),
