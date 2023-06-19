@@ -28,7 +28,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cli::FormatOptions;
-use cookie_store::CookieDomain;
+use cookie_store::RawCookie;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -314,7 +314,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
-            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
+            Session::load_session(url.clone(), name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
@@ -333,26 +333,14 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        for mut cookie in s.cookies()? {
-            let cookie_url: &Option<url::Url> = &cookie
-                .domain()
-                .and_then(|d| format!("http://{d}").parse().ok());
-
-            // The cookie's domain attribute cannot be an IP address.
-            // See https://stackoverflow.com/a/30676300/5915221
-            if let Some(url) = &cookie_url {
-                if let Some(Host::Ipv4(_) | Host::Ipv6(_)) = url.host() {
-                    cookie.unset_domain()
-                }
-            }
-
-            match cookie_jar.insert_raw(&cookie, cookie_url.as_ref().unwrap_or(&url)) {
+        for (cookie, cookie_url) in s.cookies()? {
+            match cookie_jar.insert_raw(&cookie, &cookie_url) {
                 Ok(..) | Err(CookieError::Expired) | Err(CookieError::DomainMismatch) => {}
                 Err(err) => return Err(err.into()),
             }
         }
         if let Some(cookie) = headers.remove(COOKIE) {
-            for cookie in cookie_store::RawCookie::split_parse(cookie.to_str()?) {
+            for cookie in RawCookie::split_parse(cookie.to_str()?) {
                 cookie_jar.insert_raw(&cookie?, &url)?;
             }
         }
@@ -597,20 +585,7 @@ fn run(args: Cli) -> Result<i32> {
 
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
-        s.save_cookies(
-            cookie_jar
-                .iter_unexpired()
-                .map(|c| {
-                    let mut cookie = cookie_store::RawCookie::from(c.clone());
-                    if let CookieDomain::HostOnly(s) = &c.domain {
-                        cookie.set_domain(s.clone())
-                    }
-                    // TODO: fix this in cookie_store crate
-                    cookie.set_secure(c.secure());
-                    cookie
-                })
-                .collect(),
-        );
+        s.save_cookies(cookie_jar.iter_unexpired());
         s.persist()
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }

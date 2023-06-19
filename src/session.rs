@@ -7,8 +7,8 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use reqwest::header::HeaderMap;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::auth;
 use crate::utils::{config_dir, test_mode};
@@ -147,19 +147,20 @@ impl Content {
 }
 
 pub struct Session {
+    url: Url,
     pub path: PathBuf,
     read_only: bool,
     content: Content,
 }
 
 impl Session {
-    pub fn load_session(url: &Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
+    pub fn load_session(url: Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
             let mut path = config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["sessions", &path_from_url(url)?].iter().collect());
+                .join::<PathBuf>(["sessions", &path_from_url(&url)?].iter().collect());
             name_or_path.push(".json");
             path.push(name_or_path);
             path
@@ -172,6 +173,7 @@ impl Session {
         };
 
         Ok(Session {
+            url,
             path,
             read_only,
             content,
@@ -261,7 +263,7 @@ impl Session {
         }
     }
 
-    pub fn cookies(&self) -> Result<Vec<cookie_store::RawCookie>> {
+    pub fn cookies(&self) -> Result<Vec<(cookie_store::Cookie, Url)>> {
         match &self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(cookies) => cookies
@@ -269,26 +271,44 @@ impl Session {
                 .map(|cookie| {
                     let mut cookie_builder =
                         cookie_store::RawCookie::build(cookie.name.clone(), cookie.value.clone());
+
                     if let Some(expires) = cookie.expires {
                         cookie_builder = cookie_builder
                             .expires(time::OffsetDateTime::from_unix_timestamp(expires)?);
                     }
                     if let Some(path) = &cookie.path {
-                        cookie_builder = cookie_builder.path(path.clone());
+                        cookie_builder = cookie_builder.path(path);
                     }
                     if let Some(secure) = cookie.secure {
                         cookie_builder = cookie_builder.secure(secure);
                     }
+
+                    let mut cookie_url = self.url.clone();
                     if let Some(domain) = &cookie.domain {
-                        cookie_builder = cookie_builder.domain(domain.clone());
+                        cookie_url = format!("http://{domain}").parse()?;
+                        // The cookie's domain attribute cannot be an IP address.
+                        // See https://stackoverflow.com/a/30676300/5915221
+                        if let Some(url::Host::Domain(_)) = cookie_url.host() {
+                            cookie_builder = cookie_builder.domain(domain.clone());
+                        }
                     }
-                    Ok(cookie_builder.finish())
+
+                    Ok((
+                        cookie_store::Cookie::try_from_raw_cookie(
+                            &cookie_builder.finish(),
+                            &cookie_url,
+                        )?,
+                        cookie_url,
+                    ))
                 })
                 .collect(),
         }
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<cookie_store::RawCookie>) {
+    pub fn save_cookies<'a, I>(&mut self, cookies: I)
+    where
+        I: Iterator<Item = &'a cookie_store::Cookie<'static>>,
+    {
         let session_cookies = match self.content.cookies {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(ref mut cookies) => cookies,
@@ -297,6 +317,11 @@ impl Session {
         session_cookies.clear();
 
         for cookie in cookies {
+            let mut domain = cookie.domain();
+            if let cookie_store::CookieDomain::HostOnly(s) = &cookie.domain {
+                domain = Some(s);
+            }
+
             session_cookies.push(Cookie {
                 name: cookie.name().into(),
                 value: cookie.value().into(),
@@ -306,7 +331,7 @@ impl Session {
                     .map(|v| v.unix_timestamp()),
                 path: cookie.path().map(Into::into),
                 secure: cookie.secure(),
-                domain: cookie.domain().map(Into::into),
+                domain: domain.map(Into::into),
             });
         }
     }
@@ -357,6 +382,7 @@ mod tests {
 
     fn load_session_from_str(s: &str) -> Result<Session> {
         Ok(Session {
+            url: Url::parse("http://example.net").unwrap(),
             content: serde_json::from_str::<Content>(s)?.migrate(),
             path: PathBuf::new(),
             read_only: false,
@@ -384,9 +410,10 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()?[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()?[0].path(), Some("/"));
-        assert_eq!(session.cookies()?[0].secure(), Some(false));
+        let cookies = session.cookies()?;
+        assert_eq!(cookies[0].0.name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].0.path(), Some("/"));
+        assert_eq!(cookies[0].0.secure(), Some(false));
         assert_eq!(session.content.auth, Auth::default());
 
         Ok(())
@@ -412,9 +439,10 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()?[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()?[0].path(), Some("/"));
-        assert_eq!(session.cookies()?[0].secure(), Some(false));
+        let cookies = session.cookies()?;
+        assert_eq!(cookies[0].0.name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].0.path(), Some("/"));
+        assert_eq!(cookies[0].0.secure(), Some(false));
         assert_eq!(
             session.content.auth,
             Auth {
@@ -507,15 +535,15 @@ mod tests {
 
         let cookies = session.cookies()?;
 
-        assert_eq!(cookies[0].name_value(), ("baz", "quux"));
-        assert_eq!(cookies[0].path(), Some("/"));
-        assert_eq!(cookies[0].secure(), Some(false));
-        assert_eq!(cookies[0].domain(), Some("example.com"));
+        assert_eq!(cookies[0].0.name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].0.path(), Some("/"));
+        assert_eq!(cookies[0].0.secure(), Some(false));
+        assert_eq!(cookies[0].0.domain(), Some("example.com"));
 
-        assert_eq!(cookies[1].name_value(), ("foo", "bar"));
-        assert_eq!(cookies[1].path(), Some("/"));
-        assert_eq!(cookies[1].secure(), Some(false));
-        assert_eq!(cookies[1].domain(), None);
+        assert_eq!(cookies[1].0.name_value(), ("foo", "bar"));
+        assert_eq!(cookies[1].0.path(), Some("/"));
+        assert_eq!(cookies[1].0.secure(), Some(false));
+        assert_eq!(cookies[1].0.domain(), None);
 
         Ok(())
     }
