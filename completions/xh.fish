@@ -24,9 +24,10 @@ complete -c xh -l help -d 'Print help information'
 complete -c xh -s V -l version -d 'Print version information'
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
-complete -c xh -s m -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
+complete -c xh -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
 complete -c xh -s h -l headers -d 'Print only the response headers. Shortcut for --print=h'
 complete -c xh -s b -l body -d 'Print only the response body. Shortcut for --print=b'
+complete -c xh -s m -l meta -d 'Print only the response metadata. Shortcut for --print=m'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
 complete -c xh -s 4 -l ipv4 -d 'Resolve hostname to ipv4 addresses only'
@@ -57,6 +58,7 @@ complete -c xh -l no-response-mime
 complete -c xh -l no-print
 complete -c xh -l no-headers
 complete -c xh -l no-body
+complete -c xh -l no-meta
 complete -c xh -l no-verbose
 complete -c xh -l no-all
 complete -c xh -l no-history-print

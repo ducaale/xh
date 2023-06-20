@@ -14,7 +14,6 @@ use std::time::Duration;
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
-use predicates::boolean::PredicateBooleanExt;
 use predicates::function::function;
 use predicates::str::contains;
 use tempfile::{tempdir, NamedTempFile, TempDir};
@@ -666,7 +665,31 @@ fn timeout_invalid() {
         .args(["--timeout=-0.01", "--offline", ":"])
         .assert()
         .failure()
-        .stderr(contains("Invalid seconds as connection timeout"));
+        .stderr(contains("Connection timeout is negative"));
+
+    get_command()
+        .args(["--timeout=18446744073709552000", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=inf", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is too big"));
+
+    get_command()
+        .args(["--timeout=NaN", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
+
+    get_command()
+        .args(["--timeout=SEC", "--offline", ":"])
+        .assert()
+        .failure()
+        .stderr(contains("Connection timeout is not a valid number"));
 }
 
 #[test]
@@ -804,7 +827,7 @@ fn successful_digest_auth() {
     get_command()
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:12345")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"));
 }
@@ -815,7 +838,7 @@ fn unsuccessful_digest_auth() {
     get_command()
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:wrongpass")
-        .arg("httpbin.org/digest-auth/5/ahmed/12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("HTTP/1.1 401 Unauthorized"));
 }
@@ -984,7 +1007,7 @@ fn netrc_file_user_password_auth() {
 
         let homedir = TempDir::new().unwrap();
         let netrc_path = homedir.path().join(netrc_file);
-        let mut netrc = File::create(&netrc_path).unwrap();
+        let mut netrc = File::create(netrc_path).unwrap();
         writeln!(
             netrc,
             "machine {}\nlogin user\npassword pass",
@@ -1122,14 +1145,17 @@ fn proxy_multiple_valid_proxies() {
         .arg("--proxy=https:socks5://127.0.0.1:8000")
         .arg("--proxy=all:http://127.0.0.1:8000")
         .arg("GET")
-        .arg("http://httpbin.org/get");
+        .arg("http://httpbingo.org/get");
 
     cmd.assert().success();
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_default_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "https://self-signed.badssl.com"])
         .assert()
@@ -1139,9 +1165,12 @@ fn verify_default_yes() {
         .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
 }
 
-#[cfg(feature = "online-tests")]
+// temporarily disabled for builds not using rustls
+#[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
 fn verify_explicit_yes() {
+    use predicates::boolean::PredicateBooleanExt;
+
     get_command()
         .args(["-v", "--verify=yes", "https://self-signed.badssl.com"])
         .assert()
@@ -1263,18 +1292,6 @@ fn native_tls_flag_disabled() {
         .stderr(contains("built without native-tls support"));
 }
 
-#[cfg(all(not(feature = "native-tls"), feature = "online-tests"))]
-#[ignore = "https://1.1.1.1 randomly times out in CI"]
-#[test]
-fn improved_https_ip_error_no_support() {
-    get_command()
-        .arg("https://1.1.1.1")
-        .assert()
-        .failure()
-        .stderr(contains("rustls does not support"))
-        .stderr(contains("building with the `native-tls` feature"));
-}
-
 #[cfg(all(feature = "native-tls", feature = "online-tests"))]
 #[test]
 fn native_tls_works() {
@@ -1282,35 +1299,6 @@ fn native_tls_works() {
         .args(["--native-tls", "https://example.org"])
         .assert()
         .success();
-}
-
-#[cfg(all(feature = "native-tls", feature = "rustls", feature = "online-tests"))]
-#[ignore = "https://1.1.1.1 randomly times out in CI"]
-#[test]
-fn improved_https_ip_error_with_support() {
-    let server = server::http(|_req| async move {
-        hyper::Response::builder()
-            .status(301)
-            .header("Location", "https://1.1.1.1")
-            .body("Moved Permanently".into())
-            .unwrap()
-    });
-    get_command()
-        .args(["--follow", &server.base_url()])
-        .assert()
-        .failure()
-        .stderr(contains("rustls does not support"))
-        .stderr(contains("using the --native-tls flag"));
-}
-
-#[cfg(all(feature = "native-tls", feature = "rustls"))]
-#[test]
-fn auto_nativetls() {
-    get_command()
-        .args(["--offline", "https://1.1.1.1"])
-        .assert()
-        .success()
-        .stderr(contains("native-tls will be enabled"));
 }
 
 #[cfg(feature = "online-tests")]
@@ -1639,7 +1627,7 @@ fn multipart_raw() {
         .args(["--offline", "--raw=hello", "--multipart", ":"])
         .assert()
         .failure()
-        .stderr(contains("Cannot build a multipart request body from --raw"));
+        .stderr(contains("'--raw <RAW>' cannot be used with '--multipart'"));
 }
 
 #[test]
@@ -1900,6 +1888,40 @@ fn json_field_from_file() {
     get_command()
         .arg(server.base_url())
         .arg(format!("ids:=@{}", json_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
+fn header_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["x-api-key"], "hello1234");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "hello1234").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("x-api-key:@{}", text_file.path().to_string_lossy()))
+        .assert()
+        .success();
+}
+
+#[test]
+fn query_param_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.query_params()["foo"], "bar+baz\n");
+        hyper::Response::default()
+    });
+
+    let mut text_file = NamedTempFile::new().unwrap();
+    writeln!(text_file, "bar+baz").unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg(format!("foo==@{}", text_file.path().to_string_lossy()))
         .assert()
         .success();
 }
@@ -2738,12 +2760,12 @@ fn warns_if_config_is_invalid() {
 #[test]
 fn http1_0() {
     get_command()
-        .args(["--print=hH", "--http-version=1.0", "https://www.google.com"])
+        .args(["--print=hH", "--http-version=1.0", "https://example.com"])
         .assert()
         .success()
         .stdout(contains("GET / HTTP/1.0"))
         // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
-        // Fortunately, https://www.google.com is not one of those.
+        // Fortunately, https://example.com is not one of those.
         .stdout(contains("HTTP/1.0 200 OK"));
 }
 
@@ -2751,7 +2773,7 @@ fn http1_0() {
 #[test]
 fn http1_1() {
     get_command()
-        .args(["--print=hH", "--http-version=1.1", "https://www.google.com"])
+        .args(["--print=hH", "--http-version=1.1", "https://example.com"])
         .assert()
         .success()
         .stdout(contains("GET / HTTP/1.1"))
@@ -2762,7 +2784,7 @@ fn http1_1() {
 #[test]
 fn http2() {
     get_command()
-        .args(["--print=hH", "--http-version=2", "https://www.google.com"])
+        .args(["--print=hH", "--http-version=2", "https://example.com"])
         .assert()
         .success()
         .stdout(contains("GET / HTTP/2.0"))
@@ -3061,6 +3083,67 @@ fn empty_response_with_content_encoding_and_content_length() {
 
 
         "#});
+}
+
+#[test]
+fn response_meta() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .body("Hello!".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--print=m")
+        .arg(server.base_url())
+        .assert()
+        .stdout(contains("Elapsed time: "));
+}
+
+#[test]
+fn redirect_with_respone_meta() {
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => hyper::Response::builder()
+                .status(302)
+                .header("Date", "N/A")
+                .header("Location", "/second_page")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/second_page" => hyper::Response::builder()
+                .header("Date", "N/A")
+                .body("final destination".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .arg(server.url("/first_page"))
+        .arg("--follow")
+        .arg("-vv")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(2));
+
+    get_command()
+        .arg(server.url("/first_page"))
+        .arg("--follow")
+        .arg("--meta")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(1));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn digest_auth_with_response_meta() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("-vv")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
+        .assert()
+        .stdout(contains("Elapsed time: ").count(2));
 }
 
 #[test]

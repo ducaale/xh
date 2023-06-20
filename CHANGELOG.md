@@ -1,3 +1,16 @@
+## [0.18.0] - 2023-02-20
+### Features
+- Support reading query param and header values from a file, see #288 (@ducaale)
+- Highlight Syntax errors found while tokenizing a JSON path, see #260 (@ducaale)
+- Support outputting the metadata of a response via `--meta`, `--print=m` or `-vv`,
+  see #240 (@ducaale)
+
+### Bug fixes
+- Fix panic when when parsing connection timeout, see #295 (@sorairolake)
+
+### Breaking changes
+- Remove `-m` as a short flag for `--multipart`, see #299 (@ducaale)
+
 ## [0.17.0] - 2022-11-08
 ### Features
 - Add support for nested json syntax, see #217 (@ducaale)

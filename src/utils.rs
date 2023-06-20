@@ -1,10 +1,11 @@
+use std::borrow::Cow;
 use std::env::var_os;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use reqwest::blocking::Request;
-use url::{Host, Url};
+use url::Url;
 
 pub fn unescape(text: &str, special_chars: &'static str) -> String {
     let mut out = String::new();
@@ -102,6 +103,18 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
+pub fn url_with_query(mut url: Url, query: &[(&str, Cow<str>)]) -> Url {
+    if !query.is_empty() {
+        // If we run this even without adding pairs it adds a `?`, hence
+        // the .is_empty() check
+        let mut pairs = url.query_pairs_mut();
+        for (name, value) in query {
+            pairs.append_pair(name, value);
+        }
+    }
+    url
+}
+
 // https://stackoverflow.com/a/45145246/5915221
 #[macro_export]
 macro_rules! vec_of_strings {
@@ -157,8 +170,4 @@ pub fn copy_largebuf(
             Err(e) => return Err(e),
         }
     }
-}
-
-pub fn url_requires_native_tls(url: &Url) -> bool {
-    url.scheme() == "https" && matches!(url.host(), Some(Host::Ipv4(..)) | Some(Host::Ipv6(..)))
 }

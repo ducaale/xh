@@ -53,14 +53,15 @@ none\:"Disable both coloring and formatting"))' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
 '--form[Serialize data items from the command line as form fields]' \
-'-m[Like --form, but force a multipart/form-data request even without files]' \
 '--multipart[Like --form, but force a multipart/form-data request even without files]' \
 '-h[Print only the response headers. Shortcut for --print=h]' \
 '--headers[Print only the response headers. Shortcut for --print=h]' \
 '-b[Print only the response body. Shortcut for --print=b]' \
 '--body[Print only the response body. Shortcut for --print=b]' \
-'-v[Print the whole request as well as the response]' \
-'--verbose[Print the whole request as well as the response]' \
+'-m[Print only the response metadata. Shortcut for --print=m]' \
+'--meta[Print only the response metadata. Shortcut for --print=m]' \
+'*-v[Print the whole request as well as the response]' \
+'*--verbose[Print the whole request as well as the response]' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
 '-4[Resolve hostname to ipv4 addresses only]' \
 '--ipv4[Resolve hostname to ipv4 addresses only]' \
@@ -98,6 +99,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-print[]' \
 '--no-headers[]' \
 '--no-body[]' \
+'--no-meta[]' \
 '--no-verbose[]' \
 '--no-all[]' \
 '--no-history-print[]' \

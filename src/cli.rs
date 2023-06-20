@@ -61,7 +61,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(action = ArgAction::SetTrue, short = 'm', long, overrides_with_all = &["json", "form"])]
+    #[clap(action = ArgAction::SetTrue, long, conflicts_with = "raw", overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -102,13 +102,23 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(action = ArgAction::Set, long, value_name = "MIME_TYPE")]
     pub response_mime: Option<String>,
 
-    /// String specifying what the output should contain.
-    ///
-    /// Use "H" and "B" for request header and body respectively,
-    /// and "h" and "b" for response header and body.
-    ///
-    /// Example: --print=Hb
-    #[clap(action = ArgAction::Set, short = 'p', long, value_name = "FORMAT")]
+    /// String specifying what the output should contain
+    #[clap(
+        action = ArgAction::Set,
+        short = 'p',
+        long,
+        value_name = "FORMAT",
+        long_help = "\
+String specifying what the output should contain
+
+    'H' request headers
+    'B' request body
+    'h' response headers
+    'b' response body
+    'm' response metadata
+
+Example: --print=Hb"
+    )]
     pub print: Option<Print>,
 
     /// Print only the response headers. Shortcut for --print=h.
@@ -119,14 +129,20 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(action = ArgAction::SetTrue, short = 'b', long)]
     pub body: bool,
 
+    /// Print only the response metadata. Shortcut for --print=m.
+    #[clap(short = 'm', long)]
+    pub meta: bool,
+
     /// Print the whole request as well as the response.
     ///
     /// Additionally, this enables --all for printing intermediary
     /// requests/responses while following redirects.
     ///
+    /// Using verbose twice i.e. -vv will print the response metadata as well.
+    ///
     /// Equivalent to --print=HhBb --all.
-    #[clap(action = ArgAction::SetTrue, short = 'v', long)]
-    pub verbose: bool,
+    #[clap(action = ArgAction::Count, short = 'v', long)]
+    pub verbose: u8,
 
     /// Show any intermediary requests/responses while following redirects with --follow.
     #[clap(action = ArgAction::SetTrue, long)]
@@ -135,14 +151,6 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     /// The same as --print but applies only to intermediary requests/responses.
     #[clap(action = ArgAction::Set, short = 'P', long, value_name = "FORMAT")]
     pub history_print: Option<Print>,
-
-    /// Resolve hostname to ipv4 addresses only.
-    #[clap(action = ArgAction::SetTrue, short = '4', long)]
-    pub ipv4: bool,
-
-    /// Resolve hostname to ipv6 addresses only.
-    #[clap(action = ArgAction::SetTrue, short = '6', long)]
-    pub ipv6: bool,
 
     /// Do not print to stdout or stderr.
     #[clap(action = ArgAction::SetTrue, short = 'q', long)]
@@ -299,6 +307,20 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     #[clap(action = ArgAction::Set, long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
 
+    /// Bind to a network interface or local IP address.
+    ///
+    /// Example: --interface=eth0 --interface=192.168.0.2
+    #[clap(long, value_name = "NAME")]
+    pub interface: Option<String>,
+
+    /// Resolve hostname to ipv4 addresses only.
+    #[clap(action = ArgAction::SetTrue, short = '4', long)]
+    pub ipv4: bool,
+
+    /// Resolve hostname to ipv6 addresses only.
+    #[clap(action = ArgAction::SetTrue, short = '6', long)]
+    pub ipv6: bool,
+
     /// Do not attempt to read stdin.
     ///
     /// This disables the default behaviour of reading the request body from stdin
@@ -343,18 +365,10 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///         Add a JSON property (--json) or form field (--form) to
     ///         the request body.
     ///
-    ///     key=@filename
-    ///         Add a JSON property (--json) or form field (--form) from a
-    ///         file to the request body.
-    ///
     ///     key:=value
     ///         Add a field with a literal JSON value to the request body.
     ///
     ///         Example: "numbers:=[1,2,3] enabled:=true"
-    ///
-    ///     key:=@filename
-    ///         Add a field with a literal JSON value from a file to the
-    ///         request body.
     ///
     ///     key@filename
     ///         Upload a file (requires --form or --multipart).
@@ -375,6 +389,8 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     ///
     ///     header;
     ///         Add a header with an empty value.
+    ///
+    /// An "@" prefix can be used to read a value from a file. For example: "x-api-key:@api-key.txt".
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
@@ -436,7 +452,7 @@ impl Cli {
                 // instead of here.
                 Self::into_app().print_help().unwrap();
                 println!(
-                    "\nRun `{} help` for more complete documentation.",
+                    "\nRun \"{} help\" for more complete documentation.",
                     env!("CARGO_PKG_NAME")
                 );
                 safe_exit();
@@ -506,12 +522,7 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(
-            &raw_url,
-            cli.default_scheme.as_deref(),
-            cli.request_items.query(),
-        )
-        .map_err(|err| {
+        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
@@ -527,7 +538,7 @@ impl Cli {
 
     /// Set flags that are implied by other flags and report conflicting flags.
     fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
-        if self.verbose {
+        if self.verbose > 0 {
             self.all = true;
         }
         if self.curl_long {
@@ -563,6 +574,12 @@ impl Cli {
             self.request_items.body_type = BodyType::Form;
         } else if self.multipart {
             self.request_items.body_type = BodyType::Multipart;
+        }
+        if self.raw.is_some() && !self.request_items.is_body_empty() {
+            return Err(Self::into_app().error(
+                ErrorKind::ValueValidation,
+                "Request body (from --raw) and request data (key=value) cannot be mixed.",
+            ));
         }
         if self.session_read_only.is_some() {
             self.is_session_read_only = true;
@@ -665,13 +682,12 @@ fn parse_method(method: &str) -> Option<Method> {
 fn construct_url(
     url: &str,
     default_scheme: Option<&str>,
-    query: Vec<(&str, &str)>,
 ) -> std::result::Result<Url, url::ParseError> {
     let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let mut url: Url = if let Some(url) = url.strip_prefix("://") {
+    let url: Url = if let Some(url) = url.strip_prefix("://") {
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
@@ -683,14 +699,6 @@ fn construct_url(
     } else {
         url.parse()?
     };
-    if !query.is_empty() {
-        // If we run this even without adding pairs it adds a `?`, hence
-        // the .is_empty() check
-        let mut pairs = url.query_pairs_mut();
-        for (name, value) in query {
-            pairs.append_pair(name, value);
-        }
-    }
     Ok(url)
 }
 
@@ -837,7 +845,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
-                header.push(italic(&value.join(" ")));
+                header.push(italic(value.join(" ")));
             }
         }
         let mut body = vec![];
@@ -901,17 +909,12 @@ fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error 
     )
 }
 
-#[derive(ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
+    #[default]
     Basic,
     Bearer,
     Digest,
-}
-
-impl Default for AuthType {
-    fn default() -> Self {
-        AuthType::Basic
-    }
 }
 
 #[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
@@ -988,23 +991,26 @@ pub struct Print {
     pub request_body: bool,
     pub response_headers: bool,
     pub response_body: bool,
+    pub response_meta: bool,
 }
 
 impl Print {
     pub fn new(
-        verbose: bool,
+        verbose: u8,
         headers: bool,
         body: bool,
+        meta: bool,
         quiet: bool,
         offline: bool,
         buffer: &Buffer,
     ) -> Self {
-        if verbose {
+        if verbose > 0 {
             Print {
                 request_headers: true,
                 request_body: true,
                 response_headers: true,
                 response_body: true,
+                response_meta: verbose > 1,
             }
         } else if quiet {
             Print {
@@ -1012,6 +1018,7 @@ impl Print {
                 request_body: false,
                 response_headers: false,
                 response_body: false,
+                response_meta: false,
             }
         } else if offline {
             Print {
@@ -1019,6 +1026,7 @@ impl Print {
                 request_body: true,
                 response_headers: false,
                 response_body: false,
+                response_meta: false,
             }
         } else if headers {
             Print {
@@ -1026,6 +1034,7 @@ impl Print {
                 request_body: false,
                 response_headers: true,
                 response_body: false,
+                response_meta: false,
             }
         } else if body || !buffer.is_terminal() {
             Print {
@@ -1033,6 +1042,15 @@ impl Print {
                 request_body: false,
                 response_headers: false,
                 response_body: true,
+                response_meta: false,
+            }
+        } else if meta {
+            Print {
+                request_headers: false,
+                request_body: false,
+                response_headers: false,
+                response_body: false,
+                response_meta: true,
             }
         } else {
             Print {
@@ -1040,6 +1058,7 @@ impl Print {
                 request_body: false,
                 response_headers: true,
                 response_body: true,
+                response_meta: false,
             }
         }
     }
@@ -1052,6 +1071,7 @@ impl FromStr for Print {
         let mut request_body = false;
         let mut response_headers = false;
         let mut response_body = false;
+        let mut response_meta = false;
 
         for char in s.chars() {
             match char {
@@ -1059,6 +1079,7 @@ impl FromStr for Print {
                 'B' => request_body = true,
                 'h' => response_headers = true,
                 'b' => response_body = true,
+                'm' => response_meta = true,
                 char => return Err(anyhow!("{:?} is not a valid value", char)),
             }
         }
@@ -1068,6 +1089,7 @@ impl FromStr for Print {
             request_body,
             response_headers,
             response_body,
+            response_meta,
         };
         Ok(p)
     }
@@ -1086,13 +1108,18 @@ impl FromStr for Timeout {
     type Err = anyhow::Error;
 
     fn from_str(sec: &str) -> anyhow::Result<Timeout> {
-        let pos_sec: f64 = match sec.parse::<f64>() {
-            Ok(sec) if sec.is_sign_positive() => sec,
-            _ => return Err(anyhow!("Invalid seconds as connection timeout")),
-        };
-
-        let dur = Duration::from_secs_f64(pos_sec);
-        Ok(Timeout(dur))
+        match f64::from_str(sec) {
+            Ok(s) if !s.is_nan() => {
+                if s.is_sign_negative() {
+                    Err(anyhow!("Connection timeout is negative"))
+                } else if s >= Duration::MAX.as_secs_f64() || s.is_infinite() {
+                    Err(anyhow!("Connection timeout is too big"))
+                } else {
+                    Ok(Timeout(Duration::from_secs_f64(s)))
+                }
+            }
+            _ => Err(anyhow!("Connection timeout is not a valid number")),
+        }
     }
 }
 
@@ -1176,17 +1203,12 @@ impl fmt::Display for Verify {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Copy, Clone)]
 pub enum BodyType {
+    #[default]
     Json,
     Form,
     Multipart,
-}
-
-impl Default for BodyType {
-    fn default() -> Self {
-        BodyType::Json
-    }
 }
 
 #[derive(ArgEnum, Debug, Clone)]

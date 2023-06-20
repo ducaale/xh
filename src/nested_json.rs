@@ -1,3 +1,21 @@
+//! Insert value into JSON at an arbitrary location specified by a JSON path.
+//!
+//! Where JSON path is a string that satisfies the following syntax grammar:
+//! ```
+//!   start: root_path path*
+//!   root_path: (literal | index_path | append_path)
+//!   literal: TEXT | NUMBER
+//!
+//!   path: key_path | index_path | append_path
+//!   key_path: LEFT_BRACKET TEXT RIGHT_BRACKET
+//!   index_path: LEFT_BRACKET NUMBER RIGHT_BRACKET
+//!   append_path: LEFT_BRACKET RIGHT_BRACKET
+//! ```
+//!
+//! Additionally, a backslash character can be used to:
+//! - Escape characters with especial meaning such as `\`, `[` and `]`.
+//! - Treat numbers as a key rather than as an index.
+
 use std::{fmt, mem};
 
 use anyhow::{anyhow, Result};
@@ -6,143 +24,243 @@ use serde_json::Value;
 
 use crate::utils::unescape;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PathComponent {
-    Key(String, (usize, usize)),
-    Index(Option<usize>, (usize, usize)),
+#[derive(Debug, Clone)]
+enum Token {
+    LeftBracket(usize),
+    RightBracket(usize),
+    Text(String, (usize, usize)),
+    Number(usize, (usize, usize)),
 }
 
-/// Parses a JSON path.
-///
-/// A JSON path is a string that satisfies the following syntax grammar:
-/// ```
-///   start: root_path path*
-///   root_path: (literal | index_path | append_path)
-///   literal: TEXT | NUMBER
-///
-///   path: key_path | index_path | append_path
-///   key_path: LEFT_BRACKET TEXT RIGHT_BRACKET
-///   index_path: LEFT_BRACKET NUMBER RIGHT_BRACKET
-///   append_path: LEFT_BRACKET RIGHT_BRACKET
-/// ```
-///
-/// Additionally, a backslash character can be used to:
-/// - Escape characters with especial meaning such as `\`, `[` and `]`.
-/// - Treat numbers as a key rather than as an index.
-pub fn parse_path(raw_json_path: &str) -> Result<Vec<PathComponent>> {
-    use PathComponent::*;
-    const SPECIAL_CHARS: &str = "=@:;[]\\";
-    let mut delims = vec![];
-    let mut backslashes = 0;
+impl Token {
+    fn literal(json_path: &str, start: Option<usize>, end: Option<usize>) -> Token {
+        const SPECIAL_CHARS: &str = "=@:;[]\\";
+        let start = start.map_or(0, |s| s + 1);
+        let end = end.unwrap_or(json_path.len());
+        let span = (start, end);
 
-    for (i, ch) in raw_json_path.char_indices() {
+        if start == 0 {
+            // The first token is never interpreted as a number and therefore
+            // the number escaping rule doesn't apply to it.
+            Token::Text(unescape(&json_path[start..end], SPECIAL_CHARS), span)
+        } else {
+            let literal = &json_path[start..end];
+            if literal.starts_with('\\') && literal[1..].parse::<usize>().is_ok() {
+                Token::Text(literal[1..].to_string(), span)
+            } else if let Ok(n) = literal.parse::<usize>() {
+                Token::Number(n, span)
+            } else {
+                Token::Text(unescape(literal, SPECIAL_CHARS), span)
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Token::Text(_, (start, end)) => start == end,
+            _ => false,
+        }
+    }
+}
+
+fn tokenize(json_path: &str) -> impl IntoIterator<Item = Token> {
+    let mut tokens = vec![];
+    let mut escaped = false;
+    let mut last_delim_pos = None;
+
+    for (i, ch) in json_path.char_indices() {
         if ch == '\\' {
-            backslashes += 1;
+            escaped = !escaped;
+        } else if ch == '[' && !escaped {
+            tokens.push(Token::literal(json_path, last_delim_pos, Some(i)));
+            tokens.push(Token::LeftBracket(i));
+            last_delim_pos = Some(i);
+            escaped = false;
+        } else if ch == ']' && !escaped {
+            tokens.push(Token::literal(json_path, last_delim_pos, Some(i)));
+            tokens.push(Token::RightBracket(i));
+            last_delim_pos = Some(i);
+            escaped = false;
         } else {
-            if (ch == '[' || ch == ']') && backslashes % 2 == 0 {
-                delims.push((i, ch));
+            escaped = false;
+        }
+    }
+    tokens.push(Token::literal(json_path, last_delim_pos, None));
+
+    tokens.into_iter().filter(|t| !t.is_empty())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PathAction {
+    Key(String, (usize, usize)),
+    Index(usize, (usize, usize)),
+    Append((usize, usize)),
+}
+
+pub fn parse_path(json_path: &str) -> Result<Vec<PathAction>> {
+    use PathAction::*;
+    use Token::*;
+
+    let mut path = vec![];
+    let mut tokens_iter = tokenize(json_path).into_iter();
+
+    match tokens_iter.next() {
+        Some(LeftBracket(start)) => match tokens_iter.next() {
+            Some(Number(index, _)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Index(index, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", start + 1, json_path));
+                }
             }
-            backslashes = 0;
+            Some(RightBracket(end)) => path.push(Append((start, end + 1))),
+            Some(Text(..) | LeftBracket(..)) | None => {
+                return Err(syntax_error("number or ']'", start + 1, json_path))
+            }
+        },
+        Some(Text(key, span)) => path.push(Key(key, span)),
+        Some(Number(..) | RightBracket(..)) | None => {
+            return Err(syntax_error("text or '['", 0, json_path))
         }
     }
 
-    if delims.is_empty() {
-        return Ok(vec![Key(
-            unescape(raw_json_path, SPECIAL_CHARS),
-            (0, raw_json_path.len()),
-        )]);
-    }
-    if delims.len() % 2 != 0 {
-        return Err(anyhow!("{:?} unbalanced number of brackets", raw_json_path));
-    }
-    let mut prev_closing_bracket = None;
-    for pair in delims.chunks_exact(2) {
-        if let Some(prev_closing_bracket) = prev_closing_bracket {
-            let current_opening_bracket = pair[0].0;
-            if current_opening_bracket - prev_closing_bracket > 1 {
-                return Err(anyhow!(
-                    "{:?} unexpected string after closing bracket at index {}",
-                    raw_json_path,
-                    prev_closing_bracket + 1
-                ));
+    while let Some(token) = tokens_iter.next() {
+        let start = match token {
+            LeftBracket(start) => start,
+            RightBracket(start) | Text(_, (start, _)) | Number(_, (start, _)) => {
+                return Err(syntax_error("'['", start, json_path));
+            }
+        };
+
+        match tokens_iter.next() {
+            Some(Number(index, span)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Index(index, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", span.1, json_path));
+                }
+            }
+            Some(Text(key, span)) => {
+                if let Some(RightBracket(end)) = tokens_iter.next() {
+                    path.push(Key(key, (start, end + 1)));
+                } else {
+                    return Err(syntax_error("']'", span.1, json_path));
+                }
+            }
+            Some(RightBracket(end)) => path.push(Append((start, end + 1))),
+            Some(LeftBracket(..)) | None => {
+                return Err(syntax_error("text, number or ']'", start + 1, json_path))
             }
         }
-        if pair[0].1 == ']' {
-            return Err(anyhow!(
-                "{:?} unexpected closing bracket at index {}",
-                raw_json_path,
-                pair[0].0
-            ));
-        }
-        if pair[1].1 == '[' {
-            return Err(anyhow!(
-                "{:?} unexpected opening bracket at index {}",
-                raw_json_path,
-                pair[1].0
-            ));
-        }
-        prev_closing_bracket = Some(pair[1].0);
     }
 
-    if let Some(last_closing_bracket) = prev_closing_bracket {
-        if last_closing_bracket != raw_json_path.len() - 1 {
-            return Err(anyhow!(
-                "{:?} unexpected string after closing bracket at index {}",
-                raw_json_path,
-                last_closing_bracket + 1
-            ));
+    Ok(path)
+}
+
+pub fn insert(
+    root: Option<Value>,
+    path: &[PathAction],
+    value: Value,
+) -> std::result::Result<Value, TypeError> {
+    assert!(!path.is_empty(), "path should not be empty");
+
+    Ok(match root {
+        Some(Value::Object(mut obj)) => {
+            let key = match &path[0] {
+                PathAction::Key(v, ..) => v.to_string(),
+                path_component @ (PathAction::Index(..) | PathAction::Append(..)) => {
+                    return Err(TypeError::new(Value::Object(obj), path_component.clone()))
+                }
+            };
+            if path.len() == 1 {
+                obj.insert(key, value);
+            } else {
+                let temp = obj.remove(&key);
+                let value = insert(temp, &path[1..], value)?;
+                obj.insert(key, value);
+            };
+            Value::Object(obj)
         }
+        Some(Value::Array(mut arr)) => {
+            let index = match &path[0] {
+                path_component @ PathAction::Key(..) => {
+                    return Err(TypeError::new(Value::Array(arr), path_component.clone()))
+                }
+                PathAction::Index(v, ..) => *v,
+                PathAction::Append(..) => arr.len(),
+            };
+            if path.len() == 1 {
+                arr_insert(&mut arr, index, value);
+            } else {
+                let temp = remove_from_arr(&mut arr, index);
+                let value = insert(temp, &path[1..], value)?;
+                arr_insert(&mut arr, index, value);
+            };
+            Value::Array(arr)
+        }
+        Some(root) => {
+            return Err(TypeError::new(root, path[0].clone()));
+        }
+        None => match path[0] {
+            PathAction::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
+            PathAction::Index(..) | PathAction::Append(..) => {
+                insert(Some(Value::Array(vec![])), path, value)?
+            }
+        },
+    })
+}
+
+/// Inserts value into array at any index and pads empty slots
+/// with Value::null if needed
+fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
+    while index >= arr.len() {
+        arr.push(Value::Null);
     }
+    arr[index] = value;
+}
 
-    let mut json_path = vec![];
-
-    // handle any literals found before the first `[`
-    if delims[0].0 > 0 {
-        // raw_json_path starts with a literal e.g `foo[x]`, `foo[5]` or `foo[]`
-        json_path.push(Key(
-            unescape(&raw_json_path[0..delims[0].0], SPECIAL_CHARS),
-            (0, delims[0].0),
-        ));
+/// Removes an element from array and replace it with `Value::Null`.
+fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
+    if index < arr.len() {
+        Some(mem::replace(&mut arr[index], Value::Null))
     } else {
-        let key = &raw_json_path[delims[0].0 + 1..delims[1].0];
-        if !key.is_empty() && key.parse::<usize>().is_err() {
-            // raw_json_path starts with `[string]`
-            return Err(anyhow!(
-                "{:?} Unexpected string after opening bracket at index {}",
-                raw_json_path,
-                1
-            ));
-        }
+        None
     }
+}
 
-    for pair in delims.chunks_exact(2) {
-        let (start, end) = (pair[0].0, pair[1].0 + 1);
-        let path_component = &raw_json_path[(start + 1)..(end - 1)];
+fn syntax_error(expected: &'static str, pos: usize, json_path: &str) -> anyhow::Error {
+    anyhow!(
+        "expected {}\n\n{}",
+        expected,
+        highlight_error(json_path, pos, pos + 1)
+    )
+}
 
-        if let Ok(index) = path_component.parse::<usize>() {
-            json_path.push(Index(Some(index), (start, end)));
-        } else if path_component.is_empty() {
-            json_path.push(Index(None, (start, end)));
-        } else if path_component.starts_with('\\') && path_component[1..].parse::<usize>().is_ok() {
-            // No need to escape `path_component[1..]` as it was successfully parsed as a number before.
-            json_path.push(Key(path_component[1..].to_string(), (start, end)));
-        } else {
-            json_path.push(Key(unescape(path_component, SPECIAL_CHARS), (start, end)));
-        }
+fn highlight_error(text: &str, start: usize, mut end: usize) -> String {
+    use unicode_width::UnicodeWidthStr;
+    // Apply right-padding so outside of the text could be highlighted
+    let text = format!("{:<min_width$}", text, min_width = end);
+    // Ensure end doesn't fall on non-char boundary
+    while !text.is_char_boundary(end) && end < text.len() {
+        end += 1;
     }
-
-    Ok(json_path)
+    format!(
+        "  {}\n  {}{}",
+        text,
+        " ".repeat(text[0..start].width()),
+        "^".repeat(text[start..end].width())
+    )
 }
 
 #[derive(Debug, Clone)]
 pub struct TypeError {
     root: Value,
-    path_component: PathComponent,
+    path_component: PathAction,
     json_path: Option<String>,
 }
 
 impl TypeError {
-    fn new(root: Value, path_component: PathComponent) -> Self {
+    fn new(root: Value, path_component: PathAction) -> Self {
         TypeError {
             root,
             path_component,
@@ -154,16 +272,6 @@ impl TypeError {
         self.json_path = Some(json_path);
         self
     }
-}
-
-fn highlight_error(text: &str, start: usize, end: usize) -> String {
-    use unicode_width::UnicodeWidthStr;
-    format!(
-        "  {}\n  {}{}",
-        text,
-        " ".repeat(text[0..start].width()),
-        "^".repeat(text[start..end].width())
-    )
 }
 
 impl std::error::Error for TypeError {}
@@ -179,9 +287,9 @@ impl fmt::Display for TypeError {
             Value::Object(_) => "object",
         };
         let (access_type, expected_root_type, (start, end)) = match self.path_component {
-            PathComponent::Index(None, pos) => ("append", "array", pos),
-            PathComponent::Index(Some(_), pos) => ("index", "array", pos),
-            PathComponent::Key(_, pos) => ("key", "object", pos),
+            PathAction::Append(pos) => ("append", "array", pos),
+            PathAction::Index(_, pos) => ("index", "array", pos),
+            PathAction::Key(_, pos) => ("key", "object", pos),
         };
 
         if let Some(json_path) = &self.json_path {
@@ -201,74 +309,6 @@ impl fmt::Display for TypeError {
                 access_type, root_type
             )
         }
-    }
-}
-
-pub fn insert(
-    root: Option<Value>,
-    path: &[PathComponent],
-    value: Value,
-) -> std::result::Result<Value, TypeError> {
-    assert!(!path.is_empty(), "path should not be empty");
-
-    Ok(match root {
-        Some(Value::Object(mut obj)) => {
-            let key = match &path[0] {
-                PathComponent::Key(v, ..) => v.to_string(),
-                path_component @ PathComponent::Index(..) => {
-                    return Err(TypeError::new(Value::Object(obj), path_component.clone()))
-                }
-            };
-            if path.len() == 1 {
-                obj.insert(key, value);
-            } else {
-                let temp = obj.remove(&key);
-                let value = insert(temp, &path[1..], value)?;
-                obj.insert(key, value);
-            };
-            Value::Object(obj)
-        }
-        Some(Value::Array(mut arr)) => {
-            let index = match &path[0] {
-                path_component @ PathComponent::Key(..) => {
-                    return Err(TypeError::new(Value::Array(arr), path_component.clone()))
-                }
-                PathComponent::Index(Some(v), ..) => *v,
-                PathComponent::Index(None, ..) => arr.len(),
-            };
-            if path.len() == 1 {
-                arr_insert(&mut arr, index, value);
-            } else {
-                let temp = remove_from_arr(&mut arr, index);
-                let value = insert(temp, &path[1..], value)?;
-                arr_insert(&mut arr, index, value);
-            };
-            Value::Array(arr)
-        }
-        Some(root) => {
-            return Err(TypeError::new(root, path[0].clone()));
-        }
-        None => match path[0] {
-            PathComponent::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
-            PathComponent::Index(..) => insert(Some(Value::Array(vec![])), path, value)?,
-        },
-    })
-}
-
-/// Inserts value into array at any index greater or equal to 0.
-fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
-    while index >= arr.len() {
-        arr.push(Value::Null);
-    }
-    arr[index] = value;
-}
-
-/// Removes an element from array and replace it with `Value::Null`.
-fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
-    if index < arr.len() {
-        Some(mem::replace(&mut arr[index], Value::Null))
-    } else {
-        None
     }
 }
 
@@ -343,11 +383,11 @@ mod tests {
 
     #[test]
     fn json_path_parser() {
-        use PathComponent::*;
+        use PathAction::*;
 
         assert_eq!(
             parse_path(r"foo\[x\][]").unwrap(),
-            [Key(r"foo[x]".into(), (0, 8)), Index(None, (8, 10))]
+            [Key(r"foo[x]".into(), (0, 8)), Append((8, 10))]
         );
         assert_eq!(
             parse_path(r"foo\\[x]").unwrap(),
@@ -358,20 +398,20 @@ mod tests {
             [
                 Key("foo".into(), (0, 3)),
                 Key("ba[ar".into(), (3, 11)),
-                Index(Some(9), (11, 14))
+                Index(9, (11, 14))
             ]
         );
         assert_eq!(
             parse_path(r"[0][foo]").unwrap(),
-            [Index(Some(0), (0, 3)), Key("foo".into(), (3, 8))]
+            [Index(0, (0, 3)), Key("foo".into(), (3, 8))]
         );
         assert_eq!(
             parse_path(r"[][foo]").unwrap(),
-            [Index(None, (0, 2)), Key("foo".into(), (2, 7))]
+            [Append((0, 2)), Key("foo".into(), (2, 7))]
         );
         assert_eq!(
             parse_path(r"foo[0]").unwrap(),
-            [Key("foo".into(), (0, 3)), Index(Some(0), (3, 6))]
+            [Key("foo".into(), (0, 3)), Index(0, (3, 6))]
         );
         assert_eq!(
             parse_path(r"foo[\0]").unwrap(),
@@ -401,5 +441,9 @@ mod tests {
         assert!(parse_path("foo[😀]x").is_err());
         assert!(parse_path(r"foo[bar]\[baz]").is_err());
         assert!(parse_path(r"foo\[bar][baz]").is_err());
+
+        // shouldn't panic when highlighting a key with unicode chars
+        assert!(parse_path("[😀").is_err());
+        assert!(parse_path("[][😀").is_err());
     }
 }

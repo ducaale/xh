@@ -1,5 +1,28 @@
+use std::time::{Duration, Instant};
+
 use anyhow::Result;
 use reqwest::blocking::{Client, Request, Response};
+
+#[derive(Clone)]
+pub struct ResponseMeta {
+    pub request_duration: Duration,
+    pub content_download_duration: Option<Duration>,
+}
+
+pub trait ResponseExt {
+    fn meta(&self) -> &ResponseMeta;
+    fn meta_mut(&mut self) -> &mut ResponseMeta;
+}
+
+impl ResponseExt for Response {
+    fn meta(&self) -> &ResponseMeta {
+        self.extensions().get::<ResponseMeta>().unwrap()
+    }
+
+    fn meta_mut(&mut self) -> &mut ResponseMeta {
+        self.extensions_mut().get_mut::<ResponseMeta>().unwrap()
+    }
+}
 
 type Printer<'a, 'b> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b);
 
@@ -24,7 +47,15 @@ impl<'a, 'b> Context<'a, 'b> {
 
     fn execute(&mut self, request: Request) -> Result<Response> {
         match self.middlewares {
-            [] => Ok(self.client.execute(request)?),
+            [] => {
+                let starting_time = Instant::now();
+                let mut response = self.client.execute(request)?;
+                response.extensions_mut().insert(ResponseMeta {
+                    request_duration: starting_time.elapsed(),
+                    content_download_duration: None,
+                });
+                Ok(response)
+            }
             [ref mut head, tail @ ..] => head.handle(
                 #[allow(clippy::needless_option_as_deref)]
                 Context::new(self.client, self.printer.as_deref_mut(), tail),

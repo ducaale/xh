@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
 use reqwest::header::{
@@ -36,13 +37,13 @@ use reqwest::tls;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{BodyType, Cli, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{Cli, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-use crate::utils::{test_mode, test_pretend_term};
+use crate::utils::{test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
@@ -60,7 +61,6 @@ fn get_user_agent() -> &'static str {
 fn main() {
     let args = Cli::parse();
     let bin_name = args.bin_name.clone();
-    let url = args.url.clone();
     let native_tls = args.native_tls;
 
     match run(args) {
@@ -70,22 +70,6 @@ fn main() {
         Err(err) => {
             eprintln!("{}: error: {:?}", bin_name, err);
             let msg = err.root_cause().to_string();
-            if !native_tls && msg == "invalid dnsname" {
-                eprintln!();
-                if utils::url_requires_native_tls(&url) {
-                    eprintln!("rustls does not support HTTPS for IP addresses.");
-                } else {
-                    // Maybe we went to https://<IP> after a redirect?
-                    eprintln!(
-                        "This may happen because rustls does not support HTTPS for IP addresses."
-                    );
-                }
-                if cfg!(feature = "native-tls") {
-                    eprintln!("Try using the --native-tls flag.");
-                } else {
-                    eprintln!("Consider building with the `native-tls` feature enabled.");
-                }
-            }
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
@@ -115,28 +99,12 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
+    let url = url_with_query(args.url, &args.request_items.query()?);
 
     let use_stdin = !(args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term());
-    let body_type = args.request_items.body_type;
-    let body_from_request_items = args.request_items.body()?;
-    let has_request_items = !body_from_request_items.is_empty();
 
-    let body = match (use_stdin, args.raw, has_request_items) {
-        (true, None, false) => {
-            let mut buffer = Vec::new();
-            stdin().read_to_end(&mut buffer)?;
-            Body::Raw(buffer)
-        }
-        (false, Some(raw), false) => Body::Raw(raw.into_bytes()),
-        (false, None, _) => body_from_request_items,
-
-        (true, Some(_), _) => {
-            return Err(anyhow!(
-                "Request body from stdin and --raw cannot be mixed. \
-                Pass --ignore-stdin to ignore standard input."
-            ))
-        }
-        (true, _, true) => {
+    let body = if use_stdin {
+        if !args.request_items.is_body_empty() {
             if args.multipart {
                 // Multipart bodies are never "empty", so we can get here without request items
                 return Err(anyhow!("Cannot build a multipart request body from stdin"));
@@ -147,26 +115,28 @@ fn run(args: Cli) -> Result<i32> {
                 ));
             }
         }
-        (_, Some(_), true) => {
-            if args.multipart {
-                // Multipart bodies are never "empty", so we can get here without request items
-                return Err(anyhow!("Cannot build a multipart request body from --raw"));
-            } else {
-                return Err(anyhow!(
-                    "Request body (from --raw) and request data (key=value) cannot be mixed."
-                ));
-            }
+        if args.raw.is_some() {
+            return Err(anyhow!(
+                "Request body from stdin and --raw cannot be mixed. \
+                Pass --ignore-stdin to ignore standard input."
+            ));
         }
+        let mut buffer = Vec::new();
+        stdin().read_to_end(&mut buffer)?;
+        Body::Raw(buffer)
+    } else if let Some(raw) = args.raw {
+        Body::Raw(raw.into_bytes())
+    } else {
+        args.request_items.body()?
     };
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
-    let timeout = args.timeout.and_then(|t| t.as_duration());
 
     let mut client = Client::builder()
         .http1_title_case_headers()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(timeout)
+        .timeout(args.timeout.and_then(|t| t.as_duration()))
         .no_gzip()
         .no_deflate()
         .no_brotli();
@@ -196,10 +166,6 @@ fn run(args: Cli) -> Result<i32> {
     #[cfg(feature = "native-tls")]
     if args.native_tls {
         client = client.use_native_tls();
-    } else if utils::url_requires_native_tls(&args.url) {
-        // We should be loud about this to prevent confusion
-        warn("rustls does not support HTTPS for IP addresses. native-tls will be enabled. Use --native-tls to silence this warning.");
-        client = client.use_native_tls();
     }
 
     #[cfg(not(feature = "native-tls"))]
@@ -212,7 +178,7 @@ fn run(args: Cli) -> Result<i32> {
     let mut auth = None;
     let mut save_auth_in_session = true;
 
-    if args.url.scheme() == "https" {
+    if url.scheme() == "https" {
         let verify = args.verify.unwrap_or_else(|| {
             // requests library which is used by HTTPie checks for both
             // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
@@ -317,11 +283,35 @@ fn run(args: Cli) -> Result<i32> {
         _ => client,
     };
 
+    if let Some(name_or_ip) = &args.interface {
+        let ip_addr = if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
+            Some(ip_addr)
+        } else {
+            // TODO: Directly bind to interface name once hyper/reqwest adds support for it.
+            // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
+            let network_interfaces = NetworkInterface::show()?;
+            network_interfaces.iter().find_map(|interface| {
+                if &interface.name == name_or_ip {
+                    if let Some(addr) = interface.addr.first() {
+                        return Some(addr.ip());
+                    }
+                }
+                None
+            })
+        };
+
+        if let Some(ip_addr) = ip_addr {
+            client = client.local_address(ip_addr);
+        } else {
+            return Err(anyhow!("Couldn't bind to {:?}", name_or_ip));
+        }
+    }
+
     let client = client.build()?;
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
-            Session::load_session(&args.url, name_or_path.clone(), args.is_session_read_only)
+            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
@@ -338,21 +328,21 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
         for cookie in s.cookies() {
-            match cookie_jar.insert_raw(&cookie, &args.url) {
+            match cookie_jar.insert_raw(&cookie, &url) {
                 Ok(..) | Err(cookie_store::CookieError::Expired) => {}
                 Err(err) => return Err(err.into()),
             }
         }
         if let Some(cookie) = headers.remove(COOKIE) {
             for cookie in cookie.to_str()?.split(';') {
-                cookie_jar.insert_raw(&cookie.parse()?, &args.url)?;
+                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
             }
         }
     }
 
     let mut request = {
         let mut request_builder = client
-            .request(method, args.url.clone())
+            .request(method, url.clone())
             .header(
                 ACCEPT_ENCODING,
                 HeaderValue::from_static("gzip, deflate, br"),
@@ -394,13 +384,15 @@ fn run(args: Cli) -> Result<i32> {
                     request_builder
                 }
             }
-            Body::Raw(body) => match body_type {
-                BodyType::Json => request_builder
-                    .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
-                    .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE)),
-                BodyType::Form => request_builder
-                    .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE)),
-                BodyType::Multipart => unreachable!(),
+            Body::Raw(body) => {
+                if args.form {
+                    request_builder
+                        .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE))
+                } else {
+                    request_builder
+                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
+                        .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE))
+                }
             }
             .body(body),
             Body::File {
@@ -428,12 +420,12 @@ fn run(args: Cli) -> Result<i32> {
             auth = Some(Auth::from_str(
                 &auth_from_arg,
                 auth_type,
-                args.url.host_str().unwrap_or("<host>"),
+                url.host_str().unwrap_or("<host>"),
             )?);
         } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
-            let host = args.url.host().unwrap_or(url::Host::Domain(""));
+            let host = url.host().unwrap_or(url::Host::Domain(""));
             if let Some(entry) = netrc::find_entry(host) {
                 auth = Auth::from_netrc(auth_type, entry);
                 save_auth_in_session = false;
@@ -482,6 +474,7 @@ fn run(args: Cli) -> Result<i32> {
             args.verbose,
             args.headers,
             args.body,
+            args.meta,
             args.quiet,
             args.offline,
             &buffer,
@@ -516,6 +509,9 @@ fn run(args: Cli) -> Result<i32> {
                             response_mime,
                         )?;
                         printer.print_separator()?;
+                    }
+                    if history_print.response_meta {
+                        printer.print_response_meta(prev_response)?;
                     }
                     if history_print.request_headers {
                         printer.print_request_headers(next_request, &*cookie_jar)?;
@@ -556,14 +552,22 @@ fn run(args: Cli) -> Result<i32> {
                 download_file(
                     response,
                     args.output,
-                    &args.url,
+                    &url,
                     resume,
                     pretty.color(),
                     args.quiet,
                 )?;
             }
-        } else if print.response_body {
-            printer.print_response_body(&mut response, response_charset, response_mime)?;
+        } else {
+            if print.response_body {
+                printer.print_response_body(&mut response, response_charset, response_mime)?;
+                if print.response_meta {
+                    printer.print_separator()?;
+                }
+            }
+            if print.response_meta {
+                printer.print_response_meta(&response)?;
+            }
         }
     }
 
@@ -571,7 +575,7 @@ fn run(args: Cli) -> Result<i32> {
         let cookie_jar = cookie_jar.lock().unwrap();
         s.save_cookies(
             cookie_jar
-                .matches(&args.url)
+                .matches(&url)
                 .into_iter()
                 .map(|c| cookie_crate::Cookie::from(c.clone()))
                 .collect(),

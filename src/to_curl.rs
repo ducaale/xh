@@ -7,6 +7,7 @@ use std::ffi::OsString;
 
 use crate::cli::{AuthType, Cli, HttpVersion, Verify};
 use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
+use crate::utils::url_with_query;
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
@@ -128,7 +129,7 @@ pub fn translate(args: Cli) -> Result<Command> {
     // - .curl and .curl_long: you are here
 
     // Output options
-    if args.verbose {
+    if args.verbose > 0 {
         // Far from an exact match, but it does print the request headers
         cmd.opt("-v", "--verbose");
     }
@@ -263,17 +264,24 @@ pub fn translate(args: Cli) -> Result<Command> {
     } else if let Some(method) = args.method {
         cmd.opt("-X", "--request");
         cmd.arg(method.to_string());
+    } else {
+        // We assume that curl's automatic detection of when to do a POST matches
+        // ours so we can ignore the None case
     }
-    // We assume that curl's automatic detection of when to do a POST matches
-    // ours so we can ignore the None case
 
-    cmd.arg(args.url.to_string());
+    let url = url_with_query(args.url, &args.request_items.query()?);
+    cmd.arg(url.to_string());
 
     // Force ipv4/ipv6 options
     match (args.ipv4, args.ipv6) {
         (true, false) => cmd.opt("-4", "--ipv4"),
         (false, true) => cmd.opt("-6", "--ipv6"),
         _ => (),
+    };
+
+    if let Some(interface) = args.interface {
+        cmd.arg("--interface");
+        cmd.arg(interface);
     };
 
     // Payload
@@ -314,7 +322,17 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
-    if args.request_items.is_multipart() {
+    if let Some(raw) = args.raw {
+        if args.form {
+            cmd.header("content-type", FORM_CONTENT_TYPE);
+        } else {
+            cmd.header("content-type", JSON_CONTENT_TYPE);
+            cmd.header("accept", JSON_ACCEPT);
+        }
+
+        cmd.opt("-d", "--data");
+        cmd.arg(raw);
+    } else if args.request_items.is_multipart() {
         // We can't use .body() here because we can't look inside the multipart
         // form after construction and we don't want to actually read the files
         for item in args.request_items.items {
@@ -349,8 +367,10 @@ pub fn translate(args: Cli) -> Result<Command> {
                     cmd.arg(val);
                 }
                 RequestItem::HttpHeader(..) => {}
+                RequestItem::HttpHeaderFromFile(..) => {}
                 RequestItem::HttpHeaderToUnset(..) => {}
                 RequestItem::UrlParam(..) => {}
+                RequestItem::UrlParamFromFile(..) => {}
             }
         }
     } else {
