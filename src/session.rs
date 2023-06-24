@@ -146,21 +146,21 @@ impl Content {
     }
 }
 
-pub struct Session {
-    url: Url,
+pub struct Session<'a> {
+    url: &'a Url,
     pub path: PathBuf,
     read_only: bool,
     content: Content,
 }
 
-impl Session {
-    pub fn load_session(url: Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
+impl<'a> Session<'a> {
+    pub fn load_session(url: &'a Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
             let mut path = config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["sessions", &path_from_url(&url)?].iter().collect());
+                .join::<PathBuf>(["sessions", &path_from_url(url)?].iter().collect());
             name_or_path.push(".json");
             path.push(name_or_path);
             path
@@ -299,9 +299,9 @@ impl Session {
         }
     }
 
-    pub fn save_cookies<'a, I>(&mut self, cookies: I)
+    pub fn save_cookies<'b, I>(&mut self, cookies: I)
     where
-        I: Iterator<Item = &'a cookie_store::Cookie<'static>>,
+        I: Iterator<Item = &'b cookie_store::Cookie<'static>>,
     {
         let session_cookies = match self.content.cookies {
             Cookies::Map(_) => unreachable!(),
@@ -374,9 +374,12 @@ mod tests {
     use anyhow::Result;
     use reqwest::header::HeaderValue;
 
+    static SESSION_URL: once_cell::sync::Lazy<Url> =
+        once_cell::sync::Lazy::new(|| Url::parse("http://example.net").unwrap());
+
     fn load_session_from_str(s: &str) -> Result<Session> {
         Ok(Session {
-            url: Url::parse("http://example.net").unwrap(),
+            url: &SESSION_URL,
             content: serde_json::from_str::<Content>(s)?.migrate(),
             path: PathBuf::new(),
             read_only: false,
