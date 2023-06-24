@@ -28,6 +28,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cli::FormatOptions;
+use cookie_store::CookieStore;
 use cookie_store::RawCookie;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
@@ -333,12 +334,8 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        for (cookie, cookie_url) in s.cookies()? {
-            match cookie_jar.insert_raw(&cookie, &cookie_url) {
-                Ok(..) | Err(CookieError::Expired) | Err(CookieError::DomainMismatch) => {}
-                Err(err) => return Err(err.into()),
-            }
-        }
+        *cookie_jar = CookieStore::from_cookies(s.cookies(), false)?;
+
         if let Some(cookie) = headers.remove(COOKIE) {
             for cookie in RawCookie::split_parse(cookie.to_str()?) {
                 cookie_jar.insert_raw(&cookie?, &url)?;
