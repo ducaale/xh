@@ -315,7 +315,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
-            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
+            Session::load_session(url.clone(), name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
