@@ -7,11 +7,14 @@ use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 use termcolor::WriteColor;
 
-use crate::{buffer::Buffer, cli::Theme};
+use crate::{
+    buffer::Buffer,
+    cli::{FormatOptions, Theme},
+};
 
-pub fn get_json_formatter() -> jsonxf::Formatter {
+pub fn get_json_formatter(format_options: &FormatOptions) -> jsonxf::Formatter {
     let mut fmt = jsonxf::Formatter::pretty_printer();
-    fmt.indent = String::from("    ");
+    fmt.indent = " ".repeat(format_options.json_indent);
     fmt.record_separator = String::from("\n\n");
     fmt.eager_record_separators = true;
     fmt

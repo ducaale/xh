@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
 use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
@@ -82,6 +82,15 @@ Controls output processing. Possible values are:
 Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is not tty."
     )]
     pub pretty: Option<Pretty>,
+
+    /// Set output formatting options. The only currently implemented option
+    /// is json.indent.
+    ///
+    /// Different options need to be separated by a comma.
+    ///
+    /// Example: --format-options=json.indent:2
+    #[clap(long, value_name = "FORMAT_OPTIONS")]
+    pub format_options: Option<FormatOptions>,
 
     /// Output coloring style.
     #[clap(short = 's', long, arg_enum, value_name = "THEME")]
@@ -946,6 +955,40 @@ impl Pretty {
 
     pub fn format(self) -> bool {
         matches!(self, Pretty::Format | Pretty::All)
+    }
+}
+
+#[derive(Debug)]
+pub struct FormatOptions {
+    pub json_indent: usize,
+}
+
+impl Default for FormatOptions {
+    fn default() -> Self {
+        Self { json_indent: 4 }
+    }
+}
+
+impl FromStr for FormatOptions {
+    type Err = anyhow::Error;
+    fn from_str(options: &str) -> anyhow::Result<FormatOptions> {
+        let mut format_options = FormatOptions::default();
+
+        // generate a map of the specified options
+        for argument in options.split(',') {
+            let (key, value) = argument
+                .split_once(':')
+                .context("Format options consist of a key and a value, separated by a \":\".")?;
+            match key {
+                "json.indent" => {
+                    format_options.json_indent = value.parse().context("Invalid indent value")?;
+                }
+                _ => {
+                    return Err(anyhow!("Unknown option '{key}'"));
+                }
+            }
+        }
+        Ok(format_options)
     }
 }
 
