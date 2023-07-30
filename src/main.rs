@@ -27,7 +27,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
-use cli::FormatOptions;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -485,13 +484,7 @@ fn run(args: Cli) -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    let mut printer = Printer::new(
-        pretty,
-        args.style,
-        args.stream,
-        buffer,
-        args.format_options.unwrap_or(FormatOptions::default()),
-    );
+    let mut printer = Printer::new(pretty, args.style, args.stream, buffer, args.format_options);
 
     let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();

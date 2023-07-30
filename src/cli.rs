@@ -923,18 +923,6 @@ pub enum AuthType {
     Digest,
 }
 
-#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Pretty {
-    /// (default) Enable both coloring and formatting
-    All,
-    /// Apply syntax highlighting to output
-    Colors,
-    /// Pretty-print json and sort headers
-    Format,
-    /// Disable both coloring and formatting
-    None,
-}
-
 /// The caller must check in advance if the string is valid. (clap does this.)
 fn parse_tls_version(text: &str) -> Option<tls::Version> {
     match text {
@@ -946,6 +934,18 @@ fn parse_tls_version(text: &str) -> Option<tls::Version> {
         "tls1.3" => Some(tls::Version::TLS_1_3),
         _ => unreachable!(),
     }
+}
+
+#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Pretty {
+    /// (default) Enable both coloring and formatting
+    All,
+    /// Apply syntax highlighting to output
+    Colors,
+    /// Pretty-print json and sort headers
+    Format,
+    /// Disable both coloring and formatting
+    None,
 }
 
 impl Pretty {
@@ -961,11 +961,17 @@ impl Pretty {
 #[derive(Debug)]
 pub struct FormatOptions {
     pub json_indent: usize,
+    pub json_format: Option<bool>,
+    pub headers_sort: Option<bool>,
 }
 
 impl Default for FormatOptions {
     fn default() -> Self {
-        Self { json_indent: 4 }
+        Self {
+            json_indent: 4,
+            json_format: None,
+            headers_sort: None,
+        }
     }
 }
 
@@ -979,9 +985,21 @@ impl FromStr for FormatOptions {
             let (key, value) = argument
                 .split_once(':')
                 .context("Format options consist of a key and a value, separated by a \":\".")?;
+
+            let value_error = || format!("Invalid value '{value}' in '{argument}'");
+
             match key {
                 "json.indent" => {
-                    format_options.json_indent = value.parse().context("Invalid indent value")?;
+                    format_options.json_indent = value.parse().with_context(value_error)?;
+                }
+                "json.format" => {
+                    format_options.json_format = Some(value.parse().with_context(value_error)?);
+                }
+                "headers.sort" => {
+                    format_options.headers_sort = Some(value.parse().with_context(value_error)?);
+                }
+                "json.sort_keys" | "xml.format" | "xml.indent" => {
+                    return Err(anyhow!("Unsupported option '{key}'"));
                 }
                 _ => {
                     return Err(anyhow!("Unknown option '{key}'"));
