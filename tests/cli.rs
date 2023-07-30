@@ -3288,3 +3288,55 @@ fn non_get_redirect_translation_warning() {
         .assert()
         .stderr(contains("Using a combination of -X/--request and -L/--location which may cause unintended side effects."));
 }
+
+#[test]
+fn custom_json_indent_level() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"hello":"world"}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args([
+            "--print=b",
+            "--format-options=json.indent:2",
+            &server.base_url(),
+        ])
+        .assert()
+        .stdout(indoc! {r#"
+            {
+              "hello": "world"
+            }
+
+
+        "#});
+}
+
+#[test]
+fn unsorted_headers() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("X-Foo", "Bar")
+            .header("Date", "N/A")
+            .header("Content-Type", "application/json")
+            .body(r#"{"hello":"world"}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--format-options=headers.sort:false", &server.base_url()])
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            X-Foo: Bar
+            Date: N/A
+            Content-Type: application/json
+            Content-Length: 17
+
+            {
+                "hello": "world"
+            }
+
+
+        "#});
+}

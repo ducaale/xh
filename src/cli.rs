@@ -1693,4 +1693,33 @@ mod tests {
         assert_eq!(parse_encoding("notreal").is_err(), true);
         assert_eq!(parse_encoding("").is_err(), true);
     }
+
+    #[test]
+    fn parse_format_options() {
+        let invalid_format_options = vec![
+            // malformed strings
+            ":8",
+            "json.indent:",
+            ":",
+            "",
+            "json.format:true, json.indent:4",
+            // invalid values
+            "json.indent:-8",
+            "json.format:False",
+            // unsupported options
+            "json.sort_keys:true",
+            "xml.format:false",
+            "xml.indent:false",
+            // invalid options
+            "toml.format:true",
+        ];
+
+        for format_option in invalid_format_options {
+            assert!(FormatOptions::from_str(format_option).is_err());
+        }
+
+        assert!(
+            FormatOptions::from_str("json.indent:8,json.format:true,headers.sort:false").is_ok()
+        );
+    }
 }
