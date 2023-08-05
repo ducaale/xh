@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
@@ -16,9 +16,16 @@ use crate::utils::{config_dir, test_mode};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Meta {
-    Xh { about: String, xh: String },
-    Httpie { httpie: String },
-    Other,
+    Xh {
+        about: String,
+        xh: String,
+    },
+    Httpie {
+        about: String,
+        help: String,
+        httpie: String,
+    },
+    Other(serde_json::Value),
 }
 
 impl Default for Meta {
@@ -39,7 +46,7 @@ struct Auth {
 
 // Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Cookie {
+struct Cookie {
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<i64>,
@@ -49,18 +56,48 @@ pub struct Cookie {
     secure: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Header {
+    name: String,
+    value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum Headers {
+    // old headers format kept for backward compatibility
+    Map(HashMap<String, String>),
+    // new header format that supports duplicate keys
+    List(Vec<Header>),
+}
+
+impl Default for Headers {
+    fn default() -> Self {
+        Headers::List(Vec::new())
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     auth: Auth,
     cookies: HashMap<String, Cookie>,
-    headers: HashMap<String, String>,
+    headers: Headers,
 }
 
 impl Content {
     fn migrate(mut self) -> Self {
         self.meta = Meta::default();
+        if let Headers::Map(headers) = self.headers {
+            self.headers = Headers::List(
+                headers
+                    .into_iter()
+                    .map(|(key, value)| Header { name: key, value })
+                    .collect(),
+            );
+        }
+
         self
     }
 }
@@ -98,19 +135,33 @@ impl Session {
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
-        Ok(HeaderMap::try_from(&self.content.headers)?)
+        match &self.content.headers {
+            Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
+            Headers::List(headers) => headers
+                .iter()
+                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                .collect(),
+        }
     }
 
-    pub fn save_headers(&mut self, request_headers: &HeaderMap) -> Result<()> {
-        for (key, value) in request_headers.iter() {
+    pub fn save_headers(&mut self, headers: &HeaderMap) -> Result<()> {
+        let session_headers = match self.content.headers {
+            Headers::Map(_) => unreachable!("headers should have been migrated to Headers::List"),
+            Headers::List(ref mut headers) => headers,
+        };
+
+        session_headers.clear();
+
+        for (key, value) in headers.iter() {
             let key = key.as_str();
             // HTTPie ignores headers that are specific to a particular request e.g content-length
             // see https://github.com/httpie/httpie/commit/e09b74021c9c955fd7c3bab11f22801aaf9dc1b8
             // we will also ignore cookies as they are taken care of by save_cookies()
             if key != "cookie" && !key.starts_with("content-") && !key.starts_with("if-") {
-                self.content
-                    .headers
-                    .insert(key.into(), value.to_str()?.into());
+                session_headers.push(Header {
+                    name: key.into(),
+                    value: value.to_str()?.into(),
+                });
             }
         }
         Ok(())
@@ -243,122 +294,70 @@ fn path_from_url(url: &Url) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::random_string;
+
     use anyhow::Result;
+    use reqwest::header::HeaderValue;
+
+    fn load_session_from_str(s: &str) -> Result<Session> {
+        Ok(Session {
+            content: serde_json::from_str::<Content>(s)?.migrate(),
+            path: PathBuf::new(),
+            read_only: false,
+        })
+    }
 
     #[test]
-    fn can_read_httpie_session_file() -> Result<()> {
-        let mut path_to_session = std::env::temp_dir();
-        let file_name = random_string();
-        path_to_session.push(file_name);
-        fs::write(
-            &path_to_session,
-            indoc::indoc! {r#"
-                {
-                    "__meta__": {
-                        "about": "HTTPie session file",
-                        "help": "https://httpie.org/doc#sessions",
-                        "httpie": "2.3.0"
-                    },
-                    "auth": {
-                        "password": null,
-                        "type": null,
-                        "username": null
-                    },
-                    "cookies": {
-                        "__cfduid": {
-                            "expires": 1620239688,
-                            "path": "/",
-                            "secure": false,
-                            "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
-                        }
-                    },
-                    "headers": {
-                        "hello": "world"
-                    }
-                }
-            "#},
-        )?;
-
-        let session = Session::load_session(
-            &Url::parse("http://localhost")?,
-            path_to_session.into(),
-            false,
-        )?;
+    fn can_parse_old_httpie_session() -> Result<()> {
+        let session = load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {
+                    "about": "HTTPie session file",
+                    "help": "https://httpie.org/doc#sessions",
+                    "httpie": "2.3.0"
+                },
+                "auth": { "password": null, "type": null, "username": null },
+                "cookies": {
+                    "baz": { "expires": null, "path": "/", "secure": false, "value": "quux" }
+                },
+                "headers": { "hello": "world" }
+            }
+        "#})?;
 
         assert_eq!(
-            session.content.headers.get("hello"),
-            Some(&"world".to_string()),
+            session.headers()?.get("hello"),
+            Some(&HeaderValue::from_static("world")),
         );
+        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
+        assert_eq!(session.cookies()[0].path(), Some("/"));
+        assert_eq!(session.cookies()[0].secure(), Some(false));
+        assert_eq!(session.content.auth, Auth::default());
 
-        assert_eq!(
-            session.content.auth,
-            Auth {
-                auth_type: None,
-                raw_auth: None
-            },
-        );
-
-        let expected_cookie = serde_json::from_str::<Cookie>(
-            r#"
-                {
-                    "expires": 1620239688,
-                    "path": "/",
-                    "secure": false,
-                    "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
-                }
-            "#,
-        )?;
-        assert_eq!(
-            session.content.cookies.get("__cfduid"),
-            Some(&expected_cookie)
-        );
         Ok(())
     }
 
     #[test]
-    fn can_read_xh_session_file() -> Result<()> {
-        let mut path_to_session = std::env::temp_dir();
-        let file_name = random_string();
-        path_to_session.push(file_name);
-        fs::write(
-            &path_to_session,
-            indoc::indoc! {r#"
-                {
-                    "__meta__": {
-                        "about": "xh session file",
-                        "httpie": "0.10.0"
-                    },
-                    "auth": {
-                        "raw_auth": "secret-token",
-                        "type": "bearer"
-                    },
-                    "cookies": {
-                        "__cfduid": {
-                            "expires": 1620239688,
-                            "path": "/",
-                            "secure": false,
-                            "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
-                        }
-                    },
-                    "headers": {
-                        "hello": "world"
-                    }
-                }
-            "#},
-        )?;
-
-        let session = Session::load_session(
-            &Url::parse("http://localhost")?,
-            path_to_session.into(),
-            false,
-        )?;
+    fn can_parse_old_xh_session() -> Result<()> {
+        let session = load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {
+                    "about": "xh session file",
+                    "xh": "0.0.0"
+                },
+                "auth": { "raw_auth": "secret-token", "type": "bearer" },
+                "cookies": {
+                    "baz": { "expires": null, "path": "/", "secure": false, "value": "quux" }
+                },
+                "headers": { "hello": "world" }
+            }
+        "#})?;
 
         assert_eq!(
-            session.content.headers.get("hello"),
-            Some(&"world".to_string()),
+            session.headers()?.get("hello"),
+            Some(&HeaderValue::from_static("world")),
         );
-
+        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
+        assert_eq!(session.cookies()[0].path(), Some("/"));
+        assert_eq!(session.cookies()[0].secure(), Some(false));
         assert_eq!(
             session.content.auth,
             Auth {
@@ -367,20 +366,53 @@ mod tests {
             },
         );
 
-        let expected_cookie = serde_json::from_str::<Cookie>(
-            r#"
-                {
-                    "expires": 1620239688,
-                    "path": "/",
-                    "secure": false,
-                    "value": "d090ada9c629fc7b8bbc6dba3dde1149d1617647688"
-                }
-            "#,
-        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn can_parse_session_with_unknown_meta() {
+        load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {},
+                "auth": { "raw_auth": "secret-token", "type": "bearer" },
+                "cookies": {
+                    "baz": { "expires": null, "path": "/", "secure": false, "value": "quux" }
+                },
+                "headers": { "hello": "world" }
+            }
+        "#})
+        .unwrap();
+    }
+
+    #[test]
+    fn can_parse_session_with_new_style_headers() -> Result<()> {
+        let session = load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {
+                    "about": "HTTPie session file",
+                    "help": "https://httpie.io/docs#sessions",
+                    "httpie": "3.0.2"
+                },
+                "auth": {},
+                "cookies": {},
+                "headers": [
+                    { "name": "X-Data", "value": "value" },
+                    { "name": "X-Foo", "value": "bar" },
+                    { "name": "X-Foo", "value": "baz" }
+                ]
+            }
+        "#})?;
+
+        let headers = session.headers()?;
         assert_eq!(
-            session.content.cookies.get("__cfduid"),
-            Some(&expected_cookie)
+            headers.get("X-Data"),
+            Some(&HeaderValue::from_static("value"))
         );
+
+        let mut x_foo_values = headers.get_all("X-Foo").iter();
+        assert_eq!(x_foo_values.next(), Some(&HeaderValue::from_static("bar")));
+        assert_eq!(x_foo_values.next(), Some(&HeaderValue::from_static("baz")));
+
         Ok(())
     }
 }

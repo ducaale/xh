@@ -13,6 +13,7 @@ use reqwest::header::{
 use reqwest::Version;
 use url::Url;
 
+use crate::cli::FormatOptions;
 use crate::decoder::{decompress, get_compression_type};
 use crate::{
     buffer::Buffer,
@@ -114,10 +115,17 @@ pub struct Printer {
     sort_headers: bool,
     stream: bool,
     buffer: Buffer,
+    format_options: FormatOptions,
 }
 
 impl Printer {
-    pub fn new(pretty: Pretty, theme: Option<Theme>, stream: bool, buffer: Buffer) -> Self {
+    pub fn new(
+        pretty: Pretty,
+        theme: Option<Theme>,
+        stream: bool,
+        buffer: Buffer,
+        format_options: FormatOptions,
+    ) -> Self {
         let theme = theme.unwrap_or(Theme::Auto);
 
         Printer {
@@ -127,6 +135,7 @@ impl Printer {
             stream,
             theme,
             buffer,
+            format_options,
         }
     }
 
@@ -159,15 +168,16 @@ impl Printer {
             return self.print_syntax_text(text, "json");
         }
 
+        let mut formatter = get_json_formatter(&self.format_options);
         if self.color {
             let mut buf = Vec::new();
-            get_json_formatter().format_buf(text.as_bytes(), &mut buf)?;
+            formatter.format_buf(text.as_bytes(), &mut buf)?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            get_json_formatter().format_buf(text.as_bytes(), &mut self.buffer)
+            formatter.format_buf(text.as_bytes(), &mut self.buffer)
         }
     }
 
@@ -234,7 +244,7 @@ impl Printer {
             self.print_syntax_stream(stream, "json")
         } else if self.color {
             let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
-            let mut formatter = get_json_formatter();
+            let mut formatter = get_json_formatter(&self.format_options);
             let mut highlighter = self.get_highlighter("json");
             let mut buf = Vec::new();
             while let Some(lines) = guard.read_lines()? {
@@ -247,7 +257,7 @@ impl Printer {
             }
             Ok(())
         } else {
-            let mut formatter = get_json_formatter();
+            let mut formatter = get_json_formatter(&self.format_options);
             if !self.buffer.is_terminal() {
                 let mut buf = vec![0; BUFFER_SIZE];
                 loop {
@@ -717,7 +727,8 @@ mod tests {
         let args = Cli::try_parse_from(args).unwrap();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, args.style, false, buffer)
+        let format_options = FormatOptions::default();
+        Printer::new(pretty, args.style, false, buffer, format_options)
     }
 
     fn temp_path() -> String {
@@ -805,6 +816,7 @@ mod tests {
             sort_headers: false,
             stream: false,
             buffer: Buffer::new(false, None, false).unwrap(),
+            format_options: FormatOptions::default(),
         };
 
         let mut headers = HeaderMap::new();

@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
+use cli::FormatOptions;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -321,9 +322,12 @@ fn run(args: Cli) -> Result<i32> {
 
     if let Some(ref mut s) = session {
         auth = s.auth()?;
-        for (key, value) in s.headers()?.iter() {
-            headers.entry(key).or_insert_with(|| value.clone());
-        }
+
+        headers = {
+            let mut session_headers = s.headers()?;
+            session_headers.extend(headers);
+            session_headers
+        };
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
@@ -481,7 +485,13 @@ fn run(args: Cli) -> Result<i32> {
         ),
     };
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    let mut printer = Printer::new(pretty, args.style, args.stream, buffer);
+    let mut printer = Printer::new(
+        pretty,
+        args.style,
+        args.stream,
+        buffer,
+        args.format_options.unwrap_or(FormatOptions::default()),
+    );
 
     let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();
