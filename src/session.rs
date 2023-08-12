@@ -142,6 +142,16 @@ impl Content {
             )
         }
 
+        // HTTPie appends .local to cookies from localhost.
+        // See https://github.com/psf/requests/issues/5388
+        if let Cookies::List(ref mut cookies) = self.cookies {
+            for mut cookie in cookies {
+                if cookie.domain.as_deref() == Some("localhost.local") {
+                    cookie.domain = Some("localhost".to_string());
+                }
+            }
+        }
+
         self
     }
 }
@@ -523,6 +533,14 @@ mod tests {
                         "path": "/",
                         "secure": false,
                         "domain": null
+                    },
+                    {
+                        "domain": "localhost.local",
+                        "expires": null,
+                        "name": "hello",
+                        "path": "/cookies",
+                        "secure": false,
+                        "value": "world"
                     }
                 ],
                 "headers": []
@@ -540,6 +558,11 @@ mod tests {
         assert_eq!(cookies[1].path(), Some("/"));
         assert_eq!(cookies[1].secure(), Some(false));
         assert_eq!(cookies[1].domain(), None);
+
+        assert_eq!(cookies[2].name_value(), ("hello", "world"));
+        assert_eq!(cookies[2].path(), Some("/cookies"));
+        assert_eq!(cookies[2].secure(), Some(false));
+        assert_eq!(cookies[2].domain(), Some("localhost"));
 
         Ok(())
     }
