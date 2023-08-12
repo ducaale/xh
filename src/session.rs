@@ -145,7 +145,7 @@ impl Content {
         // HTTPie appends .local to cookies from localhost.
         // See https://github.com/psf/requests/issues/5388
         if let Cookies::List(ref mut cookies) = self.cookies {
-            for mut cookie in cookies {
+            for cookie in cookies {
                 if cookie.domain.as_deref() == Some("localhost.local") {
                     cookie.domain = Some("localhost".to_string());
                 }
