@@ -836,7 +836,8 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             }
             header.push(bold(format!("--{}", long)));
         }
-        if let Some(value) = &opt.get_value_names() {
+        if opt.get_action().takes_values() {
+            let value_name = &opt.get_value_names().unwrap();
             if opt.get_long().is_some() {
                 header.push(roman("="));
             } else {
@@ -850,7 +851,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
-                header.push(italic(value.join(" ")));
+                header.push(italic(value_name.join(" ")));
             }
         }
         let mut body = vec![];
