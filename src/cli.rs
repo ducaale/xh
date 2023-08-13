@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use clap::{self, builder::ValueParser, ArgAction, FromArgMatches, ValueEnum};
+use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
@@ -166,7 +166,7 @@ Example: --print=Hb"
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[clap(short = 'o', long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
@@ -189,16 +189,11 @@ Example: --print=Hb"
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::os_string())]
+    #[clap(long, value_name = "FILE")]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it form the request/response exchange.
-    #[clap(
-        long,
-        value_name = "FILE",
-        conflicts_with = "session",
-        value_parser = ValueParser::os_string()
-    )]
+    #[clap(long, value_name = "FILE", conflicts_with = "session")]
     pub session_read_only: Option<OsString>,
 
     #[clap(skip)]
@@ -278,13 +273,13 @@ Example: --print=Hb"
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(long, value_name = "FILE")]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
