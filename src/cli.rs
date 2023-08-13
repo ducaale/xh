@@ -37,6 +37,7 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
+    disable_help_flag = true,
     args_override_self = true
 )]
 pub struct Cli {
@@ -343,6 +344,10 @@ Example: --print=Hb"
     #[clap(long)]
     pub curl_long: bool,
 
+    /// Print help information.
+    #[clap(long, action = ArgAction::HelpShort)]
+    pub help: Option<bool>,
+
     /// The request URL, preceded by an optional HTTP method.
     ///
     /// If the method is omitted, it will default to GET, or to POST
@@ -439,26 +444,6 @@ impl Cli {
     {
         match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind() == clap::error::ErrorKind::DisplayHelp => {
-                // The logic here is a little tricky.
-                //
-                // Normally with clap, -h prints short help while --help
-                // prints long help.
-                //
-                // But -h is short for --header, so we want --help to print short help
-                // and `help` (pseudo-subcommand) to print long help.
-                //
-                // --help is baked into clap. So we intercept its special error that
-                // would print long help and print short help instead. And if we do
-                // want to print long help, then we handle that in try_parse_from
-                // instead of here.
-                Self::into_app().print_help().unwrap();
-                println!(
-                    "\nRun \"{} help\" for more complete documentation.",
-                    env!("CARGO_PKG_NAME")
-                );
-                safe_exit();
-            }
             Err(err) => err.exit(),
         }
     }
@@ -630,7 +615,7 @@ impl Cli {
             .collect();
 
         app.args(negations)
-            .after_help("Each option can be reset with a --no-OPTION argument.")
+            .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
     }
 }
 
