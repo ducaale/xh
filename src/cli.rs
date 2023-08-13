@@ -587,7 +587,7 @@ impl Cli {
         Ok(())
     }
 
-    pub fn into_app() -> clap::Command<'static> {
+    pub fn into_app() -> clap::Command {
         let app = <Self as clap::CommandFactory>::command();
 
         // Every option should have a --no- variant that makes it as if it was
@@ -608,7 +608,7 @@ impl Cli {
         static ARG_STORAGE: OnceCell<Vec<String>> = OnceCell::new();
         let arg_storage = ARG_STORAGE.get_or_init(|| {
             opts.iter()
-                .map(|opt| format!("--no-{}", opt.get_long().expect("long option")))
+                .map(|opt| format!("no-{}", opt.get_long().expect("long option")))
                 .collect()
         });
 
@@ -618,8 +618,8 @@ impl Cli {
             .map(|(opt, flag)| {
                 // The name is inconsequential, but it has to be unique and it
                 // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::new(&flag[2..])
-                    .long(flag)
+                clap::Arg::new(flag.as_str())
+                    .long(flag.as_str())
                     .hide(true)
                     .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
