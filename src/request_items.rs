@@ -48,7 +48,7 @@ pub enum RequestItem {
 
 impl FromStr for RequestItem {
     type Err = clap::Error;
-    fn from_str(request_item: &str) -> clap::Result<RequestItem> {
+    fn from_str(request_item: &str) -> clap::error::Result<RequestItem> {
         const SPECIAL_CHARS: &str = "=@:;\\";
         const SEPS: &[&str] = &["==@", "=@", ":=@", ":@", "==", ":=", "=", "@", ":"];
 
@@ -88,7 +88,7 @@ impl FromStr for RequestItem {
                     raw_key,
                     serde_json::from_str(&value).map_err(|err| {
                         clap::Error::raw(
-                            clap::ErrorKind::InvalidValue,
+                            clap::error::ErrorKind::InvalidValue,
                             format!(
                                 "Invalid value for '[REQUEST_ITEM]...': {:?} {}",
                                 request_item, err
@@ -129,7 +129,7 @@ impl FromStr for RequestItem {
             // and was interpreted as a URL, making the actual URL a request
             // item
             Err(clap::Error::raw(
-                clap::ErrorKind::InvalidValue,
+                clap::error::ErrorKind::InvalidValue,
                 format!("Invalid value for '[REQUEST_ITEM]...': {:?}", request_item),
             ))
         }

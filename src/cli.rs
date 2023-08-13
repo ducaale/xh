@@ -10,10 +10,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use clap::{
-    self, builder::ValueParser, AppSettings, ArgAction, ArgEnum, Error, ErrorKind, FromArgMatches,
-    Result,
-};
+use clap::{self, builder::ValueParser, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
@@ -40,7 +37,7 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
-    setting(AppSettings::DeriveDisplayOrder),
+    setting(clap::AppSettings::DeriveDisplayOrder),
     args_override_self = true
 )]
 pub struct Cli {
@@ -72,7 +69,7 @@ pub struct Cli {
     /// Controls output processing.
     #[clap(
         long,
-        arg_enum,
+        value_enum,
         value_name = "STYLE",
         long_help = "\
 Controls output processing. Possible values are:
@@ -96,7 +93,7 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     pub format_options: Option<FormatOptions>,
 
     /// Output coloring style.
-    #[clap(short = 's', long, arg_enum, value_name = "THEME")]
+    #[clap(short = 's', long, value_enum, value_name = "THEME")]
     pub style: Option<Theme>,
 
     /// Override the response encoding for terminal display purposes.
@@ -208,7 +205,7 @@ Example: --print=Hb"
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism.
-    #[clap(short = 'A', long, arg_enum)]
+    #[clap(short = 'A', long, value_enum)]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
@@ -443,7 +440,7 @@ impl Cli {
     {
         match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind() == ErrorKind::DisplayHelp => {
+            Err(err) if err.kind() == clap::error::ErrorKind::DisplayHelp => {
                 // The logic here is a little tricky.
                 //
                 // Normally with clap, -h prints short help while --help
@@ -467,7 +464,7 @@ impl Cli {
         }
     }
 
-    pub fn try_parse_from<I>(iter: I) -> clap::Result<Self>
+    pub fn try_parse_from<I>(iter: I) -> clap::error::Result<Self>
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
@@ -494,9 +491,12 @@ impl Cli {
         let raw_url = match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                rest_args
-                    .next()
-                    .ok_or_else(|| app.error(ErrorKind::MissingRequiredArgument, "Missing <URL>"))?
+                rest_args.next().ok_or_else(|| {
+                    app.error(
+                        clap::error::ErrorKind::MissingRequiredArgument,
+                        "Missing <URL>",
+                    )
+                })?
             }
             None => {
                 cli.method = None;
@@ -507,7 +507,7 @@ impl Cli {
             cli.request_items.items.push(
                 request_item
                     .parse()
-                    .map_err(|err: Error| err.format(&mut app))?,
+                    .map_err(|err: clap::error::Error| err.format(&mut app))?,
             );
         }
 
@@ -530,7 +530,7 @@ impl Cli {
 
         cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
-                ErrorKind::ValueValidation,
+                clap::error::ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
             )
         })?;
@@ -543,7 +543,7 @@ impl Cli {
     }
 
     /// Set flags that are implied by other flags and report conflicting flags.
-    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
+    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::error::Result<()> {
         if self.verbose > 0 {
             self.all = true;
         }
@@ -577,7 +577,7 @@ impl Cli {
         }
         if self.raw.is_some() && !self.request_items.is_body_empty() {
             return Err(Self::into_app().error(
-                ErrorKind::ValueValidation,
+                clap::error::ErrorKind::ValueValidation,
                 "Request body (from --raw) and request data (key=value) cannot be mixed.",
             ));
         }
@@ -704,14 +704,14 @@ fn construct_url(
 
 #[cfg(feature = "man-completion-gen")]
 // This signature is a little weird: we either return an error or don't return at all
-fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
     let bin_name = match app.get_bin_name() {
         Some(name) => name.to_owned(),
-        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
+        None => return app.error(clap::error::ErrorKind::EmptyValue, "Missing binary name"),
     };
     if rest_args.len() != 1 {
         return app.error(
-            ErrorKind::WrongNumberOfValues,
+            clap::error::ErrorKind::WrongNumberOfValues,
             "Usage: xh generate-completions <DIRECTORY>",
         );
     }
@@ -726,13 +726,13 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
 }
 
 #[cfg(feature = "man-completion-gen")]
-fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
     use roff::{bold, italic, roman, Roff};
     use time::OffsetDateTime as DateTime;
 
     if rest_args.len() != 1 {
         return app.error(
-            ErrorKind::WrongNumberOfValues,
+            clap::error::ErrorKind::WrongNumberOfValues,
             "Usage: xh generate-manpages <DIRECTORY>",
         );
     }
@@ -902,22 +902,22 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 }
 
 #[cfg(not(feature = "man-completion-gen"))]
-fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
     clap::Error::raw(
-        clap::ErrorKind::InvalidSubcommand,
+        clap::error::ErrorKind::InvalidSubcommand,
         "generate-completions requires enabling man-completion-gen feature\n",
     )
 }
 
 #[cfg(not(feature = "man-completion-gen"))]
-fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
     clap::Error::raw(
-        clap::ErrorKind::InvalidSubcommand,
+        clap::error::ErrorKind::InvalidSubcommand,
         "generate-manpages requires enabling man-completion-gen feature\n",
     )
 }
 
-#[derive(Default, ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     #[default]
     Basic,
@@ -925,7 +925,7 @@ pub enum AuthType {
     Digest,
 }
 
-#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
     /// (default) Enable both coloring and formatting
     All,
@@ -937,7 +937,7 @@ pub enum Pretty {
     None,
 }
 
-#[derive(ArgEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone)]
 pub enum TlsVersion {
     // ssl2.3 is not a real version but it's how HTTPie spells "auto"
     #[clap(name = "auto", alias = "ssl2.3")]
@@ -1008,7 +1008,7 @@ impl FromStr for FormatOptions {
     }
 }
 
-#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
     Auto,
     Solarized,
@@ -1226,7 +1226,7 @@ impl clap::builder::TypedValueParser for VerifyParser {
         _cmd: &clap::Command,
         _arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
-    ) -> Result<Self::Value, clap::Error> {
+    ) -> clap::error::Result<Self::Value, clap::Error> {
         Ok(match value.to_ascii_lowercase().to_str() {
             Some("no") | Some("false") => Verify::No,
             Some("yes") | Some("true") => Verify::Yes,
@@ -1253,7 +1253,7 @@ pub enum BodyType {
     Multipart,
 }
 
-#[derive(ArgEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone)]
 pub enum HttpVersion {
     #[clap(name = "1.0", alias = "1")]
     Http10,
@@ -1334,7 +1334,7 @@ mod tests {
 
     use crate::request_items::RequestItem;
 
-    fn parse<I>(args: I) -> Result<Cli>
+    fn parse<I>(args: I) -> clap::error::Result<Cli>
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
