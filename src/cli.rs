@@ -557,18 +557,12 @@ impl Cli {
             self.auth_type = Some(AuthType::Bearer);
             self.auth = self.bearer.take();
         }
-        // if neither --check-status or --no-check-status is explictely set,
-        // we want self.check_status's value to be later determined by
-        // XH_HTTPIE_COMPAT_MODE
-        if matches!(
-            matches.value_source("check-status"),
-            Some(clap::ValueSource::CommandLine)
-        ) || matches!(
-            matches.value_source("no-check-status"),
-            Some(clap::ValueSource::CommandLine)
-        ) {
-            self.check_status = Some(self.check_status_raw);
-        }
+        self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            (false, false) => None,
+        };
         if self.download {
             self.follow = true;
             self.check_status = Some(true);
@@ -628,6 +622,7 @@ impl Cli {
                 clap::Arg::new(&flag[2..])
                     .long(flag)
                     .hide(true)
+                    .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
                     // We never have to check their values, they'll simply
                     // unset previous occurrences of the original flag
