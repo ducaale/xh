@@ -37,7 +37,6 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
-    setting(clap::AppSettings::DeriveDisplayOrder),
     args_override_self = true
 )]
 pub struct Cli {
