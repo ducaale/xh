@@ -150,7 +150,7 @@ fn run(args: Cli) -> Result<i32> {
         client = client.use_rustls_tls();
     }
 
-    if let Some(Some(tls_version)) = args.ssl {
+    if let Some(tls_version) = args.ssl.and_then(Into::into) {
         client = client
             .min_tls_version(tls_version)
             .max_tls_version(tls_version);
