@@ -339,7 +339,7 @@ Example: --print=Hb"
     #[clap(long)]
     pub curl_long: bool,
 
-    /// Print help information.
+    /// Print help.
     #[clap(long, action = ArgAction::HelpShort)]
     pub help: Option<bool>,
 
@@ -684,10 +684,7 @@ fn construct_url(
 #[cfg(feature = "man-completion-gen")]
 // This signature is a little weird: we either return an error or don't return at all
 fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
-    let bin_name = match app.get_bin_name() {
-        Some(name) => name.to_owned(),
-        None => return app.error(clap::error::ErrorKind::EmptyValue, "Missing binary name"),
-    };
+    let bin_name = app.get_bin_name().unwrap().to_string();
     if rest_args.len() != 1 {
         return app.error(
             clap::error::ErrorKind::WrongNumberOfValues,
@@ -721,12 +718,13 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
     let mut request_items_roff = Roff::new();
     let request_items = items
         .iter()
-        .find(|opt| opt.get_id() == "raw-rest-args")
+        .find(|opt| opt.get_id() == "raw_rest_args")
         .unwrap();
     let request_items_help = request_items
         .get_long_help()
         .or_else(|| request_items.get_help())
-        .expect("request_items is missing help");
+        .expect("request_items is missing help")
+        .to_string();
 
     // replace the indents in request_item help with proper roff controls
     // For example:
@@ -792,12 +790,6 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
         .iter()
         .filter(|a| !a.is_positional())
         .collect::<Vec<_>>();
-    // move the first two items (i.e. --help, --version) to the end
-    let non_pos_items = non_pos_items
-        .iter()
-        .cycle()
-        .skip(2)
-        .take(non_pos_items.len());
 
     for opt in non_pos_items {
         let mut header = vec![];
@@ -834,19 +826,14 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
             .get_long_help()
             .or_else(|| opt.get_help())
             .expect("option is missing help")
-            .to_owned();
+            .to_string();
         if !help.ends_with('.') {
             help.push('.')
         }
         body.push(roman(help));
 
-        let possible_values: Option<Vec<_>> = opt
-            .get_value_parser()
-            .possible_values()
-            .map(Iterator::collect)
-            .or_else(|| opt.get_possible_values().map(Into::into));
-
-        if let Some(possible_values) = possible_values {
+        let possible_values = opt.get_possible_values();
+        if possible_values.len() > 0 {
             if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
                 let possible_values_text = format!(
                     "\n\n[possible values: {}]",
