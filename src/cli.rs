@@ -833,18 +833,19 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
         body.push(roman(help));
 
         let possible_values = opt.get_possible_values();
-        if possible_values.len() > 0 {
-            if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
-                let possible_values_text = format!(
-                    "\n\n[possible values: {}]",
-                    possible_values
-                        .iter()
-                        .map(|v| v.get_name())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                body.push(roman(possible_values_text));
-            }
+        if !possible_values.is_empty()
+            && !opt.is_hide_possible_values_set()
+            && opt.get_id() != "pretty"
+        {
+            let possible_values_text = format!(
+                "\n\n[possible values: {}]",
+                possible_values
+                    .iter()
+                    .map(|v| v.get_name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            body.push(roman(possible_values_text));
         }
         options_roff.control("TP", ["4"]);
         options_roff.text(header);
