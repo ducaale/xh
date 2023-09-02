@@ -12,7 +12,6 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
-use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
 
@@ -577,29 +576,13 @@ impl Cli {
         // Unlike HTTPie we apply the options in order, so the --no- variant
         // has to follow the original to apply. You could have a chain of
         // --x=y --no-x --x=z where the last one takes precedence.
-
-        let opts: Vec<_> = app.get_arguments().filter(|a| !a.is_positional()).collect();
-
-        // The strings in the `Arg`s need to live for 'static. That's a problem,
-        // because we also need to generate them right here.
-        // We could use Box::leak(), but this OnceCell maneuver keeps valgrind
-        // happy-ish.
-        // We assume that `get_arguments()` has a fixed iteration order.
-        static ARG_STORAGE: OnceCell<Vec<String>> = OnceCell::new();
-        let arg_storage = ARG_STORAGE.get_or_init(|| {
-            opts.iter()
-                .map(|opt| format!("no-{}", opt.get_long().expect("long option")))
-                .collect()
-        });
-
-        let negations: Vec<_> = opts
-            .into_iter()
-            .zip(arg_storage)
-            .map(|(opt, flag)| {
-                // The name is inconsequential, but it has to be unique and it
-                // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::new(flag.as_str())
-                    .long(flag.as_str())
+        let negations: Vec<_> = app
+            .get_arguments()
+            .filter(|a| !a.is_positional())
+            .map(|opt| {
+                let long = opt.get_long().expect("long option");
+                clap::Arg::new(format!("no-{}", long))
+                    .long(format!("no-{}", long))
                     .hide(true)
                     .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
