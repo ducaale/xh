@@ -458,7 +458,6 @@ impl Cli {
                 app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
 
                 app.print_long_help().unwrap();
-                println!();
                 safe_exit();
             }
             "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
