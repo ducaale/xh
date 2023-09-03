@@ -594,6 +594,7 @@ impl Cli {
 
         app.args(negations)
             .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
+            .after_long_help("Each option can be reset with a --no-OPTION argument.")
     }
 }
 
