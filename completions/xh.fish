@@ -22,8 +22,6 @@ complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "{auto	,tls1	
 complete -c xh -l default-scheme -d 'The default scheme to use if not specified in the URL' -r
 complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0	,1.1	,2	}"
 complete -c xh -l interface -d 'Bind to a network interface or local IP address' -r
-complete -c xh -l help -d 'Print help information'
-complete -c xh -s V -l version -d 'Print version information'
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
 complete -c xh -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
@@ -47,8 +45,7 @@ complete -c xh -s 6 -l ipv6 -d 'Resolve hostname to ipv6 addresses only'
 complete -c xh -s I -l ignore-stdin -d 'Do not attempt to read stdin'
 complete -c xh -l curl -d 'Print a translation to a curl command'
 complete -c xh -l curl-long -d 'Use the long versions of curl\'s flags'
-complete -c xh -l no-help
-complete -c xh -l no-version
+complete -c xh -l help -d 'Print help'
 complete -c xh -l no-json
 complete -c xh -l no-form
 complete -c xh -l no-multipart
@@ -96,3 +93,5 @@ complete -c xh -l no-ipv6
 complete -c xh -l no-ignore-stdin
 complete -c xh -l no-curl
 complete -c xh -l no-curl-long
+complete -c xh -l no-help
+complete -c xh -s V -l version -d 'Print version'

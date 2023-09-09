@@ -10,9 +10,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use clap::{self, builder::ValueParser, ArgAction, FromArgMatches, ValueEnum};
+use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
-use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
 
@@ -37,7 +36,7 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
-    setting(clap::AppSettings::DeriveDisplayOrder),
+    disable_help_flag = true,
     args_override_self = true
 )]
 pub struct Cli {
@@ -166,7 +165,7 @@ Example: --print=Hb"
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[clap(short = 'o', long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
@@ -189,16 +188,11 @@ Example: --print=Hb"
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::os_string())]
+    #[clap(long, value_name = "FILE")]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it form the request/response exchange.
-    #[clap(
-        long,
-        value_name = "FILE",
-        conflicts_with = "session",
-        value_parser = ValueParser::os_string()
-    )]
+    #[clap(long, value_name = "FILE", conflicts_with = "session")]
     pub session_read_only: Option<OsString>,
 
     #[clap(skip)]
@@ -278,13 +272,13 @@ Example: --print=Hb"
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(long, value_name = "FILE")]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[clap(long, value_name = "FILE", value_parser = ValueParser::path_buf())]
+    #[clap(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
@@ -343,6 +337,10 @@ Example: --print=Hb"
     /// Use the long versions of curl's flags.
     #[clap(long)]
     pub curl_long: bool,
+
+    /// Print help.
+    #[clap(long, action = ArgAction::HelpShort)]
+    pub help: Option<bool>,
 
     /// The request URL, preceded by an optional HTTP method.
     ///
@@ -440,26 +438,6 @@ impl Cli {
     {
         match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind() == clap::error::ErrorKind::DisplayHelp => {
-                // The logic here is a little tricky.
-                //
-                // Normally with clap, -h prints short help while --help
-                // prints long help.
-                //
-                // But -h is short for --header, so we want --help to print short help
-                // and `help` (pseudo-subcommand) to print long help.
-                //
-                // --help is baked into clap. So we intercept its special error that
-                // would print long help and print short help instead. And if we do
-                // want to print long help, then we handle that in try_parse_from
-                // instead of here.
-                Self::into_app().print_help().unwrap();
-                println!(
-                    "\nRun \"{} help\" for more complete documentation.",
-                    env!("CARGO_PKG_NAME")
-                );
-                safe_exit();
-            }
             Err(err) => err.exit(),
         }
     }
@@ -480,7 +458,6 @@ impl Cli {
                 app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
 
                 app.print_long_help().unwrap();
-                println!();
                 safe_exit();
             }
             "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
@@ -588,7 +565,7 @@ impl Cli {
         Ok(())
     }
 
-    pub fn into_app() -> clap::Command<'static> {
+    pub fn into_app() -> clap::Command {
         let app = <Self as clap::CommandFactory>::command();
 
         // Every option should have a --no- variant that makes it as if it was
@@ -598,29 +575,13 @@ impl Cli {
         // Unlike HTTPie we apply the options in order, so the --no- variant
         // has to follow the original to apply. You could have a chain of
         // --x=y --no-x --x=z where the last one takes precedence.
-
-        let opts: Vec<_> = app.get_arguments().filter(|a| !a.is_positional()).collect();
-
-        // The strings in the `Arg`s need to live for 'static. That's a problem,
-        // because we also need to generate them right here.
-        // We could use Box::leak(), but this OnceCell maneuver keeps valgrind
-        // happy-ish.
-        // We assume that `get_arguments()` has a fixed iteration order.
-        static ARG_STORAGE: OnceCell<Vec<String>> = OnceCell::new();
-        let arg_storage = ARG_STORAGE.get_or_init(|| {
-            opts.iter()
-                .map(|opt| format!("--no-{}", opt.get_long().expect("long option")))
-                .collect()
-        });
-
-        let negations: Vec<_> = opts
-            .into_iter()
-            .zip(arg_storage)
-            .map(|(opt, flag)| {
-                // The name is inconsequential, but it has to be unique and it
-                // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::new(&flag[2..])
-                    .long(flag)
+        let negations: Vec<_> = app
+            .get_arguments()
+            .filter(|a| !a.is_positional())
+            .map(|opt| {
+                let long = opt.get_long().expect("long option");
+                clap::Arg::new(format!("no-{}", long))
+                    .long(format!("no-{}", long))
                     .hide(true)
                     .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
@@ -631,7 +592,8 @@ impl Cli {
             .collect();
 
         app.args(negations)
-            .after_help("Each option can be reset with a --no-OPTION argument.")
+            .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
+            .after_long_help("Each option can be reset with a --no-OPTION argument.")
     }
 }
 
@@ -705,10 +667,7 @@ fn construct_url(
 #[cfg(feature = "man-completion-gen")]
 // This signature is a little weird: we either return an error or don't return at all
 fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
-    let bin_name = match app.get_bin_name() {
-        Some(name) => name.to_owned(),
-        None => return app.error(clap::error::ErrorKind::EmptyValue, "Missing binary name"),
-    };
+    let bin_name = app.get_bin_name().unwrap().to_string();
     if rest_args.len() != 1 {
         return app.error(
             clap::error::ErrorKind::WrongNumberOfValues,
@@ -742,12 +701,13 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
     let mut request_items_roff = Roff::new();
     let request_items = items
         .iter()
-        .find(|opt| opt.get_id() == "raw-rest-args")
+        .find(|opt| opt.get_id() == "raw_rest_args")
         .unwrap();
     let request_items_help = request_items
         .get_long_help()
         .or_else(|| request_items.get_help())
-        .expect("request_items is missing help");
+        .expect("request_items is missing help")
+        .to_string();
 
     // replace the indents in request_item help with proper roff controls
     // For example:
@@ -813,12 +773,6 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
         .iter()
         .filter(|a| !a.is_positional())
         .collect::<Vec<_>>();
-    // move the first two items (i.e. --help, --version) to the end
-    let non_pos_items = non_pos_items
-        .iter()
-        .cycle()
-        .skip(2)
-        .take(non_pos_items.len());
 
     for opt in non_pos_items {
         let mut header = vec![];
@@ -855,30 +809,26 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
             .get_long_help()
             .or_else(|| opt.get_help())
             .expect("option is missing help")
-            .to_owned();
+            .to_string();
         if !help.ends_with('.') {
             help.push('.')
         }
         body.push(roman(help));
 
-        let possible_values: Option<Vec<_>> = opt
-            .get_value_parser()
-            .possible_values()
-            .map(Iterator::collect)
-            .or_else(|| opt.get_possible_values().map(Into::into));
-
-        if let Some(possible_values) = possible_values {
-            if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
-                let possible_values_text = format!(
-                    "\n\n[possible values: {}]",
-                    possible_values
-                        .iter()
-                        .map(|v| v.get_name())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                body.push(roman(possible_values_text));
-            }
+        let possible_values = opt.get_possible_values();
+        if !possible_values.is_empty()
+            && !opt.is_hide_possible_values_set()
+            && opt.get_id() != "pretty"
+        {
+            let possible_values_text = format!(
+                "\n\n[possible values: {}]",
+                possible_values
+                    .iter()
+                    .map(|v| v.get_name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            body.push(roman(possible_values_text));
         }
         options_roff.control("TP", ["4"]);
         options_roff.text(header);

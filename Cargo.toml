@@ -19,8 +19,8 @@ anyhow = "1.0.38"
 atty = "0.2"
 brotli = { version = "3.3.0", default-features = false, features = ["std"] }
 chardetng = "0.1.15"
-clap = { version = "3.2.23", features = ["derive", "wrap_help"] }
-clap_complete = { version = "3.2.3", optional = true }
+clap = { version = "4.0", features = ["derive", "wrap_help", "string"] }
+clap_complete = { version = "4.0", optional = true }
 cookie_store = { version = "0.20.0", features = ["preserve_order"] }
 digest_auth = "0.3.0"
 dirs = "3.0.1"
