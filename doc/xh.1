@@ -1,4 +1,4 @@
-.TH XH 1 2023-02-20 0.18.0 "User Commands"
+.TH XH 1 2023-08-26 0.18.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -116,6 +116,13 @@ Controls output processing. Possible values are:
 
 Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 .TP 4
+\fB\-\-format\-options\fR=\fIFORMAT_OPTIONS\fR
+Set output formatting options. The only currently implemented option is json.indent.
+
+Different options need to be separated by a comma.
+
+Example: \-\-format\-options=json.indent:2.
+.TP 4
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style.
 
@@ -165,12 +172,6 @@ Show any intermediary requests/responses while following redirects with \-\-foll
 .TP 4
 \fB\-P\fR, \fB\-\-history\-print\fR=\fIFORMAT\fR
 The same as \-\-print but applies only to intermediary requests/responses.
-.TP 4
-\fB\-4\fR, \fB\-\-ipv4\fR
-Resolve hostname to ipv4 addresses only.
-.TP 4
-\fB\-6\fR, \fB\-\-ipv6\fR
-Resolve hostname to ipv6 addresses only.
 .TP 4
 \fB\-q\fR, \fB\-\-quiet\fR
 Do not print to stdout or stderr.
@@ -277,6 +278,17 @@ HTTP version to use.
 
 [possible values: 1.0, 1.1, 2]
 .TP 4
+\fB\-\-interface\fR=\fINAME\fR
+Bind to a network interface or local IP address.
+
+Example: \-\-interface=eth0 \-\-interface=192.168.0.2.
+.TP 4
+\fB\-4\fR, \fB\-\-ipv4\fR
+Resolve hostname to ipv4 addresses only.
+.TP 4
+\fB\-6\fR, \fB\-\-ipv6\fR
+Resolve hostname to ipv6 addresses only.
+.TP 4
 \fB\-I\fR, \fB\-\-ignore\-stdin\fR
 Do not attempt to read stdin.
 
@@ -293,10 +305,10 @@ For translating the other way, try https://curl2httpie.online/.
 Use the long versions of curl's flags.
 .TP 4
 \fB\-\-help\fR
-Print help information.
+Print help.
 .TP 4
 \fB\-V\fR, \fB\-\-version\fR
-Print version information.
+Print version.
 
 .SH EXIT STATUS
 .TP 4

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::env;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -10,9 +10,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use clap::{self, AppSettings, ArgEnum, Error, ErrorKind, FromArgMatches, Result};
+use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
-use once_cell::sync::OnceCell;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
 
@@ -37,8 +36,8 @@ use crate::utils::config_dir;
 #[clap(
     version,
     long_version = long_version(),
-    setting(AppSettings::DeriveDisplayOrder),
-    args_override_self = true,
+    disable_help_flag = true,
+    args_override_self = true
 )]
 pub struct Cli {
     #[clap(skip)]
@@ -59,17 +58,17 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(long, overrides_with_all = &["json", "form"], conflicts_with = "raw")]
+    #[clap(long, conflicts_with = "raw", overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
     #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
 
-    /// Controls output processing
+    /// Controls output processing.
     #[clap(
         long,
-        arg_enum,
+        value_enum,
         value_name = "STYLE",
         long_help = "\
 Controls output processing. Possible values are:
@@ -93,13 +92,13 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     pub format_options: Option<FormatOptions>,
 
     /// Output coloring style.
-    #[clap(short = 's', long, arg_enum, value_name = "THEME")]
+    #[clap(short = 's', long, value_enum, value_name = "THEME")]
     pub style: Option<Theme>,
 
     /// Override the response encoding for terminal display purposes.
     ///
     /// Example: --response-charset=latin1
-    #[clap(long, value_name = "ENCODING", parse(try_from_str = parse_encoding))]
+    #[clap(long, value_name = "ENCODING", value_parser = parse_encoding)]
     pub response_charset: Option<&'static Encoding>,
 
     /// Override the response mime type for coloring and formatting for the terminal.
@@ -146,8 +145,8 @@ Example: --print=Hb"
     /// Using verbose twice i.e. -vv will print the response metadata as well.
     ///
     /// Equivalent to --print=HhBb --all.
-    #[clap(short = 'v', long, parse(from_occurrences))]
-    pub verbose: usize,
+    #[clap(short = 'v', long, action = ArgAction::Count)]
+    pub verbose: u8,
 
     /// Show any intermediary requests/responses while following redirects with --follow.
     #[clap(long)]
@@ -166,7 +165,7 @@ Example: --print=Hb"
     pub stream: bool,
 
     /// Save output to FILE instead of stdout.
-    #[clap(short = 'o', long, value_name = "FILE", parse(from_os_str))]
+    #[clap(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
     /// Download the body to a file instead of printing it.
@@ -189,23 +188,18 @@ Example: --print=Hb"
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE")]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it form the request/response exchange.
-    #[clap(
-        long,
-        value_name = "FILE",
-        conflicts_with = "session",
-        parse(from_os_str)
-    )]
+    #[clap(long, value_name = "FILE", conflicts_with = "session")]
     pub session_read_only: Option<OsString>,
 
     #[clap(skip)]
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism.
-    #[clap(short = 'A', long, arg_enum)]
+    #[clap(short = 'A', long, value_enum)]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
@@ -274,30 +268,25 @@ Example: --print=Hb"
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[clap(long, value_name = "VERIFY", parse(from_os_str))]
+    #[clap(long, value_name = "VERIFY", value_parser = VerifyParser)]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE")]
     pub cert: Option<PathBuf>,
 
     /// A private key file to use with --cert.
     ///
     /// Only necessary if the private key is not contained in the cert file.
-    #[clap(long, value_name = "FILE", parse(from_os_str))]
+    #[clap(long, value_name = "FILE")]
     pub cert_key: Option<PathBuf>,
 
     /// Force a particular TLS version.
     ///
     /// "auto" gives the default behavior of negotiating a version
     /// with the server.
-    #[clap(long, value_name = "VERSION", parse(from_str = parse_tls_version),
-      possible_value = clap::PossibleValue::new("auto").alias("ssl2.3"),
-      possible_values = &["tls1", "tls1.1", "tls1.2", "tls1.3"]
-    )]
-    // The nested option is weird, but parse_tls_version can return None.
-    // If the inner option doesn't use a qualified path clap gets confused.
-    pub ssl: Option<std::option::Option<tls::Version>>,
+    #[clap(long, value_name = "VERSION", value_parser)]
+    pub ssl: Option<TlsVersion>,
 
     /// Use the system TLS library instead of rustls (if enabled at compile time).
     #[clap(long, hide = cfg!(not(all(feature = "native-tls", feature = "rustls"))))]
@@ -311,12 +300,8 @@ Example: --print=Hb"
     #[clap(long)]
     pub https: bool,
 
-    /// HTTP version to use.
-    #[clap(long, value_name = "VERSION",
-        possible_value = clap::PossibleValue::new("1.0"),
-        possible_value = clap::PossibleValue::new("1.1").alias("1"),
-        possible_value = clap::PossibleValue::new("2")
-    )]
+    /// HTTP version to use
+    #[clap(long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
 
     /// Bind to a network interface or local IP address.
@@ -352,6 +337,10 @@ Example: --print=Hb"
     /// Use the long versions of curl's flags.
     #[clap(long)]
     pub curl_long: bool,
+
+    /// Print help.
+    #[clap(long, action = ArgAction::HelpShort)]
+    pub help: Option<bool>,
 
     /// The request URL, preceded by an optional HTTP method.
     ///
@@ -449,31 +438,11 @@ impl Cli {
     {
         match Self::try_parse_from(iter) {
             Ok(cli) => cli,
-            Err(err) if err.kind() == ErrorKind::DisplayHelp => {
-                // The logic here is a little tricky.
-                //
-                // Normally with clap, -h prints short help while --help
-                // prints long help.
-                //
-                // But -h is short for --header, so we want --help to print short help
-                // and `help` (pseudo-subcommand) to print long help.
-                //
-                // --help is baked into clap. So we intercept its special error that
-                // would print long help and print short help instead. And if we do
-                // want to print long help, then we handle that in try_parse_from
-                // instead of here.
-                Self::into_app().print_help().unwrap();
-                println!(
-                    "\nRun \"{} help\" for more complete documentation.",
-                    env!("CARGO_PKG_NAME")
-                );
-                safe_exit();
-            }
             Err(err) => err.exit(),
         }
     }
 
-    pub fn try_parse_from<I>(iter: I) -> clap::Result<Self>
+    pub fn try_parse_from<I>(iter: I) -> clap::error::Result<Self>
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,
@@ -489,7 +458,6 @@ impl Cli {
                 app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
 
                 app.print_long_help().unwrap();
-                println!();
                 safe_exit();
             }
             "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
@@ -500,9 +468,12 @@ impl Cli {
         let raw_url = match parse_method(&cli.raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
-                rest_args
-                    .next()
-                    .ok_or_else(|| app.error(ErrorKind::MissingRequiredArgument, "Missing <URL>"))?
+                rest_args.next().ok_or_else(|| {
+                    app.error(
+                        clap::error::ErrorKind::MissingRequiredArgument,
+                        "Missing <URL>",
+                    )
+                })?
             }
             None => {
                 cli.method = None;
@@ -513,7 +484,7 @@ impl Cli {
             cli.request_items.items.push(
                 request_item
                     .parse()
-                    .map_err(|err: Error| err.format(&mut app))?,
+                    .map_err(|err: clap::error::Error| err.format(&mut app))?,
             );
         }
 
@@ -536,7 +507,7 @@ impl Cli {
 
         cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
-                ErrorKind::ValueValidation,
+                clap::error::ErrorKind::ValueValidation,
                 format!("Invalid <URL>: {}", err),
             )
         })?;
@@ -549,7 +520,7 @@ impl Cli {
     }
 
     /// Set flags that are implied by other flags and report conflicting flags.
-    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::Result<()> {
+    fn process_relations(&mut self, matches: &clap::ArgMatches) -> clap::error::Result<()> {
         if self.verbose > 0 {
             self.all = true;
         }
@@ -563,7 +534,7 @@ impl Cli {
             self.auth_type = Some(AuthType::Bearer);
             self.auth = self.bearer.take();
         }
-        self.check_status = match (self.check_status_raw, matches.is_present("no-check-status")) {
+        self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
             (true, true) => unreachable!(),
             (true, false) => Some(true),
             (false, true) => Some(false),
@@ -583,7 +554,7 @@ impl Cli {
         }
         if self.raw.is_some() && !self.request_items.is_body_empty() {
             return Err(Self::into_app().error(
-                ErrorKind::ValueValidation,
+                clap::error::ErrorKind::ValueValidation,
                 "Request body (from --raw) and request data (key=value) cannot be mixed.",
             ));
         }
@@ -594,7 +565,7 @@ impl Cli {
         Ok(())
     }
 
-    pub fn into_app() -> clap::Command<'static> {
+    pub fn into_app() -> clap::Command {
         let app = <Self as clap::CommandFactory>::command();
 
         // Every option should have a --no- variant that makes it as if it was
@@ -604,30 +575,15 @@ impl Cli {
         // Unlike HTTPie we apply the options in order, so the --no- variant
         // has to follow the original to apply. You could have a chain of
         // --x=y --no-x --x=z where the last one takes precedence.
-
-        let opts: Vec<_> = app.get_arguments().filter(|a| !a.is_positional()).collect();
-
-        // The strings in the `Arg`s need to live for 'static. That's a problem,
-        // because we also need to generate them right here.
-        // We could use Box::leak(), but this OnceCell maneuver keeps valgrind
-        // happy-ish.
-        // We assume that `get_arguments()` has a fixed iteration order.
-        static ARG_STORAGE: OnceCell<Vec<String>> = OnceCell::new();
-        let arg_storage = ARG_STORAGE.get_or_init(|| {
-            opts.iter()
-                .map(|opt| format!("--no-{}", opt.get_long().expect("long option")))
-                .collect()
-        });
-
-        let negations: Vec<_> = opts
-            .into_iter()
-            .zip(arg_storage)
-            .map(|(opt, flag)| {
-                // The name is inconsequential, but it has to be unique and it
-                // needs a static lifetime, and `flag` satisfies that
-                clap::Arg::new(&flag[2..])
-                    .long(flag)
+        let negations: Vec<_> = app
+            .get_arguments()
+            .filter(|a| !a.is_positional())
+            .map(|opt| {
+                let long = opt.get_long().expect("long option");
+                clap::Arg::new(format!("no-{}", long))
+                    .long(format!("no-{}", long))
                     .hide(true)
+                    .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
                     // We never have to check their values, they'll simply
                     // unset previous occurrences of the original flag
@@ -636,7 +592,8 @@ impl Cli {
             .collect();
 
         app.args(negations)
-            .after_help("Each option can be reset with a --no-OPTION argument.")
+            .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
+            .after_long_help("Each option can be reset with a --no-OPTION argument.")
     }
 }
 
@@ -709,14 +666,11 @@ fn construct_url(
 
 #[cfg(feature = "man-completion-gen")]
 // This signature is a little weird: we either return an error or don't return at all
-fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error {
-    let bin_name = match app.get_bin_name() {
-        Some(name) => name.to_owned(),
-        None => return app.error(ErrorKind::EmptyValue, "Missing binary name"),
-    };
+fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
+    let bin_name = app.get_bin_name().unwrap().to_string();
     if rest_args.len() != 1 {
         return app.error(
-            ErrorKind::WrongNumberOfValues,
+            clap::error::ErrorKind::WrongNumberOfValues,
             "Usage: xh generate-completions <DIRECTORY>",
         );
     }
@@ -731,13 +685,13 @@ fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> Error
 }
 
 #[cfg(feature = "man-completion-gen")]
-fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
+fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
     use roff::{bold, italic, roman, Roff};
     use time::OffsetDateTime as DateTime;
 
     if rest_args.len() != 1 {
         return app.error(
-            ErrorKind::WrongNumberOfValues,
+            clap::error::ErrorKind::WrongNumberOfValues,
             "Usage: xh generate-manpages <DIRECTORY>",
         );
     }
@@ -747,12 +701,13 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
     let mut request_items_roff = Roff::new();
     let request_items = items
         .iter()
-        .find(|opt| opt.get_id() == "raw-rest-args")
+        .find(|opt| opt.get_id() == "raw_rest_args")
         .unwrap();
     let request_items_help = request_items
         .get_long_help()
         .or_else(|| request_items.get_help())
-        .expect("request_items is missing help");
+        .expect("request_items is missing help")
+        .to_string();
 
     // replace the indents in request_item help with proper roff controls
     // For example:
@@ -818,12 +773,6 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
         .iter()
         .filter(|a| !a.is_positional())
         .collect::<Vec<_>>();
-    // move the first two items (i.e. --help, --version) to the end
-    let non_pos_items = non_pos_items
-        .iter()
-        .cycle()
-        .skip(2)
-        .take(non_pos_items.len());
 
     for opt in non_pos_items {
         let mut header = vec![];
@@ -836,7 +785,8 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             }
             header.push(bold(format!("--{}", long)));
         }
-        if let Some(value) = &opt.get_value_names() {
+        if opt.get_action().takes_values() {
+            let value_name = &opt.get_value_names().unwrap();
             if opt.get_long().is_some() {
                 header.push(roman("="));
             } else {
@@ -850,7 +800,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
                 header.push(roman("] | "));
                 header.push(italic("TOKEN"));
             } else {
-                header.push(italic(value.join(" ")));
+                header.push(italic(value_name.join(" ")));
             }
         }
         let mut body = vec![];
@@ -859,24 +809,26 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
             .get_long_help()
             .or_else(|| opt.get_help())
             .expect("option is missing help")
-            .to_owned();
+            .to_string();
         if !help.ends_with('.') {
             help.push('.')
         }
         body.push(roman(help));
 
-        if let Some(possible_values) = opt.get_possible_values() {
-            if !opt.is_hide_possible_values_set() && opt.get_id() != "pretty" {
-                let possible_values_text = format!(
-                    "\n\n[possible values: {}]",
-                    possible_values
-                        .iter()
-                        .map(|v| v.get_name())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                body.push(roman(possible_values_text));
-            }
+        let possible_values = opt.get_possible_values();
+        if !possible_values.is_empty()
+            && !opt.is_hide_possible_values_set()
+            && opt.get_id() != "pretty"
+        {
+            let possible_values_text = format!(
+                "\n\n[possible values: {}]",
+                possible_values
+                    .iter()
+                    .map(|v| v.get_name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            body.push(roman(possible_values_text));
         }
         options_roff.control("TP", ["4"]);
         options_roff.text(header);
@@ -900,22 +852,22 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> Error {
 }
 
 #[cfg(not(feature = "man-completion-gen"))]
-fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
     clap::Error::raw(
-        clap::ErrorKind::InvalidSubcommand,
+        clap::error::ErrorKind::InvalidSubcommand,
         "generate-completions requires enabling man-completion-gen feature\n",
     )
 }
 
 #[cfg(not(feature = "man-completion-gen"))]
-fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> Error {
+fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
     clap::Error::raw(
-        clap::ErrorKind::InvalidSubcommand,
+        clap::error::ErrorKind::InvalidSubcommand,
         "generate-manpages requires enabling man-completion-gen feature\n",
     )
 }
 
-#[derive(Default, ArgEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     #[default]
     Basic,
@@ -923,20 +875,34 @@ pub enum AuthType {
     Digest,
 }
 
-/// The caller must check in advance if the string is valid. (clap does this.)
-fn parse_tls_version(text: &str) -> Option<tls::Version> {
-    match text {
-        // ssl2.3 is not a real version but it's how HTTPie spells "auto"
-        "auto" | "ssl2.3" => None,
-        "tls1" => Some(tls::Version::TLS_1_0),
-        "tls1.1" => Some(tls::Version::TLS_1_1),
-        "tls1.2" => Some(tls::Version::TLS_1_2),
-        "tls1.3" => Some(tls::Version::TLS_1_3),
-        _ => unreachable!(),
+#[derive(ValueEnum, Debug, Clone)]
+pub enum TlsVersion {
+    // ssl2.3 is not a real version but it's how HTTPie spells "auto"
+    #[clap(name = "auto", alias = "ssl2.3")]
+    Auto,
+    #[clap(name = "tls1")]
+    Tls1_0,
+    #[clap(name = "tls1.1")]
+    Tls1_1,
+    #[clap(name = "tls1.2")]
+    Tls1_2,
+    #[clap(name = "tls1.3")]
+    Tls1_3,
+}
+
+impl From<TlsVersion> for Option<tls::Version> {
+    fn from(version: TlsVersion) -> Self {
+        match version {
+            TlsVersion::Auto => None,
+            TlsVersion::Tls1_0 => Some(tls::Version::TLS_1_0),
+            TlsVersion::Tls1_1 => Some(tls::Version::TLS_1_1),
+            TlsVersion::Tls1_2 => Some(tls::Version::TLS_1_2),
+            TlsVersion::Tls1_3 => Some(tls::Version::TLS_1_3),
+        }
     }
 }
 
-#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pretty {
     /// (default) Enable both coloring and formatting
     All,
@@ -958,7 +924,7 @@ impl Pretty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FormatOptions {
     pub json_indent: usize,
     pub json_format: Option<bool>,
@@ -1010,7 +976,7 @@ impl FromStr for FormatOptions {
     }
 }
 
-#[derive(ArgEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
     Auto,
     Solarized,
@@ -1040,7 +1006,7 @@ pub struct Print {
 
 impl Print {
     pub fn new(
-        verbose: usize,
+        verbose: u8,
         headers: bool,
         body: bool,
         meta: bool,
@@ -1139,7 +1105,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Timeout(Duration);
 
 impl Timeout {
@@ -1167,7 +1133,7 @@ impl FromStr for Timeout {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Proxy {
     Http(Url),
     Https(Url),
@@ -1204,23 +1170,36 @@ impl FromStr for Proxy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verify {
     Yes,
     No,
     CustomCaBundle(PathBuf),
 }
 
-impl From<&OsStr> for Verify {
-    fn from(verify: &OsStr) -> Verify {
-        if let Some(text) = verify.to_str() {
-            match text.to_lowercase().as_str() {
-                "no" | "false" => return Verify::No,
-                "yes" | "true" => return Verify::Yes,
-                _ => (),
-            }
-        }
-        Verify::CustomCaBundle(PathBuf::from(verify))
+impl clap::builder::ValueParserFactory for Verify {
+    type Parser = VerifyParser;
+    fn value_parser() -> Self::Parser {
+        VerifyParser
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VerifyParser;
+impl clap::builder::TypedValueParser for VerifyParser {
+    type Value = Verify;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &std::ffi::OsStr,
+    ) -> clap::error::Result<Self::Value, clap::Error> {
+        Ok(match value.to_ascii_lowercase().to_str() {
+            Some("no") | Some("false") => Verify::No,
+            Some("yes") | Some("true") => Verify::Yes,
+            _ => Verify::CustomCaBundle(PathBuf::from(value)),
+        })
     }
 }
 
@@ -1242,23 +1221,14 @@ pub enum BodyType {
     Multipart,
 }
 
-#[derive(Debug)]
+#[derive(ValueEnum, Debug, Clone)]
 pub enum HttpVersion {
+    #[clap(name = "1.0", alias = "1")]
     Http10,
+    #[clap(name = "1.1")]
     Http11,
+    #[clap(name = "2")]
     Http2,
-}
-
-impl FromStr for HttpVersion {
-    type Err = Error;
-    fn from_str(version: &str) -> Result<HttpVersion> {
-        match version {
-            "1.0" => Ok(HttpVersion::Http10),
-            "1" | "1.1" => Ok(HttpVersion::Http11),
-            "2" => Ok(HttpVersion::Http2),
-            _ => unreachable!(),
-        }
-    }
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.
@@ -1332,7 +1302,7 @@ mod tests {
 
     use crate::request_items::RequestItem;
 
-    fn parse<I>(args: I) -> Result<Cli>
+    fn parse<I>(args: I) -> clap::error::Result<Cli>
     where
         I: IntoIterator,
         I::Item: Into<OsString> + Clone,

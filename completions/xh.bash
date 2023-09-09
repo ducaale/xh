@@ -1,5 +1,5 @@
 _xh() {
-    local i cur prev opts cmds
+    local i cur prev opts cmd
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -8,8 +8,8 @@ _xh() {
 
     for i in ${COMP_WORDS[@]}
     do
-        case "${i}" in
-            "$1")
+        case "${cmd},${i}" in
+            ",$1")
                 cmd="xh"
                 ;;
             *)
@@ -19,7 +19,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts="-V -j -f -s -p -h -b -m -v -P -4 -6 -q -S -o -d -c -A -a -F -I --help --version --json --form --multipart --raw --pretty --style --response-charset --response-mime --print --headers --body --meta --verbose --all --history-print --ipv4 --ipv6 --quiet --stream --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --ignore-stdin --curl --curl-long --no-help --no-version --no-json --no-form --no-multipart --no-raw --no-pretty --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-all --no-history-print --no-ipv4 --no-ipv6 --no-quiet --no-stream --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-ignore-stdin --no-curl --no-curl-long <[METHOD] URL> <REQUEST_ITEM>..."
+            opts="-j -f -s -p -h -b -m -v -P -q -S -o -d -c -A -a -F -4 -6 -I -V --json --form --multipart --raw --pretty --format-options --style --response-charset --response-mime --print --headers --body --meta --verbose --all --history-print --quiet --stream --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --interface --ipv4 --ipv6 --ignore-stdin --curl --curl-long --help --no-json --no-form --no-multipart --no-raw --no-pretty --no-format-options --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-all --no-history-print --no-quiet --no-stream --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-interface --no-ipv4 --no-ipv6 --no-ignore-stdin --no-curl --no-curl-long --no-help --version <[METHOD] URL> [REQUEST_ITEM]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -31,6 +31,10 @@ _xh() {
                     ;;
                 --pretty)
                     COMPREPLY=($(compgen -W "all colors format none" -- "${cur}"))
+                    return 0
+                    ;;
+                --format-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --style)
@@ -135,6 +139,10 @@ _xh() {
                     ;;
                 --http-version)
                     COMPREPLY=($(compgen -W "1.0 1.1 2" -- "${cur}"))
+                    return 0
+                    ;;
+                --interface)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)

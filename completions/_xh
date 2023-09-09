@@ -20,6 +20,7 @@ _xh() {
 colors\:"Apply syntax highlighting to output"
 format\:"Pretty-print json and sort headers"
 none\:"Disable both coloring and formatting"))' \
+'--format-options=[Set output formatting options. The only currently implemented option is json.indent]:FORMAT_OPTIONS: ' \
 '-s+[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--style=[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--response-charset=[Override the response encoding for terminal display purposes]:ENCODING: ' \
@@ -28,8 +29,8 @@ none\:"Disable both coloring and formatting"))' \
 '--print=[String specifying what the output should contain]:FORMAT: ' \
 '-P+[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
 '--history-print=[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
-'-o+[Save output to FILE instead of stdout]:FILE: ' \
-'--output=[Save output to FILE instead of stdout]:FILE: ' \
+'-o+[Save output to FILE instead of stdout]:FILE:_files' \
+'--output=[Save output to FILE instead of stdout]:FILE:_files' \
 '--session=[Create, or reuse and update a session]:FILE: ' \
 '(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE: ' \
 '-A+[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
@@ -39,21 +40,19 @@ none\:"Disable both coloring and formatting"))' \
 '--bearer=[Authenticate with a bearer token]:TOKEN: ' \
 '--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM: ' \
 '--timeout=[Connection timeout of the request]:SEC: ' \
-'*--proxy=[Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080]:PROTOCOL:URL: ' \
+'*--proxy=[Use a proxy for a protocol. For example\: --proxy https\:http\://proxy.host\:8080]:PROTOCOL:URL: ' \
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY: ' \
-'--cert=[Use a client side certificate for SSL]:FILE: ' \
-'--cert-key=[A private key file to use with --cert]:FILE: ' \
+'--cert=[Use a client side certificate for SSL]:FILE:_files' \
+'--cert-key=[A private key file to use with --cert]:FILE:_files' \
 '--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
 '--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME: ' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2)' \
-'--help[Print help information]' \
-'-V[Print version information]' \
-'--version[Print version information]' \
+'--interface=[Bind to a network interface or local IP address]:NAME: ' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
 '--form[Serialize data items from the command line as form fields]' \
-'--multipart[Like --form, but force a multipart/form-data request even without files]' \
+'(--raw)--multipart[Like --form, but force a multipart/form-data request even without files]' \
 '-h[Print only the response headers. Shortcut for --print=h]' \
 '--headers[Print only the response headers. Shortcut for --print=h]' \
 '-b[Print only the response body. Shortcut for --print=b]' \
@@ -63,10 +62,6 @@ none\:"Disable both coloring and formatting"))' \
 '*-v[Print the whole request as well as the response]' \
 '*--verbose[Print the whole request as well as the response]' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
-'-4[Resolve hostname to ipv4 addresses only]' \
-'--ipv4[Resolve hostname to ipv4 addresses only]' \
-'-6[Resolve hostname to ipv6 addresses only]' \
-'--ipv6[Resolve hostname to ipv6 addresses only]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
@@ -82,17 +77,21 @@ none\:"Disable both coloring and formatting"))' \
 '--follow[Do follow redirects]' \
 '--native-tls[Use the system TLS library instead of rustls (if enabled at compile time)]' \
 '--https[Make HTTPS requests if not specified in the URL]' \
+'-4[Resolve hostname to ipv4 addresses only]' \
+'--ipv4[Resolve hostname to ipv4 addresses only]' \
+'-6[Resolve hostname to ipv6 addresses only]' \
+'--ipv6[Resolve hostname to ipv6 addresses only]' \
 '-I[Do not attempt to read stdin]' \
 '--ignore-stdin[Do not attempt to read stdin]' \
 '--curl[Print a translation to a curl command]' \
 '--curl-long[Use the long versions of curl'\''s flags]' \
-'--no-help[]' \
-'--no-version[]' \
+'--help[Print help]' \
 '--no-json[]' \
 '--no-form[]' \
 '--no-multipart[]' \
 '--no-raw[]' \
 '--no-pretty[]' \
+'--no-format-options[]' \
 '--no-style[]' \
 '--no-response-charset[]' \
 '--no-response-mime[]' \
@@ -103,8 +102,6 @@ none\:"Disable both coloring and formatting"))' \
 '--no-verbose[]' \
 '--no-all[]' \
 '--no-history-print[]' \
-'--no-ipv4[]' \
-'--no-ipv6[]' \
 '--no-quiet[]' \
 '--no-stream[]' \
 '--no-output[]' \
@@ -130,11 +127,17 @@ none\:"Disable both coloring and formatting"))' \
 '--no-default-scheme[]' \
 '--no-https[]' \
 '--no-http-version[]' \
+'--no-interface[]' \
+'--no-ipv4[]' \
+'--no-ipv6[]' \
 '--no-ignore-stdin[]' \
 '--no-curl[]' \
 '--no-curl-long[]' \
-':raw-method-or-url -- The request URL, preceded by an optional HTTP method:' \
-'*::raw-rest-args -- Optional key-value pairs to be included in the request.:' \
+'--no-help[]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':raw_method_or_url -- The request URL, preceded by an optional HTTP method:' \
+'*::raw_rest_args -- Optional key-value pairs to be included in the request.:' \
 && ret=0
 }
 
@@ -144,4 +147,8 @@ _xh_commands() {
     _describe -t commands 'xh commands' commands "$@"
 }
 
-_xh "$@"
+if [ "$funcstack[1]" = "_xh" ]; then
+    _xh "$@"
+else
+    compdef _xh xh
+fi
