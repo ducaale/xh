@@ -334,7 +334,8 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        *cookie_jar = CookieStore::from_cookies(s.cookies(), false)?;
+        *cookie_jar = CookieStore::from_cookies(s.cookies(), false)
+            .context("Failed to load cookies from session file")?;
 
         if let Some(cookie) = headers.remove(COOKIE) {
             for cookie in RawCookie::split_parse(cookie.to_str()?) {
