@@ -10,7 +10,7 @@ use std::iter::FromIterator;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::cmd::Command;
 use indoc::indoc;
@@ -2018,10 +2018,10 @@ fn named_sessions() {
                 "xh": "0.0.0"
             },
             "auth": { "type": "bearer", "raw_auth": "hello" },
-            "cookies": {
-                "cook1": { "value": "one", "path": "/" },
-                "lang": { "value": "en" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
+                { "name": "cook1", "value": "one", "path": "/", "domain": "127.0.0.1" }
+            ],
             "headers": []
         })
     );
@@ -2060,7 +2060,9 @@ fn anonymous_sessions() {
                 "xh": "0.0.0"
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
-            "cookies": { "cook1": { "value": "one" } },
+            "cookies": [
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1" }
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2081,7 +2083,9 @@ fn anonymous_read_only_session() {
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
-        "cookies": { "cookie1": { "value": "one" } },
+        "cookies": [
+            { "name": "cookie1", "value": "one" }
+        ],
         "headers": [
             { "name": "hello", "value": "world" }
         ]
@@ -2141,9 +2145,9 @@ fn session_files_are_created_in_read_only_mode() {
                 "xh": "0.0.0"
             },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "ar" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "ar", "domain": "127.0.0.1" }
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2175,9 +2179,9 @@ fn named_read_only_session() {
     let old_session_content = serde_json::json!({
         "__meta__": { "about": "xh session file", "xh": "0.0.0" },
         "auth": { "type": null, "raw_auth": null },
-        "cookies": {
-            "cookie1": { "value": "one" }
-        },
+        "cookies": [
+            { "name": "cookie1", "value": "one" }
+        ],
         "headers": [
             { "name": "hello", "value": "world" }
         ]
@@ -2203,7 +2207,6 @@ fn named_read_only_session() {
 
 #[test]
 fn expired_cookies_are_removed_from_session() {
-    use std::time::{SystemTime, UNIX_EPOCH};
     let future_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -2218,19 +2221,25 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "expired_cookie": {
+            "cookies": [
+                {
+                    "name": "expired_cookie",
                     "value": "random_string",
-                    "expires": past_timestamp
+                    "expires": past_timestamp,
+                    "domain": "127.0.0.1"
                 },
-                "unexpired_cookie": {
+                {
+                    "name": "unexpired_cookie",
                     "value": "random_string",
-                    "expires": future_timestamp
+                    "expires": future_timestamp,
+                    "domain": "127.0.0.1"
                 },
-                "with_out_expiry": {
+                {
+                    "name": "with_out_expiry",
                     "value": "random_string",
+                    "domain": "127.0.0.1"
                 }
-            },
+            ],
             "headers": []
         })
         .to_string(),
@@ -2238,7 +2247,7 @@ fn expired_cookies_are_removed_from_session() {
     .unwrap();
 
     get_command()
-        .arg(":")
+        .arg("127.0.0.1")
         .arg(format!(
             "--session={}",
             session_file.path().to_string_lossy()
@@ -2253,15 +2262,19 @@ fn expired_cookies_are_removed_from_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "unexpired_cookie": {
+            "cookies": [
+                {
+                    "name": "unexpired_cookie",
                     "value": "random_string",
-                    "expires": future_timestamp
+                    "expires": future_timestamp,
+                    "domain": "127.0.0.1"
                 },
-                "with_out_expiry": {
+                {
+                    "name": "with_out_expiry",
                     "value": "random_string",
+                    "domain": "127.0.0.1"
                 }
-            },
+            ],
             "headers": []
         })
     );
@@ -2295,10 +2308,10 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "fr" },
-                "cook2": { "value": "three" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "fr", "domain": "127.0.0.1" },
+                { "name": "cook2", "value": "three", "domain": "127.0.0.1" }
+            ],
             "headers": []
         })
         .to_string(),
@@ -2324,11 +2337,80 @@ fn cookies_override_each_other_in_the_correct_order() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {
-                "lang": { "value": "en" },
-                "cook1": { "value": "one" },
-                "cook2": { "value": "two" }
-            },
+            "cookies": [
+                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
+                { "name": "cook2", "value": "two", "domain": "127.0.0.1" },
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1" },
+            ],
+            "headers": []
+        })
+    );
+}
+
+#[test]
+fn cookies_are_segmented_by_domain() {
+    let session_file = NamedTempFile::new().unwrap();
+
+    std::fs::write(
+        &session_file,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [
+                // will be overwritten by set-cookie header from example.com
+                { "name": "lang", "value": "fi", "domain": "example.com" },
+                // will not be overwritten
+                { "name": "lang", "value": "fr", "domain": "example.org" },
+            ],
+            "headers": []
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let server = server::http(|req| async move {
+        match req.uri().host() {
+            Some("example.com") => {
+                assert_eq!(req.headers()["cookie"].to_str().unwrap(), "lang=fi");
+                hyper::Response::builder()
+                    .header("set-cookie", "lang=en")
+                    .body("".into())
+                    .unwrap()
+            }
+            Some("example.net") => {
+                assert!(req.headers().get("cookie").is_none());
+                hyper::Response::builder()
+                    .header("set-cookie", "lang=ar")
+                    .body("".into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    for url in ["http://example.com", "http://example.net"] {
+        get_command()
+            .arg(url)
+            .arg(format!("--proxy=all:{}", server.base_url()))
+            .arg(format!(
+                "--session={}",
+                session_file.path().to_string_lossy()
+            ))
+            .assert()
+            .success();
+    }
+
+    let session_content = fs::read_to_string(session_file.path()).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [
+                { "name": "lang", "value": "en", "domain": "example.com" },
+                { "name": "lang", "value": "fr", "domain": "example.org" },
+                { "name": "lang", "value": "ar", "domain": "example.net" }
+            ],
             "headers": []
         })
     );
@@ -2348,7 +2430,7 @@ fn basic_auth_from_session_is_used() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "basic", "raw_auth": "user:pass" },
-            "cookies": {},
+            "cookies": [],
             "headers": []
         })
         .to_string(),
@@ -2380,7 +2462,7 @@ fn bearer_auth_from_session_is_used() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": "bearer", "raw_auth": "secret-token" },
-            "cookies": {},
+            "cookies": [],
             "headers": []
         })
         .to_string(),
@@ -2437,7 +2519,7 @@ fn auth_netrc_is_not_persisted_in_session() {
                 "xh": "0.0.0"
             },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]
@@ -2469,7 +2551,7 @@ fn multiple_headers_with_same_key_in_session() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" },
                 { "name": "hello", "value": "people" },
@@ -2511,7 +2593,7 @@ fn headers_from_session_are_overwritten() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": [],
             "headers": [
                 { "name": "hello", "value": "world" },
             ]
@@ -2541,12 +2623,20 @@ fn old_session_format_is_automatically_migrated() {
 
     let session_file = NamedTempFile::new().unwrap();
 
+    let future_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 1000;
+
     std::fs::write(
         &session_file,
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": {},
-            "cookies": {},
+            "cookies": {
+                "lang": { "value": "en", "expires": future_timestamp, "path": "/", "secure": false },
+            },
             "headers": { "hello": "world" }
         })
         .to_string(),
@@ -2568,7 +2658,16 @@ fn old_session_format_is_automatically_migrated() {
         serde_json::json!({
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
-            "cookies": {},
+            "cookies": [
+                {
+                    "name": "lang",
+                    "value": "en",
+                    "expires": future_timestamp,
+                    "path": "/",
+                    "secure": false,
+                    "domain": "127.0.0.1"
+                },
+            ],
             "headers": [
                 { "name": "hello", "value": "world" }
             ]

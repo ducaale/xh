@@ -838,7 +838,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
     let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
 
     let current_date = {
-        let (year, month, day) = DateTime::now_utc().date().as_ymd();
+        let (year, month, day) = DateTime::now_utc().date().to_calendar_date();
         format!("{}-{:02}-{:02}", year, month, day)
     };
 
