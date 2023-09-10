@@ -7,8 +7,8 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use reqwest::header::HeaderMap;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::auth;
 use crate::utils::{config_dir, test_mode};
@@ -46,7 +46,7 @@ struct Auth {
 
 // Unlike xh, HTTPie serializes path, secure and expires with defaults of "/", false, and null respectively.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct Cookie {
+struct LegacyCookie {
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<i64>,
@@ -54,6 +54,35 @@ struct Cookie {
     path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     secure: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct Cookie {
+    name: String,
+    value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secure: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    domain: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum Cookies {
+    // old cookie format kept for backward compatibility
+    Map(HashMap<String, LegacyCookie>),
+    // new cookie format that closely resembles a cookie jar
+    List(Vec<Cookie>),
+}
+
+impl Default for Cookies {
+    fn default() -> Self {
+        Cookies::List(Vec::new())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,7 +111,7 @@ struct Content {
     #[serde(rename = "__meta__")]
     meta: Meta,
     auth: Auth,
-    cookies: HashMap<String, Cookie>,
+    cookies: Cookies,
     headers: Headers,
 }
 
@@ -97,25 +126,52 @@ impl Content {
                     .collect(),
             );
         }
+        if let Cookies::Map(cookies) = self.cookies {
+            self.cookies = Cookies::List(
+                cookies
+                    .into_iter()
+                    .map(|(name, legacy_cookie)| Cookie {
+                        name,
+                        value: legacy_cookie.value,
+                        expires: legacy_cookie.expires,
+                        path: legacy_cookie.path,
+                        secure: legacy_cookie.secure,
+                        domain: None,
+                    })
+                    .collect(),
+            )
+        }
+
+        // HTTPie appends .local to cookies from localhost.
+        // See https://github.com/psf/requests/issues/5388
+        if let Cookies::List(ref mut cookies) = self.cookies {
+            for cookie in cookies {
+                if cookie.domain.as_deref() == Some("localhost.local") {
+                    cookie.domain = Some("localhost".to_string());
+                }
+            }
+        }
 
         self
     }
 }
 
 pub struct Session {
+    url: Url,
     pub path: PathBuf,
-    pub read_only: bool,
+    read_only: bool,
     content: Content,
 }
 
 impl Session {
-    pub fn load_session(url: &Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
+    pub fn load_session(url: Url, mut name_or_path: OsString, read_only: bool) -> Result<Self> {
         let path = if is_path(&name_or_path) {
             PathBuf::from(name_or_path)
         } else {
             let mut path = config_dir()
                 .context("couldn't get config directory")?
-                .join::<PathBuf>(["sessions", &path_from_url(url)?].iter().collect());
+                .join("sessions")
+                .join(path_from_url(&url)?);
             name_or_path.push(".json");
             path.push(name_or_path);
             path
@@ -128,6 +184,7 @@ impl Session {
         };
 
         Ok(Session {
+            url,
             path,
             read_only,
             content,
@@ -217,40 +274,70 @@ impl Session {
         }
     }
 
-    pub fn cookies(&self) -> Vec<cookie_crate::Cookie> {
-        let mut cookies = vec![];
-        for (name, c) in &self.content.cookies {
-            let mut cookie_builder = cookie_crate::Cookie::build(name, &c.value);
-            if let Some(expires) = c.expires {
-                cookie_builder =
-                    cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires));
-            }
-            if let Some(ref path) = c.path {
-                cookie_builder = cookie_builder.path(path);
-            }
-            if let Some(secure) = c.secure {
-                cookie_builder = cookie_builder.secure(secure);
-            }
-            cookies.push(cookie_builder.finish());
+    pub fn cookies(&self) -> impl Iterator<Item = Result<cookie_store::Cookie<'static>>> + '_ {
+        match &self.content.cookies {
+            Cookies::Map(_) => unreachable!(),
+            Cookies::List(cookies) => cookies.iter().map(|cookie| {
+                let mut cookie_builder =
+                    cookie_store::RawCookie::build(cookie.name.clone(), cookie.value.clone());
+
+                if let Some(expires) = cookie.expires {
+                    cookie_builder =
+                        cookie_builder.expires(time::OffsetDateTime::from_unix_timestamp(expires)?);
+                }
+                if let Some(path) = &cookie.path {
+                    cookie_builder = cookie_builder.path(path.clone());
+                }
+                if let Some(secure) = cookie.secure {
+                    cookie_builder = cookie_builder.secure(secure);
+                }
+
+                let mut cookie_url = self.url.clone();
+                if let Some(domain) = &cookie.domain {
+                    cookie_url = format!("http://{domain}").parse()?;
+                    // The cookie's domain attribute cannot be an IP address.
+                    // See https://stackoverflow.com/a/30676300/5915221
+                    if let Some(url::Host::Domain(_)) = cookie_url.host() {
+                        cookie_builder = cookie_builder.domain(domain.clone());
+                    }
+                }
+
+                Ok(cookie_store::Cookie::try_from_raw_cookie(
+                    &cookie_builder.finish(),
+                    &cookie_url,
+                )?)
+            }),
         }
-        cookies
     }
 
-    pub fn save_cookies(&mut self, cookies: Vec<cookie_crate::Cookie>) {
-        self.content.cookies.clear();
+    pub fn save_cookies<'b, I>(&mut self, cookies: I)
+    where
+        I: Iterator<Item = &'b cookie_store::Cookie<'static>>,
+    {
+        let session_cookies = match self.content.cookies {
+            Cookies::Map(_) => unreachable!(),
+            Cookies::List(ref mut cookies) => cookies,
+        };
+
+        session_cookies.clear();
+
         for cookie in cookies {
-            self.content.cookies.insert(
-                cookie.name().into(),
-                Cookie {
-                    value: cookie.value().into(),
-                    expires: cookie
-                        .expires()
-                        .and_then(|v| v.datetime())
-                        .map(|v| v.unix_timestamp()),
-                    path: cookie.path().map(Into::into),
-                    secure: cookie.secure(),
-                },
-            );
+            let mut domain = cookie.domain();
+            if let cookie_store::CookieDomain::HostOnly(s) = &cookie.domain {
+                domain = Some(s);
+            }
+
+            session_cookies.push(Cookie {
+                name: cookie.name().into(),
+                value: cookie.value().into(),
+                expires: cookie
+                    .expires()
+                    .and_then(|v| v.datetime())
+                    .map(|v| v.unix_timestamp()),
+                path: cookie.path().map(Into::into),
+                secure: cookie.secure(),
+                domain: domain.map(Into::into),
+            });
         }
     }
 
@@ -300,6 +387,7 @@ mod tests {
 
     fn load_session_from_str(s: &str) -> Result<Session> {
         Ok(Session {
+            url: Url::parse("http://example.net")?,
             content: serde_json::from_str::<Content>(s)?.migrate(),
             path: PathBuf::new(),
             read_only: false,
@@ -327,9 +415,11 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()[0].path(), Some("/"));
-        assert_eq!(session.cookies()[0].secure(), Some(false));
+
+        let cookies = session.cookies().collect::<Result<Vec<_>>>()?;
+        assert_eq!(cookies[0].name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].path(), Some("/"));
+        assert_eq!(cookies[0].secure(), Some(false));
         assert_eq!(session.content.auth, Auth::default());
 
         Ok(())
@@ -355,9 +445,10 @@ mod tests {
             session.headers()?.get("hello"),
             Some(&HeaderValue::from_static("world")),
         );
-        assert_eq!(session.cookies()[0].name_value(), ("baz", "quux"));
-        assert_eq!(session.cookies()[0].path(), Some("/"));
-        assert_eq!(session.cookies()[0].secure(), Some(false));
+        let cookies = session.cookies().collect::<Result<Vec<_>>>()?;
+        assert_eq!(cookies[0].name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].path(), Some("/"));
+        assert_eq!(cookies[0].secure(), Some(false));
         assert_eq!(
             session.content.auth,
             Auth {
@@ -412,6 +503,66 @@ mod tests {
         let mut x_foo_values = headers.get_all("X-Foo").iter();
         assert_eq!(x_foo_values.next(), Some(&HeaderValue::from_static("bar")));
         assert_eq!(x_foo_values.next(), Some(&HeaderValue::from_static("baz")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn can_parse_session_with_new_style_cookies() -> Result<()> {
+        let session = load_session_from_str(indoc::indoc! {r#"
+            {
+                "__meta__": {
+                    "about": "HTTPie session file",
+                    "help": "https://httpie.io/docs#sessions",
+                    "httpie": "3.0.2"
+                },
+                "auth": {},
+                "cookies": [
+                    {
+                        "name": "baz",
+                        "value": "quux",
+                        "expires": null,
+                        "path": "/",
+                        "secure": false,
+                        "domain": "example.com"
+                    },
+                    {
+                        "name": "foo",
+                        "value": "bar",
+                        "expires": null,
+                        "path": "/",
+                        "secure": false,
+                        "domain": null
+                    },
+                    {
+                        "domain": "localhost.local",
+                        "expires": null,
+                        "name": "hello",
+                        "path": "/cookies",
+                        "secure": false,
+                        "value": "world"
+                    }
+                ],
+                "headers": []
+            }
+        "#})?;
+
+        let cookies = session.cookies().collect::<Result<Vec<_>>>()?;
+
+        assert_eq!(cookies[0].name_value(), ("baz", "quux"));
+        assert_eq!(cookies[0].path(), Some("/"));
+        assert_eq!(cookies[0].secure(), Some(false));
+        assert_eq!(cookies[0].domain(), Some("example.com"));
+
+        assert_eq!(cookies[1].name_value(), ("foo", "bar"));
+        assert_eq!(cookies[1].path(), Some("/"));
+        assert_eq!(cookies[1].secure(), Some(false));
+        assert_eq!(cookies[1].domain(), None);
+
+        assert_eq!(cookies[2].name_value(), ("hello", "world"));
+        assert_eq!(cookies[2].path(), Some("/cookies"));
+        assert_eq!(cookies[2].secure(), Some(false));
+        assert_eq!(cookies[2].domain(), Some("localhost"));
 
         Ok(())
     }

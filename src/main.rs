@@ -28,6 +28,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cli::FormatOptions;
+use cookie_store::CookieStore;
+use cookie_store::RawCookie;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -35,6 +37,7 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
 use reqwest::tls;
+use url::Host;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -312,7 +315,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
-            Session::load_session(&url, name_or_path.clone(), args.is_session_read_only)
+            Session::load_session(url.clone(), name_or_path.clone(), args.is_session_read_only)
                 .with_context(|| {
                     format!("couldn't load session {:?}", name_or_path.to_string_lossy())
                 })?,
@@ -331,15 +334,12 @@ fn run(args: Cli) -> Result<i32> {
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
-        for cookie in s.cookies() {
-            match cookie_jar.insert_raw(&cookie, &url) {
-                Ok(..) | Err(cookie_store::CookieError::Expired) => {}
-                Err(err) => return Err(err.into()),
-            }
-        }
+        *cookie_jar = CookieStore::from_cookies(s.cookies(), false)
+            .context("Failed to load cookies from session file")?;
+
         if let Some(cookie) = headers.remove(COOKIE) {
-            for cookie in cookie.to_str()?.split(';') {
-                cookie_jar.insert_raw(&cookie.parse()?, &url)?;
+            for cookie in RawCookie::split_parse(cookie.to_str()?) {
+                cookie_jar.insert_raw(&cookie?, &url)?;
             }
         }
     }
@@ -429,7 +429,7 @@ fn run(args: Cli) -> Result<i32> {
         } else if !args.ignore_netrc {
             // I don't know if it's possible for host() to return None
             // But if it does we still want to use the default entry, if there is one
-            let host = url.host().unwrap_or(url::Host::Domain(""));
+            let host = url.host().unwrap_or(Host::Domain(""));
             if let Some(entry) = netrc::find_entry(host) {
                 auth = Auth::from_netrc(auth_type, entry);
                 save_auth_in_session = false;
@@ -583,13 +583,7 @@ fn run(args: Cli) -> Result<i32> {
 
     if let Some(ref mut s) = session {
         let cookie_jar = cookie_jar.lock().unwrap();
-        s.save_cookies(
-            cookie_jar
-                .matches(&url)
-                .into_iter()
-                .map(|c| cookie_crate::Cookie::from(c.clone()))
-                .collect(),
-        );
+        s.save_cookies(cookie_jar.iter_unexpired());
         s.persist()
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }

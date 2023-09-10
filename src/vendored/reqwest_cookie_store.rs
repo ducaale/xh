@@ -7,8 +7,7 @@
 
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock};
 
-use cookie_crate::{Cookie as RawCookie, ParseError as RawCookieParseError};
-use cookie_store::CookieStore;
+use cookie_store::{CookieStore, RawCookie, RawCookieParseError};
 use reqwest::header::HeaderValue;
 use url;
 
