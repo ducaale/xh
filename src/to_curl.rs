@@ -270,6 +270,11 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
 
     let url = url_with_query(args.url, &args.request_items.query()?);
+
+    if url.as_str().contains(['[', ']', '{', '}']) {
+        cmd.opt("-g", "--globoff")
+    }
+
     cmd.arg(url.to_string());
 
     // Force ipv4/ipv6 options
@@ -523,6 +528,10 @@ mod tests {
                 #[cfg(windows)]
                 "curl http://httpbin.org/post -H 'content-type: text/plain' --data-binary '@foo.txt'",
             ),
+            (
+                "xh http://example.com/[1-100].png?q={80,90}",
+                "curl -g 'http://example.com/[1-100].png?q={80,90}'",
+            )
         ];
         for (input, output) in expected {
             let cli = Cli::try_parse_from(input.split_whitespace()).unwrap();
