@@ -82,14 +82,21 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     )]
     pub pretty: Option<Pretty>,
 
-    /// Set output formatting options. The only currently implemented option
-    /// is json.indent.
-    ///
-    /// Different options need to be separated by a comma.
-    ///
-    /// Example: --format-options=json.indent:2
-    #[clap(long, value_name = "FORMAT_OPTIONS")]
-    pub format_options: Option<FormatOptions>,
+    /// Set output formatting options.
+    #[clap(
+        long,
+        value_name = "FORMAT_OPTIONS",
+        long_help = "\
+Set output formatting options. Supported option are:
+
+    json.indent:<NUM>
+    json.format:<true|false>
+    headers.sort:<true|false>
+
+Example: --format-options=json.indent:2,headers.sort:false
+        "
+    )]
+    pub format_options: Vec<FormatOptions>,
 
     /// Output coloring style.
     #[clap(short = 's', long, value_enum, value_name = "THEME")]
@@ -924,20 +931,25 @@ impl Pretty {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FormatOptions {
-    pub json_indent: usize,
+    pub json_indent: Option<usize>,
     pub json_format: Option<bool>,
     pub headers_sort: Option<bool>,
 }
 
-impl Default for FormatOptions {
-    fn default() -> Self {
-        Self {
-            json_indent: 4,
-            json_format: None,
-            headers_sort: None,
+impl FormatOptions {
+    pub fn merge(mut self, other: &Self) -> Self {
+        if let Some(json_indent) = other.json_indent {
+            self.json_indent = Some(json_indent);
         }
+        if let Some(json_format) = other.json_format {
+            self.json_format = Some(json_format);
+        }
+        if let Some(headers_sort) = other.headers_sort {
+            self.headers_sort = Some(headers_sort);
+        }
+        self
     }
 }
 
@@ -956,7 +968,7 @@ impl FromStr for FormatOptions {
 
             match key {
                 "json.indent" => {
-                    format_options.json_indent = value.parse().with_context(value_error)?;
+                    format_options.json_indent = Some(value.parse().with_context(value_error)?);
                 }
                 "json.format" => {
                     format_options.json_format = Some(value.parse().with_context(value_error)?);
@@ -1691,5 +1703,20 @@ mod tests {
         assert!(
             FormatOptions::from_str("json.indent:8,json.format:true,headers.sort:false").is_ok()
         );
+    }
+
+    #[test]
+    fn merge_format_options() {
+        let format_option_one = FormatOptions::from_str("json.indent:2").unwrap();
+        let format_option_two =
+            FormatOptions::from_str("headers.sort:true,headers.sort:false").unwrap();
+        assert_eq!(
+            format_option_one.merge(&format_option_two),
+            FormatOptions {
+                json_indent: Some(2),
+                headers_sort: Some(false),
+                json_format: None
+            }
+        )
     }
 }

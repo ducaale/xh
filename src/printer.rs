@@ -124,14 +124,16 @@ impl Printer {
         theme: Option<Theme>,
         stream: bool,
         buffer: Buffer,
-        format_options: Option<FormatOptions>,
+        format_options: Vec<FormatOptions>,
     ) -> Self {
         let theme = theme.unwrap_or(Theme::Auto);
-        let format_options = format_options.unwrap_or(FormatOptions::default());
+        let format_options = format_options
+            .iter()
+            .fold(FormatOptions::default(), FormatOptions::merge);
 
         Printer {
             format_json: format_options.json_format.unwrap_or(pretty.format()),
-            json_indent_level: format_options.json_indent,
+            json_indent_level: format_options.json_indent.unwrap_or(4),
             sort_headers: format_options.headers_sort.unwrap_or(pretty.format()),
             color: pretty.color(),
             stream,
@@ -728,7 +730,7 @@ mod tests {
         let args = Cli::try_parse_from(args).unwrap();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, args.style, false, buffer, None)
+        Printer::new(pretty, args.style, false, buffer, vec![])
     }
 
     fn temp_path() -> String {
