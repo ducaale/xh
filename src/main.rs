@@ -311,6 +311,10 @@ fn run(args: Cli) -> Result<i32> {
         }
     }
 
+    for resolve in args.resolve {
+        client = client.resolve(&resolve.domain, resolve.addr);
+    }
+
     let client = client.build()?;
 
     let mut session = match &args.session {

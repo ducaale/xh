@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::mem;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -303,6 +304,9 @@ Example: --print=Hb"
     /// HTTP version to use
     #[clap(long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
+
+    #[clap(long, value_name = "HOST:ADDRESS")]
+    pub resolve: Vec<Resolve>,
 
     /// Bind to a network interface or local IP address.
     ///
@@ -1149,6 +1153,34 @@ impl FromStr for Proxy {
                 "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>"
             )),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Resolve {
+    pub domain: String,
+    pub addr: SocketAddr,
+}
+
+impl FromStr for Resolve {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        let (domain, addr) = s
+            .split_once(':')
+            .context("The value passed to --resolve should be formatted as <HOST>:<ADDRESS>")?;
+
+        let addr = SocketAddr::new(
+            addr.parse()
+                .with_context(|| format!("Invalid address '{addr}'"))?,
+            0,
+        );
+
+        Ok(Resolve {
+            // TODO: validate domain
+            domain: domain.to_string(),
+            addr,
+        })
     }
 }
 
