@@ -982,8 +982,9 @@ impl FromStr for FormatOptions {
     }
 }
 
-#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
+    #[default]
     Auto,
     Solarized,
     Monokai,

@@ -121,16 +121,11 @@ pub struct Printer {
 impl Printer {
     pub fn new(
         pretty: Pretty,
-        theme: Option<Theme>,
+        theme: Theme,
         stream: bool,
         buffer: Buffer,
-        format_options: Vec<FormatOptions>,
+        format_options: FormatOptions,
     ) -> Self {
-        let theme = theme.unwrap_or(Theme::Auto);
-        let format_options = format_options
-            .iter()
-            .fold(FormatOptions::default(), FormatOptions::merge);
-
         Printer {
             format_json: format_options.json_format.unwrap_or(pretty.format()),
             json_indent_level: format_options.json_indent.unwrap_or(4),
@@ -728,9 +723,10 @@ mod tests {
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
+        let theme = args.style.unwrap_or_default();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, args.style, false, buffer, vec![])
+        Printer::new(pretty, theme, false, buffer, FormatOptions::default())
     }
 
     fn temp_path() -> String {

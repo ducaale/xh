@@ -39,7 +39,7 @@ use url::Host;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -482,8 +482,13 @@ fn run(args: Cli) -> Result<i32> {
             &buffer,
         ),
     };
+    let theme = args.style.unwrap_or_default();
     let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-    let mut printer = Printer::new(pretty, args.style, args.stream, buffer, args.format_options);
+    let format_options = args
+        .format_options
+        .iter()
+        .fold(FormatOptions::default(), FormatOptions::merge);
+    let mut printer = Printer::new(pretty, theme, args.stream, buffer, format_options);
 
     let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();
