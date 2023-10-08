@@ -3439,3 +3439,33 @@ fn unsorted_headers() {
 
         "#});
 }
+
+#[test]
+fn multiple_format_options_are_merged() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("X-Foo", "Bar")
+            .header("Date", "N/A")
+            .header("Content-Type", "application/json")
+            .body(r#"{"hello":"world"}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .arg("--format-options=json.indent:2,json.indent:8")
+        .arg("--format-options=headers.sort:false")
+        .arg(&server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            X-Foo: Bar
+            Date: N/A
+            Content-Type: application/json
+            Content-Length: 17
+
+            {
+                    "hello": "world"
+            }
+
+
+        "#});
+}
