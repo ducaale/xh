@@ -109,33 +109,31 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
 }
 
 pub struct Printer {
-    indent_json: bool,
+    format_json: bool,
+    json_indent_level: usize,
+    sort_headers: bool,
     color: bool,
     theme: Theme,
-    sort_headers: bool,
     stream: bool,
     buffer: Buffer,
-    format_options: FormatOptions,
 }
 
 impl Printer {
     pub fn new(
         pretty: Pretty,
-        theme: Option<Theme>,
+        theme: Theme,
         stream: bool,
         buffer: Buffer,
         format_options: FormatOptions,
     ) -> Self {
-        let theme = theme.unwrap_or(Theme::Auto);
-
         Printer {
-            indent_json: pretty.format(),
-            sort_headers: pretty.format(),
+            format_json: format_options.json_format.unwrap_or(pretty.format()),
+            json_indent_level: format_options.json_indent.unwrap_or(4),
+            sort_headers: format_options.headers_sort.unwrap_or(pretty.format()),
             color: pretty.color(),
             stream,
             theme,
             buffer,
-            format_options,
         }
     }
 
@@ -156,7 +154,7 @@ impl Printer {
     }
 
     fn print_json_text(&mut self, text: &str, check_valid: bool) -> io::Result<()> {
-        if !self.indent_json {
+        if !self.format_json {
             // We don't have to do anything specialized, so fall back to the generic version
             return self.print_syntax_text(text, "json");
         }
@@ -168,7 +166,7 @@ impl Printer {
             return self.print_syntax_text(text, "json");
         }
 
-        let mut formatter = get_json_formatter(&self.format_options);
+        let mut formatter = get_json_formatter(self.json_indent_level);
         if self.color {
             let mut buf = Vec::new();
             formatter.format_buf(text.as_bytes(), &mut buf)?;
@@ -239,12 +237,12 @@ impl Printer {
     }
 
     fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<()> {
-        if !self.indent_json {
+        if !self.format_json {
             // We don't have to do anything specialized, so fall back to the generic version
             self.print_syntax_stream(stream, "json")
         } else if self.color {
             let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
-            let mut formatter = get_json_formatter(&self.format_options);
+            let mut formatter = get_json_formatter(self.json_indent_level);
             let mut highlighter = self.get_highlighter("json");
             let mut buf = Vec::new();
             while let Some(lines) = guard.read_lines()? {
@@ -257,7 +255,7 @@ impl Printer {
             }
             Ok(())
         } else {
-            let mut formatter = get_json_formatter(&self.format_options);
+            let mut formatter = get_json_formatter(self.json_indent_level);
             if !self.buffer.is_terminal() {
                 let mut buf = vec![0; BUFFER_SIZE];
                 loop {
@@ -450,7 +448,7 @@ impl Printer {
         let mut body = decompress(response, compression_type);
 
         if !self.buffer.is_terminal() {
-            if (self.color || self.indent_json) && content_type.is_text() {
+            if (self.color || self.format_json) && content_type.is_text() {
                 // The user explicitly asked for formatting even though this is
                 // going into a file, and the response is at least supposed to be
                 // text, so decode it
@@ -725,10 +723,10 @@ mod tests {
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
+        let theme = args.style.unwrap_or_default();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        let format_options = FormatOptions::default();
-        Printer::new(pretty, args.style, false, buffer, format_options)
+        Printer::new(pretty, theme, false, buffer, FormatOptions::default())
     }
 
     fn temp_path() -> String {
@@ -810,13 +808,13 @@ mod tests {
     #[test]
     fn test_header_casing() {
         let p = Printer {
-            indent_json: false,
+            json_indent_level: 4,
+            format_json: false,
+            sort_headers: false,
             color: false,
             theme: Theme::Auto,
-            sort_headers: false,
             stream: false,
             buffer: Buffer::new(false, None, false).unwrap(),
-            format_options: FormatOptions::default(),
         };
 
         let mut headers = HeaderMap::new();
