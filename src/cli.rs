@@ -940,15 +940,9 @@ pub struct FormatOptions {
 
 impl FormatOptions {
     pub fn merge(mut self, other: &Self) -> Self {
-        if let Some(json_indent) = other.json_indent {
-            self.json_indent = Some(json_indent);
-        }
-        if let Some(json_format) = other.json_format {
-            self.json_format = Some(json_format);
-        }
-        if let Some(headers_sort) = other.headers_sort {
-            self.headers_sort = Some(headers_sort);
-        }
+        self.json_indent = other.json_indent.or(self.json_indent);
+        self.json_format = other.json_format.or(self.json_format);
+        self.headers_sort = other.headers_sort.or(self.headers_sort);
         self
     }
 }
