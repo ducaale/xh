@@ -1227,6 +1227,30 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
+#[test]
+fn resolve() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("X-Foo", "Bar")
+            .header("Date", "N/A")
+            .header("Content-Type", "application/json")
+            .body(r#"{"hello":"world"}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .arg("--body")
+        .arg(format!("--resolve=example.com:127.0.0.1"))
+        .arg(format!("http://example.com:{}", server.port()))
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "hello": "world"
+            }
+
+
+        "#});
+}
+
 #[cfg(feature = "online-tests")]
 #[test]
 fn use_ipv4() {
