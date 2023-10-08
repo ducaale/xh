@@ -83,14 +83,21 @@ Defaults to \"format\" if the NO_COLOR env is set and to \"none\" if stdout is n
     )]
     pub pretty: Option<Pretty>,
 
-    /// Set output formatting options. The only currently implemented option
-    /// is json.indent.
-    ///
-    /// Different options need to be separated by a comma.
-    ///
-    /// Example: --format-options=json.indent:2
-    #[clap(long, value_name = "FORMAT_OPTIONS")]
-    pub format_options: Option<FormatOptions>,
+    /// Set output formatting options.
+    #[clap(
+        long,
+        value_name = "FORMAT_OPTIONS",
+        long_help = "\
+Set output formatting options. Supported option are:
+
+    json.indent:<NUM>
+    json.format:<true|false>
+    headers.sort:<true|false>
+
+Example: --format-options=json.indent:2,headers.sort:false
+        "
+    )]
+    pub format_options: Vec<FormatOptions>,
 
     /// Output coloring style.
     #[clap(short = 's', long, value_enum, value_name = "THEME")]
@@ -879,18 +886,6 @@ pub enum AuthType {
     Digest,
 }
 
-#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Pretty {
-    /// (default) Enable both coloring and formatting
-    All,
-    /// Apply syntax highlighting to output
-    Colors,
-    /// Pretty-print json and sort headers
-    Format,
-    /// Disable both coloring and formatting
-    None,
-}
-
 #[derive(ValueEnum, Debug, Clone)]
 pub enum TlsVersion {
     // ssl2.3 is not a real version but it's how HTTPie spells "auto"
@@ -918,6 +913,18 @@ impl From<TlsVersion> for Option<tls::Version> {
     }
 }
 
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Pretty {
+    /// (default) Enable both coloring and formatting
+    All,
+    /// Apply syntax highlighting to output
+    Colors,
+    /// Pretty-print json and sort headers
+    Format,
+    /// Disable both coloring and formatting
+    None,
+}
+
 impl Pretty {
     pub fn color(self) -> bool {
         matches!(self, Pretty::Colors | Pretty::All)
@@ -928,14 +935,19 @@ impl Pretty {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FormatOptions {
-    pub json_indent: usize,
+    pub json_indent: Option<usize>,
+    pub json_format: Option<bool>,
+    pub headers_sort: Option<bool>,
 }
 
-impl Default for FormatOptions {
-    fn default() -> Self {
-        Self { json_indent: 4 }
+impl FormatOptions {
+    pub fn merge(mut self, other: &Self) -> Self {
+        self.json_indent = other.json_indent.or(self.json_indent);
+        self.json_format = other.json_format.or(self.json_format);
+        self.headers_sort = other.headers_sort.or(self.headers_sort);
+        self
     }
 }
 
@@ -944,14 +956,25 @@ impl FromStr for FormatOptions {
     fn from_str(options: &str) -> anyhow::Result<FormatOptions> {
         let mut format_options = FormatOptions::default();
 
-        // generate a map of the specified options
-        for argument in options.split(',') {
+        for argument in options.to_lowercase().split(',') {
             let (key, value) = argument
                 .split_once(':')
                 .context("Format options consist of a key and a value, separated by a \":\".")?;
+
+            let value_error = || format!("Invalid value '{value}' in '{argument}'");
+
             match key {
                 "json.indent" => {
-                    format_options.json_indent = value.parse().context("Invalid indent value")?;
+                    format_options.json_indent = Some(value.parse().with_context(value_error)?);
+                }
+                "json.format" => {
+                    format_options.json_format = Some(value.parse().with_context(value_error)?);
+                }
+                "headers.sort" => {
+                    format_options.headers_sort = Some(value.parse().with_context(value_error)?);
+                }
+                "json.sort_keys" | "xml.format" | "xml.indent" => {
+                    return Err(anyhow!("Unsupported option '{key}'"));
                 }
                 _ => {
                     return Err(anyhow!("Unknown option '{key}'"));
@@ -962,8 +985,9 @@ impl FromStr for FormatOptions {
     }
 }
 
-#[derive(ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, ValueEnum, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Theme {
+    #[default]
     Auto,
     Solarized,
     Monokai,
@@ -1676,5 +1700,50 @@ mod tests {
 
         assert_eq!(parse_encoding("notreal").is_err(), true);
         assert_eq!(parse_encoding("").is_err(), true);
+    }
+
+    #[test]
+    fn parse_format_options() {
+        let invalid_format_options = vec![
+            // malformed strings
+            ":8",
+            "json.indent:",
+            ":",
+            "",
+            "json.format:true, json.indent:4",
+            // invalid values
+            "json.indent:-8",
+            "json.format:ffalse",
+            // unsupported options
+            "json.sort_keys:true",
+            "xml.format:false",
+            "xml.indent:false",
+            // invalid options
+            "toml.format:true",
+        ];
+
+        for format_option in invalid_format_options {
+            assert!(FormatOptions::from_str(format_option).is_err());
+        }
+
+        assert!(FormatOptions::from_str(
+            "json.indent:8,json.format:true,headers.sort:false,JSON.FORMAT:TRUE"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn merge_format_options() {
+        let format_option_one = FormatOptions::from_str("json.indent:2").unwrap();
+        let format_option_two =
+            FormatOptions::from_str("headers.sort:true,headers.sort:false").unwrap();
+        assert_eq!(
+            format_option_one.merge(&format_option_two),
+            FormatOptions {
+                json_indent: Some(2),
+                headers_sort: Some(false),
+                json_format: None
+            }
+        )
     }
 }
