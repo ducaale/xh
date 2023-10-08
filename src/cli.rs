@@ -952,8 +952,7 @@ impl FromStr for FormatOptions {
     fn from_str(options: &str) -> anyhow::Result<FormatOptions> {
         let mut format_options = FormatOptions::default();
 
-        // generate a map of the specified options
-        for argument in options.split(',') {
+        for argument in options.to_lowercase().split(',') {
             let (key, value) = argument
                 .split_once(':')
                 .context("Format options consist of a key and a value, separated by a \":\".")?;
@@ -1682,7 +1681,7 @@ mod tests {
             "json.format:true, json.indent:4",
             // invalid values
             "json.indent:-8",
-            "json.format:False",
+            "json.format:ffalse",
             // unsupported options
             "json.sort_keys:true",
             "xml.format:false",
@@ -1695,9 +1694,10 @@ mod tests {
             assert!(FormatOptions::from_str(format_option).is_err());
         }
 
-        assert!(
-            FormatOptions::from_str("json.indent:8,json.format:true,headers.sort:false").is_ok()
-        );
+        assert!(FormatOptions::from_str(
+            "json.indent:8,json.format:true,headers.sort:false,JSON.FORMAT:TRUE"
+        )
+        .is_ok());
     }
 
     #[test]
