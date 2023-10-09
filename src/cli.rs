@@ -93,8 +93,7 @@ Set output formatting options. Supported option are:
     json.format:<true|false>
     headers.sort:<true|false>
 
-Example: --format-options=json.indent:2,headers.sort:false
-        "
+Example: --format-options=json.indent:2,headers.sort:false"
     )]
     pub format_options: Vec<FormatOptions>,
 
@@ -846,7 +845,7 @@ fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::er
 
     let current_date = {
         let (year, month, day) = DateTime::now_utc().date().to_calendar_date();
-        format!("{}-{:02}-{:02}", year, month, day)
+        format!("{}-{:02}-{:02}", year, u8::from(month), day)
     };
 
     manpage = manpage.replace("{{date}}", &current_date);
