@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.19.1] - 2023-10-09
 ### Features
 - Add `--interface` for binding to a local IP address or interface, see #307 (@ducaale)
 - Translate `--raw` flag when using `--curl`, see #308 (@ducaale)
