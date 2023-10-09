@@ -1,3 +1,19 @@
+## [Unreleased]
+### Features
+- Add `--interface` for binding to a local IP address or interface, see #307 (@ducaale)
+- Translate `--raw` flag when using `--curl`, see #308 (@ducaale)
+- Support duplicate header keys in session files, see #313 (@ducaale)
+- Support persisting cookies from multiple domains #314 (@ducaale)
+- Control output formatting (JSON indent-level, header sorting, etc)
+  via `--format-options`, see #318 (@Bnyro) and #319 (@ducaale)
+
+### Bug fixes
+- Disable cURL's URL globbing, see #325 (@ducaale)
+- Improve PATH handling in `install.ps1`, see #264 (@henno)
+
+### Other
+- Update Rustls to v0.21.0, see #311 (@ducaale)
+
 ## [0.18.0] - 2023-02-20
 ### Features
 - Support reading query param and header values from a file, see #288 (@ducaale)
@@ -84,10 +100,10 @@
 - Support overwriting response's mime and charset via `--response-mime` and `--response-charset`
   respectively, see #184 (@ducaale)
 - Add support for digest authentication, see #176 (@ducaale)
-- Add --ssl option for forcing a specific TLS version, see #168 (@blyxxyz)
+- Add `--ssl` option for forcing a specific TLS version, see #168 (@blyxxyz)
 
 ### Bug fixes
-- Preserve case of --verify path, see #181 (@blyxxyz)
+- Preserve case of `--verify` path, see #181 (@blyxxyz)
 
 ### Other
 - Enable LTO on the release profile, see #177 (@sorairolake)
