@@ -23,7 +23,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
         'xh' {
             [CompletionResult]::new('--raw', 'raw', [CompletionResultType]::ParameterName, 'Pass raw request data without extra processing')
             [CompletionResult]::new('--pretty', 'pretty', [CompletionResultType]::ParameterName, 'Controls output processing')
-            [CompletionResult]::new('--format-options', 'format-options', [CompletionResultType]::ParameterName, 'Set output formatting options. The only currently implemented option is json.indent')
+            [CompletionResult]::new('--format-options', 'format-options', [CompletionResultType]::ParameterName, 'Set output formatting options')
             [CompletionResult]::new('-s', 's', [CompletionResultType]::ParameterName, 'Output coloring style')
             [CompletionResult]::new('--style', 'style', [CompletionResultType]::ParameterName, 'Output coloring style')
             [CompletionResult]::new('--response-charset', 'response-charset', [CompletionResultType]::ParameterName, 'Override the response encoding for terminal display purposes')
