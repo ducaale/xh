@@ -58,59 +58,59 @@ The [release page](https://github.com/ducaale/xh/releases) contains prebuilt bin
 
 ## Usage
 ```
-USAGE:
-    xh [OPTIONS] <[METHOD] URL> [--] [REQUEST_ITEM]...
+Usage: xh [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
-ARGS:
-    <[METHOD] URL>       The request URL, preceded by an optional HTTP method
-    <REQUEST_ITEM>...    Optional key-value pairs to be included in the request
+Arguments:
+  <[METHOD] URL>     The request URL, preceded by an optional HTTP method
+  [REQUEST_ITEM]...  Optional key-value pairs to be included in the request.
 
-OPTIONS:
-    -j, --json                           (default) Serialize data items from the command line as a JSON object
-    -f, --form                           Serialize data items from the command line as form fields
-        --multipart                      Like --form, but force a multipart/form-data request even without files
-        --raw <RAW>                      Pass raw request data without extra processing
-        --pretty <STYLE>                 Controls output processing [possible values: all, colors, format, none]
-    -s, --style <THEME>                  Output coloring style [possible values: auto, solarized, monokai, fruity]
-        --response-charset <ENCODING>    Override the response encoding for terminal display purposes
-        --response-mime <MIME_TYPE>      Override the response mime type for coloring and formatting for the terminal
-    -p, --print <FORMAT>                 String specifying what the output should contain
-    -h, --headers                        Print only the response headers. Shortcut for --print=h
-    -b, --body                           Print only the response body. Shortcut for --print=b
-    -m, --meta                           Print only the response metadata. Shortcut for --print=m
-    -v, --verbose                        Print the whole request as well as the response
-        --all                            Show any intermediary requests/responses while following redirects with --follow
-    -P, --history-print <FORMAT>         The same as --print but applies only to intermediary requests/responses
-    -4, --ipv4                           Resolve hostname to ipv4 addresses only
-    -6, --ipv6                           Resolve hostname to ipv6 addresses only
-    -q, --quiet                          Do not print to stdout or stderr
-    -S, --stream                         Always stream the response body
-    -o, --output <FILE>                  Save output to FILE instead of stdout
-    -d, --download                       Download the body to a file instead of printing it
-    -c, --continue                       Resume an interrupted download. Requires --download and --output
-        --session <FILE>                 Create, or reuse and update a session
-        --session-read-only <FILE>       Create or read a session without updating it form the request/response exchange
-    -A, --auth-type <AUTH_TYPE>          Specify the auth mechanism [possible values: basic, bearer, digest]
-    -a, --auth <USER[:PASS] | TOKEN>     Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
-        --ignore-netrc                   Do not use credentials from .netrc
-        --offline                        Construct HTTP requests without sending them anywhere
-        --check-status                   (default) Exit with an error status code if the server replies with an error
-    -F, --follow                         Do follow redirects
-        --max-redirects <NUM>            Number of redirects to follow. Only respected if --follow is used
-        --timeout <SEC>                  Connection timeout of the request
-        --proxy <PROTOCOL:URL>           Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080
-        --verify <VERIFY>                If "no", skip SSL verification. If a file path, use it as a CA bundle
-        --cert <FILE>                    Use a client side certificate for SSL
-        --cert-key <FILE>                A private key file to use with --cert
-        --ssl <VERSION>                  Force a particular TLS version [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
-        --native-tls                     Use the system TLS library instead of rustls (if enabled at compile time)
-        --https                          Make HTTPS requests if not specified in the URL
-        --http-version <VERSION>         HTTP version to use [possible values: 1.0, 1.1, 2]
-    -I, --ignore-stdin                   Do not attempt to read stdin
-        --curl                           Print a translation to a curl command
-        --curl-long                      Use the long versions of curl's flags
-        --help                           Print help information
-    -V, --version                        Print version information
+Options:
+  -j, --json                             (default) Serialize data items from the command line as a JSON object
+  -f, --form                             Serialize data items from the command line as form fields
+      --multipart                        Like --form, but force a multipart/form-data request even without files
+      --raw <RAW>                        Pass raw request data without extra processing
+      --pretty <STYLE>                   Controls output processing [possible values: all, colors, format, none]
+      --format-options <FORMAT_OPTIONS>  Set output formatting options
+  -s, --style <THEME>                    Output coloring style [possible values: auto, solarized, monokai, fruity]
+      --response-charset <ENCODING>      Override the response encoding for terminal display purposes
+      --response-mime <MIME_TYPE>        Override the response mime type for coloring and formatting for the terminal
+  -p, --print <FORMAT>                   String specifying what the output should contain
+  -h, --headers                          Print only the response headers. Shortcut for --print=h
+  -b, --body                             Print only the response body. Shortcut for --print=b
+  -m, --meta                             Print only the response metadata. Shortcut for --print=m
+  -v, --verbose...                       Print the whole request as well as the response
+      --all                              Show any intermediary requests/responses while following redirects with --follow
+  -P, --history-print <FORMAT>           The same as --print but applies only to intermediary requests/responses
+  -q, --quiet                            Do not print to stdout or stderr
+  -S, --stream                           Always stream the response body
+  -o, --output <FILE>                    Save output to FILE instead of stdout
+  -d, --download                         Download the body to a file instead of printing it
+  -c, --continue                         Resume an interrupted download. Requires --download and --output
+      --session <FILE>                   Create, or reuse and update a session
+      --session-read-only <FILE>         Create or read a session without updating it form the request/response exchange
+  -A, --auth-type <AUTH_TYPE>            Specify the auth mechanism [possible values: basic, bearer, digest]
+  -a, --auth <USER[:PASS] | TOKEN>       Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
+      --ignore-netrc                     Do not use credentials from .netrc
+      --offline                          Construct HTTP requests without sending them anywhere
+      --check-status                     (default) Exit with an error status code if the server replies with an error
+  -F, --follow                           Do follow redirects
+      --max-redirects <NUM>              Number of redirects to follow. Only respected if --follow is used
+      --timeout <SEC>                    Connection timeout of the request
+      --proxy <PROTOCOL:URL>             Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080
+      --verify <VERIFY>                  If "no", skip SSL verification. If a file path, use it as a CA bundle
+      --cert <FILE>                      Use a client side certificate for SSL
+      --cert-key <FILE>                  A private key file to use with --cert
+      --ssl <VERSION>                    Force a particular TLS version [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
+      --https                            Make HTTPS requests if not specified in the URL
+      --http-version <VERSION>           HTTP version to use [possible values: 1.0, 1.1, 2]
+      --interface <NAME>                 Bind to a network interface or local IP address
+  -4, --ipv4                             Resolve hostname to ipv4 addresses only
+  -6, --ipv6                             Resolve hostname to ipv6 addresses only
+  -I, --ignore-stdin                     Do not attempt to read stdin
+      --curl                             Print a translation to a curl command
+      --curl-long                        Use the long versions of curl's flags
+      --help                             Print help
+  -V, --version                          Print version
 
 Each option can be reset with a --no-OPTION argument.
 ```
