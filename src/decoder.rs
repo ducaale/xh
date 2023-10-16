@@ -67,6 +67,7 @@ impl<R: Read> InnerReader<R> {
 
 impl<R: Read> Read for InnerReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.has_errored = false;
         match self.reader.read(buf) {
             Ok(0) => Ok(0),
             Ok(len) => {
@@ -175,5 +176,28 @@ mod tests {
                 assert!(e.to_string().starts_with("oh no!"))
             }
         }
+    }
+
+    #[test]
+    fn interrupts_are_handled_gracefully() {
+        struct InterruptedReader {
+            init: bool,
+        }
+        impl Read for InterruptedReader {
+            fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+                if !self.init {
+                    self.init = true;
+                    Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"))
+                } else {
+                    Ok(0)
+                }
+            }
+        }
+
+        let mut base_reader = InterruptedReader { init: false };
+        let mut reader = decompress(&mut base_reader, Some(CompressionType::Gzip));
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer).unwrap();
+        assert_eq!(buffer, b"");
     }
 }
