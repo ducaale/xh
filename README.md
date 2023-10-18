@@ -25,25 +25,25 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 ### via a package manager
 
-| OS                 | Method     | Command                                    |
-|--------------------|------------|--------------------------------------------|
-| Any                | Cargo\*    | `cargo install xh`                         |
-| Any                | [Huber]    | `huber install xh`                         |
-| Android ([Termux]) | pkg        | `pkg install xh`                           |
-| Android ([Magisk]) | Magisk\*\* | `magisk --install-module <path/to/module>` |
-| Alpine Linux       | apk\*\*\*  | `apk add xh`                               |
-| Arch Linux         | Pacman     | `pacman -S xh`                             |
-| Debian & Ubuntu    | Apt\*\*\*\*| `sudo apt install xh`                      |
-| FreeBSD            | FreshPorts | `pkg install xh`                           |
-| Linux & macOS      | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
-| Linux & macOS      | Homebrew   | `brew install xh`                          |
-| macOS              | MacPorts   | `sudo port install xh`                     |
-| Windows            | Scoop      | `scoop install xh`                         |
-| Windows            | Chocolatey | `choco install xh`                         |
+| OS                           | Method     | Command                                    |
+|------------------------------|------------|--------------------------------------------|
+| Any                          | Cargo\*    | `cargo install xh`                         |
+| Any                          | [Huber]    | `huber install xh`                         |
+| Android ([Termux])           | pkg        | `pkg install xh`                           |
+| Android ([Magisk]/[KernelSU]) | MMRL\*\*   | `mmrl install xhhttp` |
+| Alpine Linux                 | apk\*\*\*  | `apk add xh`                               |
+| Arch Linux                   | Pacman     | `pacman -S xh`                             |
+| Debian & Ubuntu              | Apt\*\*\*\*| `sudo apt install xh`                      |
+| FreeBSD                      | FreshPorts | `pkg install xh`                           |
+| Linux & macOS                | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
+| Linux & macOS                | Homebrew   | `brew install xh`                          |
+| macOS                        | MacPorts   | `sudo port install xh`                     |
+| Windows                      | Scoop      | `scoop install xh`                         |
+| Windows                      | Chocolatey | `choco install xh`                         |
 
 \* Make sure that you have Rust 1.64 or later installed
 
-\*\* To install the module pick one of these [releases](https://github.com/Magisk-Modules-Alt-Repo/xhhttp/releases)
+\*\* You will need to install the [MMRL CLI](https://github.com/DerGoogler/MMRL-CLI/releases)
 
 \*\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
 
@@ -51,6 +51,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 [Magisk]: https://github.com/topjohnwu/Magisk
+[KernelSU]: https://kernelsu.org
 [Termux]: https://github.com/termux/termux-app
 
 ### via pre-built binaries
