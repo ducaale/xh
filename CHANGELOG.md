@@ -1,9 +1,9 @@
-## [0.19.1] - 2023-10-09
+## [0.19.2] - 2023-10-21
 ### Features
 - Add `--interface` for binding to a local IP address or interface, see #307 (@ducaale)
 - Translate `--raw` flag when using `--curl`, see #308 (@ducaale)
 - Support duplicate header keys in session files, see #313 (@ducaale)
-- Support persisting cookies from multiple domains #314 (@ducaale)
+- Support persisting cookies from multiple domains, see #314 (@ducaale)
 - Control output formatting (JSON indent-level, header sorting, etc)
   via `--format-options`, see #318 (@Bnyro) and #319 (@ducaale)
 
