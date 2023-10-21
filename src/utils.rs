@@ -185,7 +185,7 @@ pub fn interface_name_to_ip(name: &str) -> Result<Option<IpAddr>> {
     // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
     let network_interfaces = NetworkInterface::show()?;
     Ok(network_interfaces.iter().find_map(|interface| {
-        if &interface.name == name {
+        if interface.name == name {
             if let Some(addr) = interface.addr.first() {
                 return Some(addr.ip());
             }
