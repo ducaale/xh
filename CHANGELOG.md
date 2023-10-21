@@ -1,3 +1,7 @@
+## [0.19.3] - 2023-10-21
+### Other
+- Make `network-interface` an optional dependency, see #332 (@blyxxyz)
+
 ## [0.19.2] - 2023-10-21
 ### Features
 - Add `--interface` for binding to a local IP address or interface, see #307 (@ducaale)
