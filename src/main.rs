@@ -28,6 +28,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cookie_store::{CookieStore, RawCookie};
+#[cfg(feature = "network-interface")]
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -287,26 +288,30 @@ fn run(args: Cli) -> Result<i32> {
 
     if let Some(name_or_ip) = &args.interface {
         let ip_addr = if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
-            Some(ip_addr)
+            ip_addr
         } else {
+            #[cfg(not(feature = "network-interface"))]
+            return Err(anyhow!(
+                "This binary was built without support for binding to interfaces. Enable the `network-interface` feature."
+            ));
+
+            #[cfg(feature = "network-interface")]
             // TODO: Directly bind to interface name once hyper/reqwest adds support for it.
             // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
-            let network_interfaces = NetworkInterface::show()?;
-            network_interfaces.iter().find_map(|interface| {
-                if &interface.name == name_or_ip {
-                    if let Some(addr) = interface.addr.first() {
-                        return Some(addr.ip());
+            NetworkInterface::show()?
+                .iter()
+                .find_map(|interface| {
+                    if &interface.name == name_or_ip {
+                        if let Some(addr) = interface.addr.first() {
+                            return Some(addr.ip());
+                        }
                     }
-                }
-                None
-            })
+                    None
+                })
+                .with_context(|| format!("Couldn't bind to {:?}", name_or_ip))?
         };
 
-        if let Some(ip_addr) = ip_addr {
-            client = client.local_address(ip_addr);
-        } else {
-            return Err(anyhow!("Couldn't bind to {:?}", name_or_ip));
-        }
+        client = client.local_address(ip_addr);
     }
 
     let client = client.build()?;
