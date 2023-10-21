@@ -285,7 +285,7 @@ fn run(args: Cli) -> Result<i32> {
         let ip_addr = if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
             Some(ip_addr)
         } else {
-            interface_name_to_ip(&name_or_ip)?
+            interface_name_to_ip(name_or_ip)?
         };
 
         if let Some(ip_addr) = ip_addr {
