@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::env::var_os;
 use std::io::{self, Write};
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -170,4 +171,38 @@ pub fn copy_largebuf(
             Err(e) => return Err(e),
         }
     }
+}
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "android"
+))]
+pub fn interface_name_to_ip(name: &str) -> Result<Option<IpAddr>> {
+    use network_interface::{NetworkInterface, NetworkInterfaceConfig};
+    // TODO: Directly bind to interface name once hyper/reqwest adds support for it.
+    // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
+    let network_interfaces = NetworkInterface::show()?;
+    Ok(network_interfaces.iter().find_map(|interface| {
+        if &interface.name == name {
+            if let Some(addr) = interface.addr.first() {
+                return Some(addr.ip());
+            }
+        }
+        None
+    }))
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "android"
+)))]
+pub fn interface_name_to_ip(_name: &str) -> Result<Option<IpAddr>> {
+    Err(anyhow::anyhow!(
+        "binding to interface name is not supported in {}",
+        std::env::consts::OS
+    ))
 }

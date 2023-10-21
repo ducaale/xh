@@ -28,7 +28,6 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use cookie_store::{CookieStore, RawCookie};
-use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
 use reqwest::header::{
@@ -45,7 +44,7 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-use crate::utils::{test_mode, test_pretend_term, url_with_query};
+use crate::utils::{interface_name_to_ip, test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
@@ -95,10 +94,7 @@ fn run(args: Cli) -> Result<i32> {
         return Ok(0);
     }
 
-    let warn = {
-        let bin_name = &args.bin_name;
-        move |msg| eprintln!("{}: warning: {}", bin_name, msg)
-    };
+    let warn = |msg| eprintln!("{}: warning: {}", args.bin_name, msg);
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     let url = url_with_query(args.url, &args.request_items.query()?);
@@ -289,17 +285,7 @@ fn run(args: Cli) -> Result<i32> {
         let ip_addr = if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
             Some(ip_addr)
         } else {
-            // TODO: Directly bind to interface name once hyper/reqwest adds support for it.
-            // See https://github.com/seanmonstar/reqwest/issues/1336 and https://github.com/hyperium/hyper/pull/3076
-            let network_interfaces = NetworkInterface::show()?;
-            network_interfaces.iter().find_map(|interface| {
-                if &interface.name == name_or_ip {
-                    if let Some(addr) = interface.addr.first() {
-                        return Some(addr.ip());
-                    }
-                }
-                None
-            })
+            interface_name_to_ip(&name_or_ip)?
         };
 
         if let Some(ip_addr) = ip_addr {
