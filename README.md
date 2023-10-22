@@ -35,6 +35,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Arch Linux                   | Pacman     | `pacman -S xh`                             |
 | Debian & Ubuntu              | Apt\*\*\*\*| `sudo apt install xh`                      |
 | FreeBSD                      | FreshPorts | `pkg install xh`                           |
+| NetBSD                       | pkgsrc     | `pkgin install xh`                         |
 | Linux & macOS                | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
 | Linux & macOS                | Homebrew   | `brew install xh`                          |
 | macOS                        | MacPorts   | `sudo port install xh`                     |
