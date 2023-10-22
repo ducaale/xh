@@ -2,6 +2,7 @@
 
 - Update `README.md`'s Usage section with the output of `xh --help`
 - Update `CHANGELOG.md` (rename unreleased header to the current date, add any missing changes).
+- Run `cargo update` to update dependencies.
 - Bump up the version in `Cargo.toml` and run `cargo check` to update `Cargo.lock`.
 - Run the following to update man pages and shell-completion files.
   ```sh
