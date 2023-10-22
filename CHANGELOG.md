@@ -1,3 +1,7 @@
+## [0.19.4] - 2023-10-22
+## Other
+- Explicitly enable serde's derive feature, see #334 (@jayvdb)
+
 ## [0.19.3] - 2023-10-21
 ### Other
 - Make `network-interface` an optional dependency, see #332 (@blyxxyz)
