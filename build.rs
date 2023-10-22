@@ -36,7 +36,12 @@ fn features() -> String {
 }
 
 fn main() {
-    for dir in ["assets", "assets/basic", "assets/large"] {
+    for dir in [
+        "assets/syntax",
+        "assets/syntax/basic",
+        "assets/syntax/large",
+        "assets/themes",
+    ] {
         println!("cargo:rerun-if-changed={}", dir);
         for entry in read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -47,11 +52,11 @@ fn main() {
         }
     }
 
-    build_syntax("assets/basic", "basic.packdump");
-    build_syntax("assets/large", "large.packdump");
+    build_syntax("assets/syntax/basic", "basic.packdump");
+    build_syntax("assets/syntax/large", "large.packdump");
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let ts = ThemeSet::load_from_folder("assets").unwrap();
+    let ts = ThemeSet::load_from_folder("assets/themes").unwrap();
     dump_to_file(&ts, Path::new(&out_dir).join("themepack.themedump")).unwrap();
 
     println!("cargo:rustc-env=XH_FEATURES={}", features());

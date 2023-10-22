@@ -213,7 +213,7 @@ fn run(args: Cli) -> Result<i32> {
                 })?;
 
                 client = client.tls_built_in_root_certs(false);
-                for pem in pem::parse_many(buffer) {
+                for pem in pem::parse_many(buffer)? {
                     let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
                         .with_context(|| {
                             format!("Failed to load the custom CA bundle: {}", path.display())

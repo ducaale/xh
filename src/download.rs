@@ -227,7 +227,7 @@ pub fn download_file(
                 BAR_TEMPLATE
             } else {
                 UNCOLORED_BAR_TEMPLATE
-            })
+            })?
             .progress_chars("#>-");
         Some(ProgressBar::new(total_length).with_style(style))
     } else {
@@ -236,7 +236,7 @@ pub fn download_file(
             SPINNER_TEMPLATE
         } else {
             UNCOLORED_SPINNER_TEMPLATE
-        });
+        })?;
         Some(ProgressBar::new_spinner().with_style(style))
     };
     if let Some(pb) = &pb {
