@@ -54,9 +54,15 @@ impl<'a> Highlighter<'a> {
     }
 
     /// Write a single piece of highlighted text.
+    /// May return a [`io::ErrorKind::Other`] when there is a problem
+    /// during highlighting.
     pub fn highlight(&mut self, text: &str) -> io::Result<()> {
         for line in LinesWithEndings::from(text) {
-            for (style, component) in self.highlighter.highlight(line, self.syntax_set) {
+            for (style, component) in self
+                .highlighter
+                .highlight_line(line, self.syntax_set)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            {
                 self.out.set_color(&convert_style(style))?;
                 write!(self.out, "{}", component)?;
             }
