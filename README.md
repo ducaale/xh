@@ -25,22 +25,22 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 ### via a package manager
 
-| OS                           | Method     | Command                                    |
-|------------------------------|------------|--------------------------------------------|
-| Any                          | Cargo\*    | `cargo install xh`                         |
-| Any                          | [Huber]    | `huber install xh`                         |
-| Android ([Termux])           | pkg        | `pkg install xh`                           |
-| Android ([Magisk]/[KernelSU]) | MMRL\*\*   | `mmrl install xhhttp` |
-| Alpine Linux                 | apk\*\*\*  | `apk add xh`                               |
-| Arch Linux                   | Pacman     | `pacman -S xh`                             |
-| Debian & Ubuntu              | Apt\*\*\*\*| `sudo apt install xh`                      |
-| FreeBSD                      | FreshPorts | `pkg install xh`                           |
-| NetBSD                       | pkgsrc     | `pkgin install xh`                         |
-| Linux & macOS                | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
-| Linux & macOS                | Homebrew   | `brew install xh`                          |
-| macOS                        | MacPorts   | `sudo port install xh`                     |
-| Windows                      | Scoop      | `scoop install xh`                         |
-| Windows                      | Chocolatey | `choco install xh`                         |
+| OS                            | Method     | Command                                    |
+|-------------------------------|------------|--------------------------------------------|
+| Any                           | Cargo\*    | `cargo install xh --locked`                |
+| Any                           | [Huber]    | `huber install xh`                         |
+| Android ([Termux])            | pkg        | `pkg install xh`                           |
+| Android ([Magisk]/[KernelSU]) | MMRL\*\*   | `mmrl install xhhttp`                      |
+| Alpine Linux                  | apk\*\*\*  | `apk add xh`                               |
+| Arch Linux                    | Pacman     | `pacman -S xh`                             |
+| Debian & Ubuntu               | Apt\*\*\*\*| `sudo apt install xh`                      |
+| FreeBSD                       | FreshPorts | `pkg install xh`                           |
+| NetBSD                        | pkgsrc     | `pkgin install xh`                         |
+| Linux & macOS                 | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
+| Linux & macOS                 | Homebrew   | `brew install xh`                          |
+| macOS                         | MacPorts   | `sudo port install xh`                     |
+| Windows                       | Scoop      | `scoop install xh`                         |
+| Windows                       | Chocolatey | `choco install xh`                         |
 
 \* Make sure that you have Rust 1.64 or later installed
 
