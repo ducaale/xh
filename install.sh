@@ -18,7 +18,7 @@ fi
 fetch()
 {
     if which curl > /dev/null; then
-        if [ "$#" -eq 2 ]; then curl -L -o "$1" "$2"; else curl -sSL "$1"; fi
+        if [ "$#" -eq 2 ]; then curl -fL -o "$1" "$2"; else curl -fsSL "$1"; fi
     elif which wget > /dev/null; then
         if [ "$#" -eq 2 ]; then wget -O "$1" "$2"; else wget -nv -O - "$1"; fi
     else
