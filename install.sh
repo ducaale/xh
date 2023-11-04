@@ -18,7 +18,7 @@ fi
 fetch()
 {
     if which curl > /dev/null; then
-        if [ "$#" -eq 2 ]; then curl -L -o "$1" "$2"; else curl -sSL "$1"; fi
+        if [ "$#" -eq 2 ]; then curl -fL -o "$1" "$2"; else curl -fsSL "$1"; fi
     elif which wget > /dev/null; then
         if [ "$#" -eq 2 ]; then wget -O "$1" "$2"; else wget -nv -O - "$1"; fi
     else
@@ -29,10 +29,8 @@ fetch()
 
 echo "Detected target: $target"
 
-url=$(
-    fetch https://api.github.com/repos/ducaale/xh/releases/latest |
-    tac | tac | grep -wo -m1 "https://.*$target.tar.gz" || true
-)
+releases=$(fetch https://api.github.com/repos/ducaale/xh/releases/latest)
+url=$(echo "$releases" | grep -wo -m1 "https://.*$target.tar.gz" || true)
 if ! test "$url"; then
     echo "Could not find release info"
     exit 1
