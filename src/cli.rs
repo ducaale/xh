@@ -1194,6 +1194,14 @@ impl FromStr for Resolve {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
+        if s.chars().filter(|&c| c == ':').count() == 2 {
+            // More than two colons could mean an IPv6 address.
+            // Exactly two colons probably means the user added a port, curl-style.
+            return Err(anyhow!(
+                "Value should be formatted as <HOST>:<ADDRESS> (not <HOST>:<PORT>:<ADDRESS>)"
+            ));
+        }
+
         let (domain, addr) = s
             .split_once(':')
             .context("Value should be formatted as <HOST>:<ADDRESS>")?;
