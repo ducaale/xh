@@ -1228,8 +1228,11 @@ fn cert_without_key() {
 }
 
 #[test]
-fn resolve() {
-    let server = server::http(|_req| async move {
+fn override_dns_resolution() {
+    let server = server::http(|req| async move {
+        let host = req.headers()["host"].to_str().unwrap();
+        assert!(host.starts_with("example.com"));
+
         hyper::Response::builder()
             .header("X-Foo", "Bar")
             .header("Date", "N/A")
@@ -1237,9 +1240,10 @@ fn resolve() {
             .body(r#"{"hello":"world"}"#.into())
             .unwrap()
     });
+
     get_command()
         .arg("--body")
-        .arg(format!("--resolve=example.com:127.0.0.1"))
+        .arg("--resolve=example.com:127.0.0.1")
         .arg(format!("http://example.com:{}", server.port()))
         .assert()
         .stdout(indoc! {r#"
