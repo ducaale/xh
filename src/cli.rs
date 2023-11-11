@@ -5,7 +5,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::mem;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv6Addr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -1202,13 +1202,17 @@ impl FromStr for Resolve {
             ));
         }
 
-        let (domain, addr) = s
+        let (domain, raw_addr) = s
             .split_once(':')
             .context("Value should be formatted as <HOST>:<ADDRESS>")?;
 
-        let addr = addr
-            .parse()
-            .with_context(|| format!("Invalid address '{addr}'"))?;
+        let addr = if raw_addr.starts_with('[') && raw_addr.ends_with(']') {
+            // Support IPv6 addresses enclosed in square brackets e.g. [::1]
+            Ipv6Addr::from_str(&raw_addr[1..raw_addr.len() - 1]).map(IpAddr::V6)
+        } else {
+            raw_addr.parse()
+        }
+        .with_context(|| format!("Invalid address '{raw_addr}'"))?;
 
         Ok(Resolve {
             domain: domain.to_string(),
@@ -1754,5 +1758,27 @@ mod tests {
                 json_format: None
             }
         )
+    }
+
+    #[test]
+    fn parse_resolve() {
+        let invalid_test_cases = [
+            "example.com:[127.0.0.1]",
+            "example.com:80:[::1]",
+            "example.com::::1",
+            "example.com:1",
+            "example.com:example.com",
+            "http://example.com:127.0.0.1",
+            "http://example.com:[::1]",
+            "http://example.com:80:[::1]",
+        ];
+
+        for input in invalid_test_cases {
+            assert!(Resolve::from_str(input).is_err())
+        }
+
+        assert!(Resolve::from_str("example.com:127.0.0.1").is_ok());
+        assert!(Resolve::from_str("example.com:::1").is_ok());
+        assert!(Resolve::from_str("example.com:[::1]").is_ok());
     }
 }
