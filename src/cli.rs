@@ -1196,7 +1196,7 @@ impl FromStr for Resolve {
     fn from_str(s: &str) -> anyhow::Result<Self> {
         let (domain, addr) = s
             .split_once(':')
-            .context("The value passed to --resolve should be formatted as <HOST>:<ADDRESS>")?;
+            .context("Value should be formatted as <HOST>:<ADDRESS>")?;
 
         let addr = addr
             .parse()
