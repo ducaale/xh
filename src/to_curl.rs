@@ -289,6 +289,21 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg(interface);
     };
 
+    if !args.resolve.is_empty() {
+        let port = match url.port() {
+            Some(port) => port,
+            None if url.scheme() == "http" => 80,
+            None if url.scheme() == "https" => 443,
+            None => return Err(anyhow!("Unsupported URL scheme: '{}'", url.scheme())),
+        };
+
+        cmd.warn("Inferred port number in --resolve from request URL.");
+        for resolve in args.resolve {
+            cmd.arg("--resolve");
+            cmd.arg(format!("{}:{}:{}", resolve.domain, port, resolve.addr));
+        }
+    }
+
     // Payload
     for (header, value) in headers.iter() {
         cmd.opt("-H", "--header");
