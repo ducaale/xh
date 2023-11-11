@@ -1,4 +1,4 @@
-.TH XH 1 2023-08-26 0.18.0 "User Commands"
+.TH XH 1 2023-10-22 0.19.4 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -117,11 +117,13 @@ Controls output processing. Possible values are:
 Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 .TP 4
 \fB\-\-format\-options\fR=\fIFORMAT_OPTIONS\fR
-Set output formatting options. The only currently implemented option is json.indent.
+Set output formatting options. Supported option are:
 
-Different options need to be separated by a comma.
+    json.indent:<NUM>
+    json.format:<true|false>
+    headers.sort:<true|false>
 
-Example: \-\-format\-options=json.indent:2.
+Example: \-\-format\-options=json.indent:2,headers.sort:false.
 .TP 4
 \fB\-s\fR, \fB\-\-style\fR=\fITHEME\fR
 Output coloring style.

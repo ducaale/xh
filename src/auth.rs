@@ -55,7 +55,7 @@ pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)
     } else {
         let username = auth.to_string();
         let prompt = format!("http: password for {}@{}: ", username, host);
-        let password = rpassword::read_password_from_tty(Some(&prompt))?;
+        let password = rpassword::prompt_password(prompt)?;
         Ok((username, Some(password)))
     }
 }
