@@ -19,7 +19,7 @@ mod vendored;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, Read};
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
@@ -315,7 +315,7 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     for resolve in args.resolve {
-        client = client.resolve(&resolve.domain, resolve.addr);
+        client = client.resolve(&resolve.domain, SocketAddr::new(resolve.addr, 0));
     }
 
     let client = client.build()?;

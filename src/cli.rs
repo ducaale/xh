@@ -5,7 +5,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::mem;
-use std::net::SocketAddr;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -1187,7 +1187,7 @@ impl FromStr for Proxy {
 #[derive(Debug, Clone)]
 pub struct Resolve {
     pub domain: String,
-    pub addr: SocketAddr,
+    pub addr: IpAddr,
 }
 
 impl FromStr for Resolve {
@@ -1198,14 +1198,11 @@ impl FromStr for Resolve {
             .split_once(':')
             .context("The value passed to --resolve should be formatted as <HOST>:<ADDRESS>")?;
 
-        let addr = SocketAddr::new(
-            addr.parse()
-                .with_context(|| format!("Invalid address '{addr}'"))?,
-            0,
-        );
+        let addr = addr
+            .parse()
+            .with_context(|| format!("Invalid address '{addr}'"))?;
 
         Ok(Resolve {
-            // TODO: validate domain
             domain: domain.to_string(),
             addr,
         })
