@@ -311,6 +311,11 @@ Example: --print=Hb"
     #[clap(long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
 
+    /// Override DNS resolution for specific domain to a custom IP.
+    ///
+    /// You can override multiple domains by repeating this option.
+    ///
+    /// Example: --resolve=example.com:127.0.0.1
     #[clap(long, value_name = "HOST:ADDRESS")]
     pub resolve: Vec<Resolve>,
 
