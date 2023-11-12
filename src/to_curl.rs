@@ -1,6 +1,6 @@
 use std::io::{stderr, stdout, Write};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use os_display::Quotable;
 use reqwest::{tls, Method};
 use std::ffi::OsString;
@@ -288,6 +288,18 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg("--interface");
         cmd.arg(interface);
     };
+
+    if !args.resolve.is_empty() {
+        let port = url
+            .port_or_known_default()
+            .with_context(|| format!("Unsupported URL scheme: '{}'", url.scheme()))?;
+
+        cmd.warn("Inferred port number in --resolve from request URL.");
+        for resolve in args.resolve {
+            cmd.arg("--resolve");
+            cmd.arg(format!("{}:{}:{}", resolve.domain, port, resolve.addr));
+        }
+    }
 
     // Payload
     for (header, value) in headers.iter() {

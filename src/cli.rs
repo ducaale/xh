@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::mem;
+use std::net::{IpAddr, Ipv6Addr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -309,6 +310,14 @@ Example: --print=Hb"
     /// HTTP version to use
     #[clap(long, value_name = "VERSION", value_parser)]
     pub http_version: Option<HttpVersion>,
+
+    /// Override DNS resolution for specific domain to a custom IP.
+    ///
+    /// You can override multiple domains by repeating this option.
+    ///
+    /// Example: --resolve=example.com:127.0.0.1
+    #[clap(long, value_name = "HOST:ADDRESS")]
+    pub resolve: Vec<Resolve>,
 
     /// Bind to a network interface or local IP address.
     ///
@@ -1175,6 +1184,43 @@ impl FromStr for Proxy {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Resolve {
+    pub domain: String,
+    pub addr: IpAddr,
+}
+
+impl FromStr for Resolve {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        if s.chars().filter(|&c| c == ':').count() == 2 {
+            // More than two colons could mean an IPv6 address.
+            // Exactly two colons probably means the user added a port, curl-style.
+            return Err(anyhow!(
+                "Value should be formatted as <HOST>:<ADDRESS> (not <HOST>:<PORT>:<ADDRESS>)"
+            ));
+        }
+
+        let (domain, raw_addr) = s
+            .split_once(':')
+            .context("Value should be formatted as <HOST>:<ADDRESS>")?;
+
+        let addr = if raw_addr.starts_with('[') && raw_addr.ends_with(']') {
+            // Support IPv6 addresses enclosed in square brackets e.g. [::1]
+            Ipv6Addr::from_str(&raw_addr[1..raw_addr.len() - 1]).map(IpAddr::V6)
+        } else {
+            raw_addr.parse()
+        }
+        .with_context(|| format!("Invalid address '{raw_addr}'"))?;
+
+        Ok(Resolve {
+            domain: domain.to_string(),
+            addr,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verify {
     Yes,
@@ -1712,5 +1758,27 @@ mod tests {
                 json_format: None
             }
         )
+    }
+
+    #[test]
+    fn parse_resolve() {
+        let invalid_test_cases = [
+            "example.com:[127.0.0.1]",
+            "example.com:80:[::1]",
+            "example.com::::1",
+            "example.com:1",
+            "example.com:example.com",
+            "http://example.com:127.0.0.1",
+            "http://example.com:[::1]",
+            "http://example.com:80:[::1]",
+        ];
+
+        for input in invalid_test_cases {
+            assert!(Resolve::from_str(input).is_err())
+        }
+
+        assert!(Resolve::from_str("example.com:127.0.0.1").is_ok());
+        assert!(Resolve::from_str("example.com:::1").is_ok());
+        assert!(Resolve::from_str("example.com:[::1]").is_ok());
     }
 }

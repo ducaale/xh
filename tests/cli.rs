@@ -1227,6 +1227,34 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
+#[test]
+fn override_dns_resolution() {
+    let server = server::http(|req| async move {
+        let host = req.headers()["host"].to_str().unwrap();
+        assert!(host.starts_with("example.com"));
+
+        hyper::Response::builder()
+            .header("X-Foo", "Bar")
+            .header("Date", "N/A")
+            .header("Content-Type", "application/json")
+            .body(r#"{"hello":"world"}"#.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--body")
+        .arg("--resolve=example.com:127.0.0.1")
+        .arg(format!("http://example.com:{}", server.port()))
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "hello": "world"
+            }
+
+
+        "#});
+}
+
 #[cfg(feature = "online-tests")]
 #[test]
 fn use_ipv4() {
