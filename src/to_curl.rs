@@ -1,6 +1,6 @@
 use std::io::{stderr, stdout, Write};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use os_display::Quotable;
 use reqwest::{tls, Method};
 use std::ffi::OsString;
