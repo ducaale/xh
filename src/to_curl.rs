@@ -290,12 +290,9 @@ pub fn translate(args: Cli) -> Result<Command> {
     };
 
     if !args.resolve.is_empty() {
-        let port = match url.port() {
-            Some(port) => port,
-            None if url.scheme() == "http" => 80,
-            None if url.scheme() == "https" => 443,
-            None => return Err(anyhow!("Unsupported URL scheme: '{}'", url.scheme())),
-        };
+        let port = url
+            .port_or_known_default()
+            .with_context(|| format!("Unsupported URL scheme: '{}'", url.scheme()))?;
 
         cmd.warn("Inferred port number in --resolve from request URL.");
         for resolve in args.resolve {
