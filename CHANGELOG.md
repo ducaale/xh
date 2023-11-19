@@ -1,4 +1,4 @@
-## [0.20.0] - 2023-11-19
+## [0.20.1] - 2023-11-19
 ### Features
 - Add `--resolve` for overriding DNS resolution, see #327 (@ducaale)
 
