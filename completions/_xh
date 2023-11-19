@@ -47,6 +47,7 @@ none\:"Disable both coloring and formatting"))' \
 '--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
 '--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME: ' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2)' \
+'*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS: ' \
 '--interface=[Bind to a network interface or local IP address]:NAME: ' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
@@ -127,6 +128,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-default-scheme[]' \
 '--no-https[]' \
 '--no-http-version[]' \
+'--no-resolve[]' \
 '--no-interface[]' \
 '--no-ipv4[]' \
 '--no-ipv6[]' \

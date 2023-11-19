@@ -21,6 +21,7 @@ complete -c xh -l cert-key -d 'A private key file to use with --cert' -r -F
 complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "{auto	,tls1	,tls1.1	,tls1.2	,tls1.3	}"
 complete -c xh -l default-scheme -d 'The default scheme to use if not specified in the URL' -r
 complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0	,1.1	,2	}"
+complete -c xh -l resolve -d 'Override DNS resolution for specific domain to a custom IP' -r
 complete -c xh -l interface -d 'Bind to a network interface or local IP address' -r
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
@@ -87,6 +88,7 @@ complete -c xh -l no-native-tls
 complete -c xh -l no-default-scheme
 complete -c xh -l no-https
 complete -c xh -l no-http-version
+complete -c xh -l no-resolve
 complete -c xh -l no-interface
 complete -c xh -l no-ipv4
 complete -c xh -l no-ipv6

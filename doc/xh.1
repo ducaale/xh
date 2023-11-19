@@ -1,4 +1,4 @@
-.TH XH 1 2023-10-22 0.19.4 "User Commands"
+.TH XH 1 2023-11-19 0.20.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -279,6 +279,13 @@ Make HTTPS requests if not specified in the URL.
 HTTP version to use.
 
 [possible values: 1.0, 1.1, 2]
+.TP 4
+\fB\-\-resolve\fR=\fIHOST:ADDRESS\fR
+Override DNS resolution for specific domain to a custom IP.
+
+You can override multiple domains by repeating this option.
+
+Example: \-\-resolve=example.com:127.0.0.1.
 .TP 4
 \fB\-\-interface\fR=\fINAME\fR
 Bind to a network interface or local IP address.
