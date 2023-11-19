@@ -1,10 +1,9 @@
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, IsTerminal};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
-use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
 use reqwest::{
@@ -187,7 +186,7 @@ pub fn download_file(
 
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
-    } else if test_pretend_term() || atty::is(Stream::Stdout) {
+    } else if test_pretend_term() || io::stdout().is_terminal() {
         let (new_name, handle) = open_new_file(get_file_name(&response, orig_url).into())?;
         dest_name = new_name;
         buffer = Box::new(handle);
