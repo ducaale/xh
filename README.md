@@ -105,6 +105,7 @@ Options:
       --ssl <VERSION>                    Force a particular TLS version [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
       --https                            Make HTTPS requests if not specified in the URL
       --http-version <VERSION>           HTTP version to use [possible values: 1.0, 1.1, 2]
+      --resolve <HOST:ADDRESS>           Override DNS resolution for specific domain to a custom IP
       --interface <NAME>                 Bind to a network interface or local IP address
   -4, --ipv4                             Resolve hostname to ipv4 addresses only
   -6, --ipv6                             Resolve hostname to ipv6 addresses only

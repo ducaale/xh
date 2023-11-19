@@ -1,3 +1,7 @@
+## Unreleased
+### Features
+- Add `--resolve` for overriding DNS resolution, see #327 (@ducaale)
+
 ## [0.19.4] - 2023-10-22
 ## Other
 - Explicitly enable serde's derive feature, see #334 (@jayvdb)
