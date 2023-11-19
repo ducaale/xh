@@ -42,7 +42,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0 # minimum supported rust version
+          toolchain: 1.70.0 # minimum supported rust version
           target: ${{ matrix.job.target }}
           override: true
       - uses: Swatinem/rust-cache@v2
