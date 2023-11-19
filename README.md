@@ -42,7 +42,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Windows                       | Scoop      | `scoop install xh`                         |
 | Windows                       | Chocolatey | `choco install xh`                         |
 
-\* Make sure that you have Rust 1.64 or later installed
+\* Make sure that you have Rust 1.65 or later installed
 
 \*\* You will need to install the [MMRL CLI](https://github.com/DerGoogler/MMRL-CLI/releases)
 
