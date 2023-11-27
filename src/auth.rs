@@ -1,6 +1,7 @@
 use std::io;
 
 use anyhow::Result;
+use regex_lite::Regex;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use reqwest::StatusCode;
@@ -8,7 +9,6 @@ use reqwest::StatusCode;
 use crate::cli::AuthType;
 use crate::middleware::{Context, Middleware};
 use crate::netrc;
-use crate::regex;
 use crate::utils::clone_request;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,9 +46,9 @@ impl Auth {
 }
 
 pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)> {
-    if let Some(cap) = regex!(r"^([^:]*):$").captures(auth) {
+    if let Some(cap) = Regex::new(r"^([^:]*):$").unwrap().captures(auth) {
         Ok((cap[1].to_string(), None))
-    } else if let Some(cap) = regex!(r"^(.+?):(.+)$").captures(auth) {
+    } else if let Some(cap) = Regex::new(r"^(.+?):(.+)$").unwrap().captures(auth) {
         let username = cap[1].to_string();
         let password = cap[2].to_string();
         Ok((username, Some(password)))

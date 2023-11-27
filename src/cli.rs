@@ -13,11 +13,11 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
+use regex_lite::Regex;
 use reqwest::{tls, Method, Url};
 use serde::Deserialize;
 
 use crate::buffer::Buffer;
-use crate::regex;
 use crate::request_items::RequestItems;
 use crate::utils::config_dir;
 
@@ -671,7 +671,7 @@ fn construct_url(
         format!("{}{}", default_scheme, url).parse()?
     } else if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
-    } else if !regex!("[a-zA-Z0-9]://.+").is_match(url) {
+    } else if !Regex::new("[a-zA-Z0-9]://.+").unwrap().is_match(url) {
         format!("{}{}", default_scheme, url).parse()?
     } else {
         url.parse()?
