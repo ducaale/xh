@@ -1,12 +1,12 @@
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, IsTerminal};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
-use atty::Stream;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
+use regex_lite::Regex;
 use reqwest::{
     blocking::Response,
     header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE},
@@ -14,7 +14,6 @@ use reqwest::{
 };
 
 use crate::decoder::{decompress, get_compression_type};
-use crate::regex;
 use crate::utils::{copy_largebuf, test_pretend_term};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
@@ -28,14 +27,14 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 // of PathBufs
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
-        regex!(QUOTED = "filename=\"([^\"]*)\"");
+        let quoted = Regex::new("filename=\"([^\"]*)\"").unwrap();
         // Against the spec, but used by e.g. Github's zip downloads
-        regex!(UNQUOTED = "filename=([^;=\"]*)");
+        let unquoted = Regex::new("filename=([^;=\"]*)").unwrap();
 
         let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
-        let caps = QUOTED
+        let caps = quoted
             .captures(header)
-            .or_else(|| UNQUOTED.captures(header))?;
+            .or_else(|| unquoted.captures(header))?;
         Some(caps[1].to_string())
     }
 
@@ -104,11 +103,12 @@ fn open_new_file(file_name: PathBuf) -> io::Result<(PathBuf, File)> {
 // https://github.com/httpie/httpie/blob/84c7327057/httpie/downloads.py#L44
 // https://tools.ietf.org/html/rfc7233#section-4.2
 fn total_for_content_range(header: &str, expected_start: u64) -> Result<u64> {
-    regex!(RE_RANGE =
-        r"^bytes (?P<first_byte_pos>\d+)-(?P<last_byte_pos>\d+)"
+    let re_range = Regex::new(concat!(
+        r"^bytes (?P<first_byte_pos>\d+)-(?P<last_byte_pos>\d+)",
         r"/(?:\*|(?P<complete_length>\d+))$"
-    );
-    let caps = RE_RANGE
+    ))
+    .unwrap();
+    let caps = re_range
         .captures(header)
         // Could happen if header uses unit other than bytes
         .ok_or_else(|| anyhow!("Can't parse Content-Range header, can't resume download"))?;
@@ -187,7 +187,7 @@ pub fn download_file(
 
         dest_name = file_name;
         buffer = Box::new(open_opts.open(&dest_name)?);
-    } else if test_pretend_term() || atty::is(Stream::Stdout) {
+    } else if test_pretend_term() || io::stdout().is_terminal() {
         let (new_name, handle) = open_new_file(get_file_name(&response, orig_url).into())?;
         dest_name = new_name;
         buffer = Box::new(handle);

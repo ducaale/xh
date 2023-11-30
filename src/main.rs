@@ -18,7 +18,7 @@ mod vendored;
 
 use std::env;
 use std::fs::File;
-use std::io::{stdin, Read};
+use std::io::{self, IsTerminal, Read};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process;
@@ -26,7 +26,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
-use atty::Stream;
 use cookie_store::{CookieStore, RawCookie};
 #[cfg(feature = "network-interface")]
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
@@ -104,7 +103,7 @@ fn run(args: Cli) -> Result<i32> {
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     let url = url_with_query(args.url, &args.request_items.query()?);
 
-    let use_stdin = !(args.ignore_stdin || atty::is(Stream::Stdin) || test_pretend_term());
+    let use_stdin = !(args.ignore_stdin || io::stdin().is_terminal() || test_pretend_term());
 
     let body = if use_stdin {
         if !args.request_items.is_body_empty() {
@@ -125,7 +124,7 @@ fn run(args: Cli) -> Result<i32> {
             ));
         }
         let mut buffer = Vec::new();
-        stdin().read_to_end(&mut buffer)?;
+        io::stdin().read_to_end(&mut buffer)?;
         Body::Raw(buffer)
     } else if let Some(raw) = args.raw {
         Body::Raw(raw.into_bytes())
@@ -476,7 +475,7 @@ fn run(args: Cli) -> Result<i32> {
     let buffer = Buffer::new(
         args.download,
         args.output.as_deref(),
-        atty::is(Stream::Stdout) || test_pretend_term(),
+        io::stdout().is_terminal() || test_pretend_term(),
     )?;
     let is_output_redirected = buffer.is_redirect();
     let print = match args.print {

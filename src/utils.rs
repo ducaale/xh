@@ -123,19 +123,6 @@ macro_rules! vec_of_strings {
     });
 }
 
-#[macro_export]
-macro_rules! regex {
-    ($name:ident = $($re:expr)+) => {
-        static $name: once_cell::sync::Lazy<regex::Regex> =
-            once_cell::sync::Lazy::new(|| regex::Regex::new(concat!($($re,)+)).unwrap());
-    };
-    ($($re:expr)+) => {{
-        static RE: once_cell::sync::Lazy<regex::Regex> =
-            once_cell::sync::Lazy::new(|| regex::Regex::new(concat!($($re,)+)).unwrap());
-        &RE
-    }};
-}
-
 /// When downloading a large file from a local nginx, it seems that 128KiB
 /// is a bit faster than 64KiB but bumping it up to 256KiB doesn't help any
 /// more.
