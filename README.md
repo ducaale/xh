@@ -122,7 +122,7 @@ Run `xh help` for more detailed information.
 
 ### Request Items
 
-`xh` uses [HTTPie's request-item syntax](https://httpie.io/docs#request-items) to set headers, request body, query string, etc.
+`xh` uses [HTTPie's request-item syntax](https://httpie.io/docs/cli/request-items) to set headers, request body, query string, etc.
 
 - `=`/`:=` for setting the request body's JSON or form fields (`=` for strings and `:=` for other JSON types).
 - `==` for adding query strings.
