@@ -3364,7 +3364,7 @@ fn response_meta() {
 }
 
 #[test]
-fn redirect_with_respone_meta() {
+fn redirect_with_response_meta() {
     let server = server::http(|req| async move {
         match req.uri().path() {
             "/first_page" => hyper::Response::builder()
