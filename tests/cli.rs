@@ -3360,7 +3360,8 @@ fn response_meta() {
         .arg("--print=m")
         .arg(server.base_url())
         .assert()
-        .stdout(contains("Elapsed time: "));
+        .stdout(contains("Elapsed time: "))
+        .stdout(contains("Remote address: "));
 }
 
 #[test]
@@ -3386,14 +3387,16 @@ fn redirect_with_response_meta() {
         .arg("--follow")
         .arg("-vv")
         .assert()
-        .stdout(contains("Elapsed time: ").count(2));
+        .stdout(contains("Elapsed time: ").count(2))
+        .stdout(contains("Remote address: ").count(2));
 
     get_command()
         .arg(server.url("/first_page"))
         .arg("--follow")
         .arg("--meta")
         .assert()
-        .stdout(contains("Elapsed time: ").count(1));
+        .stdout(contains("Elapsed time: ").count(1))
+        .stdout(contains("Remote address: ").count(1));
 }
 
 #[cfg(feature = "online-tests")]
@@ -3405,7 +3408,8 @@ fn digest_auth_with_response_meta() {
         .arg("-vv")
         .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
-        .stdout(contains("Elapsed time: ").count(2));
+        .stdout(contains("Elapsed time: ").count(2))
+        .stdout(contains("Remote address: ").count(2));
 }
 
 #[test]

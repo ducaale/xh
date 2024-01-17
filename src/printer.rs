@@ -517,8 +517,14 @@ impl Printer {
             total_elapsed_time += content_download_duration.as_secs_f64();
         }
         self.buffer
-            .print(format!("Elapsed time: {:.5}s", total_elapsed_time))?;
-        self.buffer.print("\n\n")?;
+            .print(format!("Elapsed time: {:.5}s\n", total_elapsed_time))?;
+
+        if let Some(remote_addr) = response.remote_addr() {
+            self.buffer
+                .print(format!("Remote address: {:?}\n", remote_addr))?;
+        }
+
+        self.buffer.print("\n")?;
         Ok(())
     }
 }
