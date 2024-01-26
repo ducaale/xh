@@ -41,6 +41,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | macOS                         | MacPorts   | `sudo port install xh`                     |
 | Windows                       | Scoop      | `scoop install xh`                         |
 | Windows                       | Chocolatey | `choco install xh`                         |
+| Windows                       | Winget     | `winget add ducaale.xh`                    |
 
 \* Make sure that you have Rust 1.70 or later installed
 
