@@ -77,7 +77,11 @@ pub fn config_dir() -> Option<PathBuf> {
 
     if cfg!(target_os = "macos") {
         let legacy_config_dir = dirs::config_dir()?.join("xh");
-        let new_config_dir = dirs::home_dir()?.join(".config").join("xh");
+        let config_home = match var_os("XDG_CONFIG_HOME") {
+            Some(dir) => dir.into(),
+            None => dirs::home_dir()?.join(".config"),
+        };
+        let new_config_dir = config_home.join("xh");
         if legacy_config_dir.exists() && !new_config_dir.exists() {
             Some(legacy_config_dir)
         } else {
