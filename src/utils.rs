@@ -76,6 +76,9 @@ pub fn config_dir() -> Option<PathBuf> {
     }
 
     if cfg!(target_os = "macos") {
+        // On macOS dirs returns `~/Library/Application Support`.
+        // ~/.config is more usual so we switched to that. But first we check for
+        // the legacy location.
         let legacy_config_dir = dirs::config_dir()?.join("xh");
         let config_home = match var_os("XDG_CONFIG_HOME") {
             Some(dir) => dir.into(),
