@@ -159,4 +159,8 @@ _xh() {
     esac
 }
 
-complete -F _xh -o bashdefault -o default xh
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    complete -F _xh -o nosort -o bashdefault -o default xh
+else
+    complete -F _xh -o bashdefault -o default xh
+fi

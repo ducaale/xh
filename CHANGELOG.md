@@ -1,4 +1,4 @@
-## Unreleased
+## [0.21.0] - 2024-01-28
 ### Features
 - Display remote address in metadata when `-vv` or `--meta` flag is used,
   see #348 (@zuisong)
