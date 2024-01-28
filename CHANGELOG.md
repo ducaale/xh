@@ -1,3 +1,11 @@
+## Unreleased
+### Features
+- Display remote address in metadata when `-vv` or `--meta` flag is used,
+  see #348 (@zuisong)
+
+## Other
+- Default `XH_CONFIG_DIR` to `~/.config/xh` in macOS, see #353 (@ducaale)
+
 ## [0.20.1] - 2023-11-19
 ### Features
 - Add `--resolve` for overriding DNS resolution, see #327 (@ducaale)
