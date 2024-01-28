@@ -72,11 +72,19 @@ pub fn random_string() -> String {
 
 pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
-        Some(dir.into())
-    } else if cfg!(target_os = "macos") {
-        dirs::home_dir().map(|dir| dir.join(".config").join("xh"))
+        return Some(dir.into());
+    }
+
+    if cfg!(target_os = "macos") {
+        let legacy_config_dir = dirs::config_dir()?.join("xh");
+        let new_config_dir = dirs::home_dir()?.join(".config").join("xh");
+        if legacy_config_dir.exists() && !new_config_dir.exists() {
+            Some(legacy_config_dir)
+        } else {
+            Some(new_config_dir)
+        }
     } else {
-        dirs::config_dir().map(|dir| dir.join("xh"))
+        Some(dirs::config_dir()?.join("xh"))
     }
 }
 
