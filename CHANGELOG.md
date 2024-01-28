@@ -3,7 +3,7 @@
 - Display remote address in metadata when `-vv` or `--meta` flag is used,
   see #348 (@zuisong)
 
-## Other
+### Other
 - Default `XH_CONFIG_DIR` to `~/.config/xh` in macOS, see #353 (@ducaale)
 
 ## [0.20.1] - 2023-11-19
@@ -11,7 +11,7 @@
 - Add `--resolve` for overriding DNS resolution, see #327 (@ducaale)
 
 ## [0.19.4] - 2023-10-22
-## Other
+### Other
 - Explicitly enable serde's derive feature, see #334 (@jayvdb)
 
 ## [0.19.3] - 2023-10-21
