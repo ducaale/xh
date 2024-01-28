@@ -72,9 +72,26 @@ pub fn random_string() -> String {
 
 pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("XH_CONFIG_DIR") {
-        Some(dir.into())
+        return Some(dir.into());
+    }
+
+    if cfg!(target_os = "macos") {
+        // On macOS dirs returns `~/Library/Application Support`.
+        // ~/.config is more usual so we switched to that. But first we check for
+        // the legacy location.
+        let legacy_config_dir = dirs::config_dir()?.join("xh");
+        let config_home = match var_os("XDG_CONFIG_HOME") {
+            Some(dir) => dir.into(),
+            None => dirs::home_dir()?.join(".config"),
+        };
+        let new_config_dir = config_home.join("xh");
+        if legacy_config_dir.exists() && !new_config_dir.exists() {
+            Some(legacy_config_dir)
+        } else {
+            Some(new_config_dir)
+        }
     } else {
-        dirs::config_dir().map(|dir| dir.join("xh"))
+        Some(dirs::config_dir()?.join("xh"))
     }
 }
 
