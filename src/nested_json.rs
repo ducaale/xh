@@ -220,7 +220,7 @@ fn arr_insert(arr: &mut Vec<Value>, index: usize, value: Value) {
 }
 
 /// Removes an element from array and replace it with `Value::Null`.
-fn remove_from_arr(arr: &mut Vec<Value>, index: usize) -> Option<Value> {
+fn remove_from_arr(arr: &mut [Value], index: usize) -> Option<Value> {
     if index < arr.len() {
         Some(mem::replace(&mut arr[index], Value::Null))
     } else {
