@@ -48,7 +48,7 @@ jobs:
           toolchain: 1.70.0 # minimum supported rust version
           target: ${{ matrix.job.target }}
           override: true
-      - uses: Swatinem/rust-cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
       - uses: actions-rs/cargo@v1
@@ -70,7 +70,7 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
