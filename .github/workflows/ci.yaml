@@ -42,15 +42,16 @@ jobs:
             flags: -- --test-threads=4
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: 1.70.0 # minimum supported rust version
-          target: ${{ matrix.job.target }}
-          override: true
+          targets: ${{ matrix.job.target }}
+
       - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
+
       - uses: actions-rs/cargo@v1
         with:
           use-cross: ${{ matrix.job.use-cross }}
@@ -63,11 +64,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2

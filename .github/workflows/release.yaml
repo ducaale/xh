@@ -39,12 +39,12 @@ jobs:
             flags: -- --test-threads=4
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: 1.70.0 # minimum supported rust version
-          target: ${{ matrix.job.target }}
-          override: true
+          targets: ${{ matrix.job.target }}
+
       - uses: actions-rs/cargo@v1
         with:
           use-cross: ${{ matrix.job.use-cross }}
