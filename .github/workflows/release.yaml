@@ -21,7 +21,7 @@ jobs:
             os: macos-latest
             flags: --features=native-tls
           - target: aarch64-apple-darwin
-            os: macos-latest-xlarge
+            os: macos-14
             flags: --features=native-tls
           - target: x86_64-pc-windows-msvc
             os: windows-latest
@@ -72,7 +72,7 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             flags: --features=native-tls
-          - os: macos-latest-xlarge
+          - os: macos-14
             target: aarch64-apple-darwin
             flags: --features=native-tls
           - os: windows-latest
