@@ -31,14 +31,14 @@ jobs:
             flags: --features=native-tls
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            cross: 'cross'
+            use-cross: true
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
-            cross: 'cross'
+            use-cross: true
             flags: -- --test-threads=4
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-latest
-            cross: 'cross'
+            use-cross: true
             flags: -- --test-threads=4
     steps:
       - uses: actions/checkout@v4
@@ -52,8 +52,11 @@ jobs:
         with:
           key: v2-${{ matrix.job.target }}
       
-      - name: Run tests
-        run: ${{ matrix.job.cross || 'cargo' }} test --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
+      - uses: ClementTsang/cargo-action@v0.0.3
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: test
+          args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
   fmt-and-clippy:
     name: Rustfmt and clippy
