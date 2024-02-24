@@ -91,7 +91,7 @@ jobs:
         with:
           use-cross: ${{ !!matrix.job.use-cross }}
           command: build
-          args:  --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
+          args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
         env:
           CARGO_PROFILE_RELEASE_LTO: true
 
