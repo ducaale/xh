@@ -52,7 +52,7 @@ jobs:
         with:
           key: v2-${{ matrix.job.target }}
       
-      - uses: ClementTsang/cargo-action@v0.0.3
+      - uses: ClementTsang/cargo-action@v0.0.6
         with:
           use-cross: ${{ !!matrix.job.use-cross }}
           command: test
