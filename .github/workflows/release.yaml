@@ -87,7 +87,8 @@ jobs:
         shell: bash
         run: echo "RUSTFLAGS=${{ matrix.job.rustflags }}" >> $GITHUB_ENV
 
-      - uses: ClementTsang/cargo-action@v0.0.3
+      - name: Build target
+        uses: ClementTsang/cargo-action@v0.0.3
         with:
           use-cross: ${{ !!matrix.job.use-cross }}
           command: build
