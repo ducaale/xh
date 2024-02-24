@@ -47,7 +47,7 @@ jobs:
 
       - uses: ClementTsang/cargo-action@v0.0.3
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: ${{ !!matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
@@ -89,7 +89,7 @@ jobs:
 
       - uses: ClementTsang/cargo-action@v0.0.3
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: ${{ !!matrix.job.use-cross }}
           command: build
           args:  --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
         env:
