@@ -41,14 +41,14 @@ jobs:
             use-cross: true
             flags: -- --test-threads=4
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: 1.70.0 # minimum supported rust version
           target: ${{ matrix.job.target }}
           override: true
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v4
         with:
           key: v2-${{ matrix.job.target }}
       - uses: actions-rs/cargo@v1
@@ -61,7 +61,7 @@ jobs:
     name: Rustfmt and clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:

@@ -38,7 +38,7 @@ jobs:
             use-cross: true
             flags: -- --test-threads=4
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -80,7 +80,7 @@ jobs:
             flags: --features=native-tls
             rustflags: -C target-feature=+crt-static
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set RUSTFLAGS env variable
         if: matrix.job.rustflags
