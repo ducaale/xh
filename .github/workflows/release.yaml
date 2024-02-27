@@ -8,6 +8,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.job.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         job:
@@ -19,6 +20,9 @@ jobs:
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
             os: macos-latest
+            flags: --features=native-tls
+          - target: aarch64-apple-darwin
+            os: macos-14
             flags: --features=native-tls
           - target: x86_64-pc-windows-msvc
             os: windows-latest
@@ -35,16 +39,16 @@ jobs:
             use-cross: true
             flags: -- --test-threads=4
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: 1.70.0 # minimum supported rust version
-          target: ${{ matrix.job.target }}
-          override: true
-      - uses: actions-rs/cargo@v1
+          targets: ${{ matrix.job.target }}
+
+      - uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: ${{ !!matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
@@ -69,12 +73,15 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             flags: --features=native-tls
+          - os: macos-14
+            target: aarch64-apple-darwin
+            flags: --features=native-tls
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             flags: --features=native-tls
             rustflags: -C target-feature=+crt-static
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set RUSTFLAGS env variable
         if: matrix.job.rustflags
@@ -82,9 +89,9 @@ jobs:
         run: echo "RUSTFLAGS=${{ matrix.job.rustflags }}" >> $GITHUB_ENV
 
       - name: Build target
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: ${{ !!matrix.job.use-cross }}
           command: build
           args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
         env:

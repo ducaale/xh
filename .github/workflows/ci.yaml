@@ -11,6 +11,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.job.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         job:
@@ -22,6 +23,9 @@ jobs:
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
             os: macos-latest
+            flags: --features=native-tls
+          - target: aarch64-apple-darwin
+            os: macos-14
             flags: --features=native-tls
           - target: x86_64-pc-windows-msvc
             os: windows-latest
@@ -38,19 +42,20 @@ jobs:
             use-cross: true
             flags: -- --test-threads=4
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: 1.70.0 # minimum supported rust version
-          target: ${{ matrix.job.target }}
-          override: true
+          targets: ${{ matrix.job.target }}
+
       - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
-      - uses: actions-rs/cargo@v1
+      
+      - uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: ${{ !!matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
@@ -58,37 +63,23 @@ jobs:
     name: Rustfmt and clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: stable
-          override: true
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 
       - name: Rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check
+        run: cargo fmt --check
 
       - name: Clippy (default features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --tests -- -D warnings -A unknown-lints
+        run: cargo clippy --tests -- -D warnings -A unknown-lints
 
       - name: Clippy (all features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features --tests -- -D warnings -A unknown-lints
+        run: cargo clippy --all-features --tests -- -D warnings -A unknown-lints
 
       - name: Clippy (native-tls only)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --no-default-features --features=native-tls,online-tests --tests -- -D warnings -A unknown-lints
+        run: cargo clippy --no-default-features --features=native-tls,online-tests --tests -- -D warnings -A unknown-lints
