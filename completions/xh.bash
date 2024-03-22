@@ -138,7 +138,7 @@ _xh() {
                     return 0
                     ;;
                 --http-version)
-                    COMPREPLY=($(compgen -W "1.0 1.1 2" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "1.0 1.1 2 2-prior-knowledge" -- "${cur}"))
                     return 0
                     ;;
                 --resolve)

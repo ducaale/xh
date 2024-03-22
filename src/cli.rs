@@ -1280,6 +1280,8 @@ pub enum HttpVersion {
     Http11,
     #[clap(name = "2")]
     Http2,
+    #[clap(name = "2-prior-knowledge")]
+    Http2PriorKnowledge,
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.
