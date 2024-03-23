@@ -3058,6 +3058,20 @@ fn http2() {
         .stdout(contains("HTTP/2.0 200 OK"));
 }
 
+#[cfg(feature = "online-tests")]
+#[test]
+fn http2_prior_knowledge() {
+    get_command()
+        .args([
+            "--print=hH",
+            "--http-version=2-prior-knowledge",
+            "http://x.com",
+        ])
+        .assert()
+        .stdout(contains("GET / HTTP/2.0"))
+        .stdout(contains("HTTP/2.0 "));
+}
+
 #[test]
 fn override_response_charset() {
     let server = server::http(|_req| async move {

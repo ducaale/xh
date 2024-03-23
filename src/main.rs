@@ -276,6 +276,10 @@ fn run(args: Cli) -> Result<i32> {
         client = client.http1_only();
     }
 
+    if matches!(args.http_version, Some(HttpVersion::Http2PriorKnowledge)) {
+        client = client.http2_prior_knowledge();
+    }
+
     let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
 
@@ -370,7 +374,9 @@ fn run(args: Cli) -> Result<i32> {
         request_builder = match args.http_version {
             Some(HttpVersion::Http10) => request_builder.version(reqwest::Version::HTTP_10),
             Some(HttpVersion::Http11) => request_builder.version(reqwest::Version::HTTP_11),
-            Some(HttpVersion::Http2) => request_builder.version(reqwest::Version::HTTP_2),
+            Some(HttpVersion::Http2 | HttpVersion::Http2PriorKnowledge) => {
+                request_builder.version(reqwest::Version::HTTP_2)
+            }
             None => request_builder,
         };
 
