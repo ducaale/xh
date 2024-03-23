@@ -1698,6 +1698,7 @@ fn multipart_file_upload() {
     let filename = dir.path().join("input.txt");
     OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&filename)
         .unwrap()
@@ -1728,6 +1729,7 @@ fn body_from_file() {
     let filename = dir.path().join("input.txt");
     OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&filename)
         .unwrap()
@@ -1753,6 +1755,7 @@ fn body_from_file_with_explicit_mimetype() {
     let filename = dir.path().join("input.txt");
     OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&filename)
         .unwrap()
@@ -1778,6 +1781,7 @@ fn body_from_file_with_fallback_mimetype() {
     let filename = dir.path().join("input");
     OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&filename)
         .unwrap()
@@ -1806,6 +1810,7 @@ fn print_body_from_file() {
     let filename = dir.path().join("input");
     OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&filename)
         .unwrap()
