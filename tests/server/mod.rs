@@ -1,18 +1,26 @@
-// Copied from https://github.com/seanmonstar/reqwest/blob/ab49de875ec2326abf25f52f54b249a28e43b69c/tests/support/server.rs
+// Copied from https://raw.githubusercontent.com/seanmonstar/reqwest/v0.12.0/tests/support/server.rs
 // with some slight tweaks
 use std::convert::Infallible;
 use std::future::Future;
 use std::net;
+use std::sync::mpsc as std_mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Request, Response};
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper::service::service_fn;
+use hyper::{Request, Response};
 use tokio::runtime;
 use tokio::sync::oneshot;
 
+type Body = Full<Bytes>;
+type Builder = hyper_util::server::conn::auto::Builder<hyper_util::rt::TokioExecutor>;
+
 pub struct Server {
     addr: net::SocketAddr,
+    panic_rx: std_mpsc::Receiver<()>,
     successful_hits: Arc<Mutex<u8>>,
     total_hits: Arc<Mutex<u8>>,
     no_hit_checks: bool,
@@ -51,16 +59,22 @@ impl Drop for Server {
             let _ = tx.send(());
         }
 
-        if !::std::thread::panicking() && !self.no_hit_checks {
+        if !std::thread::panicking() && !self.no_hit_checks {
             let total_hits = *self.total_hits.lock().unwrap();
             let successful_hits = *self.successful_hits.lock().unwrap();
             let failed_hits = total_hits - successful_hits;
             assert!(total_hits > 0, "test server exited without being called");
-            assert!(
-                failed_hits == 0,
+            assert_eq!(
+                failed_hits, 0,
                 "numbers of panicked or in-progress requests: {}",
                 failed_hits
             );
+        }
+
+        if !std::thread::panicking() {
+            self.panic_rx
+                .recv_timeout(Duration::from_secs(3))
+                .expect("test server should not panic");
         }
     }
 }
@@ -72,72 +86,88 @@ impl Drop for Server {
 
 pub fn http<F, Fut>(func: F) -> Server
 where
-    F: Fn(Request<Body>) -> Fut + Send + Sync + 'static,
+    F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Response<Body>> + Send + 'static,
 {
     http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))))
 }
 
-type Serv = dyn Fn(Request<Body>) -> Box<ServFut> + Send + Sync;
+type Serv = dyn Fn(Request<hyper::body::Incoming>) -> Box<ServFut> + Send + Sync;
 type ServFut = dyn Future<Output = Response<Body>> + Send + Unpin;
 
 fn http_inner(func: Arc<Serv>) -> Server {
-    //Spawn new runtime in thread to prevent reactor execution context conflict
+    // Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
-        let successful_hits = Arc::new(Mutex::new(0));
-        let total_hits = Arc::new(Mutex::new(0));
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("new rt");
-        let srv = {
+        let successful_hits = Arc::new(Mutex::new(0));
+        let total_hits = Arc::new(Mutex::new(0));
+        let listener = rt.block_on(async move {
+            tokio::net::TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+                .await
+                .unwrap()
+        });
+        let addr = listener.local_addr().unwrap();
+
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (panic_tx, panic_rx) = std_mpsc::channel();
+        let thread_name = format!(
+            "test({})-support-server",
+            thread::current().name().unwrap_or("<unknown>")
+        );
+
+        {
             let successful_hits = successful_hits.clone();
             let total_hits = total_hits.clone();
-            #[allow(clippy::async_yields_async)]
-            rt.block_on(async move {
-                let make_service = make_service_fn(move |_| {
-                    let func = func.clone();
-                    let successful_hits = successful_hits.clone();
-                    let total_hits = total_hits.clone();
-                    async move {
-                        Ok::<_, Infallible>(service_fn(move |req| {
-                            let fut = func(req);
-                            let successful_hits = successful_hits.clone();
-                            let total_hits = total_hits.clone();
-                            async move {
-                                *total_hits.lock().unwrap() += 1;
-                                let res = fut.await;
-                                *successful_hits.lock().unwrap() += 1;
-                                Ok::<_, Infallible>(res)
-                            }
-                        }))
-                    }
-                });
-                // Port 0 is used to obtain a dynamically assigned port.
-                // See https://networkengineering.stackexchange.com/a/64784
-                hyper::Server::bind(&([127, 0, 0, 1], 0).into()).serve(make_service)
-            })
-        };
+            thread::Builder::new()
+                .name(thread_name)
+                .spawn(move || {
+                    let task = rt.spawn(async move {
+                        let builder = Builder::new(hyper_util::rt::TokioExecutor::new());
+                        loop {
+                            let svc = {
+                                let func = func.clone();
+                                let successful_hits = successful_hits.clone();
+                                let total_hits = total_hits.clone();
 
-        let addr = srv.local_addr();
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let srv = srv.with_graceful_shutdown(async move {
-            let _ = shutdown_rx.await;
-        });
+                                service_fn(move |req| {
+                                    let successful_hits = successful_hits.clone();
+                                    let total_hits = total_hits.clone();
+                                    let fut = func(req);
+                                    async move {
+                                        *total_hits.lock().unwrap() += 1;
+                                        let res = fut.await;
+                                        *successful_hits.lock().unwrap() += 1;
+                                        Ok::<_, Infallible>(res)
+                                    }
+                                })
+                            };
 
-        thread::Builder::new()
-            .name("test-server".into())
-            .spawn(move || {
-                rt.block_on(srv).unwrap();
-            })
-            .expect("thread spawn");
+                            let (io, _) = listener.accept().await.unwrap();
 
+                            let builder = builder.clone();
+                            tokio::spawn(async move {
+                                let _ = builder
+                                    .serve_connection(hyper_util::rt::TokioIo::new(io), svc)
+                                    .await;
+                            });
+                        }
+                    });
+                    let _ = rt.block_on(shutdown_rx);
+                    task.abort();
+                    let _ = panic_tx.send(());
+                })
+                .expect("thread spawn");
+        }
         Server {
             addr,
+            panic_rx,
+            shutdown_tx: Some(shutdown_tx),
             successful_hits,
             total_hits,
             no_hit_checks: false,
-            shutdown_tx: Some(shutdown_tx),
         }
     })
     .join()
