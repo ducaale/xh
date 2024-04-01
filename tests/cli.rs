@@ -3081,7 +3081,7 @@ fn http2_prior_knowledge() {
         .arg(server.base_url())
         .assert()
         .failure()
-        .stderr(contains("unsupported HTTP version"));
+        .stderr(contains("UserUnsupportedVersion"));
 
     get_command()
         .arg("-v")
