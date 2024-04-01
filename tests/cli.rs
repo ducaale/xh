@@ -3068,18 +3068,30 @@ fn http2() {
         .stdout(contains("HTTP/2.0 200 OK"));
 }
 
-#[cfg(feature = "online-tests")]
 #[test]
 fn http2_prior_knowledge() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .body("Hello HTTP/2.0".into())
+            .unwrap()
+    });
     get_command()
-        .args([
-            "--print=hH",
-            "--http-version=2-prior-knowledge",
-            "http://x.com",
-        ])
+        .arg("-v")
+        .arg("--http-version=2")
+        .arg(server.base_url())
         .assert()
+        .failure()
+        .stderr(contains("unsupported HTTP version"));
+
+    get_command()
+        .arg("-v")
+        .arg("--http-version=2-prior-knowledge")
+        .arg(server.base_url())
+        .assert()
+        .success()
         .stdout(contains("GET / HTTP/2.0"))
-        .stdout(contains("HTTP/2.0 "));
+        .stdout(contains("HTTP/2.0 200"))
+        .stdout(contains("Hello HTTP/2.0"));
 }
 
 #[test]
