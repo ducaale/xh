@@ -81,7 +81,7 @@ hyper-util = { version = "0.1.3", features = ["server"] }
 http-body-util = "0.1.1"
 
 [features]
-default = ["online-tests", "rustls"]
+default = ["online-tests", "rustls", "network-interface"]
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots"]
 
