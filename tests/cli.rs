@@ -13,6 +13,7 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::cmd::Command;
+use http_body_util::BodyExt;
 use indoc::indoc;
 use predicates::function::function;
 use predicates::str::contains;
@@ -26,7 +27,7 @@ pub trait RequestExt {
 
 impl<T> RequestExt for hyper::Request<T>
 where
-    T: hyper::body::HttpBody + Send + 'static,
+    T: hyper::body::Body + Send + 'static,
     T::Data: Send,
     T::Error: std::fmt::Debug,
 {
@@ -37,13 +38,7 @@ where
     }
 
     fn body(self) -> Pin<Box<dyn Future<Output = Vec<u8>> + Send>> {
-        let fut = async {
-            hyper::body::to_bytes(self)
-                .await
-                .unwrap()
-                .as_ref()
-                .to_owned()
-        };
+        let fut = async { self.collect().await.unwrap().to_bytes().to_vec() };
         Box::pin(fut)
     }
 
@@ -206,6 +201,21 @@ fn multiline_value() {
 
     get_command()
         .args(["--form", "post", &server.base_url(), "foo=bar\nbaz"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn post_empty_body() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(req.headers().get(reqwest::header::TRANSFER_ENCODING), None);
+        assert_eq!(req.body_as_string().await, "");
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(["post", &server.base_url()])
         .assert()
         .success();
 }
@@ -3071,7 +3081,7 @@ fn http2_prior_knowledge() {
         .arg(server.base_url())
         .assert()
         .failure()
-        .stderr(contains("unsupported HTTP version"));
+        .stderr(contains("UserUnsupportedVersion"));
 
     get_command()
         .arg("-v")
