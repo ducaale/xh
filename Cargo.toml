@@ -46,14 +46,10 @@ time = "0.3.16"
 unicode-width = "0.1.9"
 url = "2.2.2"
 
-[patch.crates-io.reqwest]
-git = "https://github.com/seanmonstar/reqwest"
-branch = "master"
-
 [dependencies.reqwest]
-version = "0.12.2"
+version = "0.12.3"
 default-features = false
-features = ["json", "multipart", "blocking", "socks", "cookies", "http2"]
+features = ["json", "multipart", "blocking", "socks", "cookies", "http2", "macos-system-configuration"]
 
 [dependencies.syntect]
 version = "5.1"
