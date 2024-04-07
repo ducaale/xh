@@ -168,8 +168,8 @@ Example: --print=Hb"
     pub quiet: bool,
 
     /// Always stream the response body.
-    #[clap(short = 'S', long)]
-    pub stream: bool,
+    #[clap(short = 'S', long, default_missing_value = "true", num_args= 0..=1, require_equals = true)]
+    pub stream: Option<bool>,
 
     /// Save output to FILE instead of stdout.
     #[clap(short = 'o', long, value_name = "FILE")]
@@ -391,7 +391,7 @@ Example: --print=Hb"
     ///
     ///         To set the filename and mimetype, ";type=" and
     ///         ";filename=" can be used respectively.
-    ///         
+    ///
     ///         Example: "pfp@ra.jpg;type=image/jpeg;filename=profile.jpg"
     ///
     ///     @filename

@@ -119,6 +119,10 @@ pub struct Printer {
 }
 
 impl Printer {
+    pub fn set_stream(&mut self, stream: bool) {
+        self.stream = stream
+    }
+
     pub fn new(
         pretty: Pretty,
         theme: Theme,

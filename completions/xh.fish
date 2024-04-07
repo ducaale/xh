@@ -6,6 +6,7 @@ complete -c xh -l response-charset -d 'Override the response encoding for termin
 complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal' -r
 complete -c xh -s p -l print -d 'String specifying what the output should contain' -r
 complete -c xh -s P -l history-print -d 'The same as --print but applies only to intermediary requests/responses' -r
+complete -c xh -s S -l stream -d 'Always stream the response body' -r -f -a "{true	'',false	''}"
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout' -r -F
 complete -c xh -l session -d 'Create, or reuse and update a session' -r
 complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange' -r
@@ -32,7 +33,6 @@ complete -c xh -s m -l meta -d 'Print only the response metadata. Shortcut for -
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
-complete -c xh -s S -l stream -d 'Always stream the response body'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
 complete -c xh -s c -l continue -d 'Resume an interrupted download. Requires --download and --output'
 complete -c xh -l ignore-netrc -d 'Do not use credentials from .netrc'
