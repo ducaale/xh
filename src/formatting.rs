@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use serde::Serialize;
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
@@ -15,6 +16,15 @@ pub fn get_json_formatter(indent_level: usize) -> jsonxf::Formatter {
     fmt.record_separator = String::from("\n\n");
     fmt.eager_record_separators = true;
     fmt
+}
+
+pub fn serde_json_format(indent_level: usize, text: &str, write: impl Write) -> io::Result<()> {
+    let indent = " ".repeat(indent_level);
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(indent.as_bytes());
+    let value = serde_json::from_str::<serde_json::Value>(text)?;
+    let mut serializer = serde_json::Serializer::with_formatter(write, formatter);
+    value.serialize(&mut serializer)?;
+    Ok(())
 }
 
 static TS: once_cell::sync::Lazy<ThemeSet> = once_cell::sync::Lazy::new(|| {

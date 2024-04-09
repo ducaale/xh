@@ -13,11 +13,12 @@ use reqwest::header::{
 use reqwest::Version;
 use url::Url;
 
-use crate::cli::FormatOptions;
-use crate::decoder::{decompress, get_compression_type};
 use crate::{
     buffer::Buffer,
+    cli::FormatOptions,
     cli::{Pretty, Theme},
+    decoder::{decompress, get_compression_type},
+    formatting::serde_json_format,
     formatting::{get_json_formatter, Highlighter},
     middleware::ResponseExt,
     utils::{copy_largebuf, test_mode, BUFFER_SIZE},
@@ -166,16 +167,19 @@ impl Printer {
             return self.print_syntax_text(text, "json");
         }
 
-        let mut formatter = get_json_formatter(self.json_indent_level);
         if self.color {
             let mut buf = Vec::new();
-            formatter.format_buf(text.as_bytes(), &mut buf)?;
+            serde_json_format(self.json_indent_level, text, &mut buf)?;
+            buf.write_all(&[b'\n', b'\n'])?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            formatter.format_buf(text.as_bytes(), &mut self.buffer)
+            serde_json_format(self.json_indent_level, text, &mut self.buffer)?;
+            self.buffer.write_all(&[b'\n', b'\n'])?;
+            self.buffer.flush()?;
+            Ok(())
         }
     }
 
@@ -749,9 +753,10 @@ fn get_charset(response: &Response) -> Option<&'static Encoding> {
 mod tests {
     use indoc::indoc;
 
-    use super::*;
     use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
+
+    use super::*;
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
