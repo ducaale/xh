@@ -133,7 +133,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Far from an exact match, but it does print the request headers
         cmd.opt("-v", "--verbose");
     }
-    if args.stream {
+    if args.stream == Some(true) {
         // curl sorta streams by default, but its buffer stops it from
         // showing up right away
         cmd.opt("-N", "--no-buffer");

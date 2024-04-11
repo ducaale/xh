@@ -69,6 +69,14 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --stream)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -S)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --output)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

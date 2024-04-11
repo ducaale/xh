@@ -29,6 +29,8 @@ none\:"Disable both coloring and formatting"))' \
 '--print=[String specifying what the output should contain]:FORMAT: ' \
 '-P+[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
 '--history-print=[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
+'-S+[Always stream the response body]' \
+'--stream=[Always stream the response body]' \
 '-o+[Save output to FILE instead of stdout]:FILE:_files' \
 '--output=[Save output to FILE instead of stdout]:FILE:_files' \
 '--session=[Create, or reuse and update a session]:FILE: ' \
@@ -65,8 +67,6 @@ none\:"Disable both coloring and formatting"))' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
 '-q[Do not print to stdout or stderr]' \
 '--quiet[Do not print to stdout or stderr]' \
-'-S[Always stream the response body]' \
-'--stream[Always stream the response body]' \
 '-d[Download the body to a file instead of printing it]' \
 '--download[Download the body to a file instead of printing it]' \
 '-c[Resume an interrupted download. Requires --download and --output]' \
