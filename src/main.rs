@@ -30,7 +30,7 @@ use cookie_store::{CookieStore, RawCookie};
 #[cfg(feature = "network-interface")]
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use redirect::RedirectFollower;
-use reqwest::blocking::{Client, Response};
+use reqwest::blocking::Client;
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
@@ -502,13 +502,7 @@ fn run(args: Cli) -> Result<i32> {
         .format_options
         .iter()
         .fold(FormatOptions::default(), FormatOptions::merge);
-    let mut printer = Printer::new(
-        pretty,
-        theme,
-        args.stream.unwrap_or(false),
-        buffer,
-        format_options,
-    );
+    let mut printer = Printer::new(pretty, theme, args.stream, buffer, format_options);
 
     let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();
@@ -529,11 +523,6 @@ fn run(args: Cli) -> Result<i32> {
                     if history_print.response_headers {
                         printer.print_response_headers(prev_response)?;
                     }
-                    if args.stream.is_none()
-                        && is_text_event_stream_body(prev_response) == Some(true)
-                    {
-                        printer.set_stream(true)
-                    }
                     if history_print.response_body {
                         printer.print_response_body(
                             prev_response,
@@ -548,7 +537,6 @@ fn run(args: Cli) -> Result<i32> {
                     if history_print.request_headers {
                         printer.print_request_headers(next_request, &*cookie_jar)?;
                     }
-
                     if history_print.request_body {
                         printer.print_request_body(next_request)?;
                     }
@@ -593,9 +581,6 @@ fn run(args: Cli) -> Result<i32> {
             }
         } else {
             if print.response_body {
-                if args.stream.is_none() && is_text_event_stream_body(&response) == Some(true) {
-                    printer.set_stream(true)
-                }
                 printer.print_response_body(&mut response, response_charset, response_mime)?;
                 if print.response_meta {
                     printer.print_separator()?;
@@ -615,11 +600,4 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     Ok(exit_code)
-}
-
-fn is_text_event_stream_body(response: &Response) -> Option<bool> {
-    let content_type = response.headers().get(CONTENT_TYPE)?.to_str().ok()?;
-    let m: mime::Mime = content_type.parse().ok()?;
-    let is_stream = m.type_() == mime::TEXT && m.subtype() == mime::EVENT_STREAM;
-    is_stream.into()
 }
