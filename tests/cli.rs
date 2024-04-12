@@ -150,6 +150,44 @@ fn basic_json_post() {
 
         "#});
 }
+#[test]
+fn full_json_response_utf8_decode() {
+    let server = server::http(|_| async move {
+        hyper::Response::builder()
+            .header(hyper::header::CONTENT_TYPE, "application/json")
+            .body(r#"{"hello": "\u4f60\u597d"}"#.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--print=b")
+        .arg("-S")
+        .arg("--pretty=format")
+        .arg("post")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "hello": "\u4f60\u597d"
+            }
+
+
+        "#});
+
+    get_command()
+        .arg("--print=b")
+        .arg("--pretty=format")
+        .arg("post")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "hello": "你好"
+            }
+
+
+        "#});
+}
 
 #[test]
 fn basic_get() {
