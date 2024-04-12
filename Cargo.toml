@@ -82,6 +82,9 @@ native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
 rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots"]
 
 # To be used by platforms that don't support binding to interface via SO_BINDTODEVICE
+# Ideally, this would be auto-disabled on platforms that don't need it
+# However: https://github.com/rust-lang/cargo/issues/1197
+# Also, see https://github.com/ducaale/xh/issues/330
 network-interface = ["dep:network-interface"]
 
 online-tests = []
