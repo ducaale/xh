@@ -1,4 +1,4 @@
-## Unreleased
+## [0.22.0] - 2024-04-13
 ### Features
 - Support http2-prior-knowledge, see #356 (@zuisong)
 - Directly bind to interface name on supported platforms, see #359 (@ducaale)
