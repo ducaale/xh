@@ -1,3 +1,15 @@
+## Unreleased
+### Features
+- Support http2-prior-knowledge, see #356 (@zuisong)
+- Directly bind to interface name on supported platforms, see #359 (@ducaale)
+- Enable stream when content-type is `text/event-stream`, see #360 (@zuisong)
+- Decode utf-8 encoded string when formatting non-streaming JSON response,
+  see #361 (@zuisong)
+
+### Other
+- Upgrade to hyper v1, see #357 (@zuisong)
+- Use `serde-transcode` to optimize JSON formatting, see #362 (@blyxxyz)
+
 ## [0.21.0] - 2024-01-28
 ### Features
 - Display remote address in metadata when `-vv` or `--meta` flag is used,
