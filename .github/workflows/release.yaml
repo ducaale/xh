@@ -43,7 +43,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.70.0 # minimum supported rust version
+          toolchain: 1.74.0 # minimum supported rust version
           targets: ${{ matrix.job.target }}
 
       - uses: ClementTsang/cargo-action@v0.0.6
