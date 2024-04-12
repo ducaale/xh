@@ -168,7 +168,10 @@ Example: --print=Hb"
     pub quiet: bool,
 
     /// Always stream the response body.
-    #[clap(short = 'S', long, default_missing_value = "true", num_args= 0..=1, require_equals = true)]
+    #[clap(short = 'S', long = "stream", name = "stream")]
+    pub stream_raw: bool,
+
+    #[clap(skip)]
     pub stream: Option<bool>,
 
     /// Save output to FILE instead of stdout.
@@ -550,6 +553,12 @@ impl Cli {
             self.auth = self.bearer.take();
         }
         self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            (false, false) => None,
+        };
+        self.stream = match (self.stream_raw, matches.get_flag("no-stream")) {
             (true, true) => unreachable!(),
             (true, false) => Some(true),
             (false, true) => Some(false),
@@ -1689,6 +1698,24 @@ mod tests {
 
         let cli = parse(["--no-check-status", "--check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(true));
+    }
+
+    #[test]
+    fn negating_stream() {
+        let cli = parse([":"]).unwrap();
+        assert_eq!(cli.stream, None);
+
+        let cli = parse(["--stream", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(true));
+
+        let cli = parse(["--no-stream", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(false));
+
+        let cli = parse(["--stream", "--no-stream", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(false));
+
+        let cli = parse(["--no-stream", "--stream", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(true));
     }
 
     #[test]
