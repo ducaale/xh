@@ -40,6 +40,7 @@ regex-lite = "0.1.5"
 roff = { version = "0.2.1", optional = true }
 rpassword = "7.2.0"
 serde = { version = "1.0", features = ["derive"] }
+serde-transcode = "1.1.1"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
 termcolor = "1.1.2"
