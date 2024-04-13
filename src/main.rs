@@ -365,7 +365,7 @@ fn run(args: Cli) -> Result<i32> {
             .request(method, url.clone())
             .header(
                 ACCEPT_ENCODING,
-                HeaderValue::from_static("gzip, deflate, br"),
+                HeaderValue::from_static("gzip, deflate, br, zstd"),
             )
             .header(USER_AGENT, get_user_agent());
 
