@@ -1,10 +1,10 @@
-use std::io::{self, BufReader, Read};
+use std::io::{self, Read};
 use std::str::FromStr;
 
 use brotli::Decompressor as BrotliDecoder;
 use flate2::read::{GzDecoder, ZlibDecoder};
 use reqwest::header::{HeaderMap, CONTENT_ENCODING, CONTENT_LENGTH, TRANSFER_ENCODING};
-use zstd::Decoder as ZstdDecoder;
+use ruzstd::{FrameDecoder, StreamingDecoder as ZstdDecoder};
 
 #[derive(Debug)]
 pub enum CompressionType {
@@ -91,7 +91,7 @@ enum Decoder<R: Read> {
     Gzip(GzDecoder<InnerReader<R>>),
     Deflate(ZlibDecoder<InnerReader<R>>),
     Brotli(BrotliDecoder<InnerReader<R>>),
-    Zstd(ZstdDecoder<'static, BufReader<InnerReader<R>>>),
+    Zstd(ZstdDecoder<InnerReader<R>, FrameDecoder>),
 }
 
 impl<R: Read> Read for Decoder<R> {
@@ -127,8 +127,6 @@ impl<R: Read> Read for Decoder<R> {
             },
             Decoder::Zstd(decoder) => match decoder.read(buf) {
                 Ok(n) => Ok(n),
-                Err(e) if decoder.get_ref().get_ref().has_errored => Err(e),
-                Err(_) if !decoder.get_ref().get_ref().has_read_data => Ok(0),
                 Err(e) => Err(io::Error::new(
                     e.kind(),
                     format!("error decoding zstd response body: {}", e),

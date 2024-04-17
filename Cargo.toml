@@ -46,7 +46,7 @@ termcolor = "1.1.2"
 time = "0.3.16"
 unicode-width = "0.1.9"
 url = "2.2.2"
-zstd = { version = "0.13.1", default-features = false }
+ruzstd = { version = "0.6", default-features = false, features = ["std"]}
 
 [dependencies.reqwest]
 version = "0.12.3"
