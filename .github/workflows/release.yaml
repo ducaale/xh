@@ -107,9 +107,6 @@ jobs:
             strip "target/${{ matrix.job.target }}/release/xh"
           fi
 
-      - id: get_version
-        uses: battila7/get-version-action@v2
-
       - name: Package
         shell: bash
         run: |
@@ -118,7 +115,7 @@ jobs:
           else
             bin="target/${{ matrix.job.target }}/release/xh"
           fi
-          staging="xh-${{ steps.get_version.outputs.version }}-${{ matrix.job.target }}"
+          staging="xh-${GITHUB_REF_NAME}-${{ matrix.job.target }}"
 
           mkdir -p "$staging"/{doc,completions}
           cp LICENSE README.md $bin $staging
