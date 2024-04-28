@@ -19,7 +19,7 @@ jobs:
             os: ubuntu-latest
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
-            os: macos-latest
+            os: macos-13
             flags: --features=native-tls
           - target: aarch64-apple-darwin
             os: macos-14
@@ -70,7 +70,7 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             use-cross: true
-          - os: macos-latest
+          - os: macos-13
             target: x86_64-apple-darwin
             flags: --features=native-tls
           - os: macos-14
@@ -127,7 +127,7 @@ jobs:
 
           if [ "${{ matrix.job.os }}" = "windows-latest" ]; then
             7z a "$staging.zip" $staging
-          elif [ "${{ matrix.job.os }}" = "macos-latest" ]; then
+          elif [[ "${{ matrix.job.os }}" =~ "macos" ]]; then
             gtar czvf "$staging.tar.gz" $staging
           else
             tar czvf "$staging.tar.gz" $staging
