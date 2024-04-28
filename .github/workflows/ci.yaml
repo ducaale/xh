@@ -22,7 +22,7 @@ jobs:
             os: ubuntu-latest
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-apple-darwin
-            os: macos-latest
+            os: macos-13
             flags: --features=native-tls
           - target: aarch64-apple-darwin
             os: macos-14
