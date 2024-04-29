@@ -115,7 +115,7 @@ jobs:
           else
             bin="target/${{ matrix.job.target }}/release/xh"
           fi
-          staging="xh-${GITHUB_REF_NAME}-${{ matrix.job.target }}"
+          staging="xh-${{ github.ref_name }}-${{ matrix.job.target }}"
 
           mkdir -p "$staging"/{doc,completions}
           cp LICENSE README.md $bin $staging
