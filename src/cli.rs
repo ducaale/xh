@@ -506,11 +506,10 @@ impl Cli {
             );
         }
 
-        cli.bin_name = app
-            .get_bin_name()
+        app.get_bin_name()
             .and_then(|name| name.split('.').next())
             .unwrap_or("xh")
-            .to_owned();
+            .clone_into(&mut cli.bin_name);
 
         if matches!(cli.bin_name.as_str(), "https" | "xhs" | "xhttps") {
             cli.https = true;
