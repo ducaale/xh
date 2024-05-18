@@ -4,12 +4,14 @@ use std::str::FromStr;
 use brotli::Decompressor as BrotliDecoder;
 use flate2::read::{GzDecoder, ZlibDecoder};
 use reqwest::header::{HeaderMap, CONTENT_ENCODING, CONTENT_LENGTH, TRANSFER_ENCODING};
+use ruzstd::{FrameDecoder, StreamingDecoder as ZstdDecoder};
 
 #[derive(Debug)]
 pub enum CompressionType {
     Gzip,
     Deflate,
     Brotli,
+    Zstd,
 }
 
 impl FromStr for CompressionType {
@@ -19,6 +21,7 @@ impl FromStr for CompressionType {
             "gzip" => Ok(CompressionType::Gzip),
             "deflate" => Ok(CompressionType::Deflate),
             "br" => Ok(CompressionType::Brotli),
+            "zstd" => Ok(CompressionType::Zstd),
             _ => Err(anyhow::anyhow!("unknown compression type")),
         }
     }
@@ -88,6 +91,7 @@ enum Decoder<R: Read> {
     Gzip(GzDecoder<InnerReader<R>>),
     Deflate(ZlibDecoder<InnerReader<R>>),
     Brotli(BrotliDecoder<InnerReader<R>>),
+    Zstd(ZstdDecoder<InnerReader<R>, FrameDecoder>),
 }
 
 impl<R: Read> Read for Decoder<R> {
@@ -121,6 +125,13 @@ impl<R: Read> Read for Decoder<R> {
                     format!("error decoding brotli response body: {}", e),
                 )),
             },
+            Decoder::Zstd(decoder) => match decoder.read(buf) {
+                Ok(n) => Ok(n),
+                Err(e) => Err(io::Error::new(
+                    e.kind(),
+                    format!("error decoding zstd response body: {}", e),
+                )),
+            },
         }
     }
 }
@@ -134,6 +145,7 @@ pub fn decompress(
         Some(CompressionType::Gzip) => Decoder::Gzip(GzDecoder::new(reader)),
         Some(CompressionType::Deflate) => Decoder::Deflate(ZlibDecoder::new(reader)),
         Some(CompressionType::Brotli) => Decoder::Brotli(BrotliDecoder::new(reader, 4096)),
+        Some(CompressionType::Zstd) => Decoder::Zstd(ZstdDecoder::new(reader).unwrap()),
         None => Decoder::PlainText(reader),
     }
 }

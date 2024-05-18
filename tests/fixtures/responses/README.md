@@ -9,4 +9,7 @@ $ pigz -z hello_world # hello_world.zz
 
 $ echo "Hello world" > hello_world
 $ brotli hello_world # hello_world.br
+
+$ echo "Hello world" > hello_world
+$ zstd hello_world # hello_world.zst
 ```

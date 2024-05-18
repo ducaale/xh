@@ -418,7 +418,7 @@ fn verbose() {
         .stdout(indoc! {r#"
             POST / HTTP/1.1
             Accept: application/json, */*;q=0.5
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Content-Length: 9
             Content-Type: application/json
@@ -940,7 +940,7 @@ fn digest_auth_with_redirection() {
         .stdout(indoc! {r#"
             GET /login_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -954,7 +954,7 @@ fn digest_auth_with_redirection() {
 
             GET /login_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/login_page", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="894fd5ee1dcc702df7e4a6abed37fd56", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
             Connection: keep-alive
             Host: http.mock
@@ -969,7 +969,7 @@ fn digest_auth_with_redirection() {
 
             GET /admin_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -2020,7 +2020,7 @@ fn can_unset_default_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
 
@@ -2035,7 +2035,7 @@ fn can_unset_headers() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Hello: world
             Host: http.mock
@@ -2052,7 +2052,7 @@ fn can_set_unset_header() {
         .stdout(indoc! {r#"
             GET / HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Hello: world
             Host: http.mock
@@ -2785,7 +2785,7 @@ fn print_intermediate_requests_and_responses() {
         .stdout(indoc! {r#"
             GET /first_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -2799,7 +2799,7 @@ fn print_intermediate_requests_and_responses() {
 
             GET /second_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -2840,7 +2840,7 @@ fn history_print() {
         .stdout(indoc! {r#"
             GET /first_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -2852,7 +2852,7 @@ fn history_print() {
 
             GET /second_page HTTP/1.1
             Accept: */*
-            Accept-Encoding: gzip, deflate, br
+            Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Host: http.mock
             User-Agent: xh/0.0.0 (test mode)
@@ -3376,6 +3376,31 @@ fn brotli() {
             HTTP/1.1 200 OK
             Content-Encoding: br
             Content-Length: 17
+            Date: N/A
+
+            Hello world
+
+        "#});
+}
+
+#[test]
+fn zstd() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.zst").unwrap();
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "zstd")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: zstd
+            Content-Length: 25
             Date: N/A
 
             Hello world
