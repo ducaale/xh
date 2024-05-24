@@ -37,6 +37,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | FreeBSD                       | FreshPorts | `pkg install xh`                           |
 | NetBSD                        | pkgsrc     | `pkgin install xh`                         |
 | Linux & macOS                 | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
+| Linux & macOS                 | [Flox]     | `flox install xh`                          |
 | Linux & macOS                 | Homebrew   | `brew install xh`                          |
 | macOS                         | MacPorts   | `sudo port install xh`                     |
 | Windows                       | Scoop      | `scoop install xh`                         |
@@ -55,6 +56,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 [Magisk]: https://github.com/topjohnwu/Magisk
 [KernelSU]: https://kernelsu.org
 [Termux]: https://github.com/termux/termux-app
+[Flox]: https://flox.dev/docs/
 
 ### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
