@@ -287,9 +287,11 @@ mod imp {
 
 impl Buffer {
     pub fn new(download: bool, output: Option<&Path>, is_stdout_tty: bool) -> io::Result<Self> {
+        log::trace!("is_stdout_tty: {is_stdout_tty}");
         Ok(if download {
             Buffer::stderr()
         } else if let Some(output) = output {
+            log::trace!("creating file {output:?}");
             let file = std::fs::File::create(output)?;
             Buffer::file(file)
         } else if is_stdout_tty {

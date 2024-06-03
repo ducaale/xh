@@ -30,6 +30,7 @@ complete -c xh -s h -l headers -d 'Print only the response headers. Shortcut for
 complete -c xh -s b -l body -d 'Print only the response body. Shortcut for --print=b'
 complete -c xh -s m -l meta -d 'Print only the response metadata. Shortcut for --print=m'
 complete -c xh -s v -l verbose -d 'Print the whole request as well as the response'
+complete -c xh -l debug -d 'Print full error stack traces and debug log messages'
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
 complete -c xh -s S -l stream -d 'Always stream the response body'
@@ -61,6 +62,7 @@ complete -c xh -l no-headers
 complete -c xh -l no-body
 complete -c xh -l no-meta
 complete -c xh -l no-verbose
+complete -c xh -l no-debug
 complete -c xh -l no-all
 complete -c xh -l no-history-print
 complete -c xh -l no-quiet

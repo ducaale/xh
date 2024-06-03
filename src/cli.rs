@@ -18,6 +18,7 @@ use reqwest::{tls, Method, Url};
 use serde::Deserialize;
 
 use crate::buffer::Buffer;
+use crate::redacted::SecretString;
 use crate::request_items::RequestItems;
 use crate::utils::config_dir;
 
@@ -155,6 +156,13 @@ Example: --print=Hb"
     #[clap(short = 'v', long, action = ArgAction::Count)]
     pub verbose: u8,
 
+    /// Print full error stack traces and debug log messages.
+    ///
+    /// Logging can be configured in more detail using the `$RUST_LOG` environment
+    /// variable. See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
+    #[clap(long)]
+    pub debug: bool,
+
     /// Show any intermediary requests/responses while following redirects with --follow.
     #[clap(long)]
     pub all: bool,
@@ -219,11 +227,11 @@ Example: --print=Hb"
     ///
     /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
-    pub auth: Option<String>,
+    pub auth: Option<SecretString>,
 
     /// Authenticate with a bearer token.
     #[clap(long, value_name = "TOKEN", hide = true)]
-    pub bearer: Option<String>,
+    pub bearer: Option<SecretString>,
 
     /// Do not use credentials from .netrc
     #[clap(long)]
@@ -617,6 +625,12 @@ impl Cli {
         app.args(negations)
             .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
             .after_long_help("Each option can be reset with a --no-OPTION argument.")
+    }
+
+    pub fn logger_config(&self) -> env_logger::Builder {
+        let default_level = if self.debug { "debug" } else { "off" };
+        let env = env_logger::Env::default().default_filter_or(default_level);
+        env_logger::Builder::from_env(env)
     }
 }
 

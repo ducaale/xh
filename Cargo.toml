@@ -47,6 +47,8 @@ time = "0.3.16"
 unicode-width = "0.1.9"
 url = "2.2.2"
 ruzstd = { version = "0.6", default-features = false, features = ["std"]}
+env_logger = { version = "0.11.3", default-features = false, features = ["color", "auto-color", "humantime"] }
+log = "0.4.21"
 
 [dependencies.reqwest]
 version = "0.12.3"

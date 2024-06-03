@@ -9,6 +9,7 @@ mod middleware;
 mod nested_json;
 mod netrc;
 mod printer;
+mod redacted;
 mod redirect;
 mod request_items;
 mod session;
@@ -60,6 +61,16 @@ fn get_user_agent() -> &'static str {
 
 fn main() {
     let args = Cli::parse();
+
+    if args.debug {
+        setup_backtraces();
+    }
+    args.logger_config().init();
+    // HTTPie also prints the language version, library versions, and OS version.
+    // But those are harder to access for us (and perhaps less likely to cause quirks).
+    log::debug!("xh {} {}", env!("CARGO_PKG_VERSION"), env!("XH_FEATURES"));
+    log::debug!("{args:#?}");
+
     let bin_name = args.bin_name.clone();
     let native_tls = args.native_tls;
 
@@ -93,6 +104,8 @@ fn run(args: Cli) -> Result<i32> {
         return Ok(0);
     }
 
+    // Maybe we can use log::warn!() for this instead?
+    // The output format is different though.
     let warn = {
         let bin_name = &args.bin_name;
         move |msg| eprintln!("{}: warning: {}", bin_name, msg)
@@ -100,6 +113,7 @@ fn run(args: Cli) -> Result<i32> {
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     let url = url_with_query(args.url, &args.request_items.query()?);
+    log::debug!("Complete URL: {url}");
 
     let use_stdin = !(args.ignore_stdin || io::stdin().is_terminal() || test_pretend_term());
 
@@ -131,6 +145,7 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
+    log::debug!("HTTP method: {method}");
 
     let mut client = Client::builder()
         .http1_title_case_headers()
@@ -317,6 +332,7 @@ fn run(args: Cli) -> Result<i32> {
                             None
                         })
                         .with_context(|| format!("Couldn't bind to {:?}", name_or_ip))?;
+                    log::debug!("Resolved {name_or_ip:?} to {ip_addr:?}");
                     client = client.local_address(ip_addr);
                 }
             }
@@ -327,6 +343,8 @@ fn run(args: Cli) -> Result<i32> {
         client = client.resolve(&resolve.domain, SocketAddr::new(resolve.addr, 0));
     }
 
+    log::trace!("Finalizing reqwest client");
+    log::trace!("{client:#?}");
     let client = client.build()?;
 
     let mut session = match &args.session {
@@ -484,6 +502,10 @@ fn run(args: Cli) -> Result<i32> {
             .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
     }
 
+    log::trace!("Built reqwest request");
+    // Note: Debug impl is incomplete?
+    log::trace!("{request:#?}");
+
     let buffer = Buffer::new(
         args.download,
         args.output.as_deref(),
@@ -606,4 +628,29 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     Ok(exit_code)
+}
+
+/// Configure backtraces for standard panics and anyhow using `$RUST_BACKTRACE`.
+///
+/// Note: they only check the environment variable once, so this won't take effect if
+/// we do it after a panic has already happened or an anyhow error has already been
+/// created.
+///
+/// It's possible for CLI parsing to create anyhow errors before we call this function
+/// but it looks like those errors are always fatal.
+///
+/// https://github.com/rust-lang/rust/issues/93346 will become the preferred way to
+/// configure panic backtraces.
+fn setup_backtraces() {
+    if std::env::var_os("RUST_BACKTRACE").is_some_and(|val| !val.is_empty()) {
+        // User knows best
+        return;
+    }
+
+    // SAFETY: No other threads are running at this time.
+    // (Will become unsafe in the 2024 edition.)
+    #[allow(unused_unsafe)]
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
 }

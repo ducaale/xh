@@ -1,4 +1,4 @@
-.TH XH 1 2024-04-12 0.22.0 "User Commands"
+.TH XH 1 2024-06-04 0.22.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -168,6 +168,11 @@ Additionally, this enables \-\-all for printing intermediary requests/responses 
 Using verbose twice i.e. \-vv will print the response metadata as well.
 
 Equivalent to \-\-print=HhBb \-\-all.
+.TP 4
+\fB\-\-debug\fR
+Print full error stack traces and debug log messages.
+
+Logging can be configured in more detail using the `$RUST_LOG` environment variable. See https://docs.rs/env_logger/0.11.3/env_logger/#enabling\-logging.
 .TP 4
 \fB\-\-all\fR
 Show any intermediary requests/responses while following redirects with \-\-follow.
@@ -371,6 +376,9 @@ Location of the .netrc file.
 .TP
 .B NO_COLOR
 Disables output coloring. See <https://no-color.org>
+.TP
+.B RUST_LOG
+Configure low-level debug messages. See <https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging>
 
 .SH FILES
 .TP 4
