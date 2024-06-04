@@ -312,7 +312,7 @@ impl Buffer {
             // Based on termcolor's logic for ColorChoice::Auto
             if cfg!(test) {
                 Pretty::All
-            } else if var_os("NO_COLOR").is_some() {
+            } else if var_os("NO_COLOR").is_some_and(|val| !val.is_empty()) {
                 Pretty::Format
             } else {
                 match var_os("TERM") {
