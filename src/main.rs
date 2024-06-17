@@ -418,10 +418,6 @@ fn run(args: Cli) -> Result<i32> {
             Body::File {
                 file_name,
                 file_type,
-                // We could turn this into a Content-Disposition header, but
-                // that has no effect, so just ignore it
-                // (Additional precedent: HTTPie ignores file_type here)
-                file_name_header: _,
             } => request_builder.body(File::open(file_name)?).header(
                 CONTENT_TYPE,
                 file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),

@@ -428,7 +428,6 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::File {
                 file_name,
                 file_type,
-                file_name_header: _,
             } => {
                 if let Some(file_type) = file_type {
                     cmd.header("content-type", file_type.to_str()?);
