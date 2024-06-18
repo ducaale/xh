@@ -642,7 +642,7 @@ fn run(args: Cli) -> Result<i32> {
 /// https://github.com/rust-lang/rust/issues/93346 will become the preferred way to
 /// configure panic backtraces.
 fn setup_backtraces() {
-    if std::env::var_os("RUST_BACKTRACE").is_some_and(|val| !val.is_empty()) {
+    if std::env::var_os("RUST_BACKTRACE").is_some() {
         // User knows best
         return;
     }
