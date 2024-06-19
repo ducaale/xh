@@ -628,9 +628,31 @@ impl Cli {
     }
 
     pub fn logger_config(&self) -> env_logger::Builder {
-        let default_level = if self.debug { "debug" } else { "off" };
-        let env = env_logger::Env::default().default_filter_or(default_level);
-        env_logger::Builder::from_env(env)
+        if self.debug || std::env::var_os("RUST_LOG").is_some() {
+            let env = env_logger::Env::default().default_filter_or("debug");
+            let mut builder = env_logger::Builder::from_env(env);
+            builder.format_timestamp(None);
+            builder
+        } else {
+            let env = env_logger::Env::default();
+            let mut builder = env_logger::Builder::from_env(env);
+            builder.filter_level(log::LevelFilter::Warn);
+
+            let bin_name = self.bin_name.clone();
+            builder.format(move |buf, record| {
+                let level = match record.level() {
+                    log::Level::Error => "error",
+                    log::Level::Warn => "warning",
+                    log::Level::Info => "info",
+                    log::Level::Debug => "debug",
+                    log::Level::Trace => "trace",
+                };
+                let args = record.args();
+                writeln!(buf, "{bin_name}: {level}: {args}")
+            });
+
+            builder
+        }
     }
 }
 
@@ -644,6 +666,7 @@ fn default_cli_args() -> Option<Vec<String>> {
         Ok(file) => Some(file),
         Err(err) => {
             if err.kind() != std::io::ErrorKind::NotFound {
+                // Can't use log::warn!() because logging isn't initialized yet
                 eprintln!(
                     "\n{}: warning: Unable to read config file: {}\n",
                     env!("CARGO_PKG_NAME"),

@@ -71,7 +71,6 @@ fn main() {
     log::debug!("xh {} {}", env!("CARGO_PKG_VERSION"), env!("XH_FEATURES"));
     log::debug!("{args:#?}");
 
-    let bin_name = args.bin_name.clone();
     let native_tls = args.native_tls;
 
     match run(args) {
@@ -79,7 +78,7 @@ fn main() {
             process::exit(exit_code);
         }
         Err(err) => {
-            eprintln!("{}: error: {:?}", bin_name, err);
+            log::error!("{err:?}");
             let msg = err.root_cause().to_string();
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
@@ -103,13 +102,6 @@ fn run(args: Cli) -> Result<i32> {
         to_curl::print_curl_translation(args)?;
         return Ok(0);
     }
-
-    // Maybe we can use log::warn!() for this instead?
-    // The output format is different though.
-    let warn = {
-        let bin_name = &args.bin_name;
-        move |msg| eprintln!("{}: warning: {}", bin_name, msg)
-    };
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     let url = url_with_query(args.url, &args.request_items.query()?);
@@ -168,13 +160,13 @@ fn run(args: Cli) -> Result<i32> {
 
         #[cfg(feature = "native-tls")]
         if !args.native_tls && tls_version < tls::Version::TLS_1_2 {
-            warn("rustls does not support older TLS versions. native-tls will be enabled. Use --native-tls to silence this warning.");
+            log::warn!("rustls does not support older TLS versions. native-tls will be enabled. Use --native-tls to silence this warning.");
             client = client.use_native_tls();
         }
 
         #[cfg(not(feature = "native-tls"))]
         if tls_version < tls::Version::TLS_1_2 {
-            warn("rustls does not support older TLS versions. Consider building with the `native-tls` feature enabled.");
+            log::warn!("rustls does not support older TLS versions. Consider building with the `native-tls` feature enabled.");
         }
     }
 
@@ -213,7 +205,7 @@ fn run(args: Cli) -> Result<i32> {
                 if args.native_tls {
                     // This is not a hard error in case it gets fixed upstream
                     // https://github.com/seanmonstar/reqwest/issues/1260
-                    warn("Custom CA bundles with native-tls are broken");
+                    log::warn!("Custom CA bundles with native-tls are broken");
                 }
 
                 let mut buffer = Vec::new();
@@ -241,7 +233,7 @@ fn run(args: Cli) -> Result<i32> {
             if args.native_tls {
                 // Unlike the --verify case this is advertised to not work, so it's
                 // not an outright bug, but it's still imaginable that it'll start working
-                warn("Client certificates are not supported for native-tls");
+                log::warn!("Client certificates are not supported for native-tls");
             }
 
             let mut buffer = Vec::new();
@@ -270,7 +262,7 @@ fn run(args: Cli) -> Result<i32> {
         if args.cert.is_some() {
             // Unlike the --verify case this is advertised to not work, so it's
             // not an outright bug, but it's still imaginable that it'll start working
-            warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
+            log::warn!("Client certificates are not supported for native-tls and this binary was built without rustls support");
         };
     }
 
@@ -590,7 +582,7 @@ fn run(args: Cli) -> Result<i32> {
             }
         }
         if is_output_redirected && exit_code != 0 {
-            warn(&format!("HTTP {}", status));
+            log::warn!("HTTP {status}");
         }
 
         if print.response_headers {
