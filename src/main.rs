@@ -518,7 +518,7 @@ fn run(args: Cli) -> Result<i32> {
             args.headers,
             args.body,
             args.meta,
-            args.quiet,
+            args.quiet > 0,
             args.offline,
             &buffer,
         ),
@@ -603,7 +603,7 @@ fn run(args: Cli) -> Result<i32> {
                     &url,
                     resume,
                     pretty.color(),
-                    args.quiet,
+                    args.quiet > 0,
                 )?;
             }
         } else {

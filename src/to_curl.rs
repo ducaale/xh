@@ -92,8 +92,6 @@ pub fn translate(args: Cli) -> Result<Command> {
         (args.body, "-b/--body"),
         // No straightforward equivalent
         (args.print.is_some(), "-p/--print"),
-        // No equivalent, -s/--silent suppresses other stuff
-        (args.quiet, "-q/--quiet"),
         // No equivalent
         (args.pretty.is_some(), "--pretty"),
         // No equivalent
@@ -132,6 +130,11 @@ pub fn translate(args: Cli) -> Result<Command> {
     if args.verbose > 0 {
         // Far from an exact match, but it does print the request headers
         cmd.opt("-v", "--verbose");
+    }
+    if args.quiet > 0 {
+        // Also not an exact match but it suppresses error messages which
+        // is sorta like suppressing warnings
+        cmd.opt("-s", "--silent");
     }
     if args.debug {
         // Again not an exact match but it's something

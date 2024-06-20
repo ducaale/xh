@@ -173,8 +173,8 @@ Example: --print=Hb"
     pub history_print: Option<Print>,
 
     /// Do not print to stdout or stderr.
-    #[clap(short = 'q', long)]
-    pub quiet: bool,
+    #[clap(short = 'q', long, action = ArgAction::Count)]
+    pub quiet: u8,
 
     /// Always stream the response body.
     #[clap(short = 'S', long = "stream", name = "stream")]
@@ -650,7 +650,11 @@ impl Cli {
         } else {
             let env = env_logger::Env::default();
             let mut builder = env_logger::Builder::from_env(env);
-            builder.filter_level(log::LevelFilter::Warn);
+            if self.quiet >= 2 {
+                builder.filter_level(log::LevelFilter::Error);
+            } else {
+                builder.filter_level(log::LevelFilter::Warn);
+            }
 
             let bin_name = self.bin_name.clone();
             builder.format(move |buf, record| {
