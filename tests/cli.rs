@@ -1784,6 +1784,33 @@ fn multipart_file_upload() {
 }
 
 #[test]
+fn warn_for_filename_tag_on_body() {
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--offline")
+        .arg(":")
+        .arg(format!(
+            "@{};filename=hello.txt",
+            filename.to_string_lossy()
+        ))
+        .assert()
+        .success()
+        .stderr(
+            "xh: warning: Ignoring ;filename= tag for single-file body. Consider --multipart.\n",
+        );
+}
+
+#[test]
 fn body_from_file() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["content-type"], "text/plain");
