@@ -631,7 +631,20 @@ impl Cli {
         if self.debug || std::env::var_os("RUST_LOG").is_some() {
             let env = env_logger::Env::default().default_filter_or("debug");
             let mut builder = env_logger::Builder::from_env(env);
-            builder.format_timestamp(None);
+
+            let start = std::time::Instant::now();
+            builder.format(move |buf, record| {
+                let time = start.elapsed().as_secs_f64();
+                let level = record.level();
+                let style = buf.default_level_style(level);
+                let module = record.module_path().unwrap_or("");
+                let args = record.args();
+                writeln!(
+                    buf,
+                    "[{time:.6}s {style}{level: <5}{style:#} {module}] {args}"
+                )
+            });
+
             builder
         } else {
             let env = env_logger::Env::default();
