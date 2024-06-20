@@ -185,85 +185,83 @@ fn run(args: Cli) -> Result<i32> {
     let mut auth = None;
     let mut save_auth_in_session = true;
 
-    if url.scheme() == "https" {
-        let verify = args.verify.unwrap_or_else(|| {
-            // requests library which is used by HTTPie checks for both
-            // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
-            // See https://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
-            if let Some(path) = env::var_os("REQUESTS_CA_BUNDLE") {
-                Verify::CustomCaBundle(PathBuf::from(path))
-            } else if let Some(path) = env::var_os("CURL_CA_BUNDLE") {
-                Verify::CustomCaBundle(PathBuf::from(path))
-            } else {
-                Verify::Yes
-            }
-        });
-        client = match verify {
-            Verify::Yes => client,
-            Verify::No => client.danger_accept_invalid_certs(true),
-            Verify::CustomCaBundle(path) => {
-                if args.native_tls {
-                    // This is not a hard error in case it gets fixed upstream
-                    // https://github.com/seanmonstar/reqwest/issues/1260
-                    log::warn!("Custom CA bundles with native-tls are broken");
-                }
-
-                let mut buffer = Vec::new();
-                let mut file = File::open(&path).with_context(|| {
-                    format!("Failed to open the custom CA bundle: {}", path.display())
-                })?;
-                file.read_to_end(&mut buffer).with_context(|| {
-                    format!("Failed to read the custom CA bundle: {}", path.display())
-                })?;
-
-                client = client.tls_built_in_root_certs(false);
-                for pem in pem::parse_many(buffer)? {
-                    let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
-                        .with_context(|| {
-                            format!("Failed to load the custom CA bundle: {}", path.display())
-                        })?;
-                    client = client.add_root_certificate(certificate);
-                }
-                client
-            }
-        };
-
-        #[cfg(feature = "rustls")]
-        if let Some(cert) = args.cert {
+    let verify = args.verify.unwrap_or_else(|| {
+        // requests library which is used by HTTPie checks for both
+        // REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE environment variables.
+        // See https://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
+        if let Some(path) = env::var_os("REQUESTS_CA_BUNDLE") {
+            Verify::CustomCaBundle(PathBuf::from(path))
+        } else if let Some(path) = env::var_os("CURL_CA_BUNDLE") {
+            Verify::CustomCaBundle(PathBuf::from(path))
+        } else {
+            Verify::Yes
+        }
+    });
+    client = match verify {
+        Verify::Yes => client,
+        Verify::No => client.danger_accept_invalid_certs(true),
+        Verify::CustomCaBundle(path) => {
             if args.native_tls {
-                // Unlike the --verify case this is advertised to not work, so it's
-                // not an outright bug, but it's still imaginable that it'll start working
-                log::warn!("Client certificates are not supported for native-tls");
+                // This is not a hard error in case it gets fixed upstream
+                // https://github.com/seanmonstar/reqwest/issues/1260
+                log::warn!("Custom CA bundles with native-tls are broken");
             }
 
             let mut buffer = Vec::new();
-            let mut file = File::open(&cert)
-                .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
-            file.read_to_end(&mut buffer)
-                .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
+            let mut file = File::open(&path).with_context(|| {
+                format!("Failed to open the custom CA bundle: {}", path.display())
+            })?;
+            file.read_to_end(&mut buffer).with_context(|| {
+                format!("Failed to read the custom CA bundle: {}", path.display())
+            })?;
 
-            if let Some(cert_key) = args.cert_key {
-                buffer.push(b'\n');
-
-                let mut file = File::open(&cert_key).with_context(|| {
-                    format!("Failed to open the cert key file: {}", cert_key.display())
-                })?;
-                file.read_to_end(&mut buffer).with_context(|| {
-                    format!("Failed to read the cert key file: {}", cert_key.display())
-                })?;
+            client = client.tls_built_in_root_certs(false);
+            for pem in pem::parse_many(buffer)? {
+                let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
+                    .with_context(|| {
+                        format!("Failed to load the custom CA bundle: {}", path.display())
+                    })?;
+                client = client.add_root_certificate(certificate);
             }
+            client
+        }
+    };
 
-            // We may fail here if we can't parse it but also if we don't have the key
-            let identity = reqwest::Identity::from_pem(&buffer)
-                .context("Failed to load the cert/cert key files")?;
-            client = client.identity(identity);
-        };
-        #[cfg(not(feature = "rustls"))]
-        if args.cert.is_some() {
+    #[cfg(feature = "rustls")]
+    if let Some(cert) = args.cert {
+        if args.native_tls {
             // Unlike the --verify case this is advertised to not work, so it's
             // not an outright bug, but it's still imaginable that it'll start working
-            log::warn!("Client certificates are not supported for native-tls and this binary was built without rustls support");
-        };
+            log::warn!("Client certificates are not supported for native-tls");
+        }
+
+        let mut buffer = Vec::new();
+        let mut file = File::open(&cert)
+            .with_context(|| format!("Failed to open the cert file: {}", cert.display()))?;
+        file.read_to_end(&mut buffer)
+            .with_context(|| format!("Failed to read the cert file: {}", cert.display()))?;
+
+        if let Some(cert_key) = args.cert_key {
+            buffer.push(b'\n');
+
+            let mut file = File::open(&cert_key).with_context(|| {
+                format!("Failed to open the cert key file: {}", cert_key.display())
+            })?;
+            file.read_to_end(&mut buffer).with_context(|| {
+                format!("Failed to read the cert key file: {}", cert_key.display())
+            })?;
+        }
+
+        // We may fail here if we can't parse it but also if we don't have the key
+        let identity = reqwest::Identity::from_pem(&buffer)
+            .context("Failed to load the cert/cert key files")?;
+        client = client.identity(identity);
+    }
+    #[cfg(not(feature = "rustls"))]
+    if args.cert.is_some() {
+        // Unlike the --verify case this is advertised to not work, so it's
+        // not an outright bug, but it's still imaginable that it'll start working
+        log::warn!("Client certificates are not supported for native-tls and this binary was built without rustls support");
     }
 
     for proxy in args.proxy.into_iter().rev() {
