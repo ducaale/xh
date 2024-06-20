@@ -159,7 +159,8 @@ Example: --print=Hb"
     /// Print full error stack traces and debug log messages.
     ///
     /// Logging can be configured in more detail using the `$RUST_LOG` environment
-    /// variable. See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
+    /// variable. Set `RUST_LOG=trace` to show even more messages.
+    /// See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
     #[clap(long)]
     pub debug: bool,
 
