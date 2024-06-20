@@ -57,3 +57,37 @@ fn backtrace_is_not_printed_outside_debug_mode() {
         .unwrap()
         .contains("Stack backtrace:"));
 }
+
+#[test]
+fn checked_status_is_printed_with_single_quiet() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(404)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--quiet", "--check-status", &server.base_url()])
+        .assert()
+        .code(4)
+        .stdout("")
+        .stderr("xh: warning: HTTP 404 Not Found\n");
+}
+
+#[test]
+fn checked_status_is_not_printed_with_double_quiet() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(404)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--quiet", "--quiet", "--check-status", &server.base_url()])
+        .assert()
+        .code(4)
+        .stdout("")
+        .stderr("");
+}

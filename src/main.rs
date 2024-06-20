@@ -586,10 +586,10 @@ fn run(args: Cli) -> Result<i32> {
                 400..=499 => 4,
                 500..=599 => 5,
                 _ => 0,
+            };
+            if exit_code != 0 && (is_output_redirected || args.quiet > 0) {
+                log::warn!("HTTP {status}");
             }
-        }
-        if is_output_redirected && exit_code != 0 {
-            log::warn!("HTTP {status}");
         }
 
         if print.response_headers {
