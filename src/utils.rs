@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 
 use anyhow::Result;
-use reqwest::header::HeaderValue;
 use reqwest::blocking::Request;
+use reqwest::header::HeaderValue;
 use url::Url;
 
 pub fn unescape(text: &str, special_chars: &'static str) -> String {

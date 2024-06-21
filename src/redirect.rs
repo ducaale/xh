@@ -52,7 +52,7 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
             .headers()
             .get(LOCATION)
             .and_then(|location| location.to_utf8_str().ok())
-            .and_then(|location| request.url().join(&location).ok())
+            .and_then(|location| request.url().join(location).ok())
     };
 
     match response.status() {

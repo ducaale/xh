@@ -1658,6 +1658,90 @@ fn body_from_raw() {
 }
 
 #[test]
+fn support_utf8_header_value() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["hello"].as_bytes(), "你好".as_bytes());
+        hyper::Response::builder()
+            // Valid JSON, but not declared as text
+            .header("hello", "你好呀")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args([&server.base_url(), "hello:你好"])
+        .assert()
+        .stdout(contains("Hello: 你好呀"))
+        .success();
+}
+
+#[test]
+fn redirect_support_utf8_location() {
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/first_page" => hyper::Response::builder()
+                .status(302)
+                .header("Date", "N/A")
+                .header("Location", "/page二")
+                .body("redirecting...".into())
+                .unwrap(),
+            "/page%E4%BA%8C" => hyper::Response::builder()
+                .header("Date", "N/A")
+                .body("final destination".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .args([&server.url("/first_page"), "--follow", "--verbose", "--all"])
+        .assert()
+        .stdout(indoc! {r#"
+            GET /first_page HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br, zstd
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 302 Found
+            Content-Length: 14
+            Date: N/A
+            Location: /page二
+
+            redirecting...
+
+            GET /page%E4%BA%8C HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br, zstd
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+            HTTP/1.1 200 OK
+            Content-Length: 17
+            Date: N/A
+
+            final destination
+        "#});
+}
+
+#[test]
+fn to_curl_support_utf8_header_value() {
+    get_command()
+        .args(["https://exmaple.com/", "hello:你好", "--curl"])
+        .assert()
+        .stdout(contains("curl https://exmaple.com/ -H 'hello: 你好'"))
+        .success();
+
+    get_command()
+        .args(["https://exmaple.com/", "hello:你好", "--curl-long"])
+        .assert()
+        .stdout(contains("curl https://exmaple.com/ --header 'hello: 你好'"))
+        .success();
+}
+
+#[test]
 fn mixed_stdin_request_items() {
     redirecting_command()
         .args(["--offline", ":", "x=3"])
