@@ -51,8 +51,8 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
         response
             .headers()
             .get(LOCATION)
-            .and_then(|location| location.to_str().ok())
-            .and_then(|location| request.url().join(location).ok())
+            .and_then(|location| String::from_utf8(location.as_bytes().to_vec()).ok())
+            .and_then(|location| request.url().join(&location).ok())
     };
 
     match response.status() {

@@ -336,8 +336,8 @@ impl Printer {
                 header_string.push_str(key.as_str());
             }
             header_string.push_str(": ");
-            match value.to_str() {
-                Ok(value) => header_string.push_str(value),
+            match String::from_utf8(value.as_bytes().to_vec()) {
+                Ok(value) => header_string.push_str(&value),
                 #[allow(clippy::format_push_string)]
                 Err(_) => header_string.push_str(&format!("{:?}", value)),
             }

@@ -308,7 +308,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         if value.is_empty() {
             cmd.arg(format!("{};", header));
         } else {
-            cmd.arg(format!("{}: {}", header, value.to_str()?));
+            cmd.arg(format!(
+                "{}: {}",
+                header,
+                String::from_utf8(value.as_bytes().to_vec())?
+            ));
         }
     }
     for header in headers_to_unset {
