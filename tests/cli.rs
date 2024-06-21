@@ -531,6 +531,27 @@ fn download_supplied_filename() {
 }
 
 #[test]
+fn download_supplied_unicode_filename() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Disposition", r#"attachment; filename="😀.bar""#)
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("😀.bar")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
 fn download_supplied_unquoted_filename() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
