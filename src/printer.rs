@@ -13,6 +13,7 @@ use reqwest::header::{
 use reqwest::Version;
 use url::Url;
 
+use crate::utils::HeaderValueExt;
 use crate::{
     buffer::Buffer,
     cli::FormatOptions,
@@ -336,8 +337,8 @@ impl Printer {
                 header_string.push_str(key.as_str());
             }
             header_string.push_str(": ");
-            match String::from_utf8(value.as_bytes().to_vec()) {
-                Ok(value) => header_string.push_str(&value),
+            match value.to_utf8_str() {
+                Ok(value) => header_string.push_str(value),
                 #[allow(clippy::format_push_string)]
                 Err(_) => header_string.push_str(&format!("{:?}", value)),
             }

@@ -7,7 +7,7 @@ use std::ffi::OsString;
 
 use crate::cli::{AuthType, Cli, HttpVersion, Verify};
 use crate::request_items::{Body, RequestItem, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
-use crate::utils::url_with_query;
+use crate::utils::{url_with_query, HeaderValueExt};
 
 pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
@@ -308,11 +308,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         if value.is_empty() {
             cmd.arg(format!("{};", header));
         } else {
-            cmd.arg(format!(
-                "{}: {}",
-                header,
-                String::from_utf8(value.as_bytes().to_vec())?
-            ));
+            cmd.arg(format!("{}: {}", header, value.to_utf8_str()?));
         }
     }
     for header in headers_to_unset {
