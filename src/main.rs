@@ -585,7 +585,10 @@ fn run(args: Cli) -> Result<i32> {
                 500..=599 => 5,
                 _ => 0,
             };
-            if exit_code != 0 && (is_output_redirected || args.quiet > 0) {
+            // Print this if the status code isn't otherwise ending up in the terminal.
+            // HTTPie looks at --quiet, since --quiet always suppresses the response
+            // headers even if you pass --print=h. But --print takes precedence for us.
+            if exit_code != 0 && (is_output_redirected || !print.response_headers) {
                 log::warn!("HTTP {status}");
             }
         }
