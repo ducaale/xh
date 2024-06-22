@@ -1683,8 +1683,8 @@ fn support_utf8_header_value() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["hello"].as_bytes(), "你好".as_bytes());
         hyper::Response::builder()
-            // Valid JSON, but not declared as text
             .header("hello", "你好呀")
+            .header("Date", "N/A")
             .body("".into())
             .unwrap()
     });
@@ -1692,7 +1692,14 @@ fn support_utf8_header_value() {
     get_command()
         .args([&server.base_url(), "hello:你好"])
         .assert()
-        .stdout(contains("Hello: 你好呀"))
+        .stdout(indoc! {r#"
+        HTTP/1.1 200 OK
+        Content-Length: 0
+        Date: N/A
+        Hello: "\xe4\xbd\xa0\xe5\xa5\xbd\xe5\x91\x80"
+
+
+        "#})
         .success();
 }
 
@@ -1728,7 +1735,7 @@ fn redirect_support_utf8_location() {
             HTTP/1.1 302 Found
             Content-Length: 14
             Date: N/A
-            Location: /page二
+            Location: "/page\xe4\xba\x8c"
 
             redirecting...
 
@@ -1745,21 +1752,6 @@ fn redirect_support_utf8_location() {
 
             final destination
         "#});
-}
-
-#[test]
-fn to_curl_support_utf8_header_value() {
-    get_command()
-        .args(["https://exmaple.com/", "hello:你好", "--curl"])
-        .assert()
-        .stdout(contains("curl https://exmaple.com/ -H 'hello: 你好'"))
-        .success();
-
-    get_command()
-        .args(["https://exmaple.com/", "hello:你好", "--curl-long"])
-        .assert()
-        .stdout(contains("curl https://exmaple.com/ --header 'hello: 你好'"))
-        .success();
 }
 
 #[test]
@@ -3699,7 +3691,7 @@ fn multiple_format_options_are_merged() {
     get_command()
         .arg("--format-options=json.indent:2,json.indent:8")
         .arg("--format-options=headers.sort:false")
-        .arg(&server.base_url())
+        .arg(server.base_url())
         .assert()
         .stdout(indoc! {r#"
             HTTP/1.1 200 OK

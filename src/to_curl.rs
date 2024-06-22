@@ -544,6 +544,10 @@ mod tests {
             (
                 "xh http://example.com/[1-100].png?q={80,90}",
                 "curl -g 'http://example.com/[1-100].png?q={80,90}'",
+            ),
+            (
+                "xh https://exmaple.com/ hello:你好",
+                "curl https://exmaple.com/ -H 'hello: 你好'"
             )
         ];
         for (input, output) in expected {
