@@ -7,7 +7,7 @@ use reqwest::header::{
 use reqwest::{Method, StatusCode, Url};
 
 use crate::middleware::{Context, Middleware};
-use crate::utils::clone_request;
+use crate::utils::{clone_request, HeaderValueExt};
 
 pub struct RedirectFollower {
     max_redirects: usize,
@@ -54,7 +54,7 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
         response
             .headers()
             .get(LOCATION)
-            .and_then(|location| location.to_str().ok())
+            .and_then(|location| location.to_utf8_str().ok())
             .and_then(|location| request.url().join(location).ok())
     };
 

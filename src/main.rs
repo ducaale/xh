@@ -20,7 +20,7 @@ mod vendored;
 use std::env;
 use std::fs::File;
 use std::io::{self, IsTerminal, Read};
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
@@ -273,23 +273,19 @@ fn run(args: Cli) -> Result<i32> {
         }?);
     }
 
-    if matches!(
-        args.http_version,
-        Some(HttpVersion::Http10) | Some(HttpVersion::Http11)
-    ) {
-        client = client.http1_only();
-    }
-
-    if matches!(args.http_version, Some(HttpVersion::Http2PriorKnowledge)) {
-        client = client.http2_prior_knowledge();
-    }
+    client = match args.http_version {
+        Some(HttpVersion::Http10 | HttpVersion::Http11) => client.http1_only(),
+        Some(HttpVersion::Http2PriorKnowledge) => client.http2_prior_knowledge(),
+        Some(HttpVersion::Http2) => client,
+        None => client,
+    };
 
     let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
     client = client.cookie_provider(cookie_jar.clone());
 
     client = match (args.ipv4, args.ipv6) {
-        (true, false) => client.local_address(IpAddr::from_str("0.0.0.0")?),
-        (false, true) => client.local_address(IpAddr::from_str("::")?),
+        (true, false) => client.local_address(IpAddr::from(Ipv4Addr::UNSPECIFIED)),
+        (false, true) => client.local_address(IpAddr::from(Ipv6Addr::UNSPECIFIED)),
         _ => client,
     };
 
