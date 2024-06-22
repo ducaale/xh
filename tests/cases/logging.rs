@@ -1,3 +1,4 @@
+use hyper::header::HeaderValue;
 use predicates::str::contains;
 
 use crate::prelude::*;
@@ -90,4 +91,36 @@ fn checked_status_is_not_printed_with_double_quiet() {
         .code(4)
         .stdout("")
         .stderr("");
+}
+
+#[test]
+fn warning_for_invalid_redirect() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(302)
+            .header("location", "//")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--follow", &server.base_url()])
+        .assert()
+        .stderr("xh: warning: Redirect to invalid URL: \"//\"\n");
+}
+
+#[test]
+fn warning_for_non_utf8_redirect() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(302)
+            .header("location", HeaderValue::from_bytes(b"\xFF").unwrap())
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--follow", &server.base_url()])
+        .assert()
+        .stderr("xh: warning: Redirect to invalid URL: \"\\xff\"\n");
 }

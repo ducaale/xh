@@ -51,11 +51,15 @@ impl Middleware for RedirectFollower {
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607
 fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {
     let get_next_url = |request: &Request| {
-        response
-            .headers()
-            .get(LOCATION)
-            .and_then(|location| location.to_utf8_str().ok())
-            .and_then(|location| request.url().join(location).ok())
+        let location = response.headers().get(LOCATION)?;
+        let url = location
+            .to_utf8_str()
+            .ok()
+            .and_then(|location| request.url().join(location).ok());
+        if url.is_none() {
+            log::warn!("Redirect to invalid URL: {location:?}");
+        }
+        url
     };
 
     match response.status() {
