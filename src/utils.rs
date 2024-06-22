@@ -2,9 +2,11 @@ use std::borrow::Cow;
 use std::env::var_os;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::str::Utf8Error;
 
 use anyhow::Result;
 use reqwest::blocking::Request;
+use reqwest::header::HeaderValue;
 use url::Url;
 
 pub fn unescape(text: &str, special_chars: &'static str) -> String {
@@ -173,5 +175,15 @@ pub fn copy_largebuf(
             Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
             Err(e) => return Err(e),
         }
+    }
+}
+
+pub(crate) trait HeaderValueExt {
+    fn to_utf8_str(&self) -> Result<&str, Utf8Error>;
+}
+
+impl HeaderValueExt for HeaderValue {
+    fn to_utf8_str(&self) -> Result<&str, Utf8Error> {
+        std::str::from_utf8(self.as_bytes())
     }
 }

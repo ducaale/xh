@@ -14,7 +14,7 @@ use reqwest::{
 };
 
 use crate::decoder::{decompress, get_compression_type};
-use crate::utils::{copy_largebuf, test_pretend_term};
+use crate::utils::{copy_largebuf, test_pretend_term, HeaderValueExt};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -31,7 +31,11 @@ fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
         // Against the spec, but used by e.g. Github's zip downloads
         let unquoted = Regex::new("filename=([^;=\"]*)").unwrap();
 
-        let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
+        let header = response
+            .headers()
+            .get(CONTENT_DISPOSITION)?
+            .to_utf8_str()
+            .ok()?;
         let caps = quoted
             .captures(header)
             .or_else(|| unquoted.captures(header))?;
