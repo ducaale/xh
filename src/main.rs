@@ -78,6 +78,7 @@ fn main() {
             process::exit(exit_code);
         }
         Err(err) => {
+            log::debug!("{err:#?}");
             log::error!("{err:?}");
             let msg = err.root_cause().to_string();
             if native_tls && msg == "invalid minimum TLS version for backend" {
