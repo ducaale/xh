@@ -9,6 +9,7 @@ mod middleware;
 mod nested_json;
 mod netrc;
 mod printer;
+mod redacted;
 mod redirect;
 mod request_items;
 mod session;
@@ -60,7 +61,16 @@ fn get_user_agent() -> &'static str {
 
 fn main() {
     let args = Cli::parse();
-    let bin_name = args.bin_name.clone();
+
+    if args.debug {
+        setup_backtraces();
+    }
+    args.logger_config().init();
+    // HTTPie also prints the language version, library versions, and OS version.
+    // But those are harder to access for us (and perhaps less likely to cause quirks).
+    log::debug!("xh {} {}", env!("CARGO_PKG_VERSION"), env!("XH_FEATURES"));
+    log::debug!("{args:#?}");
+
     let native_tls = args.native_tls;
 
     match run(args) {
@@ -68,7 +78,8 @@ fn main() {
             process::exit(exit_code);
         }
         Err(err) => {
-            eprintln!("{}: error: {:?}", bin_name, err);
+            log::debug!("{err:#?}");
+            log::error!("{err:?}");
             let msg = err.root_cause().to_string();
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
@@ -93,13 +104,9 @@ fn run(args: Cli) -> Result<i32> {
         return Ok(0);
     }
 
-    let warn = {
-        let bin_name = &args.bin_name;
-        move |msg| eprintln!("{}: warning: {}", bin_name, msg)
-    };
-
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     let url = url_with_query(args.url, &args.request_items.query()?);
+    log::debug!("Complete URL: {url}");
 
     let use_stdin = !(args.ignore_stdin || io::stdin().is_terminal() || test_pretend_term());
 
@@ -131,6 +138,7 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
+    log::debug!("HTTP method: {method}");
 
     let mut client = Client::builder()
         .http1_title_case_headers()
@@ -153,13 +161,13 @@ fn run(args: Cli) -> Result<i32> {
 
         #[cfg(feature = "native-tls")]
         if !args.native_tls && tls_version < tls::Version::TLS_1_2 {
-            warn("rustls does not support older TLS versions. native-tls will be enabled. Use --native-tls to silence this warning.");
+            log::warn!("rustls does not support older TLS versions. native-tls will be enabled. Use --native-tls to silence this warning.");
             client = client.use_native_tls();
         }
 
         #[cfg(not(feature = "native-tls"))]
         if tls_version < tls::Version::TLS_1_2 {
-            warn("rustls does not support older TLS versions. Consider building with the `native-tls` feature enabled.");
+            log::warn!("rustls does not support older TLS versions. Consider building with the `native-tls` feature enabled.");
         }
     }
 
@@ -197,7 +205,7 @@ fn run(args: Cli) -> Result<i32> {
             if args.native_tls {
                 // This is not a hard error in case it gets fixed upstream
                 // https://github.com/seanmonstar/reqwest/issues/1260
-                warn("Custom CA bundles with native-tls are broken");
+                log::warn!("Custom CA bundles with native-tls are broken");
             }
 
             let mut buffer = Vec::new();
@@ -225,7 +233,7 @@ fn run(args: Cli) -> Result<i32> {
         if args.native_tls {
             // Unlike the --verify case this is advertised to not work, so it's
             // not an outright bug, but it's still imaginable that it'll start working
-            warn("Client certificates are not supported for native-tls");
+            log::warn!("Client certificates are not supported for native-tls");
         }
 
         let mut buffer = Vec::new();
@@ -254,7 +262,7 @@ fn run(args: Cli) -> Result<i32> {
     if args.cert.is_some() {
         // Unlike the --verify case this is advertised to not work, so it's
         // not an outright bug, but it's still imaginable that it'll start working
-        warn("Client certificates are not supported for native-tls and this binary was built without rustls support");
+        log::warn!("Client certificates are not supported for native-tls and this binary was built without rustls support");
     }
 
     for proxy in args.proxy.into_iter().rev() {
@@ -311,6 +319,7 @@ fn run(args: Cli) -> Result<i32> {
                             None
                         })
                         .with_context(|| format!("Couldn't bind to {:?}", name_or_ip))?;
+                    log::debug!("Resolved {name_or_ip:?} to {ip_addr:?}");
                     client = client.local_address(ip_addr);
                 }
             }
@@ -321,6 +330,8 @@ fn run(args: Cli) -> Result<i32> {
         client = client.resolve(&resolve.domain, SocketAddr::new(resolve.addr, 0));
     }
 
+    log::trace!("Finalizing reqwest client");
+    log::trace!("{client:#?}");
     let client = client.build()?;
 
     let mut session = match &args.session {
@@ -414,10 +425,21 @@ fn run(args: Cli) -> Result<i32> {
             Body::File {
                 file_name,
                 file_type,
-            } => request_builder.body(File::open(file_name)?).header(
-                CONTENT_TYPE,
-                file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
-            ),
+                file_name_header,
+            } => {
+                if file_name_header.is_some() {
+                    // Content-Disposition headers aren't allowed in this context (only responses
+                    // and multipart request parts), so just ignore it
+                    // (Additional precedent: HTTPie ignores file_type here)
+                    log::warn!(
+                        "Ignoring ;filename= tag for single-file body. Consider --multipart."
+                    );
+                }
+                request_builder.body(File::open(file_name)?).header(
+                    CONTENT_TYPE,
+                    file_type.unwrap_or_else(|| HeaderValue::from_static(JSON_CONTENT_TYPE)),
+                )
+            }
         };
 
         if args.resume {
@@ -474,6 +496,10 @@ fn run(args: Cli) -> Result<i32> {
             .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
     }
 
+    log::trace!("Built reqwest request");
+    // Note: Debug impl is incomplete?
+    log::trace!("{request:#?}");
+
     let buffer = Buffer::new(
         args.download,
         args.output.as_deref(),
@@ -487,7 +513,7 @@ fn run(args: Cli) -> Result<i32> {
             args.headers,
             args.body,
             args.meta,
-            args.quiet,
+            args.quiet > 0,
             args.offline,
             &buffer,
         ),
@@ -555,10 +581,13 @@ fn run(args: Cli) -> Result<i32> {
                 400..=499 => 4,
                 500..=599 => 5,
                 _ => 0,
+            };
+            // Print this if the status code isn't otherwise ending up in the terminal.
+            // HTTPie looks at --quiet, since --quiet always suppresses the response
+            // headers even if you pass --print=h. But --print takes precedence for us.
+            if exit_code != 0 && (is_output_redirected || !print.response_headers) {
+                log::warn!("HTTP {status}");
             }
-        }
-        if is_output_redirected && exit_code != 0 {
-            warn(&format!("HTTP {}", status));
         }
 
         if print.response_headers {
@@ -572,7 +601,7 @@ fn run(args: Cli) -> Result<i32> {
                     &url,
                     resume,
                     pretty.color(),
-                    args.quiet,
+                    args.quiet > 0,
                 )?;
             }
         } else {
@@ -596,4 +625,29 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     Ok(exit_code)
+}
+
+/// Configure backtraces for standard panics and anyhow using `$RUST_BACKTRACE`.
+///
+/// Note: they only check the environment variable once, so this won't take effect if
+/// we do it after a panic has already happened or an anyhow error has already been
+/// created.
+///
+/// It's possible for CLI parsing to create anyhow errors before we call this function
+/// but it looks like those errors are always fatal.
+///
+/// https://github.com/rust-lang/rust/issues/93346 will become the preferred way to
+/// configure panic backtraces.
+fn setup_backtraces() {
+    if std::env::var_os("RUST_BACKTRACE").is_some() {
+        // User knows best
+        return;
+    }
+
+    // SAFETY: No other threads are running at this time.
+    // (Will become unsafe in the 2024 edition.)
+    #[allow(unused_unsafe)]
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
 }

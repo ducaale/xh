@@ -177,11 +177,13 @@ impl Session {
             path
         };
 
+        log::debug!("Checking for session in {path:?}");
         let content = match fs::read_to_string(&path) {
             Ok(content) => serde_json::from_str::<Content>(&content)?.migrate(),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Content::default(),
             Err(err) => return Err(err.into()),
         };
+        log::debug!("Loaded session from {path:?}");
 
         Ok(Session {
             url,
@@ -347,6 +349,7 @@ impl Session {
                 fs::create_dir_all(parent_path)?;
             }
             let mut session_file = fs::File::create(&self.path)?;
+            log::debug!("Persisting session to {:?}", self.path);
             let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
             let mut ser = serde_json::Serializer::with_formatter(&mut session_file, formatter);
             self.content.serialize(&mut ser)?;

@@ -48,7 +48,9 @@ pub fn clone_request(request: &mut Request) -> Result<Request> {
 /// Whether to make some things more deterministic for the benefit of tests
 pub fn test_mode() -> bool {
     // In integration tests the binary isn't compiled with cfg(test), so we
-    // use an environment variable
+    // use an environment variable.
+    // This isn't called very often currently but we could cache it using an
+    // atomic integer.
     cfg!(test) || var_os("XH_TEST_MODE").is_some()
 }
 

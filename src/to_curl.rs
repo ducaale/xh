@@ -92,8 +92,6 @@ pub fn translate(args: Cli) -> Result<Command> {
         (args.body, "-b/--body"),
         // No straightforward equivalent
         (args.print.is_some(), "-p/--print"),
-        // No equivalent, -s/--silent suppresses other stuff
-        (args.quiet, "-q/--quiet"),
         // No equivalent
         (args.pretty.is_some(), "--pretty"),
         // No equivalent
@@ -132,6 +130,17 @@ pub fn translate(args: Cli) -> Result<Command> {
     if args.verbose > 0 {
         // Far from an exact match, but it does print the request headers
         cmd.opt("-v", "--verbose");
+    }
+    if args.quiet > 0 {
+        // Also not an exact match but it suppresses error messages which
+        // is sorta like suppressing warnings
+        cmd.opt("-s", "--silent");
+    }
+    if args.debug {
+        // Again not an exact match but it's something
+        // This actually overrides --verbose
+        cmd.arg("--trace");
+        cmd.arg("-");
     }
     if args.stream == Some(true) {
         // curl sorta streams by default, but its buffer stops it from
@@ -428,6 +437,7 @@ pub fn translate(args: Cli) -> Result<Command> {
             Body::File {
                 file_name,
                 file_type,
+                file_name_header: _,
             } => {
                 if let Some(file_type) = file_type {
                     cmd.header("content-type", file_type.to_str()?);

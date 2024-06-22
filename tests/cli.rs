@@ -1,5 +1,6 @@
 #![allow(clippy::bool_assert_comparison)]
 
+mod cases;
 mod server;
 
 use std::collections::{HashMap, HashSet};
@@ -121,6 +122,18 @@ const BINARY_SUPPRESSOR: &str = concat!(
     "+-----------------------------------------+\n",
     "\n"
 );
+
+#[allow(unused)]
+mod prelude {
+    pub(crate) use super::color_command;
+    pub(crate) use super::get_base_command;
+    pub(crate) use super::get_command;
+    pub(crate) use super::random_string;
+    pub(crate) use super::redirecting_command;
+    pub(crate) use super::server;
+    pub(crate) use super::RequestExt;
+    pub(crate) use super::BINARY_SUPPRESSOR;
+}
 
 #[test]
 fn basic_json_post() {
@@ -1865,6 +1878,33 @@ fn multipart_file_upload() {
         ))
         .assert()
         .success();
+}
+
+#[test]
+fn warn_for_filename_tag_on_body() {
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg("--offline")
+        .arg(":")
+        .arg(format!(
+            "@{};filename=hello.txt",
+            filename.to_string_lossy()
+        ))
+        .assert()
+        .success()
+        .stderr(
+            "xh: warning: Ignoring ;filename= tag for single-file body. Consider --multipart.\n",
+        );
 }
 
 #[test]

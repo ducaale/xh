@@ -220,6 +220,7 @@ pub enum Body {
     File {
         file_name: PathBuf,
         file_type: Option<HeaderValue>,
+        file_name_header: Option<String>,
     },
 }
 
@@ -422,7 +423,7 @@ impl RequestItems {
                     key,
                     file_name,
                     file_type,
-                    file_name_header: _,
+                    file_name_header,
                 } => {
                     assert!(key.is_empty());
                     if body.is_some() {
@@ -435,6 +436,7 @@ impl RequestItems {
                             .map(HeaderValue::from_str)
                             .transpose()?,
                         file_name: expand_tilde(file_name),
+                        file_name_header,
                     });
                 }
                 RequestItem::HttpHeader(..)
