@@ -46,7 +46,7 @@ termcolor = "1.1.2"
 time = "0.3.16"
 unicode-width = "0.1.9"
 url = "2.2.2"
-ruzstd = { version = "0.6", default-features = false, features = ["std"]}
+ruzstd = { version = "0.7", default-features = false, features = ["std"]}
 env_logger = { version = "0.11.3", default-features = false, features = ["color", "auto-color", "humantime"] }
 log = "0.4.21"
 
