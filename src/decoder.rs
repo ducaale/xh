@@ -127,6 +127,8 @@ impl<R: Read> Read for Decoder<R> {
             },
             Decoder::Zstd(decoder) => match decoder.read(buf) {
                 Ok(n) => Ok(n),
+                Err(e) if decoder.get_ref().has_errored => Err(e),
+                Err(_) if !decoder.get_ref().has_read_data => Ok(0),
                 Err(e) => Err(io::Error::new(
                     e.kind(),
                     format!("error decoding zstd response body: {}", e),
