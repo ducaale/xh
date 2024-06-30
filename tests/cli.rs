@@ -18,6 +18,7 @@ use http_body_util::BodyExt;
 use indoc::indoc;
 use predicates::function::function;
 use predicates::str::contains;
+use reqwest::header::HeaderValue;
 use tempfile::{tempdir, NamedTempFile, TempDir};
 
 pub trait RequestExt {
@@ -1709,7 +1710,31 @@ fn support_utf8_header_value() {
         HTTP/1.1 200 OK
         Content-Length: 0
         Date: N/A
-        Hello: "\xe4\xbd\xa0\xe5\xa5\xbd\xe5\x91\x80"
+        Hello: ä½ å¥½å�� (UTF-8: 你好呀)
+
+
+        "#})
+        .success();
+}
+
+#[test]
+fn support_latin1_header_value() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("hello", HeaderValue::from_bytes(b"R\xF3dos").unwrap())
+            .header("Date", "N/A")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+        HTTP/1.1 200 OK
+        Content-Length: 0
+        Date: N/A
+        Hello: Ródos
 
 
         "#})
@@ -1748,7 +1773,7 @@ fn redirect_support_utf8_location() {
             HTTP/1.1 302 Found
             Content-Length: 14
             Date: N/A
-            Location: "/page\xe4\xba\x8c"
+            Location: /pageäº� (UTF-8: /page二)
 
             redirecting...
 
@@ -3743,6 +3768,28 @@ fn multiple_format_options_are_merged() {
             {
                     "hello": "world"
             }
+
+
+        "#});
+}
+
+#[test]
+fn reason_phrase_is_preserved() {
+    let server = server::http(|_req| async move {
+        let mut response = hyper::Response::builder();
+        response
+            .extensions_mut()
+            .unwrap()
+            .insert(hyper::ext::ReasonPhrase::from_static(b"Wonderful"));
+        response.header("Date", "N/A").body("".into()).unwrap()
+    });
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 Wonderful
+            Content-Length: 0
+            Date: N/A
 
 
         "#});
