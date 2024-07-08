@@ -220,6 +220,7 @@ pub enum Body {
     File {
         file_name: PathBuf,
         file_type: Option<HeaderValue>,
+        #[allow(dead_code)]
         file_name_header: Option<String>,
     },
 }
