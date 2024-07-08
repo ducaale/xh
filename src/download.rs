@@ -28,8 +28,9 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
         let quoted = Regex::new("filename=\"([^\"]*)\"").unwrap();
-        // Against the spec, but used by e.g. Github's zip downloads
+        // Alternative form:
         let unquoted = Regex::new("filename=([^;=\"]*)").unwrap();
+        // TODO: support "filename*" version
 
         let header = response.headers().get(CONTENT_DISPOSITION)?.to_str().ok()?;
         let caps = quoted
@@ -51,11 +52,13 @@ fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
         mime2ext(mimetype)
     }
 
-    let mut filename = from_header(response)
+    let filename = from_header(response)
         .or_else(|| from_url(orig_url))
         .unwrap_or_else(|| "index".to_string());
 
-    filename = filename.trim().trim_start_matches('.').to_string();
+    let filename = filename.split(std::path::is_separator).last().unwrap();
+
+    let mut filename = filename.trim().trim_start_matches('.').to_string();
 
     if !filename.contains('.') {
         if let Some(extension) = guess_extension(response) {
