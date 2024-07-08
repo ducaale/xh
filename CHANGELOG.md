@@ -1,4 +1,4 @@
-## [0.22.1] - 2024-07-08
+## [0.22.2] - 2024-07-08
 ### Security fixes
 - Prevent directory traversal in server-supplied filenames, see #379 (@blyxxyz)
 
