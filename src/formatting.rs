@@ -1,4 +1,7 @@
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    sync::OnceLock,
+};
 
 use syntect::dumps::from_binary;
 use syntect::easy::HighlightLines;
@@ -8,6 +11,9 @@ use syntect::util::LinesWithEndings;
 use termcolor::WriteColor;
 
 use crate::{buffer::Buffer, cli::Theme};
+
+pub(crate) mod headers;
+pub(crate) mod palette;
 
 pub fn get_json_formatter(indent_level: usize) -> jsonxf::Formatter {
     let mut fmt = jsonxf::Formatter::pretty_printer();
@@ -30,7 +36,7 @@ pub fn serde_json_format(indent_level: usize, text: &str, write: impl Write) -> 
     Ok(())
 }
 
-static TS: once_cell::sync::Lazy<ThemeSet> = once_cell::sync::Lazy::new(|| {
+pub(crate) static THEMES: once_cell::sync::Lazy<ThemeSet> = once_cell::sync::Lazy::new(|| {
     from_binary(include_bytes!(concat!(
         env!("OUT_DIR"),
         "/themepack.themedump"
@@ -53,14 +59,14 @@ pub struct Highlighter<'a> {
 impl<'a> Highlighter<'a> {
     pub fn new(syntax: &'static str, theme: Theme, out: &'a mut Buffer) -> Self {
         let syntax_set: &SyntaxSet = match syntax {
-            "json" | "http" => &PS_BASIC,
+            "json" => &PS_BASIC,
             _ => &PS_LARGE,
         };
         let syntax = syntax_set
             .find_syntax_by_extension(syntax)
             .expect("syntax not found");
         Self {
-            highlighter: HighlightLines::new(syntax, &TS.themes[theme.as_str()]),
+            highlighter: HighlightLines::new(syntax, theme.as_syntect_theme()),
             syntax_set,
             out,
         }
@@ -103,7 +109,9 @@ fn convert_style(style: syntect::highlighting::Style) -> termcolor::ColorSpec {
     use syntect::highlighting::FontStyle;
     let mut spec = termcolor::ColorSpec::new();
     spec.set_fg(convert_color(style.foreground))
-        .set_underline(style.font_style.contains(FontStyle::UNDERLINE));
+        .set_underline(style.font_style.contains(FontStyle::UNDERLINE))
+        .set_bold(style.font_style.contains(FontStyle::BOLD))
+        .set_italic(style.font_style.contains(FontStyle::ITALIC));
     spec
 }
 
@@ -141,4 +149,14 @@ fn convert_color(color: syntect::highlighting::Color) -> Option<termcolor::Color
     } else {
         Some(Color::Rgb(color.r, color.g, color.b))
     }
+}
+
+pub(crate) fn supports_hyperlinks() -> bool {
+    static SUPPORTS_HYPERLINKS: OnceLock<bool> = OnceLock::new();
+    *SUPPORTS_HYPERLINKS.get_or_init(supports_hyperlinks::supports_hyperlinks)
+}
+
+pub(crate) fn create_hyperlink(text: &str, url: &str) -> String {
+    // https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    format!("\x1B]8;;{url}\x1B\\{text}\x1B]8;;\x1B\\")
 }

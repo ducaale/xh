@@ -26,6 +26,7 @@ dirs = "5.0"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
 flate2 = "1.0.22"
+hyper = { version = "1.2", default-features = false }
 indicatif = "0.17"
 jsonxf = "1.1.0"
 memchr = "2.4.1"
@@ -42,6 +43,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde-transcode = "1.1.1"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7.0"
+supports-hyperlinks = "3.0.0"
 termcolor = "1.1.2"
 time = "0.3.16"
 unicode-width = "0.1.9"

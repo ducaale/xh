@@ -165,6 +165,17 @@
                     <string>#0C000000</string>
                 </dict>
             </dict>
+            <dict>
+                <key>name</key>
+                <string>Error</string>
+                <key>scope</key>
+                <string>error</string>
+                <key>settings</key>
+                <dict>
+                    <key>foreground</key>
+                    <string>#01000000</string>
+                </dict>
+            </dict>
         </array>
     </dict>
 </plist>
