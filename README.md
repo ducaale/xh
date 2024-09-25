@@ -39,6 +39,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Linux & macOS                 | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
 | Linux & macOS                 | [Flox]     | `flox install xh`                          |
 | Linux & macOS                 | Homebrew   | `brew install xh`                          |
+| Linux & macOS                 | [Hermit]   | `hermit install xh`                        |
 | macOS                         | MacPorts   | `sudo port install xh`                     |
 | Windows                       | Scoop      | `scoop install xh`                         |
 | Windows                       | Chocolatey | `choco install xh`                         |
@@ -57,6 +58,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 [KernelSU]: https://kernelsu.org
 [Termux]: https://github.com/termux/termux-app
 [Flox]: https://flox.dev/docs/
+[Hermit]: https://cashapp.github.io/hermit/
 
 ### via pre-built binaries
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
