@@ -586,6 +586,49 @@ fn download_supplied_unquoted_filename() {
     );
 }
 
+#[test]
+fn download_filename_with_directory_traversal() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename="foo/baz/bar""#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+}
+
+#[cfg(windows)]
+#[test]
+fn download_filename_with_windows_directory_traversal() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename="foo\baz\bar""#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+}
+
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59

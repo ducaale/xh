@@ -1,3 +1,7 @@
+## [0.22.2] - 2024-07-08
+### Security fixes
+- Prevent directory traversal in server-supplied filenames, see #379 (@blyxxyz)
+
 ## [0.22.0] - 2024-04-13
 ### Features
 - Support http2-prior-knowledge, see #356 (@zuisong)

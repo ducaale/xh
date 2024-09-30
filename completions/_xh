@@ -64,8 +64,8 @@ none\:"Disable both coloring and formatting"))' \
 '*--verbose[Print the whole request as well as the response]' \
 '--debug[Print full error stack traces and debug log messages]' \
 '--all[Show any intermediary requests/responses while following redirects with --follow]' \
-'-q[Do not print to stdout or stderr]' \
-'--quiet[Do not print to stdout or stderr]' \
+'*-q[Do not print to stdout or stderr]' \
+'*--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
 '--stream[Always stream the response body]' \
 '-d[Download the body to a file instead of printing it]' \
