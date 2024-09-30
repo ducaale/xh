@@ -7,12 +7,11 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
-use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST,
-};
-use reqwest::Version;
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST};
 use url::Url;
 
+use crate::formatting::headers::HeaderFormatter;
+use crate::utils::reason_phrase;
 use crate::{
     buffer::Buffer,
     cli::FormatOptions,
@@ -140,6 +139,16 @@ impl Printer {
 
     fn get_highlighter(&mut self, syntax: &'static str) -> Highlighter<'_> {
         Highlighter::new(syntax, self.theme, &mut self.buffer)
+    }
+
+    fn get_header_formatter(&mut self) -> HeaderFormatter<'_, Buffer> {
+        let is_terminal = self.buffer.is_terminal();
+        HeaderFormatter::new(
+            &mut self.buffer,
+            self.color.then(|| self.theme.as_syntect_theme()),
+            is_terminal,
+            self.sort_headers,
+        )
     }
 
     fn print_colorized_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
@@ -299,55 +308,6 @@ impl Printer {
         }
     }
 
-    fn print_headers(&mut self, text: &str) -> io::Result<()> {
-        if self.color {
-            self.print_colorized_text(text, "http")
-        } else {
-            self.buffer.print(text)
-        }
-    }
-
-    fn headers_to_string(&self, headers: &HeaderMap, version: Version) -> String {
-        let as_titlecase = match version {
-            Version::HTTP_09 | Version::HTTP_10 | Version::HTTP_11 => true,
-            Version::HTTP_2 | Version::HTTP_3 => false,
-            _ => false,
-        };
-        let mut headers: Vec<(&HeaderName, &HeaderValue)> = headers.iter().collect();
-        if self.sort_headers {
-            headers.sort_by_key(|(name, _)| name.as_str());
-        }
-
-        let mut header_string = String::new();
-        for (key, value) in headers {
-            if as_titlecase {
-                // Ought to be equivalent to how hyper does it
-                // https://github.com/hyperium/hyper/blob/f46b175bf71b202fbb907c4970b5743881b891e1/src/proto/h1/role.rs#L1332
-                // Header names are ASCII so it's ok to operate on char instead of u8
-                let mut prev = '-';
-                for mut c in key.as_str().chars() {
-                    if prev == '-' {
-                        c.make_ascii_uppercase();
-                    }
-                    header_string.push(c);
-                    prev = c;
-                }
-            } else {
-                header_string.push_str(key.as_str());
-            }
-            header_string.push_str(": ");
-            match value.to_str() {
-                Ok(value) => header_string.push_str(value),
-                #[allow(clippy::format_push_string)]
-                Err(_) => header_string.push_str(&format!("{:?}", value)),
-            }
-            header_string.push('\n');
-        }
-        header_string.pop();
-
-        header_string
-    }
-
     pub fn print_separator(&mut self) -> io::Result<()> {
         self.buffer.print("\n")?;
         self.buffer.flush()?;
@@ -358,9 +318,7 @@ impl Printer {
     where
         T: CookieStore,
     {
-        let method = request.method();
         let url = request.url();
-        let query_string = url.query().map_or(String::from(""), |q| ["?", q].concat());
         let version = request.version();
         let mut headers = request.headers().clone();
 
@@ -376,16 +334,17 @@ impl Printer {
         // reqwest and hyper add certain headers, but only in the process of
         // sending the request, which we haven't done yet
         if let Some(body) = request.body().and_then(Body::as_bytes) {
-            // Added at https://github.com/seanmonstar/reqwest/blob/e56bd160ba/src/blocking/request.rs#L132
+            // Added at https://github.com/seanmonstar/reqwest/blob/c4ebb07343/src/blocking/request.rs#L144
             headers
                 .entry(CONTENT_LENGTH)
                 .or_insert_with(|| body.len().into());
         }
         if let Some(host) = request.url().host_str() {
-            // This is incorrect in case of HTTP/2, but we're already assuming
-            // HTTP/1.1 anyway
+            // FIXME: in case of HTTP/2 we probably don't send this. But we probably
+            // do send the :authority pseudo-header, and without --http-version we don't
+            // even know if we're going to use HTTP/2 yet.
             headers.entry(HOST).or_insert_with(|| {
-                // Added at https://github.com/hyperium/hyper/blob/dfa1bb291d/src/client/client.rs#L237
+                // Added at https://github.com/hyperium/hyper-util/blob/53aadac50d/src/client/legacy/client.rs#L278
                 if test_mode() {
                     HeaderValue::from_str("http.mock")
                 } else if let Some(port) = request.url().port() {
@@ -397,25 +356,27 @@ impl Printer {
             });
         }
 
-        let request_line = format!("{} {}{} {:?}\n", method, url.path(), query_string, version);
-        let headers = self.headers_to_string(&headers, version);
+        self.get_header_formatter().print_request_headers(
+            request.method(),
+            request.url(),
+            version,
+            &headers,
+        )?;
 
-        self.print_headers(&(request_line + &headers))?;
-        self.buffer.print("\n\n")?;
+        self.buffer.print("\n")?;
         self.buffer.flush()?;
         Ok(())
     }
 
     pub fn print_response_headers(&mut self, response: &Response) -> io::Result<()> {
-        let version = response.version();
-        let status = response.status();
-        let headers = response.headers();
+        self.get_header_formatter().print_response_headers(
+            response.version(),
+            response.status(),
+            &reason_phrase(response),
+            response.headers(),
+        )?;
 
-        let status_line = format!("{:?} {}\n", version, status);
-        let headers = self.headers_to_string(headers, version);
-
-        self.print_headers(&(status_line + &headers))?;
-        self.buffer.print("\n\n")?;
+        self.buffer.print("\n")?;
         self.buffer.flush()?;
         Ok(())
     }
@@ -484,7 +445,7 @@ impl Printer {
             } else {
                 let mut buf = Vec::new();
                 body.read_to_end(&mut buf)?;
-                self.buffer.print(&buf)?;
+                self.buffer.write_all(&buf)?;
             }
         } else if stream {
             match self
@@ -524,11 +485,11 @@ impl Printer {
             total_elapsed_time += content_download_duration.as_secs_f64();
         }
         self.buffer
-            .print(format!("Elapsed time: {:.5}s\n", total_elapsed_time))?;
+            .print(&format!("Elapsed time: {:.5}s\n", total_elapsed_time))?;
 
         if let Some(remote_addr) = response.remote_addr() {
             self.buffer
-                .print(format!("Remote address: {:?}\n", remote_addr))?;
+                .print(&format!("Remote address: {:?}\n", remote_addr))?;
         }
 
         self.buffer.print("\n")?;
@@ -751,8 +712,6 @@ fn get_charset(response: &Response) -> Option<&'static Encoding> {
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
-
     use crate::utils::random_string;
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
 
@@ -840,47 +799,5 @@ mod tests {
         );
         assert_eq!(p.color, true);
         assert!(p.buffer.is_stderr());
-    }
-
-    #[test]
-    fn test_header_casing() {
-        let p = Printer {
-            json_indent_level: 4,
-            format_json: false,
-            sort_headers: false,
-            color: false,
-            theme: Theme::Auto,
-            stream: false.into(),
-            buffer: Buffer::new(false, None, false).unwrap(),
-        };
-
-        let mut headers = HeaderMap::new();
-        headers.insert("ab-cd", "0".parse().unwrap());
-        headers.insert("-cd", "0".parse().unwrap());
-        headers.insert("-", "0".parse().unwrap());
-        headers.insert("ab-%c", "0".parse().unwrap());
-        headers.insert("A-b--C", "0".parse().unwrap());
-
-        assert_eq!(
-            p.headers_to_string(&headers, reqwest::Version::HTTP_11),
-            indoc! {"
-                Ab-Cd: 0
-                -Cd: 0
-                -: 0
-                Ab-%c: 0
-                A-B--C: 0"
-            }
-        );
-
-        assert_eq!(
-            p.headers_to_string(&headers, reqwest::Version::HTTP_2),
-            indoc! {"
-                ab-cd: 0
-                -cd: 0
-                -: 0
-                ab-%c: 0
-                a-b--c: 0"
-            }
-        );
     }
 }

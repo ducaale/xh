@@ -301,8 +301,8 @@ impl Buffer {
         })
     }
 
-    pub fn print(&mut self, s: impl AsRef<[u8]>) -> io::Result<()> {
-        self.write_all(s.as_ref())
+    pub fn print(&mut self, s: &str) -> io::Result<()> {
+        self.write_all(s.as_bytes())
     }
 
     pub fn guess_pretty(&self) -> Pretty {

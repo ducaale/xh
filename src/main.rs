@@ -35,6 +35,7 @@ use reqwest::header::{
 };
 use reqwest::tls;
 use url::Host;
+use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -586,7 +587,7 @@ fn run(args: Cli) -> Result<i32> {
             // HTTPie looks at --quiet, since --quiet always suppresses the response
             // headers even if you pass --print=h. But --print takes precedence for us.
             if exit_code != 0 && (is_output_redirected || !print.response_headers) {
-                log::warn!("HTTP {status}");
+                log::warn!("HTTP {} {}", status.as_u16(), reason_phrase(&response));
             }
         }
 

@@ -1070,6 +1070,10 @@ impl Theme {
             Theme::Fruity => "fruity",
         }
     }
+
+    pub(crate) fn as_syntect_theme(&self) -> &'static syntect::highlighting::Theme {
+        &crate::formatting::THEMES.themes[self.as_str()]
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
