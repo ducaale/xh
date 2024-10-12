@@ -1,4 +1,4 @@
-## Unreleased
+## [0.23.0] - 2024-10-12
 ### Features
 - Handle responses compressed in zstd format, see #364 (@zuisong)
 - Suppress warnings when `-qq` flag is used, see #371 (@blyxxyz)

@@ -2505,7 +2505,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "xh"
-version = "0.22.2"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "assert_cmd",

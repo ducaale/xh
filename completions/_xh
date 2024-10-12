@@ -14,7 +14,7 @@ _xh() {
     fi
 
     local context curcontext="$curcontext" state line
-    _arguments "${_arguments_options[@]}" \
+    _arguments "${_arguments_options[@]}" : \
 '--raw=[Pass raw request data without extra processing]:RAW: ' \
 '--pretty=[Controls output processing]:STYLE:((all\:"(default) Enable both coloring and formatting"
 colors\:"Apply syntax highlighting to output"

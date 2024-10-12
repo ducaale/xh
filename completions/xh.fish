@@ -1,7 +1,7 @@
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
-complete -c xh -l pretty -d 'Controls output processing' -r -f -a "{all	'(default) Enable both coloring and formatting',colors	'Apply syntax highlighting to output',format	'Pretty-print json and sort headers',none	'Disable both coloring and formatting'}"
+complete -c xh -l pretty -d 'Controls output processing' -r -f -a "{all\t'(default) Enable both coloring and formatting',colors\t'Apply syntax highlighting to output',format\t'Pretty-print json and sort headers',none\t'Disable both coloring and formatting'}"
 complete -c xh -l format-options -d 'Set output formatting options' -r
-complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "{auto	'',solarized	'',monokai	'',fruity	''}"
+complete -c xh -s s -l style -d 'Output coloring style' -r -f -a "{auto\t'',solarized\t'',monokai\t'',fruity\t''}"
 complete -c xh -l response-charset -d 'Override the response encoding for terminal display purposes' -r
 complete -c xh -l response-mime -d 'Override the response mime type for coloring and formatting for the terminal' -r
 complete -c xh -s p -l print -d 'String specifying what the output should contain' -r
@@ -9,7 +9,7 @@ complete -c xh -s P -l history-print -d 'The same as --print but applies only to
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout' -r -F
 complete -c xh -l session -d 'Create, or reuse and update a session' -r
 complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange' -r
-complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "{basic	'',bearer	'',digest	''}"
+complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "{basic\t'',bearer\t'',digest\t''}"
 complete -c xh -s a -l auth -d 'Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)' -r
 complete -c xh -l bearer -d 'Authenticate with a bearer token' -r
 complete -c xh -l max-redirects -d 'Number of redirects to follow. Only respected if --follow is used' -r
@@ -18,9 +18,9 @@ complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: --proxy htt
 complete -c xh -l verify -d 'If "no", skip SSL verification. If a file path, use it as a CA bundle' -r
 complete -c xh -l cert -d 'Use a client side certificate for SSL' -r -F
 complete -c xh -l cert-key -d 'A private key file to use with --cert' -r -F
-complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "{auto	'',tls1	'',tls1.1	'',tls1.2	'',tls1.3	''}"
+complete -c xh -l ssl -d 'Force a particular TLS version' -r -f -a "{auto\t'',tls1\t'',tls1.1\t'',tls1.2\t'',tls1.3\t''}"
 complete -c xh -l default-scheme -d 'The default scheme to use if not specified in the URL' -r
-complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0	'',1.1	'',2	'',2-prior-knowledge	''}"
+complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0\t'',1.1\t'',2\t'',2-prior-knowledge\t''}"
 complete -c xh -l resolve -d 'Override DNS resolution for specific domain to a custom IP' -r
 complete -c xh -l interface -d 'Bind to a network interface or local IP address' -r
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
