@@ -173,6 +173,8 @@ Example: --print=Hb"
     pub history_print: Option<Print>,
 
     /// Do not print to stdout or stderr.
+    ///
+    ///  Using quiet twice i.e. -qq will suppress warnings as well.
     #[clap(short = 'q', long, action = ArgAction::Count)]
     pub quiet: u8,
 
