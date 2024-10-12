@@ -1,3 +1,20 @@
+## Unreleased
+### Features
+- Handle responses compressed in zstd format, see #364 (@zuisong)
+- Suppress warnings when `-qq` flag is used, see #371 (@blyxxyz)
+- Add `--debug` option for logging and backtraces, see #371 (@blyxxyz)
+- Decode `content-disposition` and `location` headers as UTF-8, see #375 (@zuisong)
+- Print headers as latin1, with the UTF-8 decoding also shown if applicable,
+  see #377 (@blyxxyz)
+- Print the actual reason phrase sent by the server instead of guessing it from
+  the status code, see #377 (@blyxxyz)
+
+### Bug fixes
+- Apply TLS options to non-HTTPS URLs, see #372 (@blyxxyz)
+
+### Other
+- Ignore `NO_COLOR` if set to empty string, see #370 (@blyxxyz)
+
 ## [0.22.2] - 2024-07-08
 ### Security fixes
 - Prevent directory traversal in server-supplied filenames, see #379 (@blyxxyz)
