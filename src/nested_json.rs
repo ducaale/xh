@@ -161,7 +161,7 @@ pub fn insert(
     root: Option<Value>,
     path: &[PathAction],
     value: Value,
-) -> std::result::Result<Value, TypeError> {
+) -> std::result::Result<Value, Box<TypeError>> {
     assert!(!path.is_empty(), "path should not be empty");
 
     Ok(match root {
@@ -169,7 +169,10 @@ pub fn insert(
             let key = match &path[0] {
                 PathAction::Key(v, ..) => v.to_string(),
                 path_component @ (PathAction::Index(..) | PathAction::Append(..)) => {
-                    return Err(TypeError::new(Value::Object(obj), path_component.clone()))
+                    return Err(Box::new(TypeError::new(
+                        Value::Object(obj),
+                        path_component.clone(),
+                    )))
                 }
             };
             if path.len() == 1 {
@@ -184,7 +187,10 @@ pub fn insert(
         Some(Value::Array(mut arr)) => {
             let index = match &path[0] {
                 path_component @ PathAction::Key(..) => {
-                    return Err(TypeError::new(Value::Array(arr), path_component.clone()))
+                    return Err(Box::new(TypeError::new(
+                        Value::Array(arr),
+                        path_component.clone(),
+                    )))
                 }
                 PathAction::Index(v, ..) => *v,
                 PathAction::Append(..) => arr.len(),
@@ -199,7 +205,7 @@ pub fn insert(
             Value::Array(arr)
         }
         Some(root) => {
-            return Err(TypeError::new(root, path[0].clone()));
+            return Err(Box::new(TypeError::new(root, path[0].clone())));
         }
         None => match path[0] {
             PathAction::Key(..) => insert(Some(Value::Object(Map::new())), path, value)?,
