@@ -41,6 +41,7 @@ complete -c xh -l offline -d 'Construct HTTP requests without sending them anywh
 complete -c xh -l check-status -d '(default) Exit with an error status code if the server replies with an error'
 complete -c xh -s F -l follow -d 'Do follow redirects'
 complete -c xh -l native-tls -d 'Use the system TLS library instead of rustls (if enabled at compile time)'
+complete -c xh -l path-as-is -d 'Bypass dot segment (/../ or /./) URL squashing'
 complete -c xh -l https -d 'Make HTTPS requests if not specified in the URL'
 complete -c xh -s 4 -l ipv4 -d 'Resolve hostname to ipv4 addresses only'
 complete -c xh -s 6 -l ipv6 -d 'Resolve hostname to ipv6 addresses only'
@@ -88,6 +89,7 @@ complete -c xh -l no-cert-key
 complete -c xh -l no-ssl
 complete -c xh -l no-native-tls
 complete -c xh -l no-default-scheme
+complete -c xh -l no-path-as-is
 complete -c xh -l no-https
 complete -c xh -l no-http-version
 complete -c xh -l no-resolve

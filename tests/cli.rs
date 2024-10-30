@@ -1903,6 +1903,33 @@ fn default_json_for_raw_body() {
 }
 
 #[test]
+fn path_as_is() {
+    {
+        let server = server::http(|req| async move {
+            assert_eq!(req.uri().path(), "/a/c");
+            hyper::Response::default()
+        });
+        redirecting_command()
+            .args([format!("{}/a/b/../c", server.base_url()).as_str()])
+            .assert()
+            .success();
+    }
+    {
+        let server = server::http(|req| async move {
+            assert_eq!(req.uri().path(), "/a/b/../c");
+            hyper::Response::default()
+        });
+        redirecting_command()
+            .args([
+                format!("{}/a/b/../c", server.base_url()).as_str(),
+                "--path-as-is",
+            ])
+            .assert()
+            .success();
+    }
+}
+
+#[test]
 fn multipart_file_upload() {
     let server = server::http(|req| async move {
         // This test may be fragile, it's conceivable that the headers will become

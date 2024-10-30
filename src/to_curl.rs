@@ -294,6 +294,10 @@ pub fn translate(args: Cli) -> Result<Command> {
         _ => (),
     };
 
+    if args.path_as_is {
+        cmd.arg("--path-as-is")
+    }
+
     if let Some(interface) = args.interface {
         cmd.arg("--interface");
         cmd.arg(interface);
@@ -557,7 +561,12 @@ mod tests {
             (
                 "xh https://exmaple.com/ hello:你好",
                 "curl https://exmaple.com/ -H 'hello: 你好'"
-            )
+            ),
+            (
+                "xh https://exmaple.com/ --path-as-is",
+                "curl https://exmaple.com/ --path-as-is"
+            ),
+
         ];
         for (input, output) in expected {
             let cli = Cli::try_parse_from(input.split_whitespace()).unwrap();

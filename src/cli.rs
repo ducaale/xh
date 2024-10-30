@@ -317,6 +317,10 @@ Example: --print=Hb"
     #[clap(long, value_name = "SCHEME", hide = true)]
     pub default_scheme: Option<String>,
 
+    /// Bypass dot segment (/../ or /./) URL squashing.
+    #[clap(long)]
+    pub path_as_is: bool,
+
     /// Make HTTPS requests if not specified in the URL.
     #[clap(long)]
     pub https: bool,
@@ -533,12 +537,14 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
-            app.error(
-                clap::error::ErrorKind::ValueValidation,
-                format!("Invalid <URL>: {}", err),
-            )
-        })?;
+        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref(), cli.path_as_is).map_err(
+            |err| {
+                app.error(
+                    clap::error::ErrorKind::ValueValidation,
+                    format!("Invalid <URL>: {}", err),
+                )
+            },
+        )?;
 
         if cfg!(not(feature = "rustls")) {
             cli.native_tls = true;
@@ -724,23 +730,47 @@ fn parse_method(method: &str) -> Option<Method> {
 fn construct_url(
     url: &str,
     default_scheme: Option<&str>,
+    path_as_is: bool,
 ) -> std::result::Result<Url, url::ParseError> {
     let mut default_scheme = default_scheme.unwrap_or("http://").to_string();
     if !default_scheme.ends_with("://") {
         default_scheme.push_str("://");
     }
-    let url: Url = if let Some(url) = url.strip_prefix("://") {
+    let url_string = if let Some(url) = url.strip_prefix("://") {
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
-        format!("{}{}", default_scheme, url).parse()?
+        format!("{}{}", default_scheme, url)
     } else if url.starts_with(':') {
-        format!("{}{}{}", default_scheme, "localhost", url).parse()?
+        format!("{}{}{}", default_scheme, "localhost", url)
     } else if !Regex::new("[a-zA-Z0-9]://.+").unwrap().is_match(url) {
-        format!("{}{}", default_scheme, url).parse()?
+        format!("{}{}", default_scheme, url)
     } else {
-        url.parse()?
+        url.to_string()
     };
+    if path_as_is {
+        build_raw_url(&url_string)
+    } else {
+        Ok(url_string.parse()?)
+    }
+}
+
+fn build_raw_url(url_string: &str) -> std::result::Result<Url, url::ParseError> {
+    let url_parsed = Url::parse(url_string)?;
+    let after_scheme = url_string
+        .split_once("://")
+        .map(|it| it.1)
+        .unwrap_or(url_string);
+    let path = after_scheme.split_once('/').unwrap().1;
+    let mut url = Url::from_file_path(format!("/{}", path)).unwrap();
+
+    url.set_host(url_parsed.host_str())?;
+    url.set_scheme(url_parsed.scheme()).unwrap();
+    url.set_port(url_parsed.port()).unwrap();
+    url.set_query(url_parsed.query());
+    url.set_username(url_parsed.username()).unwrap();
+    url.set_password(url_parsed.password()).unwrap();
+    url.set_fragment(url_parsed.fragment());
     Ok(url)
 }
 
