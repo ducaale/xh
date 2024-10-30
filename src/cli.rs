@@ -762,7 +762,9 @@ fn build_raw_url(url_string: &str) -> std::result::Result<Url, url::ParseError> 
         .map(|it| it.1)
         .unwrap_or(url_string);
     let path = after_scheme.split_once('/').unwrap().1;
-    let mut url = Url::from_file_path(format!("/{}", path)).unwrap();
+
+    let root = if cfg!(windows) { "C:/" } else { "/" };
+    let mut url = Url::from_file_path(format!("{}{}", root, path)).unwrap();
 
     url.set_host(url_parsed.host_str())?;
     url.set_scheme(url_parsed.scheme()).unwrap();
