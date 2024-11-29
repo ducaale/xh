@@ -71,7 +71,7 @@ impl<'a> DigestAuthMiddleware<'a> {
     }
 }
 
-impl<'a> Middleware for DigestAuthMiddleware<'a> {
+impl Middleware for DigestAuthMiddleware<'_> {
     fn handle(&mut self, mut ctx: Context, mut request: Request) -> Result<Response> {
         let mut response = self.next(&mut ctx, clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
