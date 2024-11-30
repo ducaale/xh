@@ -26,6 +26,7 @@ dirs = "5.0"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
 flate2 = "1.0.22"
+# Add "tracing" feature to hyper once it stabilizes
 hyper = { version = "1.2", default-features = false }
 indicatif = "0.17"
 jsonxf = "1.1.0"
@@ -51,6 +52,11 @@ url = "2.2.2"
 ruzstd = { version = "0.7", default-features = false, features = ["std"]}
 env_logger = { version = "0.11.3", default-features = false, features = ["color", "auto-color", "humantime"] }
 log = "0.4.21"
+
+# Enable logging in transitive dependencies.
+# The rustls version number should be kept in sync with hyper/reqwest.
+rustls = { version = "0.23.14", optional = true, default-features = false, features = ["logging"] }
+tracing = { version = "0.1.41", default-features = false, features = ["log"] }
 
 [dependencies.reqwest]
 version = "0.12.3"
@@ -85,7 +91,7 @@ http-body-util = "0.1.1"
 [features]
 default = ["online-tests", "rustls", "network-interface"]
 native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
-rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots"]
+rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots", "dep:rustls"]
 
 # To be used by platforms that don't support binding to interface via SO_BINDTODEVICE
 # Ideally, this would be auto-disabled on platforms that don't need it

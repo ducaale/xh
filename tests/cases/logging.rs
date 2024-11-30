@@ -124,3 +124,23 @@ fn warning_for_non_utf8_redirect() {
         .assert()
         .stderr("xh: warning: Redirect to invalid URL: \"\\xff\"\n");
 }
+
+/// This test should fail if rustls's version gets out of sync in Cargo.toml.
+#[cfg(feature = "rustls")]
+#[test]
+fn rustls_emits_logs() {
+    let mut server = server::http(|_req| async move {
+        unreachable!();
+    });
+    server.disable_hit_checks();
+    let cmd = get_command()
+        .arg("--debug")
+        .arg(server.base_url().replace("http://", "https://"))
+        .env_remove("RUST_LOG")
+        .assert()
+        .failure();
+
+    assert!(std::str::from_utf8(&cmd.get_output().stderr)
+        .unwrap()
+        .contains("rustls::"));
+}
