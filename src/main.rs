@@ -73,6 +73,7 @@ fn main() {
     log::debug!("{args:#?}");
 
     let native_tls = args.native_tls;
+    let bin_name = args.bin_name.clone();
 
     match run(args) {
         Ok(exit_code) => {
@@ -80,7 +81,7 @@ fn main() {
         }
         Err(err) => {
             log::debug!("{err:#?}");
-            log::error!("{err:?}");
+            eprintln!("{bin_name}: error: {err:?}");
             let msg = err.root_cause().to_string();
             if native_tls && msg == "invalid minimum TLS version for backend" {
                 eprintln!();
