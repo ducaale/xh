@@ -1,5 +1,9 @@
-use std::fs;
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+};
 
+use predicates::str::contains;
 use tempfile::tempdir;
 
 use crate::prelude::*;
@@ -182,3 +186,144 @@ fn download_filename_with_windows_directory_traversal() {
 // TODO: test implicit download filenames
 // For this we have to pretend the output is a tty
 // This intersects with both #41 and #59
+
+#[test]
+fn it_can_resume_a_download() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()[hyper::header::RANGE], "bytes=5-");
+
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 5-11/12")
+            .body(" world\n".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .assert()
+        .success();
+
+    assert_eq!(fs::read_to_string(&filename).unwrap(), "Hello world\n");
+}
+
+#[test]
+fn it_can_resume_a_download_with_one_byte() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()[hyper::header::RANGE], "bytes=5-");
+
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 5-5/6")
+            .body("!".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .assert()
+        .success();
+
+    assert_eq!(fs::read_to_string(&filename).unwrap(), "Hello!");
+}
+
+#[test]
+fn it_rejects_incorrect_content_range_headers() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()[hyper::header::RANGE], "bytes=5-");
+
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 6-10/11")
+            .body("world\n".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .stderr(contains("Content-Range has wrong start"));
+}
+
+#[test]
+fn it_refuses_to_combine_continue_and_range() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()[hyper::header::RANGE], "bytes=20-30");
+
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 20-30/100")
+            .body("lorem ipsum".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .arg("Range:bytes=20-30")
+        .assert()
+        .success()
+        .stderr(contains("warning: --continue can't be used with"));
+
+    assert_eq!(fs::read_to_string(&filename).unwrap(), "lorem ipsum");
+}

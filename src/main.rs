@@ -445,7 +445,26 @@ fn run(args: Cli) -> Result<i32> {
         };
 
         if args.resume {
-            if let Some(file_size) = get_file_size(args.output.as_deref()) {
+            if headers.contains_key(RANGE) {
+                // There are no good options here, and `--continue` works on a
+                // best-effort basis, so give up with a warning.
+                //
+                // - HTTPie:
+                //   - If the file does not exist, errors when the response has
+                //     an apparently incorrect content range, as though it sent
+                //     `Range: bytes=0-`.
+                //   - If the file already exists, ignores the manual header
+                //     and downloads what's probably the wrong data.
+                // - wget gives priority to the manual header and keeps failing
+                //   and retrying the download (with or without existing file).
+                // - curl gives priority to the manual header and reports that
+                //   the server does not support partial downloads. It also has
+                //   a --range CLI option which is mutually exclusive with its
+                //   --continue-at option.
+                log::warn!(
+                    "--continue can't be used with a 'Range:' header. --continue will be disabled."
+                );
+            } else if let Some(file_size) = get_file_size(args.output.as_deref()) {
                 request_builder = request_builder.header(RANGE, format!("bytes={}-", file_size));
                 resume = Some(file_size);
             }
