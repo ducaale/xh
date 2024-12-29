@@ -2,7 +2,7 @@
 // with some slight tweaks
 use std::convert::Infallible;
 use std::future::Future;
-use std::net;
+use std::path::PathBuf;
 use std::sync::mpsc as std_mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,8 +18,20 @@ use tokio::sync::oneshot;
 type Body = Full<Bytes>;
 type Builder = hyper_util::server::conn::auto::Builder<hyper_util::rt::TokioExecutor>;
 
+enum Addr {
+    TcpAddr(std::net::SocketAddr),
+    #[cfg(target_family = "unix")]
+    UnixAddr(tokio::net::unix::SocketAddr),
+}
+
+enum Listener {
+    TcpListener(tokio::net::TcpListener),
+    #[cfg(target_family = "unix")]
+    UnixListener(tokio::net::UnixListener),
+}
+
 pub struct Server {
-    addr: net::SocketAddr,
+    addr: Addr,
     panic_rx: std_mpsc::Receiver<()>,
     successful_hits: Arc<Mutex<u8>>,
     total_hits: Arc<Mutex<u8>>,
@@ -29,19 +41,43 @@ pub struct Server {
 
 impl Server {
     pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr)
+        match self.addr {
+            Addr::TcpAddr(addr) => format!("http://{}", addr),
+            #[cfg(target_family = "unix")]
+            _ => panic!("no base_url for unix server"),
+        }
     }
 
     pub fn url(&self, path: &str) -> String {
-        format!("http://{}{}", self.addr, path)
+        match self.addr {
+            Addr::TcpAddr(addr) => format!("http://{}{}", addr, path),
+            #[cfg(target_family = "unix")]
+            _ => panic!("no url for unix server"),
+        }
     }
 
     pub fn host(&self) -> String {
-        String::from("127.0.0.1")
+        match self.addr {
+            Addr::TcpAddr(_) => String::from("127.0.0.1"),
+            #[cfg(target_family = "unix")]
+            _ => panic!("no host for unix server"),
+        }
+    }
+
+    #[cfg(target_family = "unix")]
+    pub fn socket_path(&self) -> PathBuf {
+        match &self.addr {
+            Addr::UnixAddr(addr) => addr.as_pathname().unwrap().to_path_buf(),
+            _ => panic!("no socket_path for tcp server"),
+        }
     }
 
     pub fn port(&self) -> u16 {
-        self.addr.port()
+        match self.addr {
+            Addr::TcpAddr(addr) => addr.port(),
+            #[cfg(target_family = "unix")]
+            _ => panic!("no port for unix server"),
+        }
     }
 
     pub fn assert_hits(&self, hits: u8) {
@@ -89,13 +125,36 @@ where
     F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Response<Body>> + Send + 'static,
 {
-    http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))))
+    http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))), None)
+}
+
+#[cfg(target_family = "unix")]
+pub fn http_unix<F, Fut>(func: F) -> Server
+where
+    F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Response<Body>> + Send + 'static,
+{
+    use rand::Rng;
+    let file_name: String = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect();
+    let path = PathBuf::from(format!("/tmp/{file_name}.sock"));
+    if path.exists() {
+        std::fs::remove_file(&path).expect("could not remove old socket");
+    }
+
+    http_inner(
+        Arc::new(move |req| Box::new(Box::pin(func(req)))),
+        Some(path),
+    )
 }
 
 type Serv = dyn Fn(Request<hyper::body::Incoming>) -> Box<ServFut> + Send + Sync;
 type ServFut = dyn Future<Output = Response<Body>> + Send + Unpin;
 
-fn http_inner(func: Arc<Serv>) -> Server {
+fn http_inner(func: Arc<Serv>, socket_path: Option<PathBuf>) -> Server {
     // Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
         let rt = runtime::Builder::new_current_thread()
@@ -104,12 +163,30 @@ fn http_inner(func: Arc<Serv>) -> Server {
             .expect("new rt");
         let successful_hits = Arc::new(Mutex::new(0));
         let total_hits = Arc::new(Mutex::new(0));
-        let listener = rt.block_on(async move {
-            tokio::net::TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
-                .await
-                .unwrap()
+
+        let (listener, addr) = rt.block_on(async move {
+            #[allow(unused_variables)]
+            if let Some(path) = &socket_path {
+                #[cfg(target_family = "unix")]
+                {
+                    let listener = tokio::net::UnixListener::bind(path).unwrap();
+                    let addr = listener.local_addr().unwrap();
+                    (Listener::UnixListener(listener), Addr::UnixAddr(addr))
+                }
+
+                #[cfg(not(target_family = "unix"))]
+                {
+                    unreachable!("cannot create http_unix server outside of unix target_family")
+                }
+            } else {
+                let listener =
+                    tokio::net::TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+                        .await
+                        .unwrap();
+                let addr = listener.local_addr().unwrap();
+                (Listener::TcpListener(listener), Addr::TcpAddr(addr))
+            }
         });
-        let addr = listener.local_addr().unwrap();
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let (panic_tx, panic_rx) = std_mpsc::channel();
@@ -145,14 +222,26 @@ fn http_inner(func: Arc<Serv>) -> Server {
                                 })
                             };
 
-                            let (io, _) = listener.accept().await.unwrap();
-
                             let builder = builder.clone();
-                            tokio::spawn(async move {
-                                let _ = builder
-                                    .serve_connection(hyper_util::rt::TokioIo::new(io), svc)
-                                    .await;
-                            });
+                            match &listener {
+                                Listener::TcpListener(listener) => {
+                                    let (io, _) = listener.accept().await.unwrap();
+                                    tokio::spawn(async move {
+                                        let _ = builder
+                                            .serve_connection(hyper_util::rt::TokioIo::new(io), svc)
+                                            .await;
+                                    });
+                                }
+                                #[cfg(target_family = "unix")]
+                                Listener::UnixListener(listener) => {
+                                    let (io, _) = listener.accept().await.unwrap();
+                                    tokio::spawn(async move {
+                                        let _ = builder
+                                            .serve_connection(hyper_util::rt::TokioIo::new(io), svc)
+                                            .await;
+                                    });
+                                }
+                            }
                         }
                     });
                     let _ = rt.block_on(shutdown_rx);
