@@ -24,18 +24,18 @@ impl ResponseExt for Response {
     }
 }
 
-type Printer<'a, 'b> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b);
+type Printer<'a> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'a);
 
-pub struct Context<'a, 'b> {
-    client: &'a Client,
-    printer: Option<Printer<'a, 'b>>,
+pub struct Context<'a, 'b, 'c> {
+    client: Client,
+    printer: Printer<'c>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
-impl<'a, 'b> Context<'a, 'b> {
+impl<'a, 'b, 'c> Context<'a, 'b, 'c> {
     fn new(
-        client: &'a Client,
-        printer: Option<Printer<'a, 'b>>,
+        client: Client,
+        printer: Printer<'c>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
         Context {
@@ -57,8 +57,7 @@ impl<'a, 'b> Context<'a, 'b> {
                 Ok(response)
             }
             [ref mut head, tail @ ..] => head.handle(
-                #[allow(clippy::needless_option_as_deref)]
-                Context::new(self.client, self.printer.as_deref_mut(), tail),
+                Context::new(self.client.clone(), self.printer, tail),
                 request,
             ),
         }
@@ -78,38 +77,22 @@ pub trait Middleware {
         response: &mut Response,
         request: &mut Request,
     ) -> Result<()> {
-        if let Some(ref mut printer) = ctx.printer {
-            printer(response, request)?;
-        }
-
+        (ctx.printer)(response, request)?;
         Ok(())
     }
 }
 
-pub struct ClientWithMiddleware<'a, T>
-where
-    T: FnMut(&mut Response, &mut Request) -> Result<()>,
-{
-    client: &'a Client,
-    printer: Option<T>,
+pub struct ClientWithMiddleware<'a> {
+    client: Client,
     middlewares: Vec<Box<dyn Middleware + 'a>>,
 }
 
-impl<'a, T> ClientWithMiddleware<'a, T>
-where
-    T: FnMut(&mut Response, &mut Request) -> Result<()> + 'a,
-{
-    pub fn new(client: &'a Client) -> Self {
+impl<'a> ClientWithMiddleware<'a> {
+    pub fn new(client: Client) -> Self {
         ClientWithMiddleware {
             client,
-            printer: None,
             middlewares: vec![],
         }
-    }
-
-    pub fn with_printer(mut self, printer: T) -> Self {
-        self.printer = Some(printer);
-        self
     }
 
     pub fn with(mut self, middleware: impl Middleware + 'a) -> Self {
@@ -117,12 +100,11 @@ where
         self
     }
 
-    pub fn execute(&mut self, request: Request) -> Result<Response> {
-        let mut ctx = Context::new(
-            self.client,
-            self.printer.as_mut().map(|p| p as _),
-            &mut self.middlewares[..],
-        );
+    pub fn execute<'b, T>(&mut self, request: Request, mut printer: T) -> Result<Response>
+    where
+        T: FnMut(&mut Response, &mut Request) -> Result<()> + 'b,
+    {
+        let mut ctx = Context::new(self.client.clone(), &mut printer, &mut self.middlewares[..]);
         ctx.execute(request)
     }
 }

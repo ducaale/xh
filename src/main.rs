@@ -538,21 +538,26 @@ fn run(args: Cli) -> Result<i32> {
         printer.print_request_body(&mut request)?;
     }
 
+    let mut client = ClientWithMiddleware::new(client);
+
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
-            let mut client = ClientWithMiddleware::new(&client);
-            if args.all {
-                client = client.with_printer(|prev_response, next_request| {
+            if args.follow {
+                client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
+            }
+            if let Some(Auth::Digest(username, password)) = &auth {
+                client = client.with(DigestAuthMiddleware::new(username, password));
+            }
+            client.execute(request, |prev_response, next_request| {
+                if !args.all {
+                    return Ok(());
+                }
                     if history_print.response_headers {
                         printer.print_response_headers(prev_response)?;
                     }
                     if history_print.response_body {
-                        printer.print_response_body(
-                            prev_response,
-                            response_charset,
-                            response_mime,
-                        )?;
+                    printer.print_response_body(prev_response, response_charset, response_mime)?;
                         printer.print_separator()?;
                     }
                     if history_print.response_meta {
@@ -565,15 +570,7 @@ fn run(args: Cli) -> Result<i32> {
                         printer.print_request_body(next_request)?;
                     }
                     Ok(())
-                });
-            }
-            if args.follow {
-                client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
-            }
-            if let Some(Auth::Digest(username, password)) = &auth {
-                client = client.with(DigestAuthMiddleware::new(username, password));
-            }
-            client.execute(request)?
+            })?
         };
 
         let status = response.status();
