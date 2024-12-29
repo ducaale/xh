@@ -55,9 +55,9 @@ impl UnixSocket {
             // TODO: figure out how to support cookies.
             // TODO: don't ignore value from --timeout option
             let http_request = into_async_request(request)?;
-            let response = sender.send_request(http_request.try_into()?).await?;
+            let response = sender.send_request(http_request).await?;
 
-            Ok(Response::from(response.map(|b| reqwest::Body::wrap(b))))
+            Ok(Response::from(response.map(reqwest::Body::wrap)))
         })
     }
 }
