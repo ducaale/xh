@@ -14,6 +14,8 @@ mod redirect;
 mod request_items;
 mod session;
 mod to_curl;
+#[cfg(target_family = "unix")]
+mod unix_socket;
 mod utils;
 mod vendored;
 
@@ -35,7 +37,6 @@ use reqwest::header::{
 };
 use reqwest::tls;
 use url::Host;
-use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -45,7 +46,9 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-use crate::utils::{test_mode, test_pretend_term, url_with_query};
+#[cfg(target_family = "unix")]
+use crate::unix_socket::UnixSocket;
+use crate::utils::{reason_phrase, test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
@@ -549,27 +552,35 @@ fn run(args: Cli) -> Result<i32> {
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
+            #[cfg(target_family = "unix")]
+            if let Some(unix_socket) = args.unix_socket {
+                client = client.with(UnixSocket::new(unix_socket));
+            }
+            #[cfg(not(target_family = "unix"))]
+            if let Some(_) = args.unix_socket {
+                log::warn!("HTTP over Unix domain sockets is not supported on this platform");
+            }
             client.execute(request, |prev_response, next_request| {
                 if !args.all {
                     return Ok(());
                 }
-                    if history_print.response_headers {
-                        printer.print_response_headers(prev_response)?;
-                    }
-                    if history_print.response_body {
+                if history_print.response_headers {
+                    printer.print_response_headers(prev_response)?;
+                }
+                if history_print.response_body {
                     printer.print_response_body(prev_response, response_charset, response_mime)?;
-                        printer.print_separator()?;
-                    }
-                    if history_print.response_meta {
-                        printer.print_response_meta(prev_response)?;
-                    }
-                    if history_print.request_headers {
-                        printer.print_request_headers(next_request, &*cookie_jar)?;
-                    }
-                    if history_print.request_body {
-                        printer.print_request_body(next_request)?;
-                    }
-                    Ok(())
+                    printer.print_separator()?;
+                }
+                if history_print.response_meta {
+                    printer.print_response_meta(prev_response)?;
+                }
+                if history_print.request_headers {
+                    printer.print_request_headers(next_request, &*cookie_jar)?;
+                }
+                if history_print.request_body {
+                    printer.print_request_body(next_request)?;
+                }
+                Ok(())
             })?
         };
 
