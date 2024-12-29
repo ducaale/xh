@@ -1,7 +1,10 @@
+#[cfg(target_family = "unix")]
 use indoc::indoc;
 
+#[cfg(target_family = "unix")]
 use crate::prelude::*;
 
+#[cfg(target_family = "unix")]
 #[test]
 fn json_post() {
     let server = server::http_unix(|req| async move {
@@ -35,6 +38,7 @@ fn json_post() {
         "#});
 }
 
+#[cfg(target_family = "unix")]
 #[test]
 fn redirects_stay_on_same_server() {
     let server = server::http_unix(|req| async move {
