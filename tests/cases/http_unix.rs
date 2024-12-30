@@ -1,7 +1,6 @@
 #[cfg(unix)]
 use indoc::indoc;
 
-#[cfg(unix)]
 use crate::prelude::*;
 
 #[cfg(not(unix))]
