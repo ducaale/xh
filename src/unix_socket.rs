@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::middleware::{Context, Middleware, ResponseMeta};
-use crate::utils::test_mode;
 
 pub struct UnixSocket {
     rt: tokio::runtime::Runtime,
@@ -84,9 +83,7 @@ fn into_async_request(mut request: Request) -> Result<http::Request<reqwest::Bod
 
     if let Some(host) = request.url().host_str() {
         http_request.headers_mut().entry(HOST).or_insert_with(|| {
-            if test_mode() {
-                HeaderValue::from_str("http.mock")
-            } else if let Some(port) = request.url().port() {
+            if let Some(port) = request.url().port() {
                 HeaderValue::from_str(&format!("{}:{}", host, port))
             } else {
                 HeaderValue::from_str(host)

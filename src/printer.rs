@@ -20,7 +20,7 @@ use crate::{
     formatting::serde_json_format,
     formatting::{get_json_formatter, Highlighter},
     middleware::ResponseExt,
-    utils::{copy_largebuf, test_mode, BUFFER_SIZE},
+    utils::{copy_largebuf, BUFFER_SIZE},
 };
 
 const BINARY_SUPPRESSOR: &str = concat!(
@@ -345,9 +345,7 @@ impl Printer {
             // even know if we're going to use HTTP/2 yet.
             headers.entry(HOST).or_insert_with(|| {
                 // Added at https://github.com/hyperium/hyper-util/blob/53aadac50d/src/client/legacy/client.rs#L278
-                if test_mode() {
-                    HeaderValue::from_str("http.mock")
-                } else if let Some(port) = request.url().port() {
+                if let Some(port) = request.url().port() {
                     HeaderValue::from_str(&format!("{}:{}", host, port))
                 } else {
                     HeaderValue::from_str(host)

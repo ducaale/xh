@@ -78,7 +78,7 @@ fn redirects_stay_on_same_server() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: example.com
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -92,7 +92,7 @@ fn redirects_stay_on_same_server() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: localhost:8000
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -106,7 +106,7 @@ fn redirects_stay_on_same_server() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: localhost:8000
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
@@ -154,7 +154,7 @@ fn cookies_persist_across_redirects() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: localhost:3000
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -170,7 +170,7 @@ fn cookies_persist_across_redirects() {
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Cookie: hello=world
-            Host: http.mock
+            Host: localhost:3000
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
