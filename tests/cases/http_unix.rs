@@ -1,10 +1,10 @@
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 use indoc::indoc;
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 use crate::prelude::*;
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 #[test]
 fn json_post() {
     let server = server::http_unix(|req| async move {
@@ -38,7 +38,7 @@ fn json_post() {
         "#});
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 #[test]
 fn redirects_stay_on_same_server() {
     let server = server::http_unix(|req| async move {
@@ -119,7 +119,7 @@ fn redirects_stay_on_same_server() {
     server.assert_hits(3);
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 #[test]
 fn cookies_persist_across_redirects() {
     let server = server::http_unix(|req| async move {

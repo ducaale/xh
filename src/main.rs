@@ -15,7 +15,7 @@ mod redirect;
 mod request_items;
 mod session;
 mod to_curl;
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 mod unix_socket;
 mod utils;
 mod vendored;
@@ -48,7 +48,7 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 use crate::unix_socket::UnixSocket;
 use crate::utils::{reason_phrase, test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
@@ -554,11 +554,11 @@ fn run(args: Cli) -> Result<i32> {
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
             client = client.with(CookieMiddleware::new(cookie_jar.clone()));
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             if let Some(unix_socket) = args.unix_socket {
                 client = client.with(UnixSocket::new(unix_socket));
             }
-            #[cfg(not(target_family = "unix"))]
+            #[cfg(not(unix))]
             if let Some(_) = args.unix_socket {
                 log::warn!("HTTP over Unix domain sockets is not supported on this platform");
             }

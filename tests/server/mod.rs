@@ -20,13 +20,13 @@ type Builder = hyper_util::server::conn::auto::Builder<hyper_util::rt::TokioExec
 
 enum Addr {
     TcpAddr(std::net::SocketAddr),
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     UnixAddr(tokio::net::unix::SocketAddr),
 }
 
 enum Listener {
     TcpListener(tokio::net::TcpListener),
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     UnixListener(tokio::net::UnixListener),
 }
 
@@ -43,7 +43,7 @@ impl Server {
     pub fn base_url(&self) -> String {
         match self.addr {
             Addr::TcpAddr(addr) => format!("http://{}", addr),
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             _ => panic!("no base_url for unix server"),
         }
     }
@@ -51,7 +51,7 @@ impl Server {
     pub fn url(&self, path: &str) -> String {
         match self.addr {
             Addr::TcpAddr(addr) => format!("http://{}{}", addr, path),
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             _ => panic!("no url for unix server"),
         }
     }
@@ -59,12 +59,12 @@ impl Server {
     pub fn host(&self) -> String {
         match self.addr {
             Addr::TcpAddr(_) => String::from("127.0.0.1"),
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             _ => panic!("no host for unix server"),
         }
     }
 
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     pub fn socket_path(&self) -> PathBuf {
         match &self.addr {
             Addr::UnixAddr(addr) => addr.as_pathname().unwrap().to_path_buf(),
@@ -75,7 +75,7 @@ impl Server {
     pub fn port(&self) -> u16 {
         match self.addr {
             Addr::TcpAddr(addr) => addr.port(),
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             _ => panic!("no port for unix server"),
         }
     }
@@ -128,7 +128,7 @@ where
     http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))), None)
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn http_unix<F, Fut>(func: F) -> Server
 where
     F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
@@ -167,14 +167,14 @@ fn http_inner(func: Arc<Serv>, socket_path: Option<PathBuf>) -> Server {
         let (listener, addr) = rt.block_on(async move {
             #[allow(unused_variables)]
             if let Some(path) = &socket_path {
-                #[cfg(target_family = "unix")]
+                #[cfg(unix)]
                 {
                     let listener = tokio::net::UnixListener::bind(path).unwrap();
                     let addr = listener.local_addr().unwrap();
                     (Listener::UnixListener(listener), Addr::UnixAddr(addr))
                 }
 
-                #[cfg(not(target_family = "unix"))]
+                #[cfg(not(unix))]
                 {
                     unreachable!("cannot create http_unix server outside of unix target_family")
                 }
@@ -232,7 +232,7 @@ fn http_inner(func: Arc<Serv>, socket_path: Option<PathBuf>) -> Server {
                                             .await;
                                     });
                                 }
-                                #[cfg(target_family = "unix")]
+                                #[cfg(unix)]
                                 Listener::UnixListener(listener) => {
                                     let (io, _) = listener.accept().await.unwrap();
                                     tokio::spawn(async move {
