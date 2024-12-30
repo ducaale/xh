@@ -24,6 +24,7 @@ fn json_post() {
     let server = server::http_unix(|req| async move {
         assert_eq!(req.method(), "POST");
         assert_eq!(req.headers()["Content-Type"], "application/json");
+        assert_eq!(req.headers()["Host"], "example.com");
         assert_eq!(req.body_as_string().await, "{\"foo\":\"bar\"}");
 
         hyper::Response::builder()
