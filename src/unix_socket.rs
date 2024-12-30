@@ -52,7 +52,6 @@ impl UnixSocket {
                 }
             });
 
-            // TODO: figure out how to support cookies.
             // TODO: don't ignore value from --timeout option
             let http_request = into_async_request(request)?;
             let response = sender.send_request(http_request).await?;

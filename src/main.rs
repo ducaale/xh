@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod cookie;
 mod decoder;
 mod download;
 mod formatting;
@@ -29,6 +30,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
+use cookie::CookieMiddleware;
 use cookie_store::{CookieStore, RawCookie};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -285,9 +287,6 @@ fn run(args: Cli) -> Result<i32> {
         None => client,
     };
 
-    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
-    client = client.cookie_provider(cookie_jar.clone());
-
     client = match (args.ipv4, args.ipv6) {
         (true, false) => client.local_address(IpAddr::from(Ipv4Addr::UNSPECIFIED)),
         (false, true) => client.local_address(IpAddr::from(Ipv6Addr::UNSPECIFIED)),
@@ -338,6 +337,8 @@ fn run(args: Cli) -> Result<i32> {
     log::trace!("Finalizing reqwest client");
     log::trace!("{client:#?}");
     let client = client.build()?;
+
+    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
@@ -552,6 +553,7 @@ fn run(args: Cli) -> Result<i32> {
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
+            client = client.with(CookieMiddleware::new(cookie_jar.clone()));
             #[cfg(target_family = "unix")]
             if let Some(unix_socket) = args.unix_socket {
                 client = client.with(UnixSocket::new(unix_socket));
