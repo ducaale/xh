@@ -349,7 +349,7 @@ Example: --print=Hb"
 
     /// Connect using a Unix domain socket.
     ///
-    /// Example: --unix_socket=/var/run/temp.sock
+    /// Example: xh :/index.html --unix-socket=/var/run/temp.sock
     #[clap(long, value_name = "FILE")]
     pub unix_socket: Option<PathBuf>,
 
