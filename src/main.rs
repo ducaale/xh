@@ -560,7 +560,9 @@ fn run(args: Cli) -> Result<i32> {
             }
             #[cfg(not(unix))]
             if let Some(_) = args.unix_socket {
-                log::warn!("HTTP over Unix domain sockets is not supported on this platform");
+                return Err(anyhow!(
+                    "HTTP over Unix domain sockets is not supported on this platform"
+                ));
             }
             client.execute(request, |prev_response, next_request| {
                 if !args.all {

@@ -4,6 +4,21 @@ use indoc::indoc;
 #[cfg(unix)]
 use crate::prelude::*;
 
+#[cfg(not(unix))]
+#[test]
+fn error_on_unsupported_platform() {
+    use predicates::str::contains;
+
+    get_command()
+        .arg(format!("--unix-socket=/tmp/missing.sock",))
+        .arg(":/index.html")
+        .assert()
+        .failure()
+        .stderr(contains(
+            "HTTP over Unix domain sockets is not supported on this platform",
+        ));
+}
+
 #[cfg(unix)]
 #[test]
 fn json_post() {
