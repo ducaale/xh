@@ -48,8 +48,6 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-#[cfg(unix)]
-use crate::unix_socket::UnixSocket;
 use crate::utils::{reason_phrase, test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
@@ -573,15 +571,8 @@ fn run(args: Cli) -> Result<i32> {
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
             client = client.with(CookieMiddleware::new(cookie_jar.clone()));
-            #[cfg(unix)]
-            if let Some(unix_socket) = args.unix_socket {
-                client = client.with(UnixSocket::new(unix_socket));
-            }
-            #[cfg(not(unix))]
-            if let Some(_) = args.unix_socket {
-                return Err(anyhow!(
-                    "HTTP over Unix domain sockets is not supported on this platform"
-                ));
+            if let Some(socket_path) = args.unix_socket {
+                client = client.with_unix_socket(socket_path)?;
             }
             client.execute(request, |prev_response, next_request| {
                 if !args.all {

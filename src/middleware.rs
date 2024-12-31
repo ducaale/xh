@@ -1,7 +1,10 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
-use reqwest::blocking::{Client, Request, Response};
+use reqwest::blocking::{Request, Response};
 
 #[derive(Clone)]
 pub struct ResponseMeta {
@@ -26,15 +29,15 @@ impl ResponseExt for Response {
 
 type Printer<'a> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'a);
 
-pub struct Context<'a, 'b, 'c> {
-    client: Client,
+pub struct Context<'a, 'b, 'c, 'd> {
+    client: &'d Client,
     printer: Printer<'c>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
-impl<'a, 'b, 'c> Context<'a, 'b, 'c> {
+impl<'a, 'b, 'c, 'd> Context<'a, 'b, 'c, 'd> {
     fn new(
-        client: Client,
+        client: &'d Client,
         printer: Printer<'c>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
@@ -49,17 +52,20 @@ impl<'a, 'b, 'c> Context<'a, 'b, 'c> {
         match self.middlewares {
             [] => {
                 let starting_time = Instant::now();
-                let mut response = self.client.execute(request)?;
+                let mut response = match self.client {
+                    Client::Http(client) => client.execute(request)?,
+                    #[cfg(unix)]
+                    Client::Unix(client) => client.execute(request)?,
+                };
                 response.extensions_mut().insert(ResponseMeta {
                     request_duration: starting_time.elapsed(),
                     content_download_duration: None,
                 });
                 Ok(response)
             }
-            [ref mut head, tail @ ..] => head.handle(
-                Context::new(self.client.clone(), self.printer, tail),
-                request,
-            ),
+            [ref mut head, tail @ ..] => {
+                head.handle(Context::new(self.client, self.printer, tail), request)
+            }
         }
     }
 }
@@ -82,16 +88,38 @@ pub trait Middleware {
     }
 }
 
+enum Client {
+    Http(reqwest::blocking::Client),
+    #[cfg(unix)]
+    Unix(crate::unix_socket::UnixClient),
+}
+
 pub struct ClientWithMiddleware<'a> {
     client: Client,
     middlewares: Vec<Box<dyn Middleware + 'a>>,
 }
 
 impl<'a> ClientWithMiddleware<'a> {
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: reqwest::blocking::Client) -> Self {
         ClientWithMiddleware {
-            client,
+            client: Client::Http(client),
             middlewares: vec![],
+        }
+    }
+
+    #[allow(unused)]
+    pub fn with_unix_socket(mut self, socket_path: PathBuf) -> Result<Self> {
+        #[cfg(not(unix))]
+        {
+            return Err(anyhow::anyhow!(
+                "HTTP over Unix domain sockets is not supported on this platform"
+            ));
+        }
+
+        #[cfg(unix)]
+        {
+            self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path));
+            Ok(self)
         }
     }
 
@@ -104,7 +132,7 @@ impl<'a> ClientWithMiddleware<'a> {
     where
         T: FnMut(&mut Response, &mut Request) -> Result<()> + 'b,
     {
-        let mut ctx = Context::new(self.client.clone(), &mut printer, &mut self.middlewares[..]);
+        let mut ctx = Context::new(&self.client, &mut printer, &mut self.middlewares[..]);
         ctx.execute(request)
     }
 }

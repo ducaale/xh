@@ -2,16 +2,13 @@ use anyhow::Result;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderValue, HOST};
 use std::path::PathBuf;
-use std::time::Instant;
 
-use crate::middleware::{Context, Middleware, ResponseMeta};
-
-pub struct UnixSocket {
+pub struct UnixClient {
     rt: tokio::runtime::Runtime,
     socket_path: PathBuf,
 }
 
-impl UnixSocket {
+impl UnixClient {
     pub fn new(socket_path: PathBuf) -> Self {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -23,21 +20,8 @@ impl UnixSocket {
 
     pub fn execute(&self, request: Request) -> Result<Response> {
         self.rt.block_on(async {
-            // TODO: Support named pipes by replacing tokio::net::UnixStream::connect(..) with:
-            //
-            // use std::time::Duration;
-            // use tokio::net::windows::named_pipe;
-            // use windows_sys::Win32::Foundation::ERROR_PIPE_BUSY;
-            //
-            // let stream = loop {
-            //     match named_pipe::ClientOptions::new().open(r"\\.\pipe\docker_engine") {
-            //         Ok(client) => break client,
-            //         Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => (),
-            //         Err(e) => return Err(e)?,
-            //     }
-            //
-            //     tokio::time::sleep(Duration::from_millis(50)).await;
-            // };
+            // TODO: Add support for Windows named pipes by replacing UnixStream with namedPipeClient.
+            // See https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/struct.ClientOptions.html#method.open
             let stream = tokio::net::UnixStream::connect(&self.socket_path).await?;
 
             let (mut sender, conn) = hyper::client::conn::http1::Builder::new()
@@ -57,18 +41,6 @@ impl UnixSocket {
 
             Ok(Response::from(response.map(reqwest::Body::wrap)))
         })
-    }
-}
-
-impl Middleware for UnixSocket {
-    fn handle(&mut self, mut _ctx: Context, request: Request) -> Result<Response> {
-        let starting_time = Instant::now();
-        let mut response = self.execute(request)?;
-        response.extensions_mut().insert(ResponseMeta {
-            request_duration: starting_time.elapsed(),
-            content_download_duration: None,
-        });
-        Ok(response)
     }
 }
 
