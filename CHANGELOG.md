@@ -5,7 +5,7 @@
 ### Bug fixes
 - Warn on combination of `--continue` and `Range` header, #394 (@blyxxyz)
 
-# Other
+### Other
 - Enable logging in `rustls` and `tracing`-using dependencies, see #390 (@blyxxyz)
 
 ## [0.23.0] - 2024-10-12
