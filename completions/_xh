@@ -15,40 +15,40 @@ _xh() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--raw=[Pass raw request data without extra processing]:RAW: ' \
+'--raw=[Pass raw request data without extra processing]:RAW:_default' \
 '--pretty=[Controls output processing]:STYLE:((all\:"(default) Enable both coloring and formatting"
 colors\:"Apply syntax highlighting to output"
 format\:"Pretty-print json and sort headers"
 none\:"Disable both coloring and formatting"))' \
-'*--format-options=[Set output formatting options]:FORMAT_OPTIONS: ' \
+'*--format-options=[Set output formatting options]:FORMAT_OPTIONS:_default' \
 '-s+[Output coloring style]:THEME:(auto solarized monokai fruity)' \
 '--style=[Output coloring style]:THEME:(auto solarized monokai fruity)' \
-'--response-charset=[Override the response encoding for terminal display purposes]:ENCODING: ' \
-'--response-mime=[Override the response mime type for coloring and formatting for the terminal]:MIME_TYPE: ' \
-'-p+[String specifying what the output should contain]:FORMAT: ' \
-'--print=[String specifying what the output should contain]:FORMAT: ' \
-'-P+[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
-'--history-print=[The same as --print but applies only to intermediary requests/responses]:FORMAT: ' \
+'--response-charset=[Override the response encoding for terminal display purposes]:ENCODING:_default' \
+'--response-mime=[Override the response mime type for coloring and formatting for the terminal]:MIME_TYPE:_default' \
+'-p+[String specifying what the output should contain]:FORMAT:_default' \
+'--print=[String specifying what the output should contain]:FORMAT:_default' \
+'-P+[The same as --print but applies only to intermediary requests/responses]:FORMAT:_default' \
+'--history-print=[The same as --print but applies only to intermediary requests/responses]:FORMAT:_default' \
 '-o+[Save output to FILE instead of stdout]:FILE:_files' \
 '--output=[Save output to FILE instead of stdout]:FILE:_files' \
-'--session=[Create, or reuse and update a session]:FILE: ' \
-'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE: ' \
+'--session=[Create, or reuse and update a session]:FILE:_default' \
+'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE:_default' \
 '-A+[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
 '--auth-type=[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
-'-a+[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN: ' \
-'--auth=[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN: ' \
-'--bearer=[Authenticate with a bearer token]:TOKEN: ' \
-'--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM: ' \
-'--timeout=[Connection timeout of the request]:SEC: ' \
-'*--proxy=[Use a proxy for a protocol. For example\: --proxy https\:http\://proxy.host\:8080]:PROTOCOL:URL: ' \
-'--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY: ' \
+'-a+[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN:_default' \
+'--auth=[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN:_default' \
+'--bearer=[Authenticate with a bearer token]:TOKEN:_default' \
+'--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM:_default' \
+'--timeout=[Connection timeout of the request]:SEC:_default' \
+'*--proxy=[Use a proxy for a protocol. For example\: --proxy https\:http\://proxy.host\:8080]:PROTOCOL:URL:_default' \
+'--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY:_default' \
 '--cert=[Use a client side certificate for SSL]:FILE:_files' \
 '--cert-key=[A private key file to use with --cert]:FILE:_files' \
 '--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
-'--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME: ' \
+'--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME:_default' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2 2-prior-knowledge)' \
-'*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS: ' \
-'--interface=[Bind to a network interface or local IP address]:NAME: ' \
+'*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS:_default' \
+'--interface=[Bind to a network interface or local IP address]:NAME:_default' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
@@ -140,8 +140,8 @@ none\:"Disable both coloring and formatting"))' \
 '--no-help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':raw_method_or_url -- The request URL, preceded by an optional HTTP method:' \
-'*::raw_rest_args -- Optional key-value pairs to be included in the request.:' \
+':raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
+'*::raw_rest_args -- Optional key-value pairs to be included in the request.:_default' \
 && ret=0
 }
 
