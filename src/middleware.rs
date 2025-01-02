@@ -1,7 +1,10 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
-use reqwest::blocking::{Client, Request, Response};
+use reqwest::blocking::{Request, Response};
 
 #[derive(Clone)]
 pub struct ResponseMeta {
@@ -24,18 +27,18 @@ impl ResponseExt for Response {
     }
 }
 
-type Printer<'a, 'b> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'b);
+type Printer<'a> = &'a mut (dyn FnMut(&mut Response, &mut Request) -> Result<()> + 'a);
 
-pub struct Context<'a, 'b> {
-    client: &'a Client,
-    printer: Option<Printer<'a, 'b>>,
+pub struct Context<'a, 'b, 'c, 'd> {
+    client: &'d Client,
+    printer: Printer<'c>,
     middlewares: &'a mut [Box<dyn Middleware + 'b>],
 }
 
-impl<'a, 'b> Context<'a, 'b> {
+impl<'a, 'b, 'c, 'd> Context<'a, 'b, 'c, 'd> {
     fn new(
-        client: &'a Client,
-        printer: Option<Printer<'a, 'b>>,
+        client: &'d Client,
+        printer: Printer<'c>,
         middlewares: &'a mut [Box<dyn Middleware + 'b>],
     ) -> Self {
         Context {
@@ -49,18 +52,20 @@ impl<'a, 'b> Context<'a, 'b> {
         match self.middlewares {
             [] => {
                 let starting_time = Instant::now();
-                let mut response = self.client.execute(request)?;
+                let mut response = match self.client {
+                    Client::Http(client) => client.execute(request)?,
+                    #[cfg(unix)]
+                    Client::Unix(client) => client.execute(request)?,
+                };
                 response.extensions_mut().insert(ResponseMeta {
                     request_duration: starting_time.elapsed(),
                     content_download_duration: None,
                 });
                 Ok(response)
             }
-            [ref mut head, tail @ ..] => head.handle(
-                #[allow(clippy::needless_option_as_deref)]
-                Context::new(self.client, self.printer.as_deref_mut(), tail),
-                request,
-            ),
+            [ref mut head, tail @ ..] => {
+                head.handle(Context::new(self.client, self.printer, tail), request)
+            }
         }
     }
 }
@@ -78,38 +83,44 @@ pub trait Middleware {
         response: &mut Response,
         request: &mut Request,
     ) -> Result<()> {
-        if let Some(ref mut printer) = ctx.printer {
-            printer(response, request)?;
-        }
-
+        (ctx.printer)(response, request)?;
         Ok(())
     }
 }
 
-pub struct ClientWithMiddleware<'a, T>
-where
-    T: FnMut(&mut Response, &mut Request) -> Result<()>,
-{
-    client: &'a Client,
-    printer: Option<T>,
+enum Client {
+    Http(reqwest::blocking::Client),
+    #[cfg(unix)]
+    Unix(crate::unix_socket::UnixClient),
+}
+
+pub struct ClientWithMiddleware<'a> {
+    client: Client,
     middlewares: Vec<Box<dyn Middleware + 'a>>,
 }
 
-impl<'a, T> ClientWithMiddleware<'a, T>
-where
-    T: FnMut(&mut Response, &mut Request) -> Result<()> + 'a,
-{
-    pub fn new(client: &'a Client) -> Self {
+impl<'a> ClientWithMiddleware<'a> {
+    pub fn new(client: reqwest::blocking::Client) -> Self {
         ClientWithMiddleware {
-            client,
-            printer: None,
+            client: Client::Http(client),
             middlewares: vec![],
         }
     }
 
-    pub fn with_printer(mut self, printer: T) -> Self {
-        self.printer = Some(printer);
-        self
+    #[allow(unused)]
+    pub fn with_unix_socket(mut self, socket_path: PathBuf) -> Result<Self> {
+        #[cfg(not(unix))]
+        {
+            return Err(anyhow::anyhow!(
+                "HTTP over Unix domain sockets is not supported on this platform"
+            ));
+        }
+
+        #[cfg(unix)]
+        {
+            self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path));
+            Ok(self)
+        }
     }
 
     pub fn with(mut self, middleware: impl Middleware + 'a) -> Self {
@@ -117,12 +128,11 @@ where
         self
     }
 
-    pub fn execute(&mut self, request: Request) -> Result<Response> {
-        let mut ctx = Context::new(
-            self.client,
-            self.printer.as_mut().map(|p| p as _),
-            &mut self.middlewares[..],
-        );
+    pub fn execute<'b, T>(&mut self, request: Request, mut printer: T) -> Result<Response>
+    where
+        T: FnMut(&mut Response, &mut Request) -> Result<()> + 'b,
+    {
+        let mut ctx = Context::new(&self.client, &mut printer, &mut self.middlewares[..]);
         ctx.execute(request)
     }
 }

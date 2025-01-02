@@ -26,8 +26,10 @@ dirs = "5.0"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
 flate2 = "1.0.22"
+http = "1"
 # Add "tracing" feature to hyper once it stabilizes
 hyper = { version = "1.2", default-features = false }
+hyper-util = { version = "0.1", features = ["tokio"] }
 indicatif = "0.17"
 jsonxf = "1.1.0"
 memchr = "2.4.1"
@@ -47,6 +49,7 @@ serde_urlencoded = "0.7.0"
 supports-hyperlinks = "3.0.0"
 termcolor = "1.1.2"
 time = "0.3.16"
+tokio = { version = "1", features = ["rt-multi-thread"] }
 unicode-width = "0.1.9"
 url = "2.2.2"
 ruzstd = { version = "0.7", default-features = false, features = ["std"]}

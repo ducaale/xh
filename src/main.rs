@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod cookie;
 mod decoder;
 mod download;
 mod formatting;
@@ -14,6 +15,8 @@ mod redirect;
 mod request_items;
 mod session;
 mod to_curl;
+#[cfg(unix)]
+mod unix_socket;
 mod utils;
 mod vendored;
 
@@ -27,6 +30,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
+use cookie::CookieMiddleware;
 use cookie_store::{CookieStore, RawCookie};
 use redirect::RedirectFollower;
 use reqwest::blocking::Client;
@@ -35,7 +39,6 @@ use reqwest::header::{
 };
 use reqwest::tls;
 use url::Host;
-use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
@@ -45,7 +48,7 @@ use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
-use crate::utils::{test_mode, test_pretend_term, url_with_query};
+use crate::utils::{reason_phrase, test_mode, test_pretend_term, url_with_query};
 use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
@@ -282,9 +285,6 @@ fn run(args: Cli) -> Result<i32> {
         None => client,
     };
 
-    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
-    client = client.cookie_provider(cookie_jar.clone());
-
     client = match (args.ipv4, args.ipv6) {
         (true, false) => client.local_address(IpAddr::from(Ipv4Addr::UNSPECIFIED)),
         (false, true) => client.local_address(IpAddr::from(Ipv6Addr::UNSPECIFIED)),
@@ -335,6 +335,8 @@ fn run(args: Cli) -> Result<i32> {
     log::trace!("Finalizing reqwest client");
     log::trace!("{client:#?}");
     let client = client.build()?;
+
+    let cookie_jar = Arc::new(reqwest_cookie_store::CookieStoreMutex::default());
 
     let mut session = match &args.session {
         Some(name_or_path) => Some(
@@ -557,42 +559,43 @@ fn run(args: Cli) -> Result<i32> {
         printer.print_request_body(&mut request)?;
     }
 
+    let mut client = ClientWithMiddleware::new(client);
+
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
-            let mut client = ClientWithMiddleware::new(&client);
-            if args.all {
-                client = client.with_printer(|prev_response, next_request| {
-                    if history_print.response_headers {
-                        printer.print_response_headers(prev_response)?;
-                    }
-                    if history_print.response_body {
-                        printer.print_response_body(
-                            prev_response,
-                            response_charset,
-                            response_mime,
-                        )?;
-                        printer.print_separator()?;
-                    }
-                    if history_print.response_meta {
-                        printer.print_response_meta(prev_response)?;
-                    }
-                    if history_print.request_headers {
-                        printer.print_request_headers(next_request, &*cookie_jar)?;
-                    }
-                    if history_print.request_body {
-                        printer.print_request_body(next_request)?;
-                    }
-                    Ok(())
-                });
-            }
             if args.follow {
                 client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));
             }
-            client.execute(request)?
+            client = client.with(CookieMiddleware::new(cookie_jar.clone()));
+            if let Some(socket_path) = args.unix_socket {
+                client = client.with_unix_socket(socket_path)?;
+            }
+            client.execute(request, |prev_response, next_request| {
+                if !args.all {
+                    return Ok(());
+                }
+                if history_print.response_headers {
+                    printer.print_response_headers(prev_response)?;
+                }
+                if history_print.response_body {
+                    printer.print_response_body(prev_response, response_charset, response_mime)?;
+                    printer.print_separator()?;
+                }
+                if history_print.response_meta {
+                    printer.print_response_meta(prev_response)?;
+                }
+                if history_print.request_headers {
+                    printer.print_request_headers(next_request, &*cookie_jar)?;
+                }
+                if history_print.request_body {
+                    printer.print_request_body(next_request)?;
+                }
+                Ok(())
+            })?
         };
 
         let status = response.status();

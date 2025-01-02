@@ -2806,6 +2806,7 @@ dependencies = [
  "env_logger",
  "flate2",
  "form_urlencoded",
+ "http",
  "http-body-util",
  "hyper",
  "hyper-util",
