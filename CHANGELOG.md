@@ -1,3 +1,13 @@
+## [0.23.1] - 2025-01-02
+### Security fixes
+- Upgrade to ruzstd v0.7.3 to fix RUSTSEC-2024-0400, see #396 (@zuisong)
+
+### Bug fixes
+- Warn on combination of `--continue` and `Range` header, #394 (@blyxxyz)
+
+### Other
+- Enable logging in `rustls` and `tracing`-using dependencies, see #390 (@blyxxyz)
+
 ## [0.23.0] - 2024-10-12
 ### Features
 - Handle responses compressed in zstd format, see #364 (@zuisong)

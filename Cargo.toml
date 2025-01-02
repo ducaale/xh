@@ -1,6 +1,6 @@
 [package]
 name = "xh"
-version = "0.23.0"
+version = "0.23.1"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2021"
 rust-version = "1.74.0"
