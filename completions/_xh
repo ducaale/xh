@@ -49,6 +49,7 @@ none\:"Disable both coloring and formatting"))' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2 2-prior-knowledge)' \
 '*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS:_default' \
 '--interface=[Bind to a network interface or local IP address]:NAME:_default' \
+'--generate=[Generate shell completions or man pages]:KIND:(complete-bash complete-elvish complete-fish complete-nushell complete-powershell complete-zsh man)' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
@@ -137,10 +138,11 @@ none\:"Disable both coloring and formatting"))' \
 '--no-ignore-stdin[]' \
 '--no-curl[]' \
 '--no-curl-long[]' \
+'--no-generate[]' \
 '--no-help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
+'::raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
 '*::raw_rest_args -- Optional key-value pairs to be included in the request.:_default' \
 && ret=0
 }

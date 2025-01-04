@@ -367,6 +367,10 @@ Example: --print=Hb"
     #[clap(long)]
     pub curl_long: bool,
 
+    /// Generate shell completions or man pages.
+    #[arg(long, value_name = "KIND")]
+    pub generate: Option<Generate>,
+
     /// Print help.
     #[clap(long, action = ArgAction::HelpShort)]
     pub help: Option<bool>,
@@ -381,8 +385,12 @@ Example: --print=Hb"
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    #[clap(value_name = "[METHOD] URL")]
-    raw_method_or_url: String,
+    #[clap(
+        value_name = "[METHOD] URL",
+        required_unless_present = "generate",
+        conflicts_with = "generate"
+    )]
+    raw_method_or_url: Option<String>,
 
     /// Optional key-value pairs to be included in the request.
     ///
@@ -480,21 +488,28 @@ impl Cli {
         let matches = app.try_get_matches_from_mut(iter)?;
         let mut cli = Self::from_arg_matches(&matches)?;
 
-        match cli.raw_method_or_url.as_str() {
-            "help" => {
-                // opt-out of clap's auto-generated possible values help for --pretty
-                // as we already list them in the long_help
-                app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+        app.get_bin_name()
+            .and_then(|name| name.split('.').next())
+            .unwrap_or("xh")
+            .clone_into(&mut cli.bin_name);
 
-                app.print_long_help().unwrap();
-                safe_exit();
-            }
-            "generate-completions" => return Err(generate_completions(app, cli.raw_rest_args)),
-            "generate-manpages" => return Err(generate_manpages(app, cli.raw_rest_args)),
-            _ => {}
+        if cli.generate.is_some() {
+            return Ok(cli);
         }
+
+        let mut raw_method_or_url = cli.raw_method_or_url.clone().unwrap();
+
+        if raw_method_or_url == "help" {
+            // opt-out of clap's auto-generated possible values help for --pretty
+            // as we already list them in the long_help
+            app = app.mut_arg("pretty", |a| a.hide_possible_values(true));
+
+            app.print_long_help().unwrap();
+            safe_exit();
+        }
+
         let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
-        let raw_url = match parse_method(&cli.raw_method_or_url) {
+        let raw_url = match parse_method(&raw_method_or_url) {
             Some(method) => {
                 cli.method = Some(method);
                 rest_args.next().ok_or_else(|| {
@@ -506,7 +521,7 @@ impl Cli {
             }
             None => {
                 cli.method = None;
-                mem::take(&mut cli.raw_method_or_url)
+                mem::take(&mut raw_method_or_url)
             }
         };
         for request_item in rest_args {
@@ -516,11 +531,6 @@ impl Cli {
                     .map_err(|err: clap::error::Error| err.format(&mut app))?,
             );
         }
-
-        app.get_bin_name()
-            .and_then(|name| name.split('.').next())
-            .unwrap_or("xh")
-            .clone_into(&mut cli.bin_name);
 
         if matches!(cli.bin_name.as_str(), "https" | "xhs" | "xhttps") {
             cli.https = true;
@@ -625,9 +635,12 @@ impl Cli {
             })
             .collect();
 
-        app.args(negations)
+        let mut app = app.args(negations)
             .after_help(format!("Each option can be reset with a --no-OPTION argument.\n\nRun \"{} help\" for more complete documentation.", env!("CARGO_PKG_NAME")))
-            .after_long_help("Each option can be reset with a --no-OPTION argument.")
+            .after_long_help("Each option can be reset with a --no-OPTION argument.");
+
+        app.build();
+        app
     }
 
     pub fn logger_config(&self) -> env_logger::Builder {
@@ -742,209 +755,6 @@ fn construct_url(
         url.parse()?
     };
     Ok(url)
-}
-
-#[cfg(feature = "man-completion-gen")]
-// This signature is a little weird: we either return an error or don't return at all
-fn generate_completions(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
-    let bin_name = app.get_bin_name().unwrap().to_string();
-    if rest_args.len() != 1 {
-        return app.error(
-            clap::error::ErrorKind::WrongNumberOfValues,
-            "Usage: xh generate-completions <DIRECTORY>",
-        );
-    }
-
-    for &shell in clap_complete::Shell::value_variants() {
-        // Elvish complains about multiple deprecations and these don't seem to work
-        if shell != clap_complete::Shell::Elvish {
-            clap_complete::generate_to(shell, &mut app, &bin_name, &rest_args[0]).unwrap();
-        }
-    }
-    safe_exit();
-}
-
-#[cfg(feature = "man-completion-gen")]
-fn generate_manpages(mut app: clap::Command, rest_args: Vec<String>) -> clap::error::Error {
-    use roff::{bold, italic, roman, Roff};
-    use time::OffsetDateTime as DateTime;
-
-    if rest_args.len() != 1 {
-        return app.error(
-            clap::error::ErrorKind::WrongNumberOfValues,
-            "Usage: xh generate-manpages <DIRECTORY>",
-        );
-    }
-
-    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
-
-    let mut request_items_roff = Roff::new();
-    let request_items = items
-        .iter()
-        .find(|opt| opt.get_id() == "raw_rest_args")
-        .unwrap();
-    let request_items_help = request_items
-        .get_long_help()
-        .or_else(|| request_items.get_help())
-        .expect("request_items is missing help")
-        .to_string();
-
-    // replace the indents in request_item help with proper roff controls
-    // For example:
-    //
-    // ```
-    // normal help normal help
-    // normal help normal help
-    //
-    //   request-item-1
-    //     help help
-    //
-    //   request-item-2
-    //     help help
-    //
-    // normal help normal help
-    // ```
-    //
-    // Should look like this with roff controls
-    //
-    // ```
-    // normal help normal help
-    // normal help normal help
-    // .RS 12
-    // .TP
-    // request-item-1
-    // help help
-    // .TP
-    // request-item-2
-    // help help
-    // .RE
-    //
-    // .RS
-    // normal help normal help
-    // .RE
-    // ```
-    let lines: Vec<&str> = request_items_help.lines().collect();
-    let mut rs = false;
-    for i in 0..lines.len() {
-        if lines[i].is_empty() {
-            let prev = lines[i - 1].chars().take_while(|&x| x == ' ').count();
-            let next = lines[i + 1].chars().take_while(|&x| x == ' ').count();
-            if prev != next && next > 0 {
-                if !rs {
-                    request_items_roff.control("RS", ["8"]);
-                    rs = true;
-                }
-                request_items_roff.control("TP", ["4"]);
-            } else if prev != next && next == 0 {
-                request_items_roff.control("RE", []);
-                request_items_roff.text(vec![roman("")]);
-                request_items_roff.control("RS", []);
-            } else {
-                request_items_roff.text(vec![roman(lines[i])]);
-            }
-        } else {
-            request_items_roff.text(vec![roman(lines[i].trim())]);
-        }
-    }
-    request_items_roff.control("RE", []);
-
-    let mut options_roff = Roff::new();
-    let non_pos_items = items
-        .iter()
-        .filter(|a| !a.is_positional())
-        .collect::<Vec<_>>();
-
-    for opt in non_pos_items {
-        let mut header = vec![];
-        if let Some(short) = opt.get_short() {
-            header.push(bold(format!("-{}", short)));
-        }
-        if let Some(long) = opt.get_long() {
-            if !header.is_empty() {
-                header.push(roman(", "));
-            }
-            header.push(bold(format!("--{}", long)));
-        }
-        if opt.get_action().takes_values() {
-            let value_name = &opt.get_value_names().unwrap();
-            if opt.get_long().is_some() {
-                header.push(roman("="));
-            } else {
-                header.push(roman(" "));
-            }
-
-            if opt.get_id() == "auth" {
-                header.push(italic("USER"));
-                header.push(roman("["));
-                header.push(italic(":PASS"));
-                header.push(roman("] | "));
-                header.push(italic("TOKEN"));
-            } else {
-                header.push(italic(value_name.join(" ")));
-            }
-        }
-        let mut body = vec![];
-
-        let mut help = opt
-            .get_long_help()
-            .or_else(|| opt.get_help())
-            .expect("option is missing help")
-            .to_string();
-        if !help.ends_with('.') {
-            help.push('.')
-        }
-        body.push(roman(help));
-
-        let possible_values = opt.get_possible_values();
-        if !possible_values.is_empty()
-            && !opt.is_hide_possible_values_set()
-            && opt.get_id() != "pretty"
-        {
-            let possible_values_text = format!(
-                "\n\n[possible values: {}]",
-                possible_values
-                    .iter()
-                    .map(|v| v.get_name())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-            body.push(roman(possible_values_text));
-        }
-        options_roff.control("TP", ["4"]);
-        options_roff.text(header);
-        options_roff.text(body);
-    }
-
-    let mut manpage = fs::read_to_string(format!("{}/man-template.roff", rest_args[0])).unwrap();
-
-    let current_date = {
-        let (year, month, day) = DateTime::now_utc().date().to_calendar_date();
-        format!("{}-{:02}-{:02}", year, u8::from(month), day)
-    };
-
-    manpage = manpage.replace("{{date}}", &current_date);
-    manpage = manpage.replace("{{version}}", app.get_version().unwrap());
-    manpage = manpage.replace("{{request_items}}", request_items_roff.to_roff().trim());
-    manpage = manpage.replace("{{options}}", options_roff.to_roff().trim());
-
-    fs::write(format!("{}/xh.1", rest_args[0]), manpage).unwrap();
-    safe_exit();
-}
-
-#[cfg(not(feature = "man-completion-gen"))]
-fn generate_completions(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
-    clap::Error::raw(
-        clap::error::ErrorKind::InvalidSubcommand,
-        "generate-completions requires enabling man-completion-gen feature\n",
-    )
-}
-
-#[cfg(not(feature = "man-completion-gen"))]
-fn generate_manpages(mut _app: clap::Command, _rest_args: Vec<String>) -> clap::error::Error {
-    clap::Error::raw(
-        clap::error::ErrorKind::InvalidSubcommand,
-        "generate-manpages requires enabling man-completion-gen feature\n",
-    )
 }
 
 #[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
@@ -1351,6 +1161,17 @@ pub enum HttpVersion {
     Http2,
     #[clap(name = "2-prior-knowledge")]
     Http2PriorKnowledge,
+}
+
+#[derive(ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Generate {
+    CompleteBash,
+    CompleteElvish,
+    CompleteFish,
+    CompleteNushell,
+    CompletePowershell,
+    CompleteZsh,
+    Man,
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.
@@ -1869,5 +1690,17 @@ mod tests {
         assert!(Resolve::from_str("example.com:127.0.0.1").is_ok());
         assert!(Resolve::from_str("example.com:::1").is_ok());
         assert!(Resolve::from_str("example.com:[::1]").is_ok());
+    }
+
+    #[test]
+    fn generate() {
+        let cli = parse(["--generate", "complete-bash"]).unwrap();
+        assert_eq!(cli.generate, Some(Generate::CompleteBash));
+        assert_eq!(cli.raw_method_or_url, None);
+    }
+
+    #[test]
+    fn generate_with_url() {
+        parse(["--generate", "complete-zsh", "example.org"]).unwrap_err();
     }
 }

@@ -5,6 +5,7 @@ mod cli;
 mod decoder;
 mod download;
 mod formatting;
+mod generation;
 mod middleware;
 mod nested_json;
 mod netrc;
@@ -101,6 +102,11 @@ fn main() {
 }
 
 fn run(args: Cli) -> Result<i32> {
+    if let Some(generate) = args.generate {
+        generation::generate(&args.bin_name, generate);
+        return Ok(0);
+    }
+
     if args.curl {
         to_curl::print_curl_translation(args)?;
         return Ok(0);
