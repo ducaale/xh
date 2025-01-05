@@ -281,7 +281,7 @@ impl Session {
             Cookies::Map(_) => unreachable!(),
             Cookies::List(cookies) => cookies.iter().map(|cookie| {
                 let mut cookie_builder =
-                    cookie_store::RawCookie::build(cookie.name.clone(), cookie.value.clone());
+                    cookie_store::RawCookie::build(cookie.name.clone());
 
                 if let Some(expires) = cookie.expires {
                     cookie_builder =
