@@ -2740,7 +2740,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_complete_nushell",
- "cookie_store 0.20.0",
+ "cookie_store",
  "digest_auth",
  "dirs",
  "encoding_rs",
