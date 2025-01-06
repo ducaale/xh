@@ -1,6 +1,6 @@
 ## Unreleased
 ### Features
-- Allow for completion and man page generation at runtime
+- Add `--generate` option to generate the man page and shell completions at runtime
 - Add support for Elvish and Nushell shell completions
 
 ## [0.23.1] - 2025-01-02

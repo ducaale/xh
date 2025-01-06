@@ -368,7 +368,24 @@ Example: --print=Hb"
     pub curl_long: bool,
 
     /// Generate shell completions or man pages.
-    #[arg(long, value_name = "KIND")]
+    #[arg(
+        long,
+        value_name = "KIND",
+        hide_possible_values = true,
+        long_help = "\
+Generate shell completions or man pages. Possible values are:
+
+    complete-bash
+    complete-elvish
+    complete-fish
+    complete-nushell
+    complete-powershell
+    complete-zsh
+    man
+
+Example: xh --generate=complete-bash > xh.bash",
+        conflicts_with = "raw_method_or_url"
+    )]
     pub generate: Option<Generate>,
 
     /// Print help.
@@ -385,11 +402,7 @@ Example: --print=Hb"
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    #[clap(
-        value_name = "[METHOD] URL",
-        required_unless_present = "generate",
-        conflicts_with = "generate"
-    )]
+    #[clap(value_name = "[METHOD] URL", required = true)]
     raw_method_or_url: Option<String>,
 
     /// Optional key-value pairs to be included in the request.
