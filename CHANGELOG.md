@@ -1,3 +1,8 @@
+## Unreleased
+### Features
+- Add `--generate` option to generate the man page and shell completions at runtime
+- Add support for Elvish and Nushell shell completions
+
 ## [0.23.1] - 2025-01-02
 ### Security fixes
 - Upgrade to ruzstd v0.7.3 to fix RUSTSEC-2024-0400, see #396 (@zuisong)

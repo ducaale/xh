@@ -23,6 +23,7 @@ complete -c xh -l default-scheme -d 'The default scheme to use if not specified 
 complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "{1.0\t'',1.1\t'',2\t'',2-prior-knowledge\t''}"
 complete -c xh -l resolve -d 'Override DNS resolution for specific domain to a custom IP' -r
 complete -c xh -l interface -d 'Bind to a network interface or local IP address' -r
+complete -c xh -l generate -d 'Generate shell completions or man pages' -r -f -a "{complete-bash\t'',complete-elvish\t'',complete-fish\t'',complete-nushell\t'',complete-powershell\t'',complete-zsh\t'',man\t''}"
 complete -c xh -s j -l json -d '(default) Serialize data items from the command line as a JSON object'
 complete -c xh -s f -l form -d 'Serialize data items from the command line as form fields'
 complete -c xh -l multipart -d 'Like --form, but force a multipart/form-data request even without files'
@@ -97,5 +98,6 @@ complete -c xh -l no-ipv6
 complete -c xh -l no-ignore-stdin
 complete -c xh -l no-curl
 complete -c xh -l no-curl-long
+complete -c xh -l no-generate
 complete -c xh -l no-help
 complete -c xh -s V -l version -d 'Print version'
