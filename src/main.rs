@@ -578,7 +578,19 @@ fn run(args: Cli) -> Result<i32> {
             }
             client = client.with(CookieMiddleware::new(cookie_jar.clone()));
             if let Some(socket_path) = args.unix_socket {
-                client = client.with_unix_socket(socket_path)?;
+                #[cfg(not(unix))]
+                {
+                    return Err(anyhow::anyhow!(
+                        "HTTP over Unix domain sockets is not supported on this platform"
+                    ));
+                }
+                #[cfg(unix)]
+                {
+                    if (args.timeout.and_then(|t| t.as_duration())).is_some() {
+                        log::warn!("Timeout is not supported for HTTP over Unix domain sockets");
+                    }
+                    client = client.with_unix_socket(socket_path)?;
+                }
             }
             client.execute(request, |prev_response, next_request| {
                 if !args.all {

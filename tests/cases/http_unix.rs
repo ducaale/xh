@@ -196,4 +196,23 @@ fn cookies_persist_across_redirects() {
         "#});
 }
 
-// TODO: add tests for connection timeout
+#[cfg(unix)]
+#[test]
+fn timeout_is_unsupported_warning() {
+    let server = server::http_unix(|_req| async move {
+        hyper::Response::builder()
+            .header(hyper::header::CONTENT_TYPE, "application/json")
+            .body(r#"{"status":"ok"}"#.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(":")
+        .arg(format!(
+            "--unix-socket={}",
+            server.socket_path().to_string_lossy()
+        ))
+        .arg("--timeout=30")
+        .assert()
+        .stderr("xh: warning: Timeout is not supported for HTTP over Unix domain sockets\n");
+}

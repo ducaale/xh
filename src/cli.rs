@@ -350,7 +350,11 @@ Example: --print=Hb"
     /// Connect using a Unix domain socket.
     ///
     /// Example: xh :/index.html --unix-socket=/var/run/temp.sock
-    #[clap(long, value_name = "FILE")]
+    #[clap(
+        long,
+        value_name = "FILE",
+        conflicts_with_all=["proxy", "verify", "cert", "cert_key", "ssl", "resolve", "interface", "ipv4", "ipv6", "https", "http_version"]
+    )]
     pub unix_socket: Option<PathBuf>,
 
     /// Do not attempt to read stdin.
@@ -1017,7 +1021,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Timeout(Duration);
 
 impl Timeout {

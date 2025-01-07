@@ -107,20 +107,10 @@ impl<'a> ClientWithMiddleware<'a> {
         }
     }
 
-    #[allow(unused)]
+    #[cfg(unix)]
     pub fn with_unix_socket(mut self, socket_path: PathBuf) -> Result<Self> {
-        #[cfg(not(unix))]
-        {
-            return Err(anyhow::anyhow!(
-                "HTTP over Unix domain sockets is not supported on this platform"
-            ));
-        }
-
-        #[cfg(unix)]
-        {
-            self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path));
-            Ok(self)
-        }
+        self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path));
+        Ok(self)
     }
 
     pub fn with(mut self, middleware: impl Middleware + 'a) -> Self {
