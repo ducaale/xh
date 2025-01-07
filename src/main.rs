@@ -91,6 +91,15 @@ fn main() {
                 eprintln!();
                 eprintln!("Try running without the --native-tls flag.");
             }
+            if msg.starts_with("deadline has elapsed") {
+                process::exit(2);
+            }
+            #[cfg(unix)]
+            {
+                if err.downcast_ref::<unix_socket::TimeoutError>().is_some() {
+                    process::exit(2);
+                }
+            }
             if let Some(err) = err.downcast_ref::<reqwest::Error>() {
                 if err.is_timeout() {
                     process::exit(2);
@@ -155,6 +164,7 @@ fn run(args: Cli) -> Result<i32> {
         .http1_title_case_headers()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
+        // TODO: replace with connect_timeout + read_timeout
         .timeout(args.timeout.and_then(|t| t.as_duration()))
         .no_gzip()
         .no_deflate()
@@ -586,10 +596,10 @@ fn run(args: Cli) -> Result<i32> {
                 }
                 #[cfg(unix)]
                 {
-                    if (args.timeout.and_then(|t| t.as_duration())).is_some() {
-                        log::warn!("Timeout is not supported for HTTP over Unix domain sockets");
-                    }
-                    client = client.with_unix_socket(socket_path)?;
+                    client = client.with_unix_socket(
+                        socket_path,
+                        args.timeout.and_then(|t| t.as_duration()),
+                    )?;
                 }
             }
             client.execute(request, |prev_response, next_request| {

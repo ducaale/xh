@@ -108,8 +108,12 @@ impl<'a> ClientWithMiddleware<'a> {
     }
 
     #[cfg(unix)]
-    pub fn with_unix_socket(mut self, socket_path: PathBuf) -> Result<Self> {
-        self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path));
+    pub fn with_unix_socket(
+        mut self,
+        socket_path: PathBuf,
+        timeout: Option<Duration>,
+    ) -> Result<Self> {
+        self.client = Client::Unix(crate::unix_socket::UnixClient::new(socket_path, timeout));
         Ok(self)
     }
 

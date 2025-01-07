@@ -1,13 +1,12 @@
 #[cfg(unix)]
 use indoc::indoc;
+use predicates::str::contains;
 
 use crate::prelude::*;
 
 #[cfg(not(unix))]
 #[test]
 fn error_on_unsupported_platform() {
-    use predicates::str::contains;
-
     get_command()
         .arg(format!("--unix-socket=/tmp/missing.sock",))
         .arg(":/index.html")
@@ -198,13 +197,12 @@ fn cookies_persist_across_redirects() {
 
 #[cfg(unix)]
 #[test]
-fn timeout_is_unsupported_warning() {
-    let server = server::http_unix(|_req| async move {
-        hyper::Response::builder()
-            .header(hyper::header::CONTENT_TYPE, "application/json")
-            .body(r#"{"status":"ok"}"#.into())
-            .unwrap()
+fn timeout() {
+    let mut server = server::http_unix(|_req| async move {
+        tokio::time::sleep(std::time::Duration::from_secs_f32(0.5)).await;
+        hyper::Response::default()
     });
+    server.disable_hit_checks();
 
     get_command()
         .arg(":")
@@ -212,7 +210,8 @@ fn timeout_is_unsupported_warning() {
             "--unix-socket={}",
             server.socket_path().to_string_lossy()
         ))
-        .arg("--timeout=30")
+        .arg("--timeout=0.1")
         .assert()
-        .stderr("xh: warning: Timeout is not supported for HTTP over Unix domain sockets\n");
+        .code(2)
+        .stderr(contains("operation timed out"));
 }
