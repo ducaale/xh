@@ -1282,6 +1282,7 @@ fn native_tls_works() {
 }
 
 #[cfg(feature = "online-tests")]
+#[ignore = "404 errors"]
 #[test]
 fn good_tls_version() {
     get_command()
@@ -1292,6 +1293,7 @@ fn good_tls_version() {
 }
 
 #[cfg(all(feature = "native-tls", feature = "online-tests"))]
+#[ignore = "404 errors"]
 #[test]
 fn good_tls_version_nativetls() {
     get_command()
