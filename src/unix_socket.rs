@@ -30,35 +30,30 @@ impl UnixClient {
         }
     }
 
+    async fn connect(&self) -> Result<hyper::client::conn::http1::SendRequest<reqwest::Body>> {
+        // TODO: Add support for Windows named pipes by replacing UnixStream with namedPipeClient.
+        // See https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/struct.ClientOptions.html#method.open
+        let stream = tokio::net::UnixStream::connect(&self.socket_path).await?;
+        let (sender, conn) = hyper::client::conn::http1::Builder::new()
+            .title_case_headers(true)
+            .handshake(hyper_util::rt::TokioIo::new(stream))
+            .await?;
+
+        tokio::task::spawn(async move {
+            if let Err(err) = conn.await {
+                log::error!("Connection failed: {:?}", err);
+            }
+        });
+
+        Ok(sender)
+    }
+
     pub fn execute(&self, request: Request) -> Result<Response> {
         self.rt.block_on(async {
-            // TODO: Add support for Windows named pipes by replacing UnixStream with namedPipeClient.
-            // See https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/struct.ClientOptions.html#method.open
-
-            // TODO: connection timeout??
-            let stream = tokio::net::UnixStream::connect(&self.socket_path).await?;
-
-            // TODO: connection timeout
-            let (mut sender, conn) = hyper::client::conn::http1::Builder::new()
-                .title_case_headers(true)
-                .handshake(hyper_util::rt::TokioIo::new(stream))
-                .await?;
-
-            tokio::task::spawn(async move {
-                if let Err(err) = conn.await {
-                    log::error!("Connection failed: {:?}", err);
-                }
-            });
-
             let http_request = into_async_request(request)?;
 
-            let response = if let Some(timeout) = self.timeout {
-                tokio::time::timeout(timeout, sender.send_request(http_request))
-                    .await
-                    .map_err(|_| anyhow!(TimeoutError))?
-            } else {
-                sender.send_request(http_request).await
-            }?;
+            let mut sender = with_timeout(self.connect(), self.timeout).await??;
+            let response = with_timeout(sender.send_request(http_request), self.timeout).await??;
 
             Ok(Response::from(response.map(|body| {
                 if let Some(timeout) = self.timeout {
@@ -96,6 +91,19 @@ fn into_async_request(mut request: Request) -> Result<http::Request<reqwest::Bod
     }
 
     Ok(http_request)
+}
+
+async fn with_timeout<F>(fut: F, timeout: Option<Duration>) -> Result<F::Output>
+where
+    F: std::future::IntoFuture,
+{
+    if let Some(timeout) = timeout {
+        tokio::time::timeout(timeout, fut)
+            .await
+            .map_err(|_| anyhow!(TimeoutError))
+    } else {
+        Ok(fut.await)
+    }
 }
 
 #[derive(Debug, Clone)]
