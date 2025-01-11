@@ -8,7 +8,6 @@ use anyhow::{anyhow, Result};
 use pin_project_lite::pin_project;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{HeaderValue, HOST};
-use tokio::time::Sleep;
 
 pub struct UnixClient {
     rt: tokio::runtime::Runtime,
@@ -57,7 +56,7 @@ impl UnixClient {
 
             Ok(Response::from(response.map(|body| {
                 if let Some(timeout) = self.timeout {
-                    reqwest::Body::wrap(ReadTimeoutBody::new(body, timeout))
+                    reqwest::Body::wrap(TotalTimeoutBody::new(body, timeout))
                 } else {
                     reqwest::Body::wrap(body)
                 }
@@ -115,29 +114,27 @@ impl std::fmt::Display for TimeoutError {
     }
 }
 
-// Copied from https://github.com/seanmonstar/reqwest/blob/8b8fdd2552ad645c7e9dd494930b3e95e2aedef2/src/async_impl/body.rs#L347
+// Copied from https://github.com/seanmonstar/reqwest/blob/8b8fdd2552ad645c7e9dd494930b3e95e2aedef2/src/async_impl/body.rs#L314
 // with some slight tweaks
 pin_project! {
-    pub(crate) struct ReadTimeoutBody<B> {
+    pub(crate) struct TotalTimeoutBody<B> {
         #[pin]
         inner: B,
-        #[pin]
-        sleep: Option<Sleep>,
-        timeout: Duration,
+        timeout: Pin<Box<tokio::time::Sleep>>,
     }
 }
 
-impl<B> ReadTimeoutBody<B> {
-    fn new(body: B, timeout: Duration) -> ReadTimeoutBody<B> {
-        ReadTimeoutBody {
+impl<B> TotalTimeoutBody<B> {
+    fn new(body: B, timeout: Duration) -> TotalTimeoutBody<B> {
+        let total_timeout = Box::pin(tokio::time::sleep(timeout));
+        TotalTimeoutBody {
             inner: body,
-            sleep: None,
-            timeout,
+            timeout: total_timeout,
         }
     }
 }
 
-impl<B> hyper::body::Body for ReadTimeoutBody<B>
+impl<B> hyper::body::Body for TotalTimeoutBody<B>
 where
     B: hyper::body::Body,
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
@@ -149,26 +146,14 @@ where
         self: Pin<&mut Self>,
         cx: &mut Context,
     ) -> Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
-        let mut this = self.project();
-
-        // Start the `Sleep` if not active.
-        let sleep_pinned = if let Some(some) = this.sleep.as_mut().as_pin_mut() {
-            some
-        } else {
-            this.sleep.set(Some(tokio::time::sleep(*this.timeout)));
-            this.sleep.as_mut().as_pin_mut().unwrap()
-        };
-
-        // Error if the timeout has expired.
-        if let Poll::Ready(()) = sleep_pinned.poll(cx) {
+        let this = self.project();
+        if let Poll::Ready(()) = this.timeout.as_mut().poll(cx) {
             return Poll::Ready(Some(Err(anyhow!(TimeoutError))));
         }
-
-        let item = futures_core::ready!(this.inner.poll_frame(cx))
-            .map(|opt_chunk| opt_chunk.map_err(|e| anyhow!(e.into())));
-        // a ready frame means timeout is reset
-        this.sleep.set(None);
-        Poll::Ready(item)
+        Poll::Ready(
+            futures_core::ready!(this.inner.poll_frame(cx))
+                .map(|opt_chunk| opt_chunk.map_err(|e| anyhow!(e.into()))),
+        )
     }
 
     #[inline]

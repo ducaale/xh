@@ -164,7 +164,6 @@ fn run(args: Cli) -> Result<i32> {
         .http1_title_case_headers()
         .http2_adaptive_window(true)
         .redirect(reqwest::redirect::Policy::none())
-        // TODO: replace with connect_timeout + read_timeout
         .timeout(args.timeout.and_then(|t| t.as_duration()))
         .no_gzip()
         .no_deflate()
