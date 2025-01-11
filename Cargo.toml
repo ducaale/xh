@@ -21,7 +21,7 @@ chardetng = "0.1.15"
 clap = { version = "4.4", features = ["derive", "wrap_help", "string"] }
 clap_complete = "4.4"
 clap_complete_nushell = "4.4"
-cookie_store = { version = "0.20.0", features = ["preserve_order"] }
+cookie_store = { version = "0.21.1", features = ["preserve_order"] }
 digest_auth = "0.3.0"
 dirs = "5.0"
 encoding_rs = "0.8.28"
