@@ -305,7 +305,7 @@ impl Session {
                 }
 
                 Ok(cookie_store::Cookie::try_from_raw_cookie(
-                    &cookie_builder.finish(),
+                    &cookie_builder.into(),
                     &cookie_url,
                 )?)
             }),
