@@ -336,7 +336,7 @@ impl Session {
                     .expires()
                     .and_then(|v| v.datetime())
                     .map(|v| v.unix_timestamp()),
-                path: cookie.path().map(Into::into),
+                path: Some(cookie.path.to_string()),
                 secure: cookie.secure(),
                 domain: domain.map(Into::into),
             });
