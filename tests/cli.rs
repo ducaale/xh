@@ -2131,7 +2131,7 @@ fn named_sessions() {
             },
             "auth": { "type": "bearer", "raw_auth": "hello" },
             "cookies": [
-                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
+                { "name": "lang", "value": "en", "path": "/", "domain": "127.0.0.1" },
                 { "name": "cook1", "value": "one", "path": "/", "domain": "127.0.0.1" }
             ],
             "headers": []
@@ -2173,7 +2173,7 @@ fn anonymous_sessions() {
             },
             "auth": { "type": "basic", "raw_auth": "me:pass" },
             "cookies": [
-                { "name": "cook1", "value": "one", "domain": "127.0.0.1" }
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1", "path": "/" }
             ],
             "headers": [
                 { "name": "hello", "value": "world" }
@@ -2258,7 +2258,7 @@ fn session_files_are_created_in_read_only_mode() {
             },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "lang", "value": "ar", "domain": "127.0.0.1" }
+                { "name": "lang", "value": "ar", "domain": "127.0.0.1", "path": "/" }
             ],
             "headers": [
                 { "name": "hello", "value": "world" }
@@ -2379,12 +2379,14 @@ fn expired_cookies_are_removed_from_session() {
                     "name": "unexpired_cookie",
                     "value": "random_string",
                     "expires": future_timestamp,
-                    "domain": "127.0.0.1"
+                    "domain": "127.0.0.1",
+                    "path": "/"
                 },
                 {
                     "name": "with_out_expiry",
                     "value": "random_string",
-                    "domain": "127.0.0.1"
+                    "domain": "127.0.0.1",
+                    "path": "/"
                 }
             ],
             "headers": []
@@ -2450,9 +2452,9 @@ fn cookies_override_each_other_in_the_correct_order() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "lang", "value": "en", "domain": "127.0.0.1" },
-                { "name": "cook2", "value": "two", "domain": "127.0.0.1" },
-                { "name": "cook1", "value": "one", "domain": "127.0.0.1" },
+                { "name": "lang", "value": "en", "domain": "127.0.0.1", "path": "/" },
+                { "name": "cook2", "value": "two", "domain": "127.0.0.1", "path": "/" },
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1", "path": "/" },
             ],
             "headers": []
         })
@@ -2519,11 +2521,58 @@ fn cookies_are_segmented_by_domain() {
             "__meta__": { "about": "xh session file", "xh": "0.0.0" },
             "auth": { "type": null, "raw_auth": null },
             "cookies": [
-                { "name": "lang", "value": "en", "domain": "example.com" },
-                { "name": "lang", "value": "fr", "domain": "example.org" },
-                { "name": "lang", "value": "ar", "domain": "example.net" }
+                { "name": "lang", "value": "en", "domain": "example.com", "path": "/" },
+                { "name": "lang", "value": "fr", "domain": "example.org", "path": "/" },
+                { "name": "lang", "value": "ar", "domain": "example.net", "path": "/" }
             ],
             "headers": []
+        })
+    );
+}
+
+/// According to [RFC-6265: HTTP State Management
+/// Mechanism](https://httpwg.org/specs/rfc6265.html#cookie-path), cookies without an explicit path
+/// attribute must be interpreted to have a default path. If we don't store that default path, xh
+/// may erroneously send cookies in requests where it shouldn't have.
+#[test]
+fn cookies_are_stored_with_default_path() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("set-cookie", "cook1=one")
+            .body("".into())
+            .unwrap()
+    });
+
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+
+    get_command()
+        .arg(format!("{}{}", server.base_url(), "/some/path/file"))
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .arg("--auth=me:pass")
+        .arg("hello:world")
+        .assert()
+        .success();
+
+    server.assert_hits(1);
+
+    let session_content = fs::read_to_string(path_to_session).unwrap();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "auth": { "type": "basic", "raw_auth": "me:pass" },
+            "cookies": [
+                { "name": "cook1", "value": "one", "domain": "127.0.0.1", "path": "/some/path" }
+            ],
+            "headers": [
+                { "name": "hello", "value": "world" }
+            ]
         })
     );
 }

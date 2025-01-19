@@ -1666,6 +1666,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest_cookie_store"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b36498c7452f11b1833900f31fbb01fc46be20992a50269c88cf59d79f54e9"
+dependencies = [
+ "bytes",
+ "cookie_store",
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "url",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2767,6 +2781,7 @@ dependencies = [
  "rand",
  "regex-lite",
  "reqwest",
+ "reqwest_cookie_store",
  "roff",
  "rpassword",
  "rustls",
