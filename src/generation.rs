@@ -182,7 +182,12 @@ fn generate_manpages(app: &mut clap::Command) {
     let mut manpage = MAN_TEMPLATE.to_string();
 
     let current_date = {
-        let (year, month, day) = DateTime::now_utc().date().to_calendar_date();
+        // https://reproducible-builds.org/docs/source-date-epoch/
+        let now = match std::env::var("SOURCE_DATE_EPOCH") {
+            Ok(val) => DateTime::from_unix_timestamp(val.parse::<i64>().unwrap()).unwrap(),
+            Err(_) => DateTime::now_utc(),
+        };
+        let (year, month, day) = now.date().to_calendar_date();
         format!("{}-{:02}-{:02}", year, u8::from(month), day)
     };
 
