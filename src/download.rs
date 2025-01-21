@@ -60,7 +60,7 @@ fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
         .or_else(|| from_url(orig_url))
         .unwrap_or_else(|| "index".to_string());
 
-    let filename = filename.split(std::path::is_separator).last().unwrap();
+    let filename = filename.split(std::path::is_separator).next_back().unwrap();
 
     let mut filename = filename.trim().trim_start_matches('.').to_string();
 

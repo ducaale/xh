@@ -6,7 +6,7 @@ mod server;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::future::Future;
-use std::io::Write;
+use std::io::{Read as _, Write};
 use std::iter::FromIterator;
 use std::net::IpAddr;
 use std::pin::Pin;
@@ -3481,6 +3481,146 @@ fn zstd() {
             Hello world
 
         "#});
+}
+
+#[test]
+fn compress_request_body() {
+    fn zlib_decode(bytes: Vec<u8>) -> std::io::Result<String> {
+        let mut z = flate2::read::ZlibDecoder::new(&bytes[..]);
+        let mut s = String::new();
+        z.read_to_string(&mut s)?;
+        Ok(s)
+    }
+
+    let server = server::http(|req| async move {
+        match req.uri().path() {
+            "/deflate" => {
+                assert_eq!(
+                    req.headers().get(hyper::header::CONTENT_ENCODING),
+                    Some(HeaderValue::from_static("deflate")).as_ref()
+                );
+
+                let compressed_body = req.body().await;
+                let body = zlib_decode(compressed_body).unwrap();
+                hyper::Response::builder()
+                    .header("date", "N/A")
+                    .header("Content-Type", "text/plain")
+                    .body(body.into())
+                    .unwrap()
+            }
+            "/normal" => {
+                let body = req.body_as_string().await;
+                hyper::Response::builder()
+                    .header("date", "N/A")
+                    .header("Content-Type", "text/plain")
+                    .body(body.into())
+                    .unwrap()
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .arg(format!("{}/deflate", server.base_url()))
+        .args([
+            &format!("key={}", "1".repeat(1000)),
+            "-x",
+            "-j",
+            "--pretty=none",
+        ])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 1010
+
+            {{"key":"{c}"}}
+        "#, c = "1".repeat(1000),});
+
+    get_command()
+        .arg(format!("{}/deflate", server.base_url()))
+        .args([
+            &format!("key={}", "1".repeat(1000)),
+            "-x",
+            "-x",
+            "-f",
+            "--pretty=none",
+        ])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 1004
+
+            key={c}
+        "#, c = "1".repeat(1000),});
+
+    get_command()
+        .arg(format!("{}/deflate", server.base_url()))
+        .args([
+            &format!("key={}", "1".repeat(1000)),
+            "-x",
+            "-x",
+            "-f",
+            "--pretty=none",
+        ])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 1004
+
+            key={c}
+        "#, c = "1".repeat(1000),});
+
+    get_command()
+        .arg(format!("{}/normal", server.base_url()))
+        .args([&format!("key={}", "1"), "-x", "-f", "--pretty=none"])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 5
+
+            key={c}
+        "#, c = "1"});
+
+    // force compress
+    get_command()
+        .arg(format!("{}/deflate", server.base_url()))
+        .args([&format!("key={}", "1"), "-xx", "-f", "--pretty=none"])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 5
+
+            key={c}
+        "#, c = "1"});
+    //  dont compress_request_body_if_content_encoding_have_value
+    get_command()
+        .arg(format!("{}/normal", server.base_url()))
+        .args([
+            &format!("key={}", "1".repeat(1000)),
+            "content-encoding:gzip",
+            "-x",
+            "-f",
+            "--pretty=none",
+        ])
+        .assert()
+        .stdout(indoc::formatdoc! {r#"
+            HTTP/1.1 200 OK
+            Date: N/A
+            Content-Type: text/plain
+            Content-Length: 1004
+
+            key={c}
+        "#, c = "1".repeat(1000),});
 }
 
 #[test]

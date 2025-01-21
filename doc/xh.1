@@ -1,4 +1,4 @@
-.TH XH 1 2025-01-04 0.23.1 "User Commands"
+.TH XH 1 2025-01-22 0.23.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -188,6 +188,9 @@ Using quiet twice i.e. \-qq will suppress warnings as well.
 \fB\-S\fR, \fB\-\-stream\fR
 Always stream the response body.
 .TP 4
+\fB\-x\fR, \fB\-\-compress\fR
+Content compressed (encoded) with Deflate algorithm. The Content\-Encoding header is set to deflate.
+.TP 4
 \fB\-o\fR, \fB\-\-output\fR=\fIFILE\fR
 Save output to FILE instead of stdout.
 .TP 4
@@ -321,9 +324,17 @@ For translating the other way, try https://curl2httpie.online/.
 Use the long versions of curl's flags.
 .TP 4
 \fB\-\-generate\fR=\fIKIND\fR
-Generate shell completions or man pages.
+Generate shell completions or man pages. Possible values are:
 
-[possible values: complete\-bash, complete\-elvish, complete\-fish, complete\-nushell, complete\-powershell, complete\-zsh, man]
+    complete\-bash
+    complete\-elvish
+    complete\-fish
+    complete\-nushell
+    complete\-powershell
+    complete\-zsh
+    man
+
+Example: xh \-\-generate=complete\-bash > xh.bash.
 .TP 4
 \fB\-\-help\fR
 Print help.

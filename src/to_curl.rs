@@ -97,6 +97,8 @@ pub fn translate(args: Cli) -> Result<Command> {
         // No equivalent
         (args.style.is_some(), "-s/--style"),
         // No equivalent
+        (args.compress > 0, "-x/--compress"),
+        // No equivalent
         (args.response_charset.is_some(), "--response-charset"),
         // No equivalent
         (args.response_mime.is_some(), "--response-mime"),

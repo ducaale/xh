@@ -19,7 +19,7 @@ mod utils;
 
 use std::env;
 use std::fs::File;
-use std::io::{self, IsTerminal, Read};
+use std::io::{self, IsTerminal, Read, Write as _};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::process;
@@ -28,8 +28,10 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use cookie_store::{CookieStore, RawCookie};
+use flate2::write::ZlibEncoder;
+use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
-use reqwest::blocking::Client;
+use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
@@ -507,6 +509,27 @@ fn run(args: Cli) -> Result<i32> {
         }
 
         let mut request = request_builder.headers(headers).build()?;
+
+        if args.compress >= 1 && request.headers().get(CONTENT_ENCODING).is_none() {
+            let mut compressed = false;
+            if let Some(body) = request.body_mut() {
+                if let Some(body_bytes) = body.as_bytes() {
+                    let mut encoder = ZlibEncoder::new(Vec::new(), Default::default());
+                    encoder.write_all(body_bytes)?;
+                    let output = encoder.finish()?;
+                    if output.len() < body_bytes.len() || args.compress >= 2 {
+                        let _ = std::mem::replace(body, ReqwestBody::from(output));
+                        compressed = true;
+                    }
+                }
+            }
+            if compressed {
+                request
+                    .headers_mut()
+                    .entry(CONTENT_ENCODING)
+                    .or_insert(HeaderValue::from_static("deflate"));
+            }
+        }
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);

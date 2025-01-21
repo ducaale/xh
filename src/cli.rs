@@ -182,6 +182,11 @@ Example: --print=Hb"
     #[clap(short = 'S', long = "stream", name = "stream")]
     pub stream_raw: bool,
 
+    ///  Content compressed (encoded) with Deflate algorithm.
+    ///  The Content-Encoding header is set to deflate.
+    #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
+    pub compress: u8,
+
     #[clap(skip)]
     pub stream: Option<bool>,
 

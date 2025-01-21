@@ -35,6 +35,7 @@ complete -c xh -l debug -d 'Print full error stack traces and debug log messages
 complete -c xh -l all -d 'Show any intermediary requests/responses while following redirects with --follow'
 complete -c xh -s q -l quiet -d 'Do not print to stdout or stderr'
 complete -c xh -s S -l stream -d 'Always stream the response body'
+complete -c xh -s x -l compress -d 'Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate'
 complete -c xh -s d -l download -d 'Download the body to a file instead of printing it'
 complete -c xh -s c -l continue -d 'Resume an interrupted download. Requires --download and --output'
 complete -c xh -l ignore-netrc -d 'Do not use credentials from .netrc'
@@ -68,6 +69,7 @@ complete -c xh -l no-all
 complete -c xh -l no-history-print
 complete -c xh -l no-quiet
 complete -c xh -l no-stream
+complete -c xh -l no-compress
 complete -c xh -l no-output
 complete -c xh -l no-download
 complete -c xh -l no-continue
