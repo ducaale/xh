@@ -3484,14 +3484,40 @@ fn zstd() {
 }
 
 #[test]
-fn compress_request_body() {
-    fn zlib_decode(bytes: Vec<u8>) -> std::io::Result<String> {
-        let mut z = flate2::read::ZlibDecoder::new(&bytes[..]);
-        let mut s = String::new();
-        z.read_to_string(&mut s)?;
-        Ok(s)
-    }
+fn compress_body_from_file() {
+    let server = server::http(|req| async move {
+        assert_eq!("Hello world\n", zlib_decode(req.body().await).unwrap());
+        hyper::Response::default()
+    });
 
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello world\n")
+        .unwrap();
+
+    get_command()
+        .arg(server.base_url())
+        .arg("-xx")
+        .arg(format!("@{}", filename.to_string_lossy()))
+        .assert()
+        .success();
+}
+
+fn zlib_decode(bytes: Vec<u8>) -> std::io::Result<String> {
+    let mut z = flate2::read::ZlibDecoder::new(&bytes[..]);
+    let mut s = String::new();
+    z.read_to_string(&mut s)?;
+    Ok(s)
+}
+
+#[test]
+fn compress_request_body() {
     let server = server::http(|req| async move {
         match req.uri().path() {
             "/deflate" => {

@@ -513,7 +513,7 @@ fn run(args: Cli) -> Result<i32> {
         if args.compress >= 1 && request.headers().get(CONTENT_ENCODING).is_none() {
             let mut compressed = false;
             if let Some(body) = request.body_mut() {
-                if let Some(body_bytes) = body.as_bytes() {
+                if let Ok(body_bytes) = body.buffer() {
                     let mut encoder = ZlibEncoder::new(Vec::new(), Default::default());
                     encoder.write_all(body_bytes)?;
                     let output = encoder.finish()?;
