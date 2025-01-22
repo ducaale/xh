@@ -19,6 +19,7 @@ use indoc::indoc;
 use predicates::function::function;
 use predicates::str::contains;
 use reqwest::header::HeaderValue;
+use serde_json::Value;
 use tempfile::{tempdir, NamedTempFile, TempDir};
 
 pub trait RequestExt {
@@ -777,6 +778,25 @@ fn successful_digest_auth() {
         .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn compress_request_body_online() {
+    get_command()
+        .arg("https://postman-echo.com/post")
+        .args(["-xx", "--body", &format!("a={}", "1".repeat(1000))])
+        .assert()
+        .stdout(function(|body: &str| {
+            let json: Value = serde_json::from_str(body).unwrap();
+            assert_eq!(json["json"]["a"], Value::String("1".repeat(1000)));
+            if let Some(request_body_length) = json["headers"]["content-length"].as_str() {
+                let length: i32 = request_body_length.parse().unwrap();
+                assert!(length < 1000)
+            }
+
+            true
+        }));
 }
 
 #[cfg(feature = "online-tests")]
