@@ -184,6 +184,9 @@ Example: --print=Hb"
 
     ///  Content compressed (encoded) with Deflate algorithm.
     ///  The Content-Encoding header is set to deflate.
+    ///
+    ///  Compression is skipped if it appears that compression ratio is negative.
+    ///  Compression can be forced by repeating this option.
     #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
     pub compress: u8,
 

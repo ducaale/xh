@@ -1,4 +1,4 @@
-.TH XH 1 2025-01-22 0.23.1 "User Commands"
+.TH XH 1 2025-01-23 0.23.1 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -190,6 +190,8 @@ Always stream the response body.
 .TP 4
 \fB\-x\fR, \fB\-\-compress\fR
 Content compressed (encoded) with Deflate algorithm. The Content\-Encoding header is set to deflate.
+
+Compression is skipped if it appears that compression ratio is negative. Compression can be forced by repeating this option.
 .TP 4
 \fB\-o\fR, \fB\-\-output\fR=\fIFILE\fR
 Save output to FILE instead of stdout.
