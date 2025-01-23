@@ -785,15 +785,33 @@ fn successful_digest_auth() {
 fn compress_request_body_online() {
     get_command()
         .arg("https://postman-echo.com/post")
-        .args(["-xx", "--body", &format!("a={}", "1".repeat(1000))])
+        .args(["--body", "-f", &format!("a={}", "1".repeat(1000))])
         .assert()
         .stdout(function(|body: &str| {
             let json: Value = serde_json::from_str(body).unwrap();
             assert_eq!(json["json"]["a"], Value::String("1".repeat(1000)));
-            if let Some(request_body_length) = json["headers"]["content-length"].as_str() {
-                let length: i32 = request_body_length.parse().unwrap();
-                assert!(length < 1000)
-            }
+            let length: i32 = json["headers"]["content-length"]
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap();
+            assert_eq!(length, 1002);
+
+            true
+        }));
+    get_command()
+        .arg("https://postman-echo.com/post")
+        .args(["-x", "--body", "-f", &format!("a={}", "1".repeat(1000))])
+        .assert()
+        .stdout(function(|body: &str| {
+            let json: Value = serde_json::from_str(body).unwrap();
+            assert_eq!(json["json"]["a"], Value::String("1".repeat(1000)));
+            let length: i32 = json["headers"]["content-length"]
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap();
+            assert!(length < 1000);
 
             true
         }));
