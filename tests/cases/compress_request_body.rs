@@ -87,6 +87,7 @@ fn compress_request_body_form() {
             key={c}
         "#, c = "1".repeat(1000),});
 }
+
 #[test]
 fn skip_compression_when_compression_ratio_is_negative() {
     let server = server();
@@ -105,7 +106,7 @@ fn skip_compression_when_compression_ratio_is_negative() {
 }
 
 #[test]
-fn compress_request_body_force() {
+fn test_compress_force_with_negative_ratio() {
     let server = server();
     get_command()
         .arg(format!("{}/deflate", server.base_url()))
@@ -194,4 +195,15 @@ fn compress_body_from_file_unless_compress_rate_less_1() {
         .arg(format!("@{}", filename.to_string_lossy()))
         .assert()
         .success();
+}
+#[test]
+fn test_cannot_combine_compress_with_multipart() {
+    get_command()
+        .arg(format!("{}/deflate", ""))
+        .args(["--multipart", "-x", "a=1"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "the argument '--multipart' cannot be used with '--compress...'",
+        ));
 }

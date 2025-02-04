@@ -60,7 +60,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(long, conflicts_with = "raw", overrides_with_all = &["json", "form"])]
+    #[clap(long, conflicts_with_all = &["raw", "compress"], overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.

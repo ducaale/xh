@@ -512,7 +512,7 @@ fn run(args: Cli) -> Result<i32> {
 
         if args.compress >= 1 && request.headers().get(CONTENT_ENCODING).is_none() {
             if let Some(body) = request.body_mut() {
-                // TODO: Compress file body (Multipart and File) without buffering
+                // TODO: Compress file body (File) without buffering
                 let body_bytes = body.buffer()?;
                 let mut encoder = ZlibEncoder::new(Vec::new(), Default::default());
                 encoder.write_all(body_bytes)?;
