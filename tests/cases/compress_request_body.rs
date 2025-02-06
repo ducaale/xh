@@ -1,6 +1,7 @@
 use std::{fs::OpenOptions, io::Read as _};
 
 use hyper::header::HeaderValue;
+use predicates::str::contains;
 
 use crate::prelude::*;
 use std::io::Write;
@@ -30,6 +31,8 @@ fn server() -> server::Server {
                     .unwrap()
             }
             "/normal" => {
+                assert_eq!(req.headers().get(hyper::header::CONTENT_ENCODING), None);
+
                 let body = req.body_as_string().await;
                 hyper::Response::builder()
                     .header("date", "N/A")
@@ -64,6 +67,7 @@ fn compress_request_body_json() {
             {{"key":"{c}"}}
         "#, c = "1".repeat(1000),});
 }
+
 #[test]
 fn compress_request_body_form() {
     let server = server();
@@ -124,12 +128,24 @@ fn test_compress_force_with_negative_ratio() {
 
 #[test]
 fn dont_compress_request_body_if_content_encoding_have_value() {
-    let server = server();
+    let server = server::http(|req| async move {
+        assert_eq!(
+            req.headers().get(hyper::header::CONTENT_ENCODING),
+            Some(HeaderValue::from_static("identity")).as_ref()
+        );
+
+        let body = req.body_as_string().await;
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("Content-Type", "text/plain")
+            .body(body.into())
+            .unwrap()
+    });
     get_command()
-        .arg(format!("{}/normal", server.base_url()))
+        .arg(format!("{}/", server.base_url()))
         .args([
             &format!("key={}", "1".repeat(1000)),
-            "content-encoding:gzip",
+            "content-encoding:identity",
             "-xx",
             "-f",
             "--pretty=none",
@@ -142,12 +158,19 @@ fn dont_compress_request_body_if_content_encoding_have_value() {
             Content-Length: 1004
 
             key={c}
-        "#, c = "1".repeat(1000),});
+        "#, c = "1".repeat(1000),})
+        .stderr(contains( "warning: --compress can't be used with a 'Content-Encoding:' header. --compress will be disabled."))
+        .success()
+        ;
 }
 
 #[test]
 fn compress_body_from_file() {
     let server = server::http(|req| async move {
+        assert_eq!(
+            req.headers().get(hyper::header::CONTENT_ENCODING),
+            Some(HeaderValue::from_static("deflate")).as_ref()
+        );
         assert_eq!("Hello world\n", zlib_decode(req.body().await).unwrap());
         hyper::Response::default()
     });
@@ -174,6 +197,7 @@ fn compress_body_from_file() {
 #[test]
 fn compress_body_from_file_unless_compress_rate_less_1() {
     let server = server::http(|req| async move {
+        assert_eq!(req.headers().get(hyper::header::CONTENT_ENCODING), None);
         assert_eq!("Hello world\n", req.body_as_string().await);
         hyper::Response::default()
     });
@@ -196,6 +220,7 @@ fn compress_body_from_file_unless_compress_rate_less_1() {
         .assert()
         .success();
 }
+
 #[test]
 fn test_cannot_combine_compress_with_multipart() {
     get_command()
@@ -203,7 +228,7 @@ fn test_cannot_combine_compress_with_multipart() {
         .args(["--multipart", "-x", "a=1"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
+        .stderr(contains(
             "the argument '--multipart' cannot be used with '--compress...'",
         ));
 }

@@ -510,19 +510,20 @@ fn run(args: Cli) -> Result<i32> {
 
         let mut request = request_builder.headers(headers).build()?;
 
-        if args.compress >= 1 && request.headers().get(CONTENT_ENCODING).is_none() {
-            if let Some(body) = request.body_mut() {
+        if args.compress >= 1 {
+            if request.headers().contains_key(CONTENT_ENCODING) {
+                log::warn!("--compress can't be used with a 'Content-Encoding:' header. --compress will be disabled.");
+            } else if let Some(body) = request.body_mut() {
                 // TODO: Compress file body (File) without buffering
                 let body_bytes = body.buffer()?;
                 let mut encoder = ZlibEncoder::new(Vec::new(), Default::default());
                 encoder.write_all(body_bytes)?;
                 let output = encoder.finish()?;
                 if output.len() < body_bytes.len() || args.compress >= 2 {
-                    let _ = std::mem::replace(body, ReqwestBody::from(output));
+                    *body = ReqwestBody::from(output);
                     request
                         .headers_mut()
-                        .entry(CONTENT_ENCODING)
-                        .or_insert(HeaderValue::from_static("deflate"));
+                        .insert(CONTENT_ENCODING, HeaderValue::from_static("deflate"));
                 }
             }
         }
