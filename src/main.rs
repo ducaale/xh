@@ -19,7 +19,7 @@ mod utils;
 
 use std::env;
 use std::fs::File;
-use std::io::{self, IsTerminal, Read};
+use std::io::{self, IsTerminal, Read, Write as _};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::process;
@@ -28,8 +28,10 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use cookie_store::{CookieStore, RawCookie};
+use flate2::write::ZlibEncoder;
+use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
-use reqwest::blocking::Client;
+use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
@@ -507,6 +509,25 @@ fn run(args: Cli) -> Result<i32> {
         }
 
         let mut request = request_builder.headers(headers).build()?;
+
+        if args.compress >= 1 {
+            if request.headers().contains_key(CONTENT_ENCODING) {
+                // HTTPie overrides the original Content-Encoding header in this case
+                log::warn!("--compress can't be used with a 'Content-Encoding:' header. --compress will be disabled.");
+            } else if let Some(body) = request.body_mut() {
+                // TODO: Compress file body (File) without buffering
+                let body_bytes = body.buffer()?;
+                let mut encoder = ZlibEncoder::new(Vec::new(), Default::default());
+                encoder.write_all(body_bytes)?;
+                let output = encoder.finish()?;
+                if output.len() < body_bytes.len() || args.compress >= 2 {
+                    *body = ReqwestBody::from(output);
+                    request
+                        .headers_mut()
+                        .insert(CONTENT_ENCODING, HeaderValue::from_static("deflate"));
+                }
+            }
+        }
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);

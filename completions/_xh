@@ -49,12 +49,12 @@ none\:"Disable both coloring and formatting"))' \
 '--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2 2-prior-knowledge)' \
 '*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS:_default' \
 '--interface=[Bind to a network interface or local IP address]:NAME:_default' \
-'--generate=[Generate shell completions or man pages]:KIND:(complete-bash complete-elvish complete-fish complete-nushell complete-powershell complete-zsh man)' \
+'()--generate=[Generate shell completions or man pages]:KIND:(complete-bash complete-elvish complete-fish complete-nushell complete-powershell complete-zsh man)' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
 '-f[Serialize data items from the command line as form fields]' \
 '--form[Serialize data items from the command line as form fields]' \
-'(--raw)--multipart[Like --form, but force a multipart/form-data request even without files]' \
+'(--raw -x --compress)--multipart[Like --form, but force a multipart/form-data request even without files]' \
 '-h[Print only the response headers. Shortcut for --print=h]' \
 '--headers[Print only the response headers. Shortcut for --print=h]' \
 '-b[Print only the response body. Shortcut for --print=b]' \
@@ -69,6 +69,8 @@ none\:"Disable both coloring and formatting"))' \
 '*--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
 '--stream[Always stream the response body]' \
+'*-x[Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate]' \
+'*--compress[Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate]' \
 '-d[Download the body to a file instead of printing it]' \
 '--download[Download the body to a file instead of printing it]' \
 '-c[Resume an interrupted download. Requires --download and --output]' \
@@ -108,6 +110,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-history-print[]' \
 '--no-quiet[]' \
 '--no-stream[]' \
+'--no-compress[]' \
 '--no-output[]' \
 '--no-download[]' \
 '--no-continue[]' \
@@ -142,7 +145,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
-'::raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
+':raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
 '*::raw_rest_args -- Optional key-value pairs to be included in the request.:_default' \
 && ret=0
 }

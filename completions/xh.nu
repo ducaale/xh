@@ -45,6 +45,7 @@ module completions {
     --history-print(-P): string # The same as --print but applies only to intermediary requests/responses
     --quiet(-q)               # Do not print to stdout or stderr
     --stream(-S)              # Always stream the response body
+    --compress(-x)            # Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate
     --output(-o): string      # Save output to FILE instead of stdout
     --download(-d)            # Download the body to a file instead of printing it
     --continue(-c)            # Resume an interrupted download. Requires --download and --output
@@ -77,7 +78,7 @@ module completions {
     --curl-long               # Use the long versions of curl's flags
     --generate: string@"nu-complete xh generate" # Generate shell completions or man pages
     --help                    # Print help
-    raw_method_or_url?: string # The request URL, preceded by an optional HTTP method
+    raw_method_or_url: string # The request URL, preceded by an optional HTTP method
     ...raw_rest_args: string  # Optional key-value pairs to be included in the request.
     --no-json
     --no-form
@@ -98,6 +99,7 @@ module completions {
     --no-history-print
     --no-quiet
     --no-stream
+    --no-compress
     --no-output
     --no-download
     --no-continue

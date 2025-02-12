@@ -60,7 +60,7 @@ pub struct Cli {
     /// Like --form, but force a multipart/form-data request even without files.
     ///
     /// Overrides both --json and --form.
-    #[clap(long, conflicts_with = "raw", overrides_with_all = &["json", "form"])]
+    #[clap(long, conflicts_with_all = &["raw", "compress"], overrides_with_all = &["json", "form"])]
     pub multipart: bool,
 
     /// Pass raw request data without extra processing.
@@ -181,6 +181,15 @@ Example: --print=Hb"
     /// Always stream the response body.
     #[clap(short = 'S', long = "stream", name = "stream")]
     pub stream_raw: bool,
+
+    ///  Content compressed (encoded) with Deflate algorithm.
+    ///  The Content-Encoding header is set to deflate.
+    ///
+    ///  Compression is skipped if it appears that compression ratio is negative.
+    ///  Compression can be forced by repeating this option.
+    ///  Note: Compression cannot be used if the Content-Encoding request header is present.  
+    #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
+    pub compress: u8,
 
     #[clap(skip)]
     pub stream: Option<bool>,
