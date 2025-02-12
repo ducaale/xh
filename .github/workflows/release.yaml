@@ -29,15 +29,10 @@ jobs:
             flags: --features=native-tls
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            use-cross: true
           - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            use-cross: true
-            flags: -- --test-threads=4
+            os: ubuntu-24.04-arm
           - target: arm-unknown-linux-gnueabihf
-            os: ubuntu-latest
-            use-cross: true
-            flags: -- --test-threads=4
+            os: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +43,6 @@ jobs:
 
       - uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ !!matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
@@ -59,17 +53,14 @@ jobs:
     strategy:
       matrix:
         job:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             binutils: aarch64-linux-gnu
-            use-cross: true
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: arm-unknown-linux-gnueabihf
             binutils: arm-linux-gnueabihf
-            use-cross: true
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            use-cross: true
           - os: macos-13
             target: x86_64-apple-darwin
             flags: --features=native-tls
@@ -91,7 +82,6 @@ jobs:
       - name: Build target
         uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ !!matrix.job.use-cross }}
           command: build
           args: --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
         env:
