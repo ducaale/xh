@@ -356,6 +356,16 @@ Example: --print=Hb"
     #[clap(short = '6', long)]
     pub ipv6: bool,
 
+    /// Connect using a Unix domain socket.
+    ///
+    /// Example: xh :/index.html --unix-socket=/var/run/temp.sock
+    #[clap(
+        long,
+        value_name = "FILE",
+        conflicts_with_all=["proxy", "verify", "cert", "cert_key", "ssl", "resolve", "interface", "ipv4", "ipv6", "https", "http_version"]
+    )]
+    pub unix_socket: Option<PathBuf>,
+
     /// Do not attempt to read stdin.
     ///
     /// This disables the default behaviour of reading the request body from stdin
@@ -1020,7 +1030,7 @@ impl FromStr for Print {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Timeout(Duration);
 
 impl Timeout {
