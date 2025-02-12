@@ -187,7 +187,7 @@ Example: --print=Hb"
     ///
     ///  Compression is skipped if it appears that compression ratio is negative.
     ///  Compression can be forced by repeating this option.
-    ///  Note: Compression cannot be forced if the Content-Encoding request header is present.
+    ///  Note: Compression cannot be used if the Content-Encoding request header is present.  
     #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
     pub compress: u8,
 

@@ -512,6 +512,7 @@ fn run(args: Cli) -> Result<i32> {
 
         if args.compress >= 1 {
             if request.headers().contains_key(CONTENT_ENCODING) {
+                // HTTPie overrides the original Content-Encoding header in this case
                 log::warn!("--compress can't be used with a 'Content-Encoding:' header. --compress will be disabled.");
             } else if let Some(body) = request.body_mut() {
                 // TODO: Compress file body (File) without buffering
