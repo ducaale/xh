@@ -16,27 +16,27 @@ jobs:
       fail-fast: false # TODO: remove me
       matrix:
         job:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            flags: --features=native-tls
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            flags: --no-default-features --features=native-tls,online-tests # disables rustls
-          - target: x86_64-apple-darwin
-            os: macos-13
-            flags: --features=native-tls
-          - target: aarch64-apple-darwin
-            os: macos-14
-            flags: --features=native-tls
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            flags: --features=native-tls
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            compiler-tools: musl-tools
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-24.04-arm
-            compiler-tools: musl-tools
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   flags: --features=native-tls
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   flags: --no-default-features --features=native-tls,online-tests # disables rustls
+          # - target: x86_64-apple-darwin
+          #   os: macos-13
+          #   flags: --features=native-tls
+          # - target: aarch64-apple-darwin
+          #   os: macos-14
+          #   flags: --features=native-tls
+          # - target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   flags: --features=native-tls
+          # - target: x86_64-unknown-linux-musl
+          #   os: ubuntu-latest
+          #   compiler-tools: musl-tools
+          # - target: aarch64-unknown-linux-musl
+          #   os: ubuntu-24.04-arm
+          #   compiler-tools: musl-tools
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-24.04-arm
             compiler-tools: gcc-arm-linux-gnueabihf
@@ -67,6 +67,15 @@ jobs:
         with:
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
+
+      - if: always()
+        run: file target/arm-unknown-linux-gnueabihf/debug/deps/xh-*
+
+      - if: always()
+        run: uname -m
+      
+      - if: always()
+        run: file target/arm-unknown-linux-gnueabihf/debug/deps/xh-*
 
   fmt-and-clippy:
     name: Rustfmt and clippy
