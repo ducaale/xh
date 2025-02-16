@@ -64,20 +64,14 @@ jobs:
             sudo apt-get -y install libc6:armhf libstdc++6:armhf qemu-user
 
             echo CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc >> $GITHUB_ENV
+            echo CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm >> $GITHUB_ENV
           fi
           sudo apt-get -y install ${{ matrix.job.compiler-tools }}
 
-      - run: cargo test --target=arm-unknown-linux-gnueabihf --no-run
-      - run: qemu-arm -strace -L /lib/arm-linux-gnueabihf ./target/arm-unknown-linux-gnueabihf/debug/deps/xh-* --nocapture --test-threads=1 --test can_parse_old_httpie_session
-        env:
-          RUST_BACKTRACE: 1
-
-      # - uses: ClementTsang/cargo-action@v0.0.6
-      #   with:
-      #     command: test
-      #     args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }} can_parse_old_httpie_session -- --nocapture
-      #   env:
-      #     RUST_BACKTRACE: 1
+      - uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: test
+          args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
   fmt-and-clippy:
     name: Rustfmt and clippy

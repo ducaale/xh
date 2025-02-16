@@ -61,33 +61,32 @@ fn random_string() -> String {
         .collect()
 }
 
-// Cargo-cross for ARM runs tests using qemu.
-//
-// It sets an environment variable like this:
-// CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm
-// fn find_runner() -> Option<String> {
-//     for (key, value) in std::env::vars() {
-//         if key.starts_with("CARGO_TARGET_") && key.ends_with("_RUNNER") && !value.is_empty() {
-//             return Some(value);
-//         }
-//     }
-//     None
-// }
+/// Cargo-cross for ARM runs tests using qemu.
+///
+/// It sets an environment variable like this:
+/// CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm
+fn find_runner() -> Option<String> {
+    for (key, value) in std::env::vars() {
+        if key.starts_with("CARGO_TARGET_") && key.ends_with("_RUNNER") && !value.is_empty() {
+            return Some(value);
+        }
+    }
+    None
+}
 
 fn get_base_command() -> Command {
     let mut cmd;
     let path = assert_cmd::cargo::cargo_bin("xh");
-    // if let Some(runner) = find_runner() {
-    //     let mut runner = runner.split_whitespace();
-    //     cmd = Command::new(runner.next().unwrap());
-    //     for arg in runner {
-    //         cmd.arg(arg);
-    //     }
-    //     cmd.arg(path);
-    // } else {
-    //     cmd = Command::new(path);
-    // }
-    cmd = Command::new(path);
+    if let Some(runner) = find_runner() {
+        let mut runner = runner.split_whitespace();
+        cmd = Command::new(runner.next().unwrap());
+        for arg in runner {
+            cmd.arg(arg);
+        }
+        cmd.arg(path);
+    } else {
+        cmd = Command::new(path);
+    }
     cmd.env("HOME", "");
     cmd.env("NETRC", "");
     cmd.env("XH_CONFIG_DIR", "");
