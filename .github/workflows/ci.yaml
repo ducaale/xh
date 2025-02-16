@@ -40,7 +40,7 @@ jobs:
           - target: arm-unknown-linux-gnueabihf
             os: ubuntu-24.04-arm
             compiler-tools: gcc-arm-linux-gnueabihf
-            linker: CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
+            linker: 
     steps:
       - uses: actions/checkout@v4
 
@@ -57,25 +57,19 @@ jobs:
         if: ${{ !!matrix.job.compiler-tools }}
         shell: bash
         run: |
-          sudo apt-get -y install ${{ matrix.job.compiler-tools }}
+          if [ "${{ matrix.job.target }}" = "arm-unknown-linux-gnueabihf" ]; then
+            sudo dpkg --add-architecture armhf 
+            sudo apt update
+            sudo apt-get -y install libc6:armhf libstdc++6:armhf
 
-          if [ "${{ matrix.job.linker }}" != "" ]; then
-            echo ${{ matrix.job.linker }} >> $GITHUB_ENV
+            echo CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc >> $GITHUB_ENV
           fi
+          sudo apt-get -y install ${{ matrix.job.compiler-tools }}
 
       - uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
-
-      - if: always()
-        run: file target/arm-unknown-linux-gnueabihf/debug/deps/xh-*
-
-      - if: always()
-        run: uname -m
-      
-      - if: always()
-        run: file target/arm-unknown-linux-gnueabihf/debug/deps/xh-*
 
   fmt-and-clippy:
     name: Rustfmt and clippy
