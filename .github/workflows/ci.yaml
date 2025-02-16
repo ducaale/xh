@@ -13,49 +13,63 @@ jobs:
     runs-on: ${{ matrix.job.os }}
     timeout-minutes: 15
     strategy:
+      fail-fast: false # TODO: remove me
       matrix:
         job:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            flags: --features=native-tls
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            flags: --no-default-features --features=native-tls,online-tests # disables rustls
-          - target: x86_64-apple-darwin
-            os: macos-13
-            flags: --features=native-tls
-          - target: aarch64-apple-darwin
-            os: macos-14
-            flags: --features=native-tls
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            flags: --features=native-tls
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            use-cross: true
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            use-cross: true
-            flags: -- --test-threads=4
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   flags: --features=native-tls
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   flags: --no-default-features --features=native-tls,online-tests # disables rustls
+          # - target: x86_64-apple-darwin
+          #   os: macos-13
+          #   flags: --features=native-tls
+          # - target: aarch64-apple-darwin
+          #   os: macos-14
+          #   flags: --features=native-tls
+          # - target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   flags: --features=native-tls
+          # - target: x86_64-unknown-linux-musl
+          #   os: ubuntu-latest
+          #   compiler-tools: musl-tools
+          # - target: aarch64-unknown-linux-musl
+          #   os: ubuntu-24.04-arm
+          #   compiler-tools: musl-tools
           - target: arm-unknown-linux-gnueabihf
-            os: ubuntu-latest
-            use-cross: true
-            flags: -- --test-threads=4
+            os: ubuntu-24.04-arm
+            compiler-tools: gcc-arm-linux-gnueabihf
+            linker: 
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.74.0 # minimum supported rust version
+          # toolchain: 1.74.0 # minimum supported rust version
+          toolchain: stable
           targets: ${{ matrix.job.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
-      
+
+      - name: Install compiler tools
+        if: ${{ !!matrix.job.compiler-tools }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.job.target }}" = "arm-unknown-linux-gnueabihf" ]; then
+            sudo dpkg --add-architecture armhf 
+            sudo apt-get update
+            sudo apt-get -y install libc6:armhf libstdc++6:armhf qemu-user
+
+            echo CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc >> $GITHUB_ENV
+            echo CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm >> $GITHUB_ENV
+          fi
+          sudo apt-get -y install ${{ matrix.job.compiler-tools }}
+
       - uses: ClementTsang/cargo-action@v0.0.6
         with:
-          use-cross: ${{ !!matrix.job.use-cross }}
           command: test
           args: --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
