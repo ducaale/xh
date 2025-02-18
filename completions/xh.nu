@@ -45,8 +45,8 @@ module completions {
     --history-print(-P): string # The same as --print but applies only to intermediary requests/responses
     --quiet(-q)               # Do not print to stdout or stderr
     --stream(-S)              # Always stream the response body
-    --compress(-x)            # Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate
-    --output(-o): string      # Save output to FILE instead of stdout
+    --compress(-x)            # Content compressed (encoded) with Deflate algorithm
+    --output(-o): path        # Save output to FILE instead of stdout
     --download(-d)            # Download the body to a file instead of printing it
     --continue(-c)            # Resume an interrupted download. Requires --download and --output
     --session: string         # Create, or reuse and update a session
@@ -62,8 +62,8 @@ module completions {
     --timeout: string         # Connection timeout of the request
     --proxy: string           # Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080
     --verify: string          # If "no", skip SSL verification. If a file path, use it as a CA bundle
-    --cert: string            # Use a client side certificate for SSL
-    --cert-key: string        # A private key file to use with --cert
+    --cert: path              # Use a client side certificate for SSL
+    --cert-key: path          # A private key file to use with --cert
     --ssl: string@"nu-complete xh ssl" # Force a particular TLS version
     --native-tls              # Use the system TLS library instead of rustls (if enabled at compile time)
     --default-scheme: string  # The default scheme to use if not specified in the URL

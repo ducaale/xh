@@ -1,4 +1,4 @@
-## Unreleased
+## [0.24.0] - 2025-02-18
 ### Features
 - Add `--generate` option to generate the man page and shell completions at runtime,
   see #393 (@fgimian)

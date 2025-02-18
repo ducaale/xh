@@ -69,8 +69,8 @@ none\:"Disable both coloring and formatting"))' \
 '*--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
 '--stream[Always stream the response body]' \
-'*-x[Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate]' \
-'*--compress[Content compressed (encoded) with Deflate algorithm. The Content-Encoding header is set to deflate]' \
+'*-x[Content compressed (encoded) with Deflate algorithm]' \
+'*--compress[Content compressed (encoded) with Deflate algorithm]' \
 '-d[Download the body to a file instead of printing it]' \
 '--download[Download the body to a file instead of printing it]' \
 '-c[Resume an interrupted download. Requires --download and --output]' \
