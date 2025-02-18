@@ -1,7 +1,18 @@
 ## Unreleased
 ### Features
-- Add `--generate` option to generate the man page and shell completions at runtime
-- Add support for Elvish and Nushell shell completions
+- Add `--generate` option to generate the man page and shell completions at runtime,
+  see #393 (@fgimian)
+- Add support for Elvish and Nushell shell completions, see #393 (@fgimian)
+- Add `--compress` for compressing request body, see #403 (@zuisong)
+
+### Bug fixes
+- Store default paths for cookies without an explicit path attribute,
+  see #401 (@otaconix)
+
+### Other
+- Support generating man page with reproducible timestamp via `SOURCE_DATE_EPOCH`,
+  see #402 (@nc7s)
+- Upgrade cookie_store to 0.21.1, see #397 (@kranurag7)
 
 ## [0.23.1] - 2025-01-02
 ### Security fixes

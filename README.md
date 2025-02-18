@@ -91,6 +91,7 @@ Options:
   -P, --history-print <FORMAT>           The same as --print but applies only to intermediary requests/responses
   -q, --quiet...                         Do not print to stdout or stderr
   -S, --stream                           Always stream the response body
+  -x, --compress...                      Content compressed (encoded) with Deflate algorithm
   -o, --output <FILE>                    Save output to FILE instead of stdout
   -d, --download                         Download the body to a file instead of printing it
   -c, --continue                         Resume an interrupted download. Requires --download and --output
@@ -118,6 +119,7 @@ Options:
   -I, --ignore-stdin                     Do not attempt to read stdin
       --curl                             Print a translation to a curl command
       --curl-long                        Use the long versions of curl's flags
+      --generate <KIND>                  Generate shell completions or man pages
       --help                             Print help
   -V, --version                          Print version
 
