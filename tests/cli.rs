@@ -3570,6 +3570,59 @@ fn empty_response_with_content_encoding_and_content_length() {
         "#});
 }
 
+/// Regression test: this used to crash because ZstdDecoder::new() is fallible
+#[test]
+fn empty_zstd_response_with_content_encoding_and_content_length() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "zstd")
+            .header("content-length", "100")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("head")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: zstd
+            Content-Length: 100
+            Date: N/A
+
+
+        "#});
+}
+
+/// After an initial fix this scenario still crashed
+#[test]
+fn streaming_empty_zstd_response_with_content_encoding_and_content_length() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "zstd")
+            .header("content-length", "100")
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg("--stream")
+        .arg("head")
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: zstd
+            Content-Length: 100
+            Date: N/A
+
+
+        "#});
+}
+
 #[test]
 fn response_meta() {
     let server = server::http(|_req| async move {
