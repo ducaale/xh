@@ -1136,6 +1136,53 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
+fn noproxy_test(noproxy_arg: &str) {
+    let mut proxy_server = server::http(|_| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("Proxy shouldn't have been used.".into())
+            .unwrap()
+    });
+    let actual_server = server::http(|_| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(format!("--proxy=http:{}", proxy_server.base_url()))
+        .arg(format!("--noproxy={}", noproxy_arg))
+        .arg("GET")
+        .arg(actual_server.base_url().as_str())
+        .assert()
+        .success();
+
+    proxy_server.disable_hit_checks();
+    proxy_server.assert_hits(0);
+    actual_server.assert_hits(1);
+}
+
+#[test]
+fn noproxy_wildcard() {
+    noproxy_test("*");
+}
+
+#[test]
+fn noproxy_ip() {
+    noproxy_test("127.0.0.1");
+}
+
+#[test]
+fn noproxy_ip_cidr() {
+    noproxy_test("127.0.0.0/8");
+}
+
+#[test]
+fn noproxy_multiple() {
+    noproxy_test("127.0.0.2,127.0.0.1");
+}
+
 // temporarily disabled for builds not using rustls
 #[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[ignore = "endpoint is randomly timing out"]

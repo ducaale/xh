@@ -295,6 +295,14 @@ Example: --print=Hb"
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
 
+    /// Comma-separated list of hosts for which not to use a proxy, if one is specified.
+    ///
+    /// - A '*' matches all hosts, and effectively disables proxies altogether.
+    /// - IP addresses are allowed, as are subnets (in CIDR notation, i.e.: '127.0.0.0/8').
+    /// - Any other entry in the list is assumed to be a hostname.
+    #[clap(long, value_name = "no-proxy-list", value_delimiter = ',')]
+    pub noproxy: Vec<String>,
+
     /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
     ///
     /// Specifying a CA bundle will disable the system's built-in root certificates.
@@ -1084,6 +1092,24 @@ impl FromStr for Proxy {
                 "The value passed to --proxy should be formatted as <PROTOCOL>:<PROXY_URL>"
             )),
         }
+    }
+}
+
+impl Proxy {
+    pub fn into_reqwest_proxy(self, noproxy: &[String]) -> anyhow::Result<reqwest::Proxy> {
+        let proxy = match self {
+            Proxy::Http(url) => reqwest::Proxy::http(url),
+            Proxy::Https(url) => reqwest::Proxy::https(url),
+            Proxy::All(url) => reqwest::Proxy::all(url),
+        }?;
+
+        let mut noproxy_comma_delimited = noproxy.join(",");
+        if noproxy.contains(&"*".to_string()) {
+            // reqwest's NoProxy wildcard doesn't apply to IP addresses, while curl's does
+            noproxy_comma_delimited.push_str(",0.0.0.0/0,::/0");
+        }
+
+        Ok(proxy.no_proxy(reqwest::NoProxy::from_string(&noproxy_comma_delimited)))
     }
 }
 

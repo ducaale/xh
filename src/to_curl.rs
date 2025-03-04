@@ -233,6 +233,10 @@ pub fn translate(args: Cli) -> Result<Command> {
             }
         }
     }
+    if !args.noproxy.is_empty() {
+        cmd.arg("--noproxy");
+        cmd.arg(args.noproxy.join(","));
+    }
     if let Some(timeout) = args.timeout.and_then(|t| t.as_duration()) {
         cmd.arg("--max-time");
         cmd.arg(timeout.as_secs_f64().to_string());
