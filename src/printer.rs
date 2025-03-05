@@ -44,6 +44,17 @@ struct BinaryGuard<'a, T: Read> {
     checked: bool,
 }
 
+#[derive(Debug)]
+struct FoundBinaryData;
+
+impl std::fmt::Display for FoundBinaryData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("binary data not shown in terminal")
+    }
+}
+
+impl std::error::Error for FoundBinaryData {}
+
 impl<'a, T: Read> BinaryGuard<'a, T> {
     fn new(reader: &'a mut T, checked: bool) -> Self {
         Self {
@@ -78,10 +89,7 @@ impl<'a, T: Read> BinaryGuard<'a, T> {
                 Err(e) => return Err(e),
             };
             if self.checked && buf.contains(&b'\0') {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Found binary data",
-                ));
+                return Err(io::Error::new(io::ErrorKind::InvalidData, FoundBinaryData));
             } else if buf.is_empty() {
                 if self.buffer.is_empty() {
                     return Ok(None);
@@ -454,7 +462,7 @@ impl Printer {
                 Ok(_) => {
                     self.buffer.print("\n")?;
                 }
-                Err(err) if err.kind() == io::ErrorKind::InvalidData => {
+                Err(err) if err.get_ref().is_some_and(|err| err.is::<FoundBinaryData>()) => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                 }
                 Err(err) => return Err(err.into()),
