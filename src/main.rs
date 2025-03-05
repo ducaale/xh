@@ -274,7 +274,7 @@ fn run(args: Cli) -> Result<i32> {
     }
 
     for proxy in args.proxy.into_iter().rev() {
-        client = client.proxy(proxy.into_reqwest_proxy(&args.noproxy)?);
+        client = client.proxy(proxy.into_reqwest_proxy(&args.disable_proxy_for)?);
     }
 
     client = match args.http_version {

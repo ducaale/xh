@@ -302,7 +302,7 @@ Example: --print=Hb"
     /// - IP addresses are allowed, as are subnets (in CIDR notation, i.e.: '127.0.0.0/8').
     /// - Any other entry in the list is assumed to be a hostname.
     #[clap(long, value_name = "no-proxy-list", value_delimiter = ',')]
-    pub noproxy: Vec<NoProxy>,
+    pub disable_proxy_for: Vec<DisableProxyFor>,
 
     /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
     ///
@@ -1097,15 +1097,18 @@ impl FromStr for Proxy {
 }
 
 impl Proxy {
-    pub fn into_reqwest_proxy(self, noproxy: &[NoProxy]) -> anyhow::Result<reqwest::Proxy> {
+    pub fn into_reqwest_proxy(
+        self,
+        disable_proxy_for: &[DisableProxyFor],
+    ) -> anyhow::Result<reqwest::Proxy> {
         let proxy = match self {
             Proxy::Http(url) => reqwest::Proxy::http(url),
             Proxy::Https(url) => reqwest::Proxy::https(url),
             Proxy::All(url) => reqwest::Proxy::all(url),
         }?;
 
-        let mut noproxy_comma_delimited = noproxy.join(",");
-        if noproxy.contains(&"*".into()) {
+        let mut noproxy_comma_delimited = disable_proxy_for.join(",");
+        if disable_proxy_for.contains(&"*".into()) {
             // reqwest's NoProxy wildcard doesn't apply to IP addresses, while curl's does
             noproxy_comma_delimited.push_str(",0.0.0.0/0,::/0");
         }
@@ -1115,15 +1118,15 @@ impl Proxy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NoProxy(String);
+pub struct DisableProxyFor(String);
 
-impl From<&str> for NoProxy {
+impl From<&str> for DisableProxyFor {
     fn from(s: &str) -> Self {
         Self(s.trim().to_string())
     }
 }
 
-impl Borrow<str> for NoProxy {
+impl Borrow<str> for DisableProxyFor {
     fn borrow(&self) -> &str {
         &self.0
     }
@@ -1519,8 +1522,8 @@ mod tests {
     }
 
     #[test]
-    fn noproxy_trims_whitespace() {
-        assert_eq!(NoProxy::from("*"), NoProxy::from("  *  "));
+    fn disable_proxy_for_trims_whitespace() {
+        assert_eq!(DisableProxyFor::from("*"), DisableProxyFor::from("  *  "));
     }
 
     #[test]

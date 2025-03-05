@@ -1136,11 +1136,11 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
-enum NoProxyTestType {
+enum DisableProxyForTestType {
     ProxyUsed,
     ProxyNotUsed,
 }
-fn noproxy_test(noproxy_arg: &str, test_type: NoProxyTestType) {
+fn disable_proxy_for_test(disable_proxy_for_arg: &str, test_type: DisableProxyForTestType) {
     let mut proxy_server = server::http(|_| async move {
         hyper::Response::builder()
             .status(200)
@@ -1156,13 +1156,13 @@ fn noproxy_test(noproxy_arg: &str, test_type: NoProxyTestType) {
 
     get_command()
         .arg(format!("--proxy=http:{}", proxy_server.base_url()))
-        .arg(format!("--noproxy={}", noproxy_arg))
+        .arg(format!("--disable-proxy-for={}", disable_proxy_for_arg))
         .arg("GET")
         .arg(actual_server.base_url().as_str())
         .assert()
         .success();
 
-    if let NoProxyTestType::ProxyNotUsed = test_type {
+    if let DisableProxyForTestType::ProxyNotUsed = test_type {
         proxy_server.disable_hit_checks();
         proxy_server.assert_hits(0);
         actual_server.assert_hits(1);
@@ -1174,53 +1174,59 @@ fn noproxy_test(noproxy_arg: &str, test_type: NoProxyTestType) {
 }
 
 #[test]
-fn noproxy_wildcard() {
-    noproxy_test("*", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_wildcard() {
+    disable_proxy_for_test("*", DisableProxyForTestType::ProxyNotUsed);
 }
 
 #[test]
-fn noproxy_ip() {
-    noproxy_test("127.0.0.1", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_ip() {
+    disable_proxy_for_test("127.0.0.1", DisableProxyForTestType::ProxyNotUsed);
 }
 
 #[test]
-fn noproxy_ip_cidr() {
-    noproxy_test("127.0.0.0/8", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_ip_cidr() {
+    disable_proxy_for_test("127.0.0.0/8", DisableProxyForTestType::ProxyNotUsed);
 }
 
 #[test]
-fn noproxy_multiple() {
-    noproxy_test("127.0.0.2,127.0.0.1", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_multiple() {
+    disable_proxy_for_test("127.0.0.2,127.0.0.1", DisableProxyForTestType::ProxyNotUsed);
 }
 
 #[test]
-fn noproxy_whitespace() {
-    noproxy_test("example.test, 127.0.0.1", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_whitespace() {
+    disable_proxy_for_test(
+        "example.test, 127.0.0.1",
+        DisableProxyForTestType::ProxyNotUsed,
+    );
 }
 
 #[test]
-fn noproxy_whitespace_wildcard() {
-    noproxy_test("example.test, *", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_whitespace_wildcard() {
+    disable_proxy_for_test("example.test, *", DisableProxyForTestType::ProxyNotUsed);
 }
 
 #[test]
-fn noproxy_whitespace_ip() {
-    noproxy_test("127.0.0.2, 127.0.0.1", NoProxyTestType::ProxyNotUsed);
+fn disable_proxy_for_whitespace_ip() {
+    disable_proxy_for_test(
+        "127.0.0.2, 127.0.0.1",
+        DisableProxyForTestType::ProxyNotUsed,
+    );
 }
 
 #[test]
-fn noproxy_other_host() {
-    noproxy_test("example.test", NoProxyTestType::ProxyUsed);
+fn disable_proxy_for_other_host() {
+    disable_proxy_for_test("example.test", DisableProxyForTestType::ProxyUsed);
 }
 
 #[test]
-fn noproxy_other_ip() {
-    noproxy_test("127.0.0.2", NoProxyTestType::ProxyUsed);
+fn disable_proxy_for_other_ip() {
+    disable_proxy_for_test("127.0.0.2", DisableProxyForTestType::ProxyUsed);
 }
 
 #[test]
-fn noproxy_other_ip_cidr() {
-    noproxy_test("127.0.1.0/24", NoProxyTestType::ProxyUsed);
+fn disable_proxy_for_other_ip_cidr() {
+    disable_proxy_for_test("127.0.1.0/24", DisableProxyForTestType::ProxyUsed);
 }
 
 // temporarily disabled for builds not using rustls
