@@ -1136,14 +1136,18 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
-fn noproxy_test(noproxy_arg: &str) {
+enum NoProxyTestType {
+    ProxyUsed,
+    ProxyNotUsed,
+}
+fn noproxy_test(noproxy_arg: &str, test_type: NoProxyTestType) {
     let mut proxy_server = server::http(|_| async move {
         hyper::Response::builder()
             .status(200)
             .body("Proxy shouldn't have been used.".into())
             .unwrap()
     });
-    let actual_server = server::http(|_| async move {
+    let mut actual_server = server::http(|_| async move {
         hyper::Response::builder()
             .status(200)
             .body("".into())
@@ -1158,29 +1162,65 @@ fn noproxy_test(noproxy_arg: &str) {
         .assert()
         .success();
 
-    proxy_server.disable_hit_checks();
-    proxy_server.assert_hits(0);
-    actual_server.assert_hits(1);
+    if let NoProxyTestType::ProxyNotUsed = test_type {
+        proxy_server.disable_hit_checks();
+        proxy_server.assert_hits(0);
+        actual_server.assert_hits(1);
+    } else {
+        proxy_server.assert_hits(1);
+        actual_server.disable_hit_checks();
+        actual_server.assert_hits(0);
+    }
 }
 
 #[test]
 fn noproxy_wildcard() {
-    noproxy_test("*");
+    noproxy_test("*", NoProxyTestType::ProxyNotUsed);
 }
 
 #[test]
 fn noproxy_ip() {
-    noproxy_test("127.0.0.1");
+    noproxy_test("127.0.0.1", NoProxyTestType::ProxyNotUsed);
 }
 
 #[test]
 fn noproxy_ip_cidr() {
-    noproxy_test("127.0.0.0/8");
+    noproxy_test("127.0.0.0/8", NoProxyTestType::ProxyNotUsed);
 }
 
 #[test]
 fn noproxy_multiple() {
-    noproxy_test("127.0.0.2,127.0.0.1");
+    noproxy_test("127.0.0.2,127.0.0.1", NoProxyTestType::ProxyNotUsed);
+}
+
+#[test]
+fn noproxy_whitespace() {
+    noproxy_test("example.test, 127.0.0.1", NoProxyTestType::ProxyNotUsed);
+}
+
+#[test]
+fn noproxy_whitespace_wildcard() {
+    noproxy_test("example.test, *", NoProxyTestType::ProxyNotUsed);
+}
+
+#[test]
+fn noproxy_whitespace_ip() {
+    noproxy_test("127.0.0.2, 127.0.0.1", NoProxyTestType::ProxyNotUsed);
+}
+
+#[test]
+fn noproxy_other_host() {
+    noproxy_test("example.test", NoProxyTestType::ProxyUsed);
+}
+
+#[test]
+fn noproxy_other_ip() {
+    noproxy_test("127.0.0.2", NoProxyTestType::ProxyUsed);
+}
+
+#[test]
+fn noproxy_other_ip_cidr() {
+    noproxy_test("127.0.1.0/24", NoProxyTestType::ProxyUsed);
 }
 
 // temporarily disabled for builds not using rustls
