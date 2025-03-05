@@ -298,9 +298,14 @@ Example: --print=Hb"
 
     /// Comma-separated list of hosts for which not to use a proxy, if one is specified.
     ///
-    /// - A '*' matches all hosts, and effectively disables proxies altogether.
-    /// - IP addresses are allowed, as are subnets (in CIDR notation, i.e.: '127.0.0.0/8').
+    /// - A "*" matches all hosts, and effectively disables proxies altogether.
+    ///
+    /// - IP addresses are allowed, as are subnets (in CIDR notation, i.e.: "127.0.0.0/8").
+    ///
     /// - Any other entry in the list is assumed to be a hostname.
+    ///
+    /// The environment variable "NO_PROXY"/"no_proxy" can also be used, but its completely ignored
+    /// if --disable-proxy-for is passed.
     #[clap(long, value_name = "no-proxy-list", value_delimiter = ',')]
     pub disable_proxy_for: Vec<DisableProxyFor>,
 
@@ -1114,7 +1119,10 @@ impl Proxy {
             noproxy_comma_delimited.push_str(",0.0.0.0/0,::/0");
         }
 
-        Ok(proxy.no_proxy(reqwest::NoProxy::from_string(&noproxy_comma_delimited)))
+        Ok(proxy.no_proxy(
+            reqwest::NoProxy::from_string(&noproxy_comma_delimited)
+                .or_else(reqwest::NoProxy::from_env),
+        ))
     }
 }
 
