@@ -1110,6 +1110,7 @@ impl Proxy {
         let mut noproxy_comma_delimited = disable_proxy_for.join(",");
         if disable_proxy_for.contains(&"*".into()) {
             // reqwest's NoProxy wildcard doesn't apply to IP addresses, while curl's does
+            // See: https://github.com/seanmonstar/reqwest/issues/2579
             noproxy_comma_delimited.push_str(",0.0.0.0/0,::/0");
         }
 
