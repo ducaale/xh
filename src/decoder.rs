@@ -191,7 +191,8 @@ pub fn decompress(
         decoder: match compression_type {
             CompressionType::Gzip => Box::new(GzDecoder::new(reader)),
             CompressionType::Deflate => Box::new(ZlibDecoder::new(reader)),
-            CompressionType::Brotli => Box::new(BrotliDecoder::new(reader, 4096)),
+            // 32K is the default buffer size for gzip and deflate
+            CompressionType::Brotli => Box::new(BrotliDecoder::new(reader, 32 * 1024)),
             CompressionType::Zstd => Box::new(LazyZstdDecoder::Uninit(Some(reader))),
         },
         status: Some(status),
