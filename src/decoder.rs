@@ -60,8 +60,11 @@ pub fn get_compression_type(headers: &HeaderMap) -> Option<CompressionType> {
 /// of an empty input. This is behavior we inherited from HTTPie.
 ///
 /// It's load-bearing in the case of HEAD requests, where responses don't have a
-/// body but may declare a Content-Encoding. We also treat other requests like this,
-/// perhaps unwisely.
+/// body but may declare a Content-Encoding.
+///
+/// We also treat other empty response bodies like this, regardless of the request
+/// method. This matches all the user agents I tried (reqwest, requests/HTTPie, curl,
+/// wget, Firefox, Chromium) but I don't know if it's prescribed by any RFC.
 ///
 /// As a side benefit we make I/O errors more focused by stripping decoding errors.
 ///
