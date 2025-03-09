@@ -20,7 +20,11 @@ impl FromStr for CompressionType {
     type Err = anyhow::Error;
     fn from_str(value: &str) -> anyhow::Result<CompressionType> {
         match value {
-            "gzip" => Ok(CompressionType::Gzip),
+            // RFC 2616 section 3.5:
+            //   For compatibility with previous implementations of HTTP,
+            //   applications SHOULD consider "x-gzip" and "x-compress" to be
+            //   equivalent to "gzip" and "compress" respectively.
+            "gzip" | "x-gzip" => Ok(CompressionType::Gzip),
             "deflate" => Ok(CompressionType::Deflate),
             "br" => Ok(CompressionType::Brotli),
             "zstd" => Ok(CompressionType::Zstd),
