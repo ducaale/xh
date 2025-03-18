@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::cmd::Command;
 use http_body_util::BodyExt;
-use indoc::indoc;
+use indoc::{formatdoc, indoc};
 use predicates::function::function;
 use predicates::str::contains;
 use reqwest::header::HeaderValue;
@@ -431,19 +431,19 @@ fn verbose() {
     get_command()
         .args(["--verbose", &server.base_url(), "x=y"])
         .assert()
-        .stdout(indoc! {r#"
+        .stdout(formatdoc! {r#"
             POST / HTTP/1.1
             Accept: application/json, */*;q=0.5
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Content-Length: 9
             Content-Type: application/json
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
-            {
+            {{
                 "x": "y"
-            }
+            }}
 
 
 
@@ -453,7 +453,7 @@ fn verbose() {
             X-Foo: Bar
 
             a body
-        "#});
+        "#, port = server.port() });
 }
 
 #[test]
@@ -875,12 +875,12 @@ fn digest_auth_with_redirection() {
         .arg("--verbose")
         .arg(server.url("/login_page"))
         .assert()
-        .stdout(indoc! {r#"
+        .stdout(formatdoc! {r#"
             GET /login_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 401 Unauthorized
@@ -895,7 +895,7 @@ fn digest_auth_with_redirection() {
             Accept-Encoding: gzip, deflate, br, zstd
             Authorization: Digest username="ahmed", realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", uri="/login_page", qop=auth, nc=00000001, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="894fd5ee1dcc702df7e4a6abed37fd56", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -909,7 +909,7 @@ fn digest_auth_with_redirection() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
@@ -917,7 +917,7 @@ fn digest_auth_with_redirection() {
             Date: N/A
 
             admin page
-        "#});
+        "#, port = server.port() });
 
     server.assert_hits(3);
 }
@@ -1665,12 +1665,12 @@ fn redirect_support_utf8_location() {
     get_command()
         .args([&server.url("/first_page"), "--follow", "--verbose", "--all"])
         .assert()
-        .stdout(indoc! {r#"
+        .stdout(formatdoc! {r#"
             GET /first_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -1684,7 +1684,7 @@ fn redirect_support_utf8_location() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
@@ -1692,7 +1692,7 @@ fn redirect_support_utf8_location() {
             Date: N/A
 
             final destination
-        "#});
+        "#, port = server.port() });
 }
 
 #[test]
@@ -2087,7 +2087,7 @@ fn can_unset_default_headers() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: localhost
 
         "#});
 }
@@ -2103,7 +2103,7 @@ fn can_unset_headers() {
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Hello: world
-            Host: http.mock
+            Host: localhost
             User-Agent: xh/0.0.0 (test mode)
 
         "#});
@@ -2120,7 +2120,7 @@ fn can_set_unset_header() {
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
             Hello: world
-            Host: http.mock
+            Host: localhost
             User-Agent: xh/0.0.0 (test mode)
 
         "#});
@@ -2896,12 +2896,12 @@ fn print_intermediate_requests_and_responses() {
     get_command()
         .args([&server.url("/first_page"), "--follow", "--verbose", "--all"])
         .assert()
-        .stdout(indoc! {r#"
+        .stdout(formatdoc! {r#"
             GET /first_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -2915,7 +2915,7 @@ fn print_intermediate_requests_and_responses() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
@@ -2923,7 +2923,7 @@ fn print_intermediate_requests_and_responses() {
             Date: N/A
 
             final destination
-        "#});
+        "#, port = server.port() });
 }
 
 #[test]
@@ -2951,12 +2951,12 @@ fn history_print() {
         .arg("--history-print=Hh")
         .arg("--all")
         .assert()
-        .stdout(indoc! {r#"
+        .stdout(formatdoc! {r#"
             GET /first_page HTTP/1.1
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 302 Found
@@ -2968,7 +2968,7 @@ fn history_print() {
             Accept: */*
             Accept-Encoding: gzip, deflate, br, zstd
             Connection: keep-alive
-            Host: http.mock
+            Host: 127.0.0.1:{port}
             User-Agent: xh/0.0.0 (test mode)
 
             HTTP/1.1 200 OK
@@ -2976,7 +2976,7 @@ fn history_print() {
             Date: N/A
 
             final destination
-        "#});
+        "#, port = server.port() });
 }
 
 #[test]
