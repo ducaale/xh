@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{
     HeaderMap, AUTHORIZATION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, LOCATION,
@@ -31,10 +31,10 @@ impl Middleware for RedirectFollower {
             if remaining_redirects > 0 {
                 remaining_redirects -= 1;
             } else {
-                return Err(anyhow!(
-                    "Too many redirects (--max-redirects={})",
-                    self.max_redirects
-                ));
+                return Err(TooManyRedirects {
+                    max_redirects: self.max_redirects,
+                }
+                .into());
             }
             log::info!("Following redirect to {}", next_request.url());
             log::trace!("Remaining redirects: {}", remaining_redirects);
@@ -47,6 +47,23 @@ impl Middleware for RedirectFollower {
         Ok(response)
     }
 }
+
+#[derive(Debug)]
+pub(crate) struct TooManyRedirects {
+    max_redirects: usize,
+}
+
+impl std::fmt::Display for TooManyRedirects {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Too many redirects (--max-redirects={})",
+            self.max_redirects,
+        )
+    }
+}
+
+impl std::error::Error for TooManyRedirects {}
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607
 fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {

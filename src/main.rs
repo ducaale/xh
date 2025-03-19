@@ -4,6 +4,7 @@ mod buffer;
 mod cli;
 mod decoder;
 mod download;
+mod error_reporting;
 mod formatting;
 mod generation;
 mod middleware;
@@ -22,7 +23,7 @@ use std::fs::File;
 use std::io::{self, IsTerminal, Read, Write as _};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
-use std::process;
+use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -61,7 +62,7 @@ fn get_user_agent() -> &'static str {
     }
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Cli::parse();
 
     if args.debug {
@@ -77,39 +78,30 @@ fn main() {
     let bin_name = args.bin_name.clone();
 
     match run(args) {
-        Ok(exit_code) => {
-            process::exit(exit_code);
-        }
+        Ok(exit_code) => exit_code,
         Err(err) => {
             log::debug!("{err:#?}");
             eprintln!("{bin_name}: error: {err:?}");
-            let msg = err.root_cause().to_string();
-            if native_tls && msg == "invalid minimum TLS version for backend" {
+
+            for message in error_reporting::additional_messages(&err, native_tls) {
                 eprintln!();
-                eprintln!("Try running without the --native-tls flag.");
+                eprintln!("{message}");
             }
-            if let Some(err) = err.downcast_ref::<reqwest::Error>() {
-                if err.is_timeout() {
-                    process::exit(2);
-                }
-            }
-            if msg.starts_with("Too many redirects") {
-                process::exit(6);
-            }
-            process::exit(1);
+
+            error_reporting::exit_code(&err)
         }
     }
 }
 
-fn run(args: Cli) -> Result<i32> {
+fn run(args: Cli) -> Result<ExitCode> {
     if let Some(generate) = args.generate {
         generation::generate(&args.bin_name, generate);
-        return Ok(0);
+        return Ok(ExitCode::SUCCESS);
     }
 
     if args.curl {
         to_curl::print_curl_translation(args)?;
-        return Ok(0);
+        return Ok(ExitCode::SUCCESS);
     }
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
@@ -189,7 +181,7 @@ fn run(args: Cli) -> Result<i32> {
         return Err(anyhow!("This binary was built without native-tls support"));
     }
 
-    let mut exit_code: i32 = 0;
+    let mut failure_code = None;
     let mut resume: Option<u64> = None;
     let mut auth = None;
     let mut save_auth_in_session = true;
@@ -622,16 +614,17 @@ fn run(args: Cli) -> Result<i32> {
 
         let status = response.status();
         if args.check_status.unwrap_or(!args.httpie_compat_mode) {
-            exit_code = match status.as_u16() {
-                300..=399 if !args.follow => 3,
-                400..=499 => 4,
-                500..=599 => 5,
-                _ => 0,
-            };
+            match status.as_u16() {
+                300..=399 if !args.follow => failure_code = Some(ExitCode::from(3)),
+                400..=499 => failure_code = Some(ExitCode::from(4)),
+                500..=599 => failure_code = Some(ExitCode::from(5)),
+                _ => (),
+            }
+
             // Print this if the status code isn't otherwise ending up in the terminal.
             // HTTPie looks at --quiet, since --quiet always suppresses the response
             // headers even if you pass --print=h. But --print takes precedence for us.
-            if exit_code != 0 && (is_output_redirected || !print.response_headers) {
+            if failure_code.is_some() && (is_output_redirected || !print.response_headers) {
                 log::warn!("HTTP {} {}", status.as_u16(), reason_phrase(&response));
             }
         }
@@ -640,7 +633,7 @@ fn run(args: Cli) -> Result<i32> {
             printer.print_response_headers(&response)?;
         }
         if args.download {
-            if exit_code == 0 {
+            if failure_code.is_none() {
                 download_file(
                     response,
                     args.output,
@@ -670,7 +663,7 @@ fn run(args: Cli) -> Result<i32> {
             .with_context(|| format!("couldn't persist session {}", s.path.display()))?;
     }
 
-    Ok(exit_code)
+    Ok(failure_code.unwrap_or(ExitCode::SUCCESS))
 }
 
 /// Configure backtraces for standard panics and anyhow using `$RUST_BACKTRACE`.

@@ -48,6 +48,7 @@ serde_urlencoded = "0.7.0"
 supports-hyperlinks = "3.0.0"
 termcolor = "1.1.2"
 time = "0.3.16"
+humantime = "2.2.0"
 unicode-width = "0.1.9"
 url = "2.2.2"
 ruzstd = { version = "0.7", default-features = false, features = ["std"]}
@@ -56,7 +57,7 @@ log = "0.4.21"
 
 # Enable logging in transitive dependencies.
 # The rustls version number should be kept in sync with hyper/reqwest.
-rustls = { version = "0.23.14", optional = true, default-features = false, features = ["logging"] }
+rustls = { version = "0.23.25", optional = true, default-features = false, features = ["logging"] }
 tracing = { version = "0.1.41", default-features = false, features = ["log"] }
 reqwest_cookie_store = { version = "0.8.0", features = ["serde"] }
 

@@ -1138,7 +1138,6 @@ fn proxy_multiple_valid_proxies() {
 
 // temporarily disabled for builds not using rustls
 #[cfg(all(feature = "online-tests", feature = "rustls"))]
-#[ignore = "endpoint is randomly timing out"]
 #[test]
 fn verify_default_yes() {
     use predicates::boolean::PredicateBooleanExt;
@@ -1154,7 +1153,6 @@ fn verify_default_yes() {
 
 // temporarily disabled for builds not using rustls
 #[cfg(all(feature = "online-tests", feature = "rustls"))]
-#[ignore = "endpoint is randomly timing out"]
 #[test]
 fn verify_explicit_yes() {
     use predicates::boolean::PredicateBooleanExt;
@@ -1169,7 +1167,6 @@ fn verify_explicit_yes() {
 }
 
 #[cfg(feature = "online-tests")]
-#[ignore = "endpoint is randomly timing out"]
 #[test]
 fn verify_no() {
     get_command()
@@ -1181,7 +1178,6 @@ fn verify_no() {
 }
 
 #[cfg(all(feature = "rustls", feature = "online-tests"))]
-#[ignore = "endpoint is randomly timing out"]
 #[test]
 fn verify_valid_file() {
     get_command()
@@ -1197,7 +1193,6 @@ fn verify_valid_file() {
 // This test may fail if https://github.com/seanmonstar/reqwest/issues/1260 is fixed
 // If that happens make sure to remove the warning, not just this test
 #[cfg(all(feature = "native-tls", feature = "online-tests"))]
-#[ignore = "endpoint is randomly timing out"]
 #[test]
 fn verify_valid_file_native_tls() {
     get_command()
@@ -1216,6 +1211,16 @@ fn cert_without_key() {
         .assert()
         .stdout(contains("400 No required SSL certificate was sent"))
         .stderr(predicates::str::is_empty());
+}
+
+#[cfg(all(feature = "rustls", feature = "online-tests"))]
+#[test]
+fn formatted_certificate_expired_message() {
+    get_command()
+        .arg("https://expired.badssl.com")
+        .assert()
+        .failure()
+        .stderr(contains("Certificate not valid after 2015-04-12"));
 }
 
 #[test]
