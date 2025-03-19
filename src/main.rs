@@ -82,11 +82,12 @@ fn main() -> ExitCode {
         Err(err) => {
             log::debug!("{err:#?}");
             eprintln!("{bin_name}: error: {err:?}");
-            let msg = err.root_cause().to_string();
-            if native_tls && msg == "invalid minimum TLS version for backend" {
+
+            for message in error_reporting::additional_messages(&err, native_tls) {
                 eprintln!();
-                eprintln!("Try running without the --native-tls flag.");
+                eprintln!("{message}");
             }
+
             error_reporting::exit_code(&err)
         }
     }

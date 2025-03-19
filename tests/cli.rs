@@ -1213,6 +1213,16 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
+#[cfg(all(feature = "rustls", feature = "online-tests"))]
+#[test]
+fn formatted_certificate_expired_message() {
+    get_command()
+        .arg("https://expired.badssl.com")
+        .assert()
+        .failure()
+        .stderr(contains("Certificate not valid after 2015-04-12"));
+}
+
 #[test]
 fn override_dns_resolution() {
     let server = server::http(|req| async move {
