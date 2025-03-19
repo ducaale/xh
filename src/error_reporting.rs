@@ -8,9 +8,8 @@ pub(crate) fn exit_code(err: &anyhow::Error) -> ExitCode {
     }
 
     if err
-        .root_cause()
-        .to_string()
-        .starts_with("Too many redirects")
+        .downcast_ref::<crate::redirect::TooManyRedirects>()
+        .is_some()
     {
         return ExitCode::from(6);
     }
