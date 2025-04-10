@@ -3,6 +3,9 @@ use std::io::{self, ErrorKind, IsTerminal};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use crate::content_disposition;
+use crate::decoder::{decompress, get_compression_type};
+use crate::utils::{copy_largebuf, test_pretend_term, HeaderValueExt};
 use anyhow::{anyhow, Context, Result};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
@@ -12,9 +15,6 @@ use reqwest::{
     header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE},
     StatusCode,
 };
-
-use crate::decoder::{decompress, get_compression_type};
-use crate::utils::{copy_largebuf, test_pretend_term, HeaderValueExt};
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
     headers
@@ -27,20 +27,12 @@ fn get_content_length(headers: &HeaderMap) -> Option<u64> {
 // of PathBufs
 fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
     fn from_header(response: &Response) -> Option<String> {
-        let quoted = Regex::new("filename=\"([^\"]*)\"").unwrap();
-        // Alternative form:
-        let unquoted = Regex::new("filename=([^;=\"]*)").unwrap();
-        // TODO: support "filename*" version
-
         let header = response
             .headers()
             .get(CONTENT_DISPOSITION)?
             .to_utf8_str()
             .ok()?;
-        let caps = quoted
-            .captures(header)
-            .or_else(|| unquoted.captures(header))?;
-        Some(caps[1].to_string())
+        content_disposition::parse_filename_from_content_disposition(header)
     }
 
     fn from_url(url: &reqwest::Url) -> Option<String> {

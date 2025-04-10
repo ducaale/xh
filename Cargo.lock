@@ -2813,6 +2813,7 @@ dependencies = [
  "once_cell",
  "os_display",
  "pem",
+ "percent-encoding",
  "predicates",
  "rand",
  "regex-lite",
