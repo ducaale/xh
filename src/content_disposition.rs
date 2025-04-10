@@ -41,7 +41,7 @@ fn parse_regular_filename(part: &str) -> Option<String> {
     // It's not a standard practice
     // It rarely occurs in real-world scenarios
     // When filenames contain special characters, they should use the filename* parameter
-    let filename = if filename.starts_with('"') && filename.ends_with('"') {
+    let filename = if filename.starts_with('"') && filename.ends_with('"') && filename.len() >= 2 {
         &filename[1..(filename.len() - 1)]
     } else {
         filename

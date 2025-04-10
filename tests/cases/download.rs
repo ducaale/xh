@@ -229,7 +229,10 @@ fn download_filename_with_directory_traversal() {
         .current_dir(&dir)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("foobazbar")).unwrap(),
+        "file"
+    );
 }
 
 #[cfg(windows)]
@@ -251,7 +254,10 @@ fn download_filename_with_windows_directory_traversal() {
         .current_dir(&dir)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("foobazbar")).unwrap(),
+        "file"
+    );
 }
 
 // TODO: test implicit download filenames
