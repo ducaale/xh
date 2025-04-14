@@ -52,7 +52,13 @@ fn get_file_name(response: &Response, orig_url: &reqwest::Url) -> String {
         .or_else(|| from_url(orig_url))
         .unwrap_or_else(|| "index".to_string());
 
-    let filename = sanitize_filename::sanitize(&filename);
+    let filename = sanitize_filename::sanitize_with_options(
+        &filename,
+        sanitize_filename::Options {
+            replacement: "_",
+            ..Default::default()
+        },
+    );
 
     let mut filename = filename.trim().trim_start_matches('.').to_string();
 

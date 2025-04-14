@@ -167,6 +167,30 @@ fn download_support_filename_rfc_5987_percent_encoded() {
 }
 
 #[test]
+fn download_support_filename_rfc_5987_percent_encoded_with_iso_8859_1() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename*=iso-8859-1'en'%A3%20rates.txt"#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("£ rates.txt")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
 fn download_filename_star_with_high_priority() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
@@ -230,7 +254,7 @@ fn download_filename_with_directory_traversal() {
         .assert()
         .success();
     assert_eq!(
-        fs::read_to_string(dir.path().join("foobazbar")).unwrap(),
+        fs::read_to_string(dir.path().join("foo_baz_bar")).unwrap(),
         "file"
     );
 }
@@ -255,7 +279,7 @@ fn download_filename_with_windows_directory_traversal() {
         .assert()
         .success();
     assert_eq!(
-        fs::read_to_string(dir.path().join("foobazbar")).unwrap(),
+        fs::read_to_string(dir.path().join("foo_baz_bar")).unwrap(),
         "file"
     );
 }
