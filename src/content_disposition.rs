@@ -74,11 +74,23 @@ fn parse_encoded_filename(content: &str) -> Option<String> {
             return Some(decoded_str);
         }
     } else if charset.eq_ignore_ascii_case("ISO-8859-1") {
-        // Use the encoding_rs crate to decode ISO-8859-1 bytes.
-        let decoded: String = decoded_bytes.iter().map(|&b| b as char).collect();
-        return Some(decoded);
+        // RFC 5987 says to use ISO/IEC 8859-1:1998.
+        // But Firefox and Chromium decode %99 as ™ so they're actually using
+        // Windows-1252. This mixup is common on the web.
+        // This affects the 0x80-0x9F range. According to ISO 8859-1 those are
+        // control characters. According to Windows-1252 most of them are
+        // printable characters.
+        // They agree on all the other characters, and filenames shouldn't have
+        // control characters, so Windows-1252 makes sense.
+        if let Some(decoded_str) = encoding_rs::WINDOWS_1252
+            .decode_without_bom_handling_and_without_replacement(&decoded_bytes)
+        {
+            return Some(decoded_str.into_owned());
+        }
     } else {
         // Unknown charset. As a fallback, try interpreting as UTF-8.
+        // Firefox also does this.
+        // Chromium makes up its own filename. (Even if `filename=` is present.)
         if let Ok(decoded_str) = String::from_utf8(decoded_bytes) {
             return Some(decoded_str);
         }
@@ -127,6 +139,14 @@ mod tests {
         assert_eq!(
             parse_filename_from_content_disposition(header),
             Some("测试.pdf".to_string())
+        );
+    }
+    #[test]
+    fn test_decode_with_windows_1252() {
+        let header = "content-disposition: attachment; filename*=iso-8859-1'en'a%99b";
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("a™b".to_string())
         );
     }
 
