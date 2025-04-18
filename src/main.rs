@@ -2,6 +2,7 @@
 mod auth;
 mod buffer;
 mod cli;
+mod content_disposition;
 mod decoder;
 mod download;
 mod error_reporting;

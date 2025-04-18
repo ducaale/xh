@@ -120,6 +120,101 @@ fn download_supplied_unicode_filename() {
 }
 
 #[test]
+fn download_support_filename_rfc_5987() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename*=UTF-8''abcd1234.txt"#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("abcd1234.txt")).unwrap(),
+        "file"
+    );
+}
+#[test]
+fn download_support_filename_rfc_5987_percent_encoded() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename*=UTF-8''%E6%B5%8B%E8%AF%95.txt"#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("测试.txt")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
+fn download_support_filename_rfc_5987_percent_encoded_with_iso_8859_1() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename*=iso-8859-1'en'%A3%20rates.txt"#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("£ rates.txt")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
+fn download_filename_star_with_high_priority() {
+    let dir = tempdir().unwrap();
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header(
+                "Content-Disposition",
+                r#"attachment; filename="fallback.txt"; filename*=UTF-8''%E6%B5%8B%E8%AF%95.txt"#,
+            )
+            .body("file".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--download", &server.base_url()])
+        .current_dir(&dir)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("测试.txt")).unwrap(),
+        "file"
+    );
+}
+
+#[test]
 fn download_supplied_unquoted_filename() {
     let dir = tempdir().unwrap();
     let server = server::http(|_req| async move {
@@ -158,7 +253,10 @@ fn download_filename_with_directory_traversal() {
         .current_dir(&dir)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("foo_baz_bar")).unwrap(),
+        "file"
+    );
 }
 
 #[cfg(windows)]
@@ -180,7 +278,10 @@ fn download_filename_with_windows_directory_traversal() {
         .current_dir(&dir)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(dir.path().join("bar")).unwrap(), "file");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("foo_baz_bar")).unwrap(),
+        "file"
+    );
 }
 
 // TODO: test implicit download filenames
