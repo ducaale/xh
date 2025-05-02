@@ -1,7 +1,6 @@
-## Unreleased
+## [0.24.1] - 2025-05-02
 ### Features
-- Support RFC 5987 encoding for Content-Disposition filenames,
-  see #416 (@zuisong)
+- Support RFC 5987 encoding for Content-Disposition filenames, see #416 (@zuisong)
 
 ### Bug fixes
 - Fix crash on empty zstd response body, see #411 (@blyxxyz)
