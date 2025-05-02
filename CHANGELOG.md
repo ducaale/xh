@@ -1,3 +1,14 @@
+## Unreleased
+### Features
+- Support RFC 5987 encoding for Content-Disposition filenames,
+  see #416 (@zuisong)
+
+### Bug fixes
+- Fix crash on empty zstd response body, see #411 (@blyxxyz)
+
+### Other
+- Improve rustls errors for invalid certificates, see #413 (@blyxxyz)
+
 ## [0.24.0] - 2025-02-18
 ### Features
 - Add `--generate` option to generate the man page and shell completions at runtime,
