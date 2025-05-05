@@ -1,3 +1,10 @@
+# Complete paths after @ in options:
+function __xh_complete_data
+    string match -qr '^(?<prefix>.*@)(?<path>.*)' -- (commandline -ct)
+    printf '%s\n' -- $prefix(__fish_complete_path $path)
+end
+complete -c xh -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__xh_complete_data)"
+
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
 complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all\t'(default) Enable both coloring and formatting'
 colors\t'Apply syntax highlighting to output'
