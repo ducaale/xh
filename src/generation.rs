@@ -23,6 +23,7 @@ pub fn generate(bin_name: &str, generate: Generate) {
             let mut buf = Vec::new();
             clap_complete::generate(Shell::Fish, &mut app, bin_name, &mut buf);
             let mut stdout = io::stdout();
+            # Based on https://github.com/fish-shell/fish-shell/blob/1e61e6492db879ba6c32013f901d84b067ca22eb/share/completions/curl.fish#L1-L6
             let preamble = format!(
                 r#"# Complete paths after @ in options:
 function __{bin_name}_complete_data
