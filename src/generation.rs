@@ -19,7 +19,24 @@ pub fn generate(bin_name: &str, generate: Generate) {
             clap_complete::generate(Shell::Elvish, &mut app, bin_name, &mut io::stdout());
         }
         Generate::CompleteFish => {
-            clap_complete::generate(Shell::Fish, &mut app, bin_name, &mut io::stdout());
+            use std::io::Write;
+            let mut buf = Vec::new();
+            clap_complete::generate(Shell::Fish, &mut app, bin_name, &mut buf);
+            let mut stdout = io::stdout();
+            // Based on https://github.com/fish-shell/fish-shell/blob/1e61e6492db879ba6c32013f901d84b067ca22eb/share/completions/curl.fish#L1-L6
+            let preamble = format!(
+                r#"# Complete paths after @ in options:
+function __{bin_name}_complete_data
+    string match -qr '^(?<prefix>.*@)(?<path>.*)' -- (commandline -ct)
+    printf '%s\n' -- $prefix(__fish_complete_path $path)
+end
+complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{bin_name}_complete_data)"
+
+"#,
+                bin_name = bin_name,
+            );
+            stdout.write_all(preamble.as_bytes()).unwrap();
+            stdout.write_all(&buf).unwrap();
         }
         Generate::CompleteNushell => {
             clap_complete::generate(Nushell, &mut app, bin_name, &mut io::stdout());
