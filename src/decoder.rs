@@ -209,6 +209,7 @@ pub fn decompress(
 /// [ZstdDecoder] reads from its input during construction.
 ///
 /// We need to delay construction until [Read] so read errors stay read errors.
+#[allow(clippy::large_enum_variant)]
 enum LazyZstdDecoder<R: Read> {
     Uninit(Option<R>),
     Init(ZstdDecoder<R, FrameDecoder>),
@@ -261,7 +262,7 @@ mod tests {
         struct SadReader;
         impl Read for SadReader {
             fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-                Err(io::Error::new(io::ErrorKind::Other, "oh no!"))
+                Err(io::Error::other("oh no!"))
             }
         }
 

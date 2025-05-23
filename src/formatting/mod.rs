@@ -80,7 +80,7 @@ impl<'a> Highlighter<'a> {
             for (style, component) in self
                 .highlighter
                 .highlight_line(line, self.syntax_set)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+                .map_err(io::Error::other)?
             {
                 self.out.set_color(&convert_style(style))?;
                 write!(self.out, "{}", component)?;
