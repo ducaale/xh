@@ -8,6 +8,7 @@ mod download;
 mod error_reporting;
 mod formatting;
 mod generation;
+mod jwt;
 mod middleware;
 mod nested_json;
 mod netrc;
@@ -38,7 +39,7 @@ use reqwest::header::{
     HeaderValue, ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, RANGE, USER_AGENT,
 };
 use reqwest::tls;
-use url::Host;
+use url::{Host, Url};
 use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
@@ -103,6 +104,27 @@ fn run(args: Cli) -> Result<ExitCode> {
     if args.curl {
         to_curl::print_curl_translation(args)?;
         return Ok(ExitCode::SUCCESS);
+    }
+
+    // Handle JWT token operations
+    if args.jwt_list {
+        return handle_jwt_list();
+    }
+
+    if let Some(token_name) = &args.jwt_delete {
+        return handle_jwt_delete(token_name);
+    }
+
+    if let Some(token_name) = &args.jwt_show {
+        return handle_jwt_show(token_name);
+    }
+
+    if let Some(token_name) = &args.jwt_refresh {
+        return handle_jwt_refresh(token_name, &args);
+    }
+
+    if let Some(jwt_request) = &args.jwt_request {
+        return handle_jwt_request(jwt_request, &args);
     }
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
@@ -470,7 +492,44 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         let auth_type = args.auth_type.unwrap_or_default();
-        if let Some(auth_from_arg) = args.auth {
+        
+        // Handle JWT token authentication first
+        if let Some(jwt_token_name) = &args.jwt_token {
+            let mut store = jwt::JwtTokenStore::load()?;
+            match store.get_token(jwt_token_name) {
+                Some(jwt_token) => {
+                    // Check if token needs refresh and attempt it
+                    let needs_refresh = jwt_token.is_expired() || jwt_token.expires_within(300); // 5 minutes
+                    
+                    if needs_refresh && jwt_token.refresh_token.is_some() {
+                        log::info!("JWT token '{}' is expired or expiring soon, attempting refresh", jwt_token_name);
+                        
+                        // Try to refresh using the provided refresh URL
+                        let refresh_url = args.jwt_refresh_url.as_deref();
+                        if let Err(e) = store.refresh_token_if_needed(jwt_token_name, &client, refresh_url) {
+                            log::warn!("Failed to refresh JWT token '{}': {}", jwt_token_name, e);
+                        }
+                        
+                        // Save the potentially updated token store
+                        if let Err(e) = store.save() {
+                            log::warn!("Failed to save updated token store: {}", e);
+                        }
+                    } else if needs_refresh {
+                        log::warn!("JWT token '{}' is expired but no refresh token available", jwt_token_name);
+                    }
+                    
+                    // Get the (potentially refreshed) token
+                    let final_token = store.get_token(jwt_token_name)
+                        .ok_or_else(|| anyhow!("Token disappeared during refresh"))?;
+                    
+                    auth = Some(Auth::Bearer(final_token.token.clone()));
+                    save_auth_in_session = false; // JWT tokens are managed separately
+                }
+                None => {
+                    return Err(anyhow!("JWT token '{}' not found. Use --jwt-list to see available tokens or --jwt-request to create a new one.", jwt_token_name));
+                }
+            }
+        } else if let Some(auth_from_arg) = args.auth {
             auth = Some(Auth::from_str(
                 &auth_from_arg,
                 auth_type,
@@ -689,5 +748,185 @@ fn setup_backtraces() {
     #[allow(unused_unsafe)]
     unsafe {
         std::env::set_var("RUST_BACKTRACE", "1");
+    }
+}
+
+// JWT token management functions
+
+/// Handle listing all stored JWT tokens
+fn handle_jwt_list() -> Result<ExitCode> {
+    let store = jwt::JwtTokenStore::load()?;
+    let tokens = store.list_tokens();
+    
+    if tokens.is_empty() {
+        println!("No JWT tokens stored.");
+    } else {
+        println!("Stored JWT tokens:");
+        for token_name in tokens {
+            let token = store.get_token(token_name).unwrap();
+            let status = if token.is_expired() { " (expired)" } else { "" };
+            println!("  {} - {} token{}", token_name, token.token_type, status);
+        }
+    }
+    
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Handle deleting a stored JWT token
+fn handle_jwt_delete(token_name: &str) -> Result<ExitCode> {
+    let mut store = jwt::JwtTokenStore::load()?;
+    
+    if store.remove_token(token_name).is_some() {
+        store.save()?;
+        println!("Deleted JWT token: {}", token_name);
+    } else {
+        eprintln!("JWT token '{}' not found.", token_name);
+        return Ok(ExitCode::from(1));
+    }
+    
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Handle showing details of a stored JWT token
+fn handle_jwt_show(token_name: &str) -> Result<ExitCode> {
+    let store = jwt::JwtTokenStore::load()?;
+    
+    if let Some(token) = store.get_token(token_name) {
+        println!("JWT Token: {}", token_name);
+        println!("  Type: {}", token.token_type);
+        println!("  Issued: {}", format_timestamp(token.issued_at));
+        if let Some(expires_at) = token.expires_at {
+            println!("  Expires: {}", format_timestamp(expires_at));
+            println!("  Status: {}", if token.is_expired() { "expired" } else { "valid" });
+        } else {
+            println!("  Expires: never");
+            println!("  Status: valid");
+        }
+        if let Some(scope) = &token.scope {
+            println!("  Scope: {}", scope);
+        }
+        println!("  Has refresh token: {}", token.refresh_token.is_some());
+        // Don't print the actual token for security reasons
+        println!("  Token: [hidden]");
+    } else {
+        eprintln!("JWT token '{}' not found.", token_name);
+        return Ok(ExitCode::from(1));
+    }
+    
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Handle requesting a new JWT token
+fn handle_jwt_request(jwt_request: &str, args: &Cli) -> Result<ExitCode> {
+    let (name, url_str) = parse_jwt_request_arg(jwt_request)?;
+    let url: Url = url_str.parse()
+        .with_context(|| format!("Invalid URL: {}", url_str))?;
+    
+    let mut request = jwt::JwtTokenRequest::new(url)
+        .with_grant_type(args.jwt_grant_type.clone());
+    
+    // Set credentials
+    if let (Some(username), Some(password)) = (&args.jwt_username, &args.jwt_password) {
+        request = request.with_credentials(username.clone(), password.clone());
+    } else if let (Some(client_id), Some(client_secret)) = (&args.jwt_client_id, &args.jwt_client_secret) {
+        request = request.with_client_credentials(client_id.clone(), client_secret.clone());
+    } else {
+        return Err(anyhow!("JWT token request requires either username/password or client_id/client_secret"));
+    }
+    
+    if let Some(scope) = &args.jwt_scope {
+        request = request.with_scope(scope.clone());
+    }
+    
+    // Create HTTP client
+    let client = Client::builder()
+        .timeout(args.timeout.as_ref().and_then(|t| t.as_duration()))
+        .build()?;
+    
+    println!("Requesting JWT token from {}...", request.url);
+    
+    // Request the token
+    let token = request.request_token_sync(&client)
+        .context("Failed to request JWT token")?;
+    
+    // Store the token
+    let mut store = jwt::JwtTokenStore::load()?;
+    store.store_token(&name, token);
+    store.save()?;
+    
+    println!("Successfully stored JWT token: {}", name);
+    
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Parse JWT request argument in format "name=url"
+fn parse_jwt_request_arg(arg: &str) -> Result<(String, String)> {
+    if let Some((name, url)) = arg.split_once('=') {
+        if name.is_empty() || url.is_empty() {
+            return Err(anyhow!("Invalid JWT request format. Use: name=url"));
+        }
+        Ok((name.to_string(), url.to_string()))
+    } else {
+        Err(anyhow!("Invalid JWT request format. Use: name=url"))
+    }
+}
+
+/// Format timestamp for display
+fn format_timestamp(timestamp: u64) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    
+    let duration = std::time::Duration::from_secs(timestamp);
+    let datetime = SystemTime::UNIX_EPOCH + duration;
+    
+    // Convert to local time string (simplified)
+    match datetime.duration_since(UNIX_EPOCH) {
+        Ok(d) => format!("{} seconds since epoch", d.as_secs()),
+        Err(_) => "invalid timestamp".to_string(),
+    }
+}
+
+/// Handle refreshing a stored JWT token
+fn handle_jwt_refresh(token_name: &str, args: &Cli) -> Result<ExitCode> {
+    let mut store = jwt::JwtTokenStore::load()?;
+    
+    if store.get_token(token_name).is_none() {
+        eprintln!("JWT token '{}' not found.", token_name);
+        return Ok(ExitCode::from(1));
+    }
+    
+    let token = store.get_token(token_name).unwrap();
+    if token.refresh_token.is_none() {
+        eprintln!("JWT token '{}' has no refresh token.", token_name);
+        return Ok(ExitCode::from(1));
+    }
+    
+    if args.jwt_refresh_url.is_none() {
+        eprintln!("No refresh URL provided. Use --jwt-refresh-url to specify the token refresh endpoint.");
+        return Ok(ExitCode::from(1));
+    }
+    
+    // Create HTTP client
+    let client = Client::builder()
+        .timeout(args.timeout.as_ref().and_then(|t| t.as_duration()))
+        .build()?;
+    
+    println!("Refreshing JWT token '{}'...", token_name);
+    
+    // Attempt to refresh the token
+    let refresh_url = args.jwt_refresh_url.as_ref().unwrap();
+    match store.refresh_token_if_needed(token_name, &client, Some(refresh_url)) {
+        Ok(true) => {
+            store.save()?;
+            println!("Successfully refreshed JWT token: {}", token_name);
+            Ok(ExitCode::SUCCESS)
+        }
+        Ok(false) => {
+            println!("JWT token '{}' did not need refreshing.", token_name);
+            Ok(ExitCode::SUCCESS)
+        }
+        Err(e) => {
+            eprintln!("Failed to refresh JWT token '{}': {}", token_name, e);
+            Ok(ExitCode::from(1))
+        }
     }
 }
