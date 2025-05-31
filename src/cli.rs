@@ -251,6 +251,65 @@ Example: --print=Hb"
     #[clap(long)]
     pub ignore_netrc: bool,
 
+    /// Request a JWT token from the specified URL and store it with a name.
+    ///
+    /// Usage: --jwt-request=name=token_url
+    /// Example: --jwt-request=myapi=https://api.example.com/oauth/token
+    #[clap(long, value_name = "NAME=URL")]
+    pub jwt_request: Option<String>,
+
+    /// Use a stored JWT token for authentication.
+    ///
+    /// The token will be used as a Bearer token in the Authorization header.
+    /// If the token is expired and has a refresh token, it will be automatically refreshed.
+    #[clap(long, value_name = "NAME")]
+    pub jwt_token: Option<String>,
+
+    /// Username for JWT token request (used with --jwt-request).
+    #[clap(long, value_name = "USERNAME")]
+    pub jwt_username: Option<String>,
+
+    /// Password for JWT token request (used with --jwt-request).
+    #[clap(long, value_name = "PASSWORD")]
+    pub jwt_password: Option<String>,
+
+    /// Client ID for JWT token request (used with --jwt-request).
+    #[clap(long, value_name = "CLIENT_ID")]
+    pub jwt_client_id: Option<String>,
+
+    /// Client secret for JWT token request (used with --jwt-request).
+    #[clap(long, value_name = "CLIENT_SECRET")]
+    pub jwt_client_secret: Option<String>,
+
+    /// Scope for JWT token request (used with --jwt-request).
+    #[clap(long, value_name = "SCOPE")]
+    pub jwt_scope: Option<String>,
+
+    /// Grant type for JWT token request (used with --jwt-request).
+    /// Common values: password, client_credentials, authorization_code
+    #[clap(long, value_name = "GRANT_TYPE", default_value = "password")]
+    pub jwt_grant_type: String,
+
+    /// List all stored JWT tokens.
+    #[clap(long)]
+    pub jwt_list: bool,
+
+    /// Delete a stored JWT token.
+    #[clap(long, value_name = "NAME")]
+    pub jwt_delete: Option<String>,
+
+    /// Show details of a stored JWT token.
+    #[clap(long, value_name = "NAME")]
+    pub jwt_show: Option<String>,
+
+    /// Refresh URL for JWT token refresh (used with --jwt-request).
+    #[clap(long, value_name = "URL")]
+    pub jwt_refresh_url: Option<String>,
+
+    /// Refresh a stored JWT token.
+    #[clap(long, value_name = "NAME")]
+    pub jwt_refresh: Option<String>,
+
     /// Construct HTTP requests without sending them anywhere.
     #[clap(long)]
     pub offline: bool,
@@ -413,7 +472,10 @@ Example: xh --generate=complete-bash > xh.bash",
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    #[clap(value_name = "[METHOD] URL", required = true)]
+    #[clap(
+        value_name = "[METHOD] URL", 
+        required_unless_present_any = ["jwt_list", "jwt_delete", "jwt_show", "jwt_refresh", "jwt_request", "generate"]
+    )]
     raw_method_or_url: Option<String>,
 
     /// Optional key-value pairs to be included in the request.
@@ -518,6 +580,14 @@ impl Cli {
             .clone_into(&mut cli.bin_name);
 
         if cli.generate.is_some() {
+            return Ok(cli);
+        }
+
+        // For JWT operations, we don't need a URL
+        if cli.jwt_list || cli.jwt_delete.is_some() || cli.jwt_show.is_some() 
+           || cli.jwt_refresh.is_some() || cli.jwt_request.is_some() {
+            // Use placeholder URL for JWT operations
+            cli.url = "http://placeholder".parse().unwrap();
             return Ok(cli);
         }
 

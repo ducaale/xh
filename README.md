@@ -1,4 +1,5 @@
 # xh
+
 [![Version info](https://img.shields.io/crates/v/xh.svg)](https://crates.io/crates/xh)
 [![Packaging status](https://repology.org/badge/tiny-repos/xh.svg)](https://repology.org/project/xh/versions)
 
@@ -22,28 +23,27 @@ curl -sfL https://raw.githubusercontent.com/ducaale/xh/master/install.sh | sh
 iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 ```
 
-
 ### via a package manager
 
-| OS                            | Method     | Command                                    |
-|-------------------------------|------------|--------------------------------------------|
-| Any                           | Cargo\*    | `cargo install xh --locked`                |
-| Any                           | [Huber]    | `huber install xh`                         |
-| Android ([Termux])            | pkg        | `pkg install xh`                           |
-| Android ([Magisk]/[KernelSU]) | MMRL\*\*   | `mmrl install xhhttp`                      |
-| Alpine Linux                  | apk\*\*\*  | `apk add xh`                               |
-| Arch Linux                    | Pacman     | `pacman -S xh`                             |
-| Debian & Ubuntu               | Apt\*\*\*\*| `sudo apt install xh`                      |
-| FreeBSD                       | FreshPorts | `pkg install xh`                           |
-| NetBSD                        | pkgsrc     | `pkgin install xh`                         |
-| Linux & macOS                 | Nixpkgs    | `nix-env -iA nixpkgs.xh`                   |
-| Linux & macOS                 | [Flox]     | `flox install xh`                          |
-| Linux & macOS                 | Homebrew   | `brew install xh`                          |
-| Linux & macOS                 | [Hermit]   | `hermit install xh`                        |
-| macOS                         | MacPorts   | `sudo port install xh`                     |
-| Windows                       | Scoop      | `scoop install xh`                         |
-| Windows                       | Chocolatey | `choco install xh`                         |
-| Windows                       | Winget     | `winget add ducaale.xh`                    |
+| OS                            | Method      | Command                     |
+| ----------------------------- | ----------- | --------------------------- |
+| Any                           | Cargo\*     | `cargo install xh --locked` |
+| Any                           | [Huber]     | `huber install xh`          |
+| Android ([Termux])            | pkg         | `pkg install xh`            |
+| Android ([Magisk]/[KernelSU]) | MMRL\*\*    | `mmrl install xhhttp`       |
+| Alpine Linux                  | apk\*\*\*   | `apk add xh`                |
+| Arch Linux                    | Pacman      | `pacman -S xh`              |
+| Debian & Ubuntu               | Apt\*\*\*\* | `sudo apt install xh`       |
+| FreeBSD                       | FreshPorts  | `pkg install xh`            |
+| NetBSD                        | pkgsrc      | `pkgin install xh`          |
+| Linux & macOS                 | Nixpkgs     | `nix-env -iA nixpkgs.xh`    |
+| Linux & macOS                 | [Flox]      | `flox install xh`           |
+| Linux & macOS                 | Homebrew    | `brew install xh`           |
+| Linux & macOS                 | [Hermit]    | `hermit install xh`         |
+| macOS                         | MacPorts    | `sudo port install xh`      |
+| Windows                       | Scoop       | `scoop install xh`          |
+| Windows                       | Chocolatey  | `choco install xh`          |
+| Windows                       | Winget      | `winget add ducaale.xh`     |
 
 \* Make sure that you have Rust 1.74 or later installed
 
@@ -61,9 +61,11 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 [Hermit]: https://cashapp.github.io/hermit/
 
 ### via pre-built binaries
+
 The [release page](https://github.com/ducaale/xh/releases) contains prebuilt binaries for Linux, macOS and Windows.
 
 ## Usage
+
 ```
 Usage: xh [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
 
@@ -100,6 +102,19 @@ Options:
   -A, --auth-type <AUTH_TYPE>            Specify the auth mechanism [possible values: basic, bearer, digest]
   -a, --auth <USER[:PASS] | TOKEN>       Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
       --ignore-netrc                     Do not use credentials from .netrc
+      --jwt-request <NAME=URL>           Request and store a JWT token
+      --jwt-token <NAME>                 Use a stored JWT token for authentication
+      --jwt-list                         List all stored JWT tokens
+      --jwt-show <NAME>                  Show details of a stored JWT token
+      --jwt-delete <NAME>                Delete a stored JWT token
+      --jwt-refresh <NAME>               Refresh a stored JWT token
+      --jwt-refresh-url <URL>            Refresh URL for JWT token refresh
+      --jwt-username <USERNAME>          Username for JWT token request
+      --jwt-password <PASSWORD>          Password for JWT token request
+      --jwt-client-id <CLIENT_ID>        Client ID for JWT token request
+      --jwt-client-secret <CLIENT_SECRET>       Client secret for JWT token request
+      --jwt-scope <SCOPE>                Scope for JWT token request
+      --jwt-grant-type <GRANT_TYPE>      Grant type for JWT token request [default: password]
       --offline                          Construct HTTP requests without sending them anywhere
       --check-status                     (default) Exit with an error status code if the server replies with an error
   -F, --follow                           Do follow redirects
@@ -152,7 +167,6 @@ for localhost. `:8000` is equivalent to `localhost:8000`, and `:/path` is equiva
 
 URLs can have a leading `://` which allows quickly converting a URL into a valid xh or HTTPie command. For example
 `http://httpbin.org/json` becomes `http ://httpbin.org/json`.
-
 
 ```sh
 xh http://localhost:3000/users # resolves to http://localhost:3000/users
@@ -229,3 +243,48 @@ xh httpbin.org/get user-agent:foobar
 - [curlie](https://github.com/rs/curlie) - frontend to cURL that adds the ease of use of httpie
 - [httpie-go](https://github.com/nojima/httpie-go) - httpie-like HTTP client written in Go
 - [curl2httpie](https://github.com/dcb9/curl2httpie) - convert command arguments between cURL and HTTPie
+
+### JWT Token Authentication
+
+`xh` supports JWT (JSON Web Token) authentication with automatic token management and refresh capabilities.
+
+```sh
+# Request and store a JWT token
+xh --jwt-request "myapi=https://api.example.com/oauth/token" \
+   --jwt-username "your-username" \
+   --jwt-password "your-password"
+
+# Use the stored token for authenticated requests
+xh --jwt-token "myapi" GET https://api.example.com/protected
+
+# List all stored tokens
+xh --jwt-list
+
+# Show details of a specific token
+xh --jwt-show "myapi"
+
+# Delete a stored token
+xh --jwt-delete "myapi"
+
+# Refresh a token manually
+xh --jwt-refresh "myapi" --jwt-refresh-url "https://api.example.com/oauth/refresh"
+
+# Use client credentials grant type
+xh --jwt-request "api=https://api.example.com/oauth/token" \
+   --jwt-client-id "your-client-id" \
+   --jwt-client-secret "your-secret" \
+   --jwt-grant-type "client_credentials"
+```
+
+Tokens are automatically refreshed when expired or expiring soon (within 5 minutes). JWT tokens are stored securely in the user's config directory.
+
+### Making HTTPS requests by default
+
+`xh` will default to HTTPS scheme if the binary name is one of `xhs`, `https`, or `xhttps`. If you have installed `xh`
+via a package manager, both `xh` and `xhs` should be available by default. Otherwise, you need to create one like this:
+
+```sh
+cd /path/to/xh && ln -s ./xh ./xhs
+xh httpbin.org/get  # resolves to http://httpbin.org/get
+xhs httpbin.org/get # resolves to https://httpbin.org/get
+```
