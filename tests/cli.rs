@@ -1054,7 +1054,7 @@ fn proxy_https_proxy() {
 
     get_proxy_command("https", "https", &server.base_url())
         .assert()
-        .stderr(contains("unsuccessful tunnel"))
+        .stderr(contains("tunnel error: unsuccessful"))
         .failure();
 }
 
@@ -1086,7 +1086,7 @@ fn proxy_https_all_proxy() {
 
     get_proxy_command("https", "all", &server.base_url())
         .assert()
-        .stderr(contains("unsuccessful tunnel"))
+        .stderr(contains(" tunnel error: unsuccessful"))
         .failure();
 }
 
