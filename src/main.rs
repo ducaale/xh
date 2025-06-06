@@ -294,12 +294,34 @@ fn run(args: Cli) -> Result<ExitCode> {
         if let Ok(ip_addr) = IpAddr::from_str(name_or_ip) {
             client = client.local_address(ip_addr);
         } else {
-            #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+            #[cfg(any(
+                target_os = "android",
+                target_os = "fuchsia",
+                target_os = "illumos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "macos",
+                target_os = "solaris",
+                target_os = "tvos",
+                target_os = "visionos",
+                target_os = "watchos",
+            ))]
             {
                 client = client.interface(name_or_ip);
             }
 
-            #[cfg(not(any(target_os = "android", target_os = "fuchsia", target_os = "linux")))]
+            #[cfg(not(any(
+                target_os = "android",
+                target_os = "fuchsia",
+                target_os = "illumos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "macos",
+                target_os = "solaris",
+                target_os = "tvos",
+                target_os = "visionos",
+                target_os = "watchos",
+            )))]
             {
                 #[cfg(not(feature = "network-interface"))]
                 return Err(anyhow!(
