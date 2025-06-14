@@ -1136,6 +1136,99 @@ fn proxy_multiple_valid_proxies() {
     cmd.assert().success();
 }
 
+enum DisableProxyForTestType {
+    ProxyUsed,
+    ProxyNotUsed,
+}
+fn disable_proxy_for_test(disable_proxy_for_arg: &str, test_type: DisableProxyForTestType) {
+    let mut proxy_server = server::http(|_| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("Proxy shouldn't have been used.".into())
+            .unwrap()
+    });
+    let mut actual_server = server::http(|_| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("".into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(format!("--proxy=http:{}", proxy_server.base_url()))
+        .arg(format!("--disable-proxy-for={}", disable_proxy_for_arg))
+        .arg("GET")
+        .arg(actual_server.base_url().as_str())
+        .assert()
+        .success();
+
+    if let DisableProxyForTestType::ProxyNotUsed = test_type {
+        proxy_server.disable_hit_checks();
+        proxy_server.assert_hits(0);
+        actual_server.assert_hits(1);
+    } else {
+        proxy_server.assert_hits(1);
+        actual_server.disable_hit_checks();
+        actual_server.assert_hits(0);
+    }
+}
+
+#[test]
+fn disable_proxy_for_wildcard() {
+    disable_proxy_for_test("*", DisableProxyForTestType::ProxyNotUsed);
+}
+
+#[test]
+fn disable_proxy_for_ip() {
+    disable_proxy_for_test("127.0.0.1", DisableProxyForTestType::ProxyNotUsed);
+}
+
+#[test]
+fn disable_proxy_for_ip_cidr() {
+    disable_proxy_for_test("127.0.0.0/8", DisableProxyForTestType::ProxyNotUsed);
+}
+
+#[test]
+fn disable_proxy_for_multiple() {
+    disable_proxy_for_test("127.0.0.2,127.0.0.1", DisableProxyForTestType::ProxyNotUsed);
+}
+
+#[test]
+fn disable_proxy_for_whitespace() {
+    disable_proxy_for_test(
+        "example.test, 127.0.0.1",
+        DisableProxyForTestType::ProxyNotUsed,
+    );
+}
+
+#[test]
+fn disable_proxy_for_whitespace_wildcard() {
+    disable_proxy_for_test("example.test, *", DisableProxyForTestType::ProxyNotUsed);
+}
+
+#[test]
+fn disable_proxy_for_whitespace_ip() {
+    disable_proxy_for_test(
+        "127.0.0.2, 127.0.0.1",
+        DisableProxyForTestType::ProxyNotUsed,
+    );
+}
+
+#[test]
+fn disable_proxy_for_other_host() {
+    disable_proxy_for_test("example.test", DisableProxyForTestType::ProxyUsed);
+}
+
+#[test]
+fn disable_proxy_for_other_ip() {
+    disable_proxy_for_test("127.0.0.2", DisableProxyForTestType::ProxyUsed);
+}
+
+#[test]
+fn disable_proxy_for_other_ip_cidr() {
+    disable_proxy_for_test("127.0.1.0/24", DisableProxyForTestType::ProxyUsed);
+}
+
 // temporarily disabled for builds not using rustls
 #[cfg(all(feature = "online-tests", feature = "rustls"))]
 #[test]
