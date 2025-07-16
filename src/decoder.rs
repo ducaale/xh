@@ -343,7 +343,7 @@ mod tests {
         struct SpecialErr;
         impl std::fmt::Display for SpecialErr {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{:?}", self)
+                write!(f, "{self:?}")
             }
         }
         impl std::error::Error for SpecialErr {}

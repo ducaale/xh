@@ -66,8 +66,7 @@ impl Drop for Server {
             assert!(total_hits > 0, "test server exited without being called");
             assert_eq!(
                 failed_hits, 0,
-                "numbers of panicked or in-progress requests: {}",
-                failed_hits
+                "numbers of panicked or in-progress requests: {failed_hits}"
             );
         }
 

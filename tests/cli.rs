@@ -1023,9 +1023,9 @@ fn get_proxy_command(
 ) -> Command {
     let mut cmd = get_command();
     cmd.arg("--check-status")
-        .arg(format!("--proxy={}:{}", protocol_to_proxy, proxy_url))
+        .arg(format!("--proxy={protocol_to_proxy}:{proxy_url}"))
         .arg("GET")
-        .arg(format!("{}://example.test/get", protocol_to_request));
+        .arg(format!("{protocol_to_request}://example.test/get"));
     cmd
 }
 
@@ -2146,7 +2146,7 @@ fn named_sessions() {
     get_command()
         .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
-        .arg(format!("--session={}", random_name))
+        .arg(format!("--session={random_name}"))
         .arg("--bearer=hello")
         .arg("cookie:lang=en")
         .assert()
@@ -2158,7 +2158,7 @@ fn named_sessions() {
         [
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
-            &format!("{}.json", random_name),
+            &format!("{random_name}.json"),
         ]
         .iter()
         .collect(),
@@ -2327,7 +2327,7 @@ fn named_read_only_session() {
             "xh",
             "sessions",
             &format!("127.0.0.1_{}", server.port()),
-            &format!("{}.json", random_name),
+            &format!("{random_name}.json"),
         ]
         .iter()
         .collect(),
@@ -2350,7 +2350,7 @@ fn named_read_only_session() {
         .env("XH_CONFIG_DIR", config_dir.path())
         .arg(server.base_url())
         .arg("goodbye:world")
-        .arg(format!("--session-read-only={}", random_name))
+        .arg(format!("--session-read-only={random_name}"))
         .assert()
         .success();
 
