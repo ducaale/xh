@@ -80,6 +80,8 @@ jobs:
 
       - name: Clippy (all features)
         run: cargo clippy --all-features --tests -- -D warnings -A unknown-lints
+        env:
+          RUSTFLAGS: --cfg reqwest_unstable
 
       - name: Clippy (native-tls only)
         run: cargo clippy --no-default-features --features=native-tls,online-tests --tests -- -D warnings -A unknown-lints

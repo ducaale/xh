@@ -278,6 +278,8 @@ fn run(args: Cli) -> Result<ExitCode> {
         Some(HttpVersion::Http10 | HttpVersion::Http11) => client.http1_only(),
         Some(HttpVersion::Http2PriorKnowledge) => client.http2_prior_knowledge(),
         Some(HttpVersion::Http2) => client,
+        #[cfg(feature = "http3")]
+        Some(HttpVersion::Http3PriorKnowledge) => client.http3_prior_knowledge(),
         None => client,
     };
 
@@ -410,6 +412,13 @@ fn run(args: Cli) -> Result<ExitCode> {
             Some(HttpVersion::Http11) => request_builder.version(reqwest::Version::HTTP_11),
             Some(HttpVersion::Http2 | HttpVersion::Http2PriorKnowledge) => {
                 request_builder.version(reqwest::Version::HTTP_2)
+            }
+            #[cfg(feature = "http3")]
+            Some(HttpVersion::Http3PriorKnowledge) => {
+                if args.native_tls {
+                    log::warn!("HTTP/3 is not supported when using native-tls");
+                }
+                request_builder.version(reqwest::Version::HTTP_3)
             }
             None => request_builder,
         };

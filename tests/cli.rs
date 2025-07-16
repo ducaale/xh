@@ -3256,6 +3256,19 @@ fn http2_prior_knowledge() {
         .stdout(contains("Hello HTTP/2.0"));
 }
 
+#[cfg(all(feature = "online-tests", feature = "http3", feature = "rustls"))]
+#[test]
+fn http3_prior_knowledge() {
+    get_command()
+        .arg("-v")
+        .arg("--http-version=3-prior-knowledge")
+        .arg("https://hyper.com")
+        .assert()
+        .success()
+        .stdout(contains("GET / HTTP/3.0"))
+        .stdout(contains("HTTP/3.0 200"));
+}
+
 #[test]
 fn override_response_charset() {
     let server = server::http(|_req| async move {
