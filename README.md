@@ -45,7 +45,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Windows                       | Chocolatey | `choco install xh`                         |
 | Windows                       | Winget     | `winget add ducaale.xh`                    |
 
-\* Make sure that you have Rust 1.74 or later installed
+\* Make sure that you have Rust 1.82 or later installed
 
 \*\* You will need to install the [MMRL CLI](https://github.com/DerGoogler/MMRL-CLI/releases)
 
