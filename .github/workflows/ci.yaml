@@ -21,6 +21,10 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            flags: --features=http3
+            rustflags: --cfg reqwest_unstable
           - target: x86_64-apple-darwin
             os: macos-13
             flags: --features=native-tls
@@ -53,6 +57,11 @@ jobs:
         with:
           key: v2-${{ matrix.job.target }}
       
+      - name: Set RUSTFLAGS env variable
+        if: matrix.job.rustflags
+        shell: bash
+        run: echo "RUSTFLAGS=${{ matrix.job.rustflags }}" >> $GITHUB_ENV
+
       - uses: ClementTsang/cargo-action@v0.0.6
         with:
           use-cross: ${{ !!matrix.job.use-cross }}

@@ -3262,7 +3262,7 @@ fn http3_prior_knowledge() {
     get_command()
         .arg("-v")
         .arg("--http-version=3-prior-knowledge")
-        .arg("https://hyper.com")
+        .arg("https://hyper.rs")
         .assert()
         .success()
         .stdout(contains("GET / HTTP/3.0"))
