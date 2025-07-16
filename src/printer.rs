@@ -356,7 +356,7 @@ impl Printer {
                 if test_mode() {
                     HeaderValue::from_str("http.mock")
                 } else if let Some(port) = request.url().port() {
-                    HeaderValue::from_str(&format!("{}:{}", host, port))
+                    HeaderValue::from_str(&format!("{host}:{port}"))
                 } else {
                     HeaderValue::from_str(host)
                 }
@@ -493,11 +493,11 @@ impl Printer {
             total_elapsed_time += content_download_duration.as_secs_f64();
         }
         self.buffer
-            .print(&format!("Elapsed time: {:.5}s\n", total_elapsed_time))?;
+            .print(&format!("Elapsed time: {total_elapsed_time:.5}s\n"))?;
 
         if let Some(remote_addr) = response.remote_addr() {
             self.buffer
-                .print(&format!("Remote address: {:?}\n", remote_addr))?;
+                .print(&format!("Remote address: {remote_addr:?}\n"))?;
         }
 
         self.buffer.print("\n")?;

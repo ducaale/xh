@@ -83,7 +83,7 @@ impl<'a> Highlighter<'a> {
                 .map_err(io::Error::other)?
             {
                 self.out.set_color(&convert_style(style))?;
-                write!(self.out, "{}", component)?;
+                write!(self.out, "{component}")?;
             }
         }
         Ok(())

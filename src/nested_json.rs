@@ -245,7 +245,7 @@ fn syntax_error(expected: &'static str, pos: usize, json_path: &str) -> anyhow::
 fn highlight_error(text: &str, start: usize, mut end: usize) -> String {
     use unicode_width::UnicodeWidthStr;
     // Apply right-padding so outside of the text could be highlighted
-    let text = format!("{:<min_width$}", text, min_width = end);
+    let text = format!("{text:<end$}");
     // Ensure end doesn't fall on non-char boundary
     while !text.is_char_boundary(end) && end < text.len() {
         end += 1;
@@ -311,8 +311,7 @@ impl fmt::Display for TypeError {
         } else {
             write!(
                 f,
-                "Can't perform '{}' based access on '{}'",
-                access_type, root_type
+                "Can't perform '{access_type}' based access on '{root_type}'"
             )
         }
     }

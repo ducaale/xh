@@ -95,7 +95,7 @@ fn open_new_file(file_name: PathBuf) -> io::Result<(PathBuf, File)> {
     for suffix in 1..u32::MAX {
         let candidate = {
             let mut candidate = file_name.clone().into_os_string();
-            candidate.push(format!("-{}", suffix));
+            candidate.push(format!("-{suffix}"));
             PathBuf::from(candidate)
         };
         if let Some(file) = try_open_new(&candidate)? {
@@ -236,7 +236,7 @@ pub fn download_file(
             .progress_chars("#>-");
         Some(ProgressBar::new(total_length).with_style(style))
     } else {
-        eprintln!("Downloading to {:?}", dest_name);
+        eprintln!("Downloading to {dest_name:?}");
         let style = ProgressStyle::default_bar().template(if color {
             SPINNER_TEMPLATE
         } else {

@@ -486,7 +486,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                     "--continue can't be used with a 'Range:' header. --continue will be disabled."
                 );
             } else if let Some(file_size) = get_file_size(args.output.as_deref()) {
-                request_builder = request_builder.header(RANGE, format!("bytes={}-", file_size));
+                request_builder = request_builder.header(RANGE, format!("bytes={file_size}-"));
                 resume = Some(file_size);
             }
         }

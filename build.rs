@@ -21,9 +21,9 @@ fn feature_status(feature: &str) -> String {
     ))
     .is_some()
     {
-        format!("+{}", feature)
+        format!("+{feature}")
     } else {
-        format!("-{}", feature)
+        format!("-{feature}")
     }
 }
 
@@ -42,12 +42,12 @@ fn main() {
         "assets/syntax/large",
         "assets/themes",
     ] {
-        println!("cargo:rerun-if-changed={}", dir);
+        println!("cargo:rerun-if-changed={dir}");
         for entry in read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             let path = path.to_str().unwrap();
             if path.ends_with(".sublime-syntax") || path.ends_with(".tmTheme") {
-                println!("cargo:rerun-if-changed={}", path);
+                println!("cargo:rerun-if-changed={path}");
             }
         }
     }

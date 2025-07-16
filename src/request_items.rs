@@ -90,8 +90,7 @@ impl FromStr for RequestItem {
                         clap::Error::raw(
                             clap::error::ErrorKind::InvalidValue,
                             format!(
-                                "Invalid value for '[REQUEST_ITEM]...': {:?} {}",
-                                request_item, err
+                                "Invalid value for '[REQUEST_ITEM]...': {request_item:?} {err}"
                             ),
                         )
                     })?,
@@ -130,7 +129,7 @@ impl FromStr for RequestItem {
             // item
             Err(clap::Error::raw(
                 clap::error::ErrorKind::InvalidValue,
-                format!("Invalid value for '[REQUEST_ITEM]...': {:?}", request_item),
+                format!("Invalid value for '[REQUEST_ITEM]...': {request_item:?}"),
             ))
         }
     }

@@ -13,12 +13,12 @@ pub fn print_curl_translation(args: Cli) -> Result<()> {
     let cmd = translate(args)?;
     let mut stderr = stderr();
     for warning in &cmd.warnings {
-        writeln!(stderr, "Warning: {}", warning)?;
+        writeln!(stderr, "Warning: {warning}")?;
     }
     if !cmd.warnings.is_empty() {
         writeln!(stderr)?;
     }
-    writeln!(stdout(), "{}", cmd)?;
+    writeln!(stdout(), "{cmd}")?;
     Ok(())
 }
 
@@ -53,7 +53,7 @@ impl Command {
 
     fn header(&mut self, name: &str, value: &str) {
         self.opt("-H", "--header");
-        self.arg(format!("{}: {}", name, value));
+        self.arg(format!("{name}: {value}"));
     }
 
     fn env(&mut self, var: &'static str, value: impl Into<String>) {
@@ -115,7 +115,7 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     for (present, flag) in ignored {
         if present {
-            cmd.warn(format!("Ignored {}", flag));
+            cmd.warn(format!("Ignored {flag}"));
         }
     }
 
@@ -317,14 +317,14 @@ pub fn translate(args: Cli) -> Result<Command> {
     for (header, value) in headers.iter() {
         cmd.opt("-H", "--header");
         if value.is_empty() {
-            cmd.arg(format!("{};", header));
+            cmd.arg(format!("{header};"));
         } else {
             cmd.arg(format!("{}: {}", header, value.to_utf8_str()?));
         }
     }
     for header in headers_to_unset {
         cmd.opt("-H", "--header");
-        cmd.arg(format!("{}:", header));
+        cmd.arg(format!("{header}:"));
     }
     if args.ignore_netrc {
         // Already the default, so a bit questionable
@@ -371,11 +371,11 @@ pub fn translate(args: Cli) -> Result<Command> {
                 }
                 RequestItem::DataField { key, value, .. } => {
                     cmd.opt("-F", "--form");
-                    cmd.arg(format!("{}={}", key, value));
+                    cmd.arg(format!("{key}={value}"));
                 }
                 RequestItem::DataFieldFromFile { key, value, .. } => {
                     cmd.opt("-F", "--form");
-                    cmd.arg(format!("{}=<{}", key, value));
+                    cmd.arg(format!("{key}=<{value}"));
                 }
                 RequestItem::FormFile {
                     key,
@@ -384,7 +384,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                     file_name_header,
                 } => {
                     cmd.opt("-F", "--form");
-                    let mut val = format!("{}=@{}", key, file_name);
+                    let mut val = format!("{key}=@{file_name}");
                     if let Some(file_type) = file_type {
                         val.push_str(";type=");
                         val.push_str(&file_type);

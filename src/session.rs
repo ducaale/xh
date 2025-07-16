@@ -258,13 +258,13 @@ impl Session {
                 let password = password.as_deref().unwrap_or("");
                 self.content.auth = Auth {
                     auth_type: Some("basic".into()),
-                    raw_auth: Some(format!("{}:{}", username, password)),
+                    raw_auth: Some(format!("{username}:{password}")),
                 }
             }
             auth::Auth::Digest(username, password) => {
                 self.content.auth = Auth {
                     auth_type: Some("digest".into()),
-                    raw_auth: Some(format!("{}:{}", username, password)),
+                    raw_auth: Some(format!("{username}:{password}")),
                 }
             }
             auth::Auth::Bearer(token) => {
@@ -376,7 +376,7 @@ fn path_from_url(url: &Url) -> Result<String> {
         (Some("."), _) | (Some(".."), _) | (None, _) => {
             Err(anyhow!("couldn't extract host from url"))
         }
-        (Some(host), Some(port)) => Ok(format!("{}_{}", host, port)),
+        (Some(host), Some(port)) => Ok(format!("{host}_{port}")),
         (Some(host), None) => Ok(host.into()),
     }
 }

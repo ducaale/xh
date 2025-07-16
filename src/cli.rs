@@ -570,7 +570,7 @@ impl Cli {
         cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
             app.error(
                 clap::error::ErrorKind::ValueValidation,
-                format!("Invalid <URL>: {}", err),
+                format!("Invalid <URL>: {err}"),
             )
         })?;
 
@@ -648,8 +648,8 @@ impl Cli {
             .filter(|a| !a.is_positional())
             .map(|opt| {
                 let long = opt.get_long().expect("long option");
-                clap::Arg::new(format!("no-{}", long))
-                    .long(format!("no-{}", long))
+                clap::Arg::new(format!("no-{long}"))
+                    .long(format!("no-{long}"))
                     .hide(true)
                     .action(ArgAction::SetTrue)
                     // overrides_with is enough to make the flags take effect
@@ -770,11 +770,11 @@ fn construct_url(
         // Allow users to quickly convert a URL copied from a clipboard to xh/HTTPie command
         // by simply adding a space before `://`.
         // Example: https://example.org -> https ://example.org
-        format!("{}{}", default_scheme, url).parse()?
+        format!("{default_scheme}{url}").parse()?
     } else if url.starts_with(':') {
         format!("{}{}{}", default_scheme, "localhost", url).parse()?
     } else if !Regex::new("[a-zA-Z0-9]://.+").unwrap().is_match(url) {
-        format!("{}{}", default_scheme, url).parse()?
+        format!("{default_scheme}{url}").parse()?
     } else {
         url.parse()?
     };

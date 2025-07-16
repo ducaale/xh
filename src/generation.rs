@@ -33,7 +33,6 @@ end
 complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{bin_name}_complete_data)"
 
 "#,
-                bin_name = bin_name,
             );
             stdout.write_all(preamble.as_bytes()).unwrap();
             stdout.write_all(&buf).unwrap();
@@ -138,13 +137,13 @@ fn generate_manpages(app: &mut clap::Command) {
     for opt in non_pos_items {
         let mut header = vec![];
         if let Some(short) = opt.get_short() {
-            header.push(bold(format!("-{}", short)));
+            header.push(bold(format!("-{short}")));
         }
         if let Some(long) = opt.get_long() {
             if !header.is_empty() {
                 header.push(roman(", "));
             }
-            header.push(bold(format!("--{}", long)));
+            header.push(bold(format!("--{long}")));
         }
         if opt.get_action().takes_values() {
             let value_name = &opt.get_value_names().unwrap();
