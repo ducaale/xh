@@ -1185,7 +1185,6 @@ pub enum HttpVersion {
     Http2,
     #[clap(name = "2-prior-knowledge")]
     Http2PriorKnowledge,
-    #[cfg(feature = "http3")]
     #[clap(name = "3-prior-knowledge")]
     Http3PriorKnowledge,
 }
