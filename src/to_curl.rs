@@ -243,6 +243,7 @@ pub fn translate(args: Cli) -> Result<Command> {
             HttpVersion::Http11 => cmd.arg("--http1.1"),
             HttpVersion::Http2 => cmd.arg("--http2"),
             HttpVersion::Http2PriorKnowledge => cmd.arg("--http2-prior-knowledge"),
+            HttpVersion::Http3PriorKnowledge => cmd.arg("--http3-only"),
         }
     }
 

@@ -21,6 +21,10 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            flags: --features=http3
+            rustflags: --cfg reqwest_unstable
           - target: x86_64-apple-darwin
             os: macos-13
             flags: --features=native-tls
@@ -46,13 +50,18 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.74.0 # minimum supported rust version
+          toolchain: 1.82.0 # minimum supported rust version
           targets: ${{ matrix.job.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
       
+      - name: Set RUSTFLAGS env variable
+        if: matrix.job.rustflags
+        shell: bash
+        run: echo "RUSTFLAGS=${{ matrix.job.rustflags }}" >> $GITHUB_ENV
+
       - uses: ClementTsang/cargo-action@v0.0.6
         with:
           use-cross: ${{ !!matrix.job.use-cross }}
@@ -80,6 +89,8 @@ jobs:
 
       - name: Clippy (all features)
         run: cargo clippy --all-features --tests -- -D warnings -A unknown-lints
+        env:
+          RUSTFLAGS: --cfg reqwest_unstable
 
       - name: Clippy (native-tls only)
         run: cargo clippy --no-default-features --features=native-tls,online-tests --tests -- -D warnings -A unknown-lints

@@ -37,7 +37,7 @@ impl Middleware for RedirectFollower {
                 .into());
             }
             log::info!("Following redirect to {}", next_request.url());
-            log::trace!("Remaining redirects: {}", remaining_redirects);
+            log::trace!("Remaining redirects: {remaining_redirects}");
             log::trace!("{next_request:#?}");
             self.print(&mut ctx, &mut response, &mut next_request)?;
             request = clone_request(&mut next_request)?;
