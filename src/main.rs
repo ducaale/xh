@@ -364,6 +364,19 @@ fn run(args: Cli) -> Result<ExitCode> {
         };
     }
 
+    if let Some(socket_path) = args.unix_socket {
+        #[cfg(not(unix))]
+        {
+            return Err(anyhow::anyhow!(
+                "Unix sockets is not supported on this platform"
+            ));
+        }
+        #[cfg(unix)]
+        {
+            client = client.unix_socket(socket_path);
+        }
+    }
+
     for resolve in args.resolve {
         client = client.resolve(&resolve.domain, SocketAddr::new(resolve.addr, 0));
     }

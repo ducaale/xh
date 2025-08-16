@@ -358,6 +358,12 @@ Example: --print=Hb"
     #[clap(short = '6', long)]
     pub ipv6: bool,
 
+    /// Connect using a Unix domain socket.
+    ///
+    /// Example: xh :/index.html --unix-socket=/var/run/temp.sock
+    #[clap(long, value_name = "FILE")]
+    pub unix_socket: Option<PathBuf>,
+
     /// Do not attempt to read stdin.
     ///
     /// This disables the default behaviour of reading the request body from stdin

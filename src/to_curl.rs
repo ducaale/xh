@@ -302,6 +302,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg(interface);
     };
 
+    if let Some(unix_socket) = args.unix_socket {
+        cmd.arg("--unix-socket");
+        cmd.arg(unix_socket);
+    }
+
     if !args.resolve.is_empty() {
         let port = url
             .port_or_known_default()
