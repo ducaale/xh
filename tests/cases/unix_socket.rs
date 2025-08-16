@@ -13,9 +13,7 @@ fn error_on_unsupported_platform() {
         .arg(":/index.html")
         .assert()
         .failure()
-        .stderr(contains(
-            "HTTP over Unix domain sockets is not supported on this platform",
-        ));
+        .stderr(contains("--unix-socket is not supported on this platform"));
 }
 
 #[cfg(unix)]

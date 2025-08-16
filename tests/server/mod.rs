@@ -2,7 +2,6 @@
 // with some slight tweaks
 use std::convert::Infallible;
 use std::future::Future;
-use std::path::PathBuf;
 use std::sync::mpsc as std_mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -13,7 +12,6 @@ use hyper::body::Bytes;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use tokio::net::{TcpListener, UnixListener};
 use tokio::runtime;
 use tokio::sync::oneshot;
 
@@ -61,7 +59,7 @@ impl Server {
     }
 
     #[cfg(unix)]
-    pub fn socket_path(&self) -> PathBuf {
+    pub fn socket_path(&self) -> std::path::PathBuf {
         match &*self.listener {
             Listener::UnixListener(l) => l
                 .as_file()
@@ -160,12 +158,12 @@ fn http_inner(func: Arc<Serv>, use_unix_socket: bool) -> Server {
                 #[cfg(unix)]
                 {
                     tempfile::Builder::new()
-                        .make(|path| UnixListener::bind(path))
+                        .make(|path| tokio::net::UnixListener::bind(path))
                         .map(Listener::UnixListener)
                         .unwrap()
                 }
             } else {
-                TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+                tokio::net::TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
                     .await
                     .map(Listener::TcpListener)
                     .unwrap()
