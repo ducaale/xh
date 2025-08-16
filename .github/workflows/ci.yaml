@@ -25,9 +25,6 @@ jobs:
             os: ubuntu-latest
             flags: --features=http3
             rustflags: --cfg reqwest_unstable
-          - target: x86_64-apple-darwin
-            os: macos-13
-            flags: --features=native-tls
           - target: aarch64-apple-darwin
             os: macos-14
             flags: --features=native-tls
