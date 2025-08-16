@@ -31,7 +31,13 @@ fetch()
 
 echo "Detected target: $target"
 
-releases=$(fetch https://api.github.com/repos/ducaale/xh/releases/latest)
+if [ "$target" = "x86_64-apple-darwin" ]; then
+    echo "x86_64-apple-darwin is not supported. Falling back to v0.24.1"
+    releases=$(fetch https://api.github.com/repos/ducaale/xh/releases/tags/v0.24.1)
+else
+    releases=$(fetch https://api.github.com/repos/ducaale/xh/releases/latest)
+fi
+
 url=$(echo "$releases" | grep -wo -m1 "https://.*$target.tar.gz" || true)
 if ! test "$url"; then
     echo "Could not find release info"
