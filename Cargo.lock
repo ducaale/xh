@@ -3034,7 +3034,6 @@ dependencies = [
  "mime2ext",
  "mime_guess",
  "network-interface",
- "once_cell",
  "os_display",
  "pem",
  "percent-encoding",

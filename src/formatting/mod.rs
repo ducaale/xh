@@ -1,6 +1,6 @@
 use std::{
     io::{self, Write},
-    sync::OnceLock,
+    sync::{LazyLock, OnceLock},
 };
 
 use syntect::dumps::from_binary;
@@ -36,18 +36,16 @@ pub fn serde_json_format(indent_level: usize, text: &str, write: impl Write) -> 
     Ok(())
 }
 
-pub(crate) static THEMES: once_cell::sync::Lazy<ThemeSet> = once_cell::sync::Lazy::new(|| {
+pub(crate) static THEMES: LazyLock<ThemeSet> = LazyLock::new(|| {
     from_binary(include_bytes!(concat!(
         env!("OUT_DIR"),
         "/themepack.themedump"
     )))
 });
-static PS_BASIC: once_cell::sync::Lazy<SyntaxSet> = once_cell::sync::Lazy::new(|| {
-    from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/basic.packdump")))
-});
-static PS_LARGE: once_cell::sync::Lazy<SyntaxSet> = once_cell::sync::Lazy::new(|| {
-    from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/large.packdump")))
-});
+static PS_BASIC: LazyLock<SyntaxSet> =
+    LazyLock::new(|| from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/basic.packdump"))));
+static PS_LARGE: LazyLock<SyntaxSet> =
+    LazyLock::new(|| from_binary(include_bytes!(concat!(env!("OUT_DIR"), "/large.packdump"))));
 
 pub struct Highlighter<'a> {
     highlighter: HighlightLines<'static>,
