@@ -9,7 +9,7 @@ fn error_on_unsupported_platform() {
     use predicates::str::contains;
 
     get_command()
-        .arg(format!("--unix-socket=/tmp/missing.sock",))
+        .arg("--unix-socket=/tmp/missing.sock")
         .arg(":/index.html")
         .assert()
         .failure()
