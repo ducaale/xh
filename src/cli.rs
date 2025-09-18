@@ -1222,7 +1222,7 @@ pub enum Generate {
 /// BE instead.
 fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
     let normalized_encoding = encoding.to_lowercase().replace(
-        |c: char| (!c.is_alphanumeric() && c != '_' && c != '-' && c != ':'),
+        |c: char| !c.is_alphanumeric() && c != '_' && c != '-' && c != ':',
         "",
     );
 
