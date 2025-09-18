@@ -358,6 +358,12 @@ Example: --print=Hb"
     #[clap(short = '6', long)]
     pub ipv6: bool,
 
+    /// Connect using a Unix domain socket.
+    ///
+    /// Example: xh :/index.html --unix-socket=/var/run/temp.sock
+    #[clap(long, value_name = "FILE")]
+    pub unix_socket: Option<PathBuf>,
+
     /// Do not attempt to read stdin.
     ///
     /// This disables the default behaviour of reading the request body from stdin
@@ -1216,7 +1222,7 @@ pub enum Generate {
 /// BE instead.
 fn parse_encoding(encoding: &str) -> anyhow::Result<&'static Encoding> {
     let normalized_encoding = encoding.to_lowercase().replace(
-        |c: char| (!c.is_alphanumeric() && c != '_' && c != '-' && c != ':'),
+        |c: char| !c.is_alphanumeric() && c != '_' && c != '-' && c != ':',
         "",
     );
 
