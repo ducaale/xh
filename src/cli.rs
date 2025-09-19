@@ -223,7 +223,7 @@ Example: --print=Hb"
     #[clap(long, value_name = "FILE")]
     pub session: Option<OsString>,
 
-    /// Create or read a session without updating it form the request/response exchange.
+    /// Create or read a session without updating it from the request/response exchange.
     #[clap(long, value_name = "FILE", conflicts_with = "session")]
     pub session_read_only: Option<OsString>,
 
@@ -462,8 +462,7 @@ Example: xh --generate=complete-bash > xh.bash",
     ///
     /// A backslash can be used to escape special characters, e.g. "weird\:key=value".
     ///
-    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
-    /// For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
+    /// To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name. For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
     #[clap(value_name = "REQUEST_ITEM", verbatim_doc_comment)]
     raw_rest_args: Vec<String>,
 
