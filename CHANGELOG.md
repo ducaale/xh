@@ -1,4 +1,4 @@
-## Unreleased
+## [0.25.0] - 2025-09-19
 ### Features
 - Add `--unix-socket` for calling Unix Domain Sockets, see #427 (@ducaale)
 - Support binding to interface name on macOS, see #421 (@ducaale)

@@ -1,4 +1,4 @@
-.TH XH 1 2025-05-02 0.24.1 "User Commands"
+.TH XH 1 2025-09-19 0.25.0 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -81,8 +81,7 @@ An "@" prefix can be used to read a value from a file. For example: "x\-api\-key
 
 A backslash can be used to escape special characters, e.g. "weird\\:key=value".
 
-To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name.
-For more information on this syntax, refer to https://httpie.io/docs/cli/nested\-json.
+To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name. For more information on this syntax, refer to https://httpie.io/docs/cli/nested\-json.
 .RE
 
 .SH OPTIONS
@@ -214,7 +213,7 @@ Create, or reuse and update a session.
 Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
 .TP 4
 \fB\-\-session\-read\-only\fR=\fIFILE\fR
-Create or read a session without updating it form the request/response exchange.
+Create or read a session without updating it from the request/response exchange.
 .TP 4
 \fB\-A\fR, \fB\-\-auth\-type\fR=\fIAUTH_TYPE\fR
 Specify the auth mechanism.
@@ -294,7 +293,7 @@ Make HTTPS requests if not specified in the URL.
 \fB\-\-http\-version\fR=\fIVERSION\fR
 HTTP version to use.
 
-[possible values: 1.0, 1.1, 2, 2\-prior\-knowledge]
+[possible values: 1.0, 1.1, 2, 2\-prior\-knowledge, 3\-prior\-knowledge]
 .TP 4
 \fB\-\-resolve\fR=\fIHOST:ADDRESS\fR
 Override DNS resolution for specific domain to a custom IP.
@@ -313,6 +312,11 @@ Resolve hostname to ipv4 addresses only.
 .TP 4
 \fB\-6\fR, \fB\-\-ipv6\fR
 Resolve hostname to ipv6 addresses only.
+.TP 4
+\fB\-\-unix\-socket\fR=\fIFILE\fR
+Connect using a Unix domain socket.
+
+Example: xh :/index.html \-\-unix\-socket=/var/run/temp.sock.
 .TP 4
 \fB\-I\fR, \fB\-\-ignore\-stdin\fR
 Do not attempt to read stdin.

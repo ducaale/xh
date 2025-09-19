@@ -1,12 +1,16 @@
 _xh() {
     local i cur prev opts cmd
     COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+        cur="$2"
+    else
+        cur="${COMP_WORDS[COMP_CWORD]}"
+    fi
+    prev="$3"
     cmd=""
     opts=""
 
-    for i in ${COMP_WORDS[@]}
+    for i in "${COMP_WORDS[@]:0:COMP_CWORD}"
     do
         case "${cmd},${i}" in
             ",$1")
@@ -19,7 +23,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts="-j -f -s -p -h -b -m -v -P -q -S -x -o -d -c -A -a -F -4 -6 -I -V --json --form --multipart --raw --pretty --format-options --style --response-charset --response-mime --print --headers --body --meta --verbose --debug --all --history-print --quiet --stream --compress --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --resolve --interface --ipv4 --ipv6 --ignore-stdin --curl --curl-long --generate --help --no-json --no-form --no-multipart --no-raw --no-pretty --no-format-options --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-debug --no-all --no-history-print --no-quiet --no-stream --no-compress --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-resolve --no-interface --no-ipv4 --no-ipv6 --no-ignore-stdin --no-curl --no-curl-long --no-generate --no-help --version <[METHOD] URL> [REQUEST_ITEM]..."
+            opts="-j -f -s -p -h -b -m -v -P -q -S -x -o -d -c -A -a -F -4 -6 -I -V --json --form --multipart --raw --pretty --format-options --style --response-charset --response-mime --print --headers --body --meta --verbose --debug --all --history-print --quiet --stream --compress --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --resolve --interface --ipv4 --ipv6 --unix-socket --ignore-stdin --curl --curl-long --generate --help --no-json --no-form --no-multipart --no-raw --no-pretty --no-format-options --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-debug --no-all --no-history-print --no-quiet --no-stream --no-compress --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-resolve --no-interface --no-ipv4 --no-ipv6 --no-unix-socket --no-ignore-stdin --no-curl --no-curl-long --no-generate --no-help --version <[METHOD] URL> [REQUEST_ITEM]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -138,7 +142,7 @@ _xh() {
                     return 0
                     ;;
                 --http-version)
-                    COMPREPLY=($(compgen -W "1.0 1.1 2 2-prior-knowledge" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "1.0 1.1 2 2-prior-knowledge 3-prior-knowledge" -- "${cur}"))
                     return 0
                     ;;
                 --resolve)
@@ -146,6 +150,10 @@ _xh() {
                     return 0
                     ;;
                 --interface)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --unix-socket)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

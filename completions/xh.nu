@@ -17,7 +17,7 @@ module completions {
   }
 
   def "nu-complete xh http_version" [] {
-    [ "1.0" "1.1" "2" "2-prior-knowledge" ]
+    [ "1.0" "1.1" "2" "2-prior-knowledge" "3-prior-knowledge" ]
   }
 
   def "nu-complete xh generate" [] {
@@ -50,7 +50,7 @@ module completions {
     --download(-d)            # Download the body to a file instead of printing it
     --continue(-c)            # Resume an interrupted download. Requires --download and --output
     --session: string         # Create, or reuse and update a session
-    --session-read-only: string # Create or read a session without updating it form the request/response exchange
+    --session-read-only: string # Create or read a session without updating it from the request/response exchange
     --auth-type(-A): string@"nu-complete xh auth_type" # Specify the auth mechanism
     --auth(-a): string        # Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
     --bearer: string          # Authenticate with a bearer token
@@ -73,6 +73,7 @@ module completions {
     --interface: string       # Bind to a network interface or local IP address
     --ipv4(-4)                # Resolve hostname to ipv4 addresses only
     --ipv6(-6)                # Resolve hostname to ipv6 addresses only
+    --unix-socket: path       # Connect using a Unix domain socket
     --ignore-stdin(-I)        # Do not attempt to read stdin
     --curl                    # Print a translation to a curl command
     --curl-long               # Use the long versions of curl's flags
@@ -127,6 +128,7 @@ module completions {
     --no-interface
     --no-ipv4
     --no-ipv6
+    --no-unix-socket
     --no-ignore-stdin
     --no-curl
     --no-curl-long

@@ -21,7 +21,7 @@ complete -c xh -s p -l print -d 'String specifying what the output should contai
 complete -c xh -s P -l history-print -d 'The same as --print but applies only to intermediary requests/responses' -r
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout' -r -F
 complete -c xh -l session -d 'Create, or reuse and update a session' -r
-complete -c xh -l session-read-only -d 'Create or read a session without updating it form the request/response exchange' -r
+complete -c xh -l session-read-only -d 'Create or read a session without updating it from the request/response exchange' -r
 complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic\t''
 bearer\t''
 digest\t''"
@@ -42,9 +42,11 @@ complete -c xh -l default-scheme -d 'The default scheme to use if not specified 
 complete -c xh -l http-version -d 'HTTP version to use' -r -f -a "1.0\t''
 1.1\t''
 2\t''
-2-prior-knowledge\t''"
+2-prior-knowledge\t''
+3-prior-knowledge\t''"
 complete -c xh -l resolve -d 'Override DNS resolution for specific domain to a custom IP' -r
 complete -c xh -l interface -d 'Bind to a network interface or local IP address' -r
+complete -c xh -l unix-socket -d 'Connect using a Unix domain socket' -r -F
 complete -c xh -l generate -d 'Generate shell completions or man pages' -r -f -a "complete-bash\t''
 complete-elvish\t''
 complete-fish\t''
@@ -125,6 +127,7 @@ complete -c xh -l no-resolve
 complete -c xh -l no-interface
 complete -c xh -l no-ipv4
 complete -c xh -l no-ipv6
+complete -c xh -l no-unix-socket
 complete -c xh -l no-ignore-stdin
 complete -c xh -l no-curl
 complete -c xh -l no-curl-long

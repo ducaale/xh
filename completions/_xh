@@ -32,7 +32,7 @@ none\:"Disable both coloring and formatting"))' \
 '-o+[Save output to FILE instead of stdout]:FILE:_files' \
 '--output=[Save output to FILE instead of stdout]:FILE:_files' \
 '--session=[Create, or reuse and update a session]:FILE:_default' \
-'(--session)--session-read-only=[Create or read a session without updating it form the request/response exchange]:FILE:_default' \
+'(--session)--session-read-only=[Create or read a session without updating it from the request/response exchange]:FILE:_default' \
 '-A+[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
 '--auth-type=[Specify the auth mechanism]:AUTH_TYPE:(basic bearer digest)' \
 '-a+[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN:_default' \
@@ -46,9 +46,10 @@ none\:"Disable both coloring and formatting"))' \
 '--cert-key=[A private key file to use with --cert]:FILE:_files' \
 '--ssl=[Force a particular TLS version]:VERSION:(auto tls1 tls1.1 tls1.2 tls1.3)' \
 '--default-scheme=[The default scheme to use if not specified in the URL]:SCHEME:_default' \
-'--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2 2-prior-knowledge)' \
+'--http-version=[HTTP version to use]:VERSION:(1.0 1.1 2 2-prior-knowledge 3-prior-knowledge)' \
 '*--resolve=[Override DNS resolution for specific domain to a custom IP]:HOST:ADDRESS:_default' \
 '--interface=[Bind to a network interface or local IP address]:NAME:_default' \
+'--unix-socket=[Connect using a Unix domain socket]:FILE:_files' \
 '()--generate=[Generate shell completions or man pages]:KIND:(complete-bash complete-elvish complete-fish complete-nushell complete-powershell complete-zsh man)' \
 '-j[(default) Serialize data items from the command line as a JSON object]' \
 '--json[(default) Serialize data items from the command line as a JSON object]' \
@@ -138,6 +139,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-interface[]' \
 '--no-ipv4[]' \
 '--no-ipv6[]' \
+'--no-unix-socket[]' \
 '--no-ignore-stdin[]' \
 '--no-curl[]' \
 '--no-curl-long[]' \
