@@ -96,7 +96,7 @@ Options:
   -d, --download                         Download the body to a file instead of printing it
   -c, --continue                         Resume an interrupted download. Requires --download and --output
       --session <FILE>                   Create, or reuse and update a session
-      --session-read-only <FILE>         Create or read a session without updating it form the request/response exchange
+      --session-read-only <FILE>         Create or read a session without updating it from the request/response exchange
   -A, --auth-type <AUTH_TYPE>            Specify the auth mechanism [possible values: basic, bearer, digest]
   -a, --auth <USER[:PASS] | TOKEN>       Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
       --ignore-netrc                     Do not use credentials from .netrc
@@ -111,11 +111,12 @@ Options:
       --cert-key <FILE>                  A private key file to use with --cert
       --ssl <VERSION>                    Force a particular TLS version [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
       --https                            Make HTTPS requests if not specified in the URL
-      --http-version <VERSION>           HTTP version to use [possible values: 1.0, 1.1, 2, 2-prior-knowledge]
+      --http-version <VERSION>           HTTP version to use [possible values: 1.0, 1.1, 2, 2-prior-knowledge, 3-prior-knowledge]
       --resolve <HOST:ADDRESS>           Override DNS resolution for specific domain to a custom IP
       --interface <NAME>                 Bind to a network interface or local IP address
   -4, --ipv4                             Resolve hostname to ipv4 addresses only
   -6, --ipv6                             Resolve hostname to ipv6 addresses only
+      --unix-socket <FILE>               Connect using a Unix domain socket
   -I, --ignore-stdin                     Do not attempt to read stdin
       --curl                             Print a translation to a curl command
       --curl-long                        Use the long versions of curl's flags
