@@ -392,13 +392,13 @@ Example: --print=Hb"
         long_help = "\
 Generate shell completions or man pages. Possible values are:
 
-    complete-bash
-    complete-elvish
-    complete-fish
-    complete-nushell
-    complete-powershell
-    complete-zsh
-    man
+    complete-bash         Generate completions for bash
+    complete-elvish       Generate completions for elvish
+    complete-fish         Generage completions for fish
+    complete-nushell      Generate completions for nushell
+    complete-powershell   Generate completions for powershell
+    complete-zsh          Generate completions for zsh
+    man                   Generate manual page in roff format
 
 Example: xh --generate=complete-bash > xh.bash",
         conflicts_with = "raw_method_or_url"
@@ -430,8 +430,7 @@ Example: xh --generate=complete-bash > xh.bash",
     ///         Add a query string to the URL.
     ///
     ///     key=value
-    ///         Add a JSON property (--json) or form field (--form) to
-    ///         the request body.
+    ///         Add a JSON property (--json) or form field (--form) to the request body.
     ///
     ///     key:=value
     ///         Add a field with a literal JSON value to the request body.
@@ -441,8 +440,7 @@ Example: xh --generate=complete-bash > xh.bash",
     ///     key@filename
     ///         Upload a file (requires --form or --multipart).
     ///
-    ///         To set the filename and mimetype, ";type=" and
-    ///         ";filename=" can be used respectively.
+    ///         To set the filename and mimetype, ";type=" and ";filename=" can be used respectively.
     ///
     ///         Example: "pfp@ra.jpg;type=image/jpeg;filename=profile.jpg"
     ///
