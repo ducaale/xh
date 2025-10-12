@@ -49,9 +49,9 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 
 \*\* You will need to install the [MMRL CLI](https://github.com/DerGoogler/MMRL-CLI/releases)
 
-\*\*\* The xh package is available in Edge and will be in v3.17+. It is built with native-tls only.
+\*\*\* Built with native-tls only.
 
-\*\*\*\* You will need to add the apt repository from https://apt.cli.rs/
+\*\*\*\* Available since Debian 13 and Ubuntu 25.04. Built with native-tls only.
 
 [Huber]: https://github.com/innobead/huber#installing-huber
 [Magisk]: https://github.com/topjohnwu/Magisk
