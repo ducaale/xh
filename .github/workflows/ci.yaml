@@ -26,10 +26,10 @@ jobs:
             flags: --features=http3
             rustflags: --cfg reqwest_unstable
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15-intel
             flags: --features=native-tls
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-latest
             flags: --features=native-tls
           - target: x86_64-pc-windows-msvc
             os: windows-latest
