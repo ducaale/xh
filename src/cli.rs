@@ -11,6 +11,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::Styles;
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use regex_lite::Regex;
@@ -21,6 +23,15 @@ use crate::buffer::Buffer;
 use crate::redacted::SecretString;
 use crate::request_items::RequestItems;
 use crate::utils::config_dir;
+
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Blue.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default())
+    .error(AnsiColor::Red.on_default().effects(Effects::BOLD))
+    .valid(AnsiColor::Green.on_default())
+    .invalid(AnsiColor::Yellow.on_default());
 
 // Some doc comments were copy-pasted from HTTPie
 
@@ -39,7 +50,8 @@ use crate::utils::config_dir;
     version,
     long_version = long_version(),
     disable_help_flag = true,
-    args_override_self = true
+    args_override_self = true,
+    styles = STYLES,
 )]
 pub struct Cli {
     #[clap(skip)]
@@ -189,7 +201,7 @@ Example: --print=Hb"
     ///  Compression is skipped if it appears that compression ratio is negative.
     ///  Compression can be forced by repeating this option.
     ///
-    ///  Note: Compression cannot be used if the Content-Encoding request header is present.  
+    ///  Note: Compression cannot be used if the Content-Encoding request header is present.
     #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
     pub compress: u8,
 
