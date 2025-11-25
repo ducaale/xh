@@ -3827,12 +3827,16 @@ fn error_code_416_is_ignored_when_resuming_download() {
             .body("".into())
             .unwrap()
     });
-    
+
+    let tempdir = TempDir::new().unwrap();
+    let download_path = tempdir.path().join("downloaded_file.png");
+
+    std::fs::write(&download_path, "42").unwrap();
     get_command()
         .arg(server.base_url())
         .arg("--download")
         .arg("--continue")
-        .args(["--output", "/dev/null"])
+        .args(["--output", download_path.to_str().unwrap()])
         .assert()
         .success();
 }
@@ -3846,11 +3850,11 @@ fn error_code_416_is_not_ignored_when_not_resuming_download() {
             .body("".into())
             .unwrap()
     });
-    
+
     get_command()
         .arg(server.base_url())
         .arg("--download")
-        .args(["--output", "/dev/null"])
+        .args(["--output", "downloaded_file.png"])
         .assert()
         .failure();
 }
