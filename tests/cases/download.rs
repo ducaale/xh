@@ -428,3 +428,64 @@ fn it_refuses_to_combine_continue_and_range() {
 
     assert_eq!(fs::read_to_string(&filename).unwrap(), "lorem ipsum");
 }
+
+#[test]
+fn error_code_416_is_ignored_when_resuming_download() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(416)
+            .header(hyper::header::CONTENT_TYPE, "image/png")
+            .body("".into())
+            .unwrap()
+    });
+
+    let tempdir = tempfile::tempdir().unwrap();
+    let filename = tempdir.path().join("downloaded_file.png");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    let download_complete_message = format!(
+        "Download {:?} is already complete",
+        filename.to_str().unwrap()
+    );
+
+    get_command()
+        .arg(server.base_url())
+        .arg("--download")
+        .arg("--continue")
+        .args(["--output", filename.to_str().unwrap()])
+        .assert()
+        .success()
+        .code(0)
+        .stderr(contains("416"))
+        .stderr(contains(download_complete_message));
+}
+
+#[test]
+fn error_code_416_is_not_ignored_when_not_resuming_download() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(416)
+            .header(hyper::header::CONTENT_TYPE, "image/png")
+            .body("".into())
+            .unwrap()
+    });
+
+    let filename = "downloaded_file.png";
+    get_command()
+        .arg(server.base_url())
+        .arg("--download")
+        .args(["--output", filename])
+        .assert()
+        .failure()
+        .code(4)
+        .stderr(contains("416"));
+
+    assert_eq!(fs::exists(filename).unwrap(), false);
+}

@@ -665,10 +665,12 @@ fn run(args: Cli) -> Result<ExitCode> {
             client.execute(request)?
         };
 
+        let mut download_already_complete = false;
         let status = response.status();
         if args.check_status.unwrap_or(!args.httpie_compat_mode) {
             match status.as_u16() {
                 300..=399 if !args.follow => failure_code = Some(ExitCode::from(3)),
+                416 if resume.is_some() => download_already_complete = true,
                 400..=499 => failure_code = Some(ExitCode::from(4)),
                 500..=599 => failure_code = Some(ExitCode::from(5)),
                 _ => (),
@@ -686,7 +688,13 @@ fn run(args: Cli) -> Result<ExitCode> {
             printer.print_response_headers(&response)?;
         }
         if args.download {
-            if failure_code.is_none() {
+            if download_already_complete {
+                if let Some(output) = &args.output {
+                    eprintln!("Download {output:?} is already complete");
+                } else {
+                    eprintln!("Download is already complete");
+                }
+            } else if failure_code.is_none() {
                 download_file(
                     response,
                     args.output,
