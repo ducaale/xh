@@ -688,7 +688,13 @@ fn run(args: Cli) -> Result<ExitCode> {
             printer.print_response_headers(&response)?;
         }
         if args.download {
-            if failure_code.is_none() && !download_already_complete {
+            if download_already_complete {
+                if let Some(output) = &args.output {
+                    eprintln!("Download {output:?} is already complete");
+                } else {
+                    eprintln!("Download is already complete");
+                }
+            } else if failure_code.is_none() {
                 download_file(
                     response,
                     args.output,
