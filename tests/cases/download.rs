@@ -463,6 +463,7 @@ fn error_code_416_is_ignored_when_resuming_download() {
         .assert()
         .success()
         .code(0)
+        .stderr(contains("416"))
         .stderr(contains(download_complete_message));
 }
 
@@ -483,7 +484,8 @@ fn error_code_416_is_not_ignored_when_not_resuming_download() {
         .args(["--output", filename])
         .assert()
         .failure()
-        .code(4);
+        .code(4)
+        .stderr(contains("416"));
 
     assert_eq!(fs::exists(filename).unwrap(), false);
 }
