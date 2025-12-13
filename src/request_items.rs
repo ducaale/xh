@@ -527,8 +527,6 @@ mod tests {
 
     #[test]
     fn request_item_parsing() {
-        use serde_json::json;
-
         use RequestItem::*;
 
         fn parse(text: &str) -> RequestItem {
