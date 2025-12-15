@@ -65,7 +65,7 @@ sanitize-filename = "0.6.0"
 [dependencies.reqwest]
 version = "0.12.23"
 default-features = false
-features = ["json", "multipart", "blocking", "socks", "cookies", "http2", "macos-system-configuration"]
+features = ["json", "multipart", "blocking", "socks", "cookies", "http2", "system-proxy"]
 
 [dependencies.syntect]
 version = "5.1"
