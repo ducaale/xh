@@ -1,4 +1,4 @@
-## Unreleased
+## [0.25.1] - 2025-12-16
 ### Features
 - Add colors to `--help`/`-h`, see #432 (@starsep)
 
