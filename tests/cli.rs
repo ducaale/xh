@@ -76,7 +76,7 @@ fn find_runner() -> Option<String> {
 
 fn get_base_command() -> Command {
     let mut cmd;
-    let path = assert_cmd::cargo::cargo_bin("xh");
+    let path = assert_cmd::cargo::cargo_bin!("xh");
     if let Some(runner) = find_runner() {
         let mut runner = runner.split_whitespace();
         cmd = Command::new(runner.next().unwrap());
