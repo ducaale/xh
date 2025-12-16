@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: [ v*.*.* ]
+    tags: [v*.*.*]
 
 jobs:
   test:
@@ -43,7 +43,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.82.0 # minimum supported rust version
+          toolchain: 1.83.0 # minimum supported rust version
           targets: ${{ matrix.job.target }}
 
       - uses: ClementTsang/cargo-action@v0.0.6
@@ -54,7 +54,7 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: [ test ]
+    needs: [test]
     runs-on: ${{ matrix.job.os }}
     strategy:
       matrix:
@@ -141,7 +141,7 @@ jobs:
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
-            files: 'xh*'
-            draft: true
+          files: "xh*"
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

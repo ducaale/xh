@@ -3,9 +3,9 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ master ]
+    branches: [master]
   schedule:
-  - cron: '00 00 * * *'
+    - cron: "00 00 * * *"
 
 jobs:
   test:
@@ -50,13 +50,13 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.82.0 # minimum supported rust version
+          toolchain: 1.83.0 # minimum supported rust version
           targets: ${{ matrix.job.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: v2-${{ matrix.job.target }}
-      
+
       - name: Set RUSTFLAGS env variable
         if: matrix.job.rustflags
         shell: bash
