@@ -3199,12 +3199,16 @@ fn warns_if_config_is_invalid() {
 #[test]
 fn http1_0() {
     get_command()
-        .args(["--print=hH", "--http-version=1.0", "https://example.com"])
+        .args([
+            "--print=hH",
+            "--http-version=1.0",
+            "https://httpbingo.org/json",
+        ])
         .assert()
         .success()
-        .stdout(contains("GET / HTTP/1.0"))
+        .stdout(contains("GET /json HTTP/1.0"))
         // Some servers i.e nginx respond with HTTP/1.1 to HTTP/1.0 requests, see https://serverfault.com/questions/442960/nginx-ignoring-clients-http-1-0-request-and-respond-by-http-1-1
-        // Fortunately, https://example.com is not one of those.
+        // Fortunately, https://httpbingo.org is not one of those.
         .stdout(contains("HTTP/1.0 200 OK"));
 }
 
@@ -3212,10 +3216,14 @@ fn http1_0() {
 #[test]
 fn http1_1() {
     get_command()
-        .args(["--print=hH", "--http-version=1.1", "https://example.com"])
+        .args([
+            "--print=hH",
+            "--http-version=1.1",
+            "https://httpbingo.org/json",
+        ])
         .assert()
         .success()
-        .stdout(contains("GET / HTTP/1.1"))
+        .stdout(contains("GET /json HTTP/1.1"))
         .stdout(contains("HTTP/1.1 200 OK"));
 }
 
@@ -3223,10 +3231,14 @@ fn http1_1() {
 #[test]
 fn http2() {
     get_command()
-        .args(["--print=hH", "--http-version=2", "https://example.com"])
+        .args([
+            "--print=hH",
+            "--http-version=2",
+            "https://httpbingo.org/json",
+        ])
         .assert()
         .success()
-        .stdout(contains("GET / HTTP/2.0"))
+        .stdout(contains("GET /json HTTP/2.0"))
         .stdout(contains("HTTP/2.0 200 OK"));
 }
 
