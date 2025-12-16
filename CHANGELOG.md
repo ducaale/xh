@@ -1,3 +1,13 @@
+## Unreleased
+### Features
+- Add colors to `--help`/`-h`, see #432 (@starsep)
+
+### Bug fixes
+- Don't fail on error code 416 if resuming download, see #434 (@simonomi)
+
+### Other
+- Upgrade brotli to latest version, see #438 (@ducaale)
+
 ## [0.25.0] - 2025-09-19
 ### Features
 - Add `--unix-socket` for calling Unix Domain Sockets, see #427 (@ducaale)
