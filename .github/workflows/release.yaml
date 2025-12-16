@@ -101,6 +101,7 @@ jobs:
         if: matrix.job.os != 'windows-latest'
         run: |
           if [ "${{ matrix.job.binutils }}" != "" ]; then
+            sudo apt update
             sudo apt -y install "binutils-${{ matrix.job.binutils }}"
             "${{ matrix.job.binutils }}-strip" "target/${{ matrix.job.target }}/release/xh"
           else
