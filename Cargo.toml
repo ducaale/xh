@@ -23,13 +23,13 @@ clap_complete = "4.4"
 clap_complete_nushell = "4.4"
 cookie_store = { version = "0.21.1", features = ["preserve_order"] }
 digest_auth = "0.3.0"
-dirs = "5.0"
+dirs = "6.0"
 encoding_rs = "0.8.28"
 encoding_rs_io = "0.1.7"
 flate2 = "1.0.22"
 # Add "tracing" feature to hyper once it stabilizes
 hyper = { version = "1.2", default-features = false }
-indicatif = "0.17"
+indicatif = "0.18"
 jsonxf = "1.1.0"
 memchr = "2.4.1"
 mime = "0.3.16"
