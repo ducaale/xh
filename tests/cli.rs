@@ -1185,8 +1185,7 @@ fn verify_no() {
         .stderr(predicates::str::is_empty());
 }
 
-// disabled for macos since it errors with Other(OtherError("'*.badssl.com' certificate is not standards compliant: -67605"))
-#[cfg(all(feature = "rustls", feature = "online-tests", not(target_os = "macos")))]
+#[cfg(all(feature = "rustls", feature = "online-tests"))]
 #[test]
 fn verify_valid_file() {
     get_command()
