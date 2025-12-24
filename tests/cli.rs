@@ -1148,7 +1148,11 @@ fn verify_default_yes() {
         .failure()
         .stdout(contains("GET / HTTP/1.1"))
         // rustls or native-tls
-        .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
+        .stderr(
+            contains("UnknownIssuer")
+                .or(contains("certificate is not trusted"))
+                .or(contains("certificate was not trusted")),
+        );
 }
 
 // temporarily disabled for builds not using rustls
@@ -1163,7 +1167,11 @@ fn verify_explicit_yes() {
         .failure()
         .stdout(contains("GET / HTTP/1.1"))
         // rustls or native-tls
-        .stderr(contains("UnknownIssuer").or(contains("self signed certificate")));
+        .stderr(
+            contains("UnknownIssuer")
+                .or(contains("certificate is not trusted"))
+                .or(contains("certificate was not trusted")),
+        );
 }
 
 #[cfg(feature = "online-tests")]
@@ -1213,7 +1221,14 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
-#[cfg(all(feature = "rustls", feature = "online-tests"))]
+// disabled for macos since it errors with: Other(OtherError("'*.badssl.com' certificate is expired: -67818"))
+// disabled for windows since it errors with: Expired
+#[cfg(all(
+    feature = "rustls",
+    feature = "online-tests",
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 #[test]
 fn formatted_certificate_expired_message() {
     get_command()
