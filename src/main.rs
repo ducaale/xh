@@ -18,6 +18,7 @@ mod request_items;
 mod session;
 mod to_curl;
 mod utils;
+mod vendored;
 
 use std::env;
 use std::fs::File;
@@ -50,6 +51,7 @@ use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
 use crate::utils::{test_mode, test_pretend_term, url_with_query};
+use crate::vendored::reqwest_cookie_store;
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
 compile_error!("Either native-tls or rustls feature must be enabled!");
@@ -217,7 +219,6 @@ fn run(args: Cli) -> Result<ExitCode> {
                 format!("Failed to read the custom CA bundle: {}", path.display())
             })?;
 
-            client = client.tls_built_in_root_certs(false);
             for pem in pem::parse_many(buffer)? {
                 let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
                     .with_context(|| {
