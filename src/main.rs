@@ -219,13 +219,15 @@ fn run(args: Cli) -> Result<ExitCode> {
                 format!("Failed to read the custom CA bundle: {}", path.display())
             })?;
 
+            let mut certificates = vec![];
             for pem in pem::parse_many(buffer)? {
                 let certificate = reqwest::Certificate::from_pem(pem::encode(&pem).as_bytes())
                     .with_context(|| {
                         format!("Failed to load the custom CA bundle: {}", path.display())
                     })?;
-                client = client.add_root_certificate(certificate);
+                certificates.push(certificate);
             }
+            client = client.tls_certs_only(certificates);
             client
         }
     };
