@@ -1221,8 +1221,14 @@ fn cert_without_key() {
         .stderr(predicates::str::is_empty());
 }
 
-// disabled for macos since it errors with Other(OtherError("'*.badssl.com' certificate is expired: -67818"))
-#[cfg(all(feature = "rustls", feature = "online-tests", not(target_os = "macos")))]
+// disabled for macos since it errors with: Other(OtherError("'*.badssl.com' certificate is expired: -67818"))
+// disabled for windows since it errors with: Expired
+#[cfg(all(
+    feature = "rustls",
+    feature = "online-tests",
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 #[test]
 fn formatted_certificate_expired_message() {
     get_command()
