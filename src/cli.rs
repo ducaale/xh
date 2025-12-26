@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::env;
 use std::ffi::OsString;
@@ -306,6 +307,19 @@ Example: --print=Hb"
     /// are completely ignored if --proxy is passed.
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
+
+    /// Comma-separated list of hosts for which not to use a proxy, if one is specified.
+    ///
+    /// - A "*" matches all hosts, and effectively disables proxies altogether.
+    ///
+    /// - IP addresses are allowed, as are subnets (in CIDR notation, i.e.: "127.0.0.0/8").
+    ///
+    /// - Any other entry in the list is assumed to be a hostname.
+    ///
+    /// The environment variable "NO_PROXY"/"no_proxy" can also be used, but its completely ignored
+    /// if --disable-proxy-for is passed.
+    #[clap(long, value_name = "no-proxy-list", value_delimiter = ',')]
+    pub disable_proxy_for: Vec<DisableProxyFor>,
 
     /// If "no", skip SSL verification. If a file path, use it as a CA bundle.
     ///
@@ -1102,6 +1116,46 @@ impl FromStr for Proxy {
     }
 }
 
+impl Proxy {
+    pub fn into_reqwest_proxy(
+        self,
+        disable_proxy_for: &[DisableProxyFor],
+    ) -> anyhow::Result<reqwest::Proxy> {
+        let proxy = match self {
+            Proxy::Http(url) => reqwest::Proxy::http(url),
+            Proxy::Https(url) => reqwest::Proxy::https(url),
+            Proxy::All(url) => reqwest::Proxy::all(url),
+        }?;
+
+        let mut noproxy_comma_delimited = disable_proxy_for.join(",");
+        if disable_proxy_for.contains(&"*".into()) {
+            // reqwest's NoProxy wildcard doesn't apply to IP addresses, while curl's does
+            // See: https://github.com/seanmonstar/reqwest/issues/2579
+            noproxy_comma_delimited.push_str(",0.0.0.0/0,::/0");
+        }
+
+        Ok(proxy.no_proxy(
+            reqwest::NoProxy::from_string(&noproxy_comma_delimited)
+                .or_else(reqwest::NoProxy::from_env),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisableProxyFor(String);
+
+impl From<&str> for DisableProxyFor {
+    fn from(s: &str) -> Self {
+        Self(s.trim().to_string())
+    }
+}
+
+impl Borrow<str> for DisableProxyFor {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Resolve {
     pub domain: String,
@@ -1491,6 +1545,11 @@ mod tests {
             proxy,
             vec!(Proxy::All(Url::parse("http://127.0.0.1:8000").unwrap()))
         );
+    }
+
+    #[test]
+    fn disable_proxy_for_trims_whitespace() {
+        assert_eq!(DisableProxyFor::from("*"), DisableProxyFor::from("  *  "));
     }
 
     #[test]
