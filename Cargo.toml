@@ -62,7 +62,7 @@ percent-encoding = "2.3.1"
 sanitize-filename = "0.6.0"
 
 [dependencies.reqwest]
-version = "0.13.0"
+version = "0.13.1"
 default-features = false
 features = ["json", "form", "multipart", "blocking", "socks", "cookies", "http2", "system-proxy"]
 
