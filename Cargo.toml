@@ -63,7 +63,7 @@ percent-encoding = "2.3.1"
 sanitize-filename = "0.6.0"
 
 [dependencies.reqwest]
-version = "0.13.0-rc.1"
+version = "0.13.0"
 default-features = false
 features = ["json", "form", "multipart", "blocking", "socks", "cookies", "http2", "system-proxy"]
 
@@ -94,7 +94,7 @@ http-body-util = "0.1.1"
 
 [features]
 default = ["online-tests", "rustls", "network-interface"]
-native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
+native-tls = ["reqwest/native-tls"]
 rustls = ["reqwest/rustls", "dep:rustls"]
 http3 = ["reqwest/http3"]
 
