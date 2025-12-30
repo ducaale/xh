@@ -58,7 +58,6 @@ log = "0.4.21"
 # The rustls version number should be kept in sync with hyper/reqwest.
 rustls = { version = "0.23.25", optional = true, default-features = false, features = ["logging"] }
 tracing = { version = "0.1.41", default-features = false, features = ["log"] }
-# reqwest_cookie_store = { version = "0.8.0", features = ["serde"] }
 percent-encoding = "2.3.1"
 sanitize-filename = "0.6.0"
 
