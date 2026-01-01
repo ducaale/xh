@@ -58,14 +58,13 @@ log = "0.4.21"
 # The rustls version number should be kept in sync with hyper/reqwest.
 rustls = { version = "0.23.25", optional = true, default-features = false, features = ["logging"] }
 tracing = { version = "0.1.41", default-features = false, features = ["log"] }
-reqwest_cookie_store = { version = "0.8.0", features = ["serde"] }
 percent-encoding = "2.3.1"
 sanitize-filename = "0.6.0"
 
 [dependencies.reqwest]
-version = "0.12.23"
+version = "0.13.1"
 default-features = false
-features = ["json", "multipart", "blocking", "socks", "cookies", "http2", "system-proxy"]
+features = ["json", "form", "multipart", "blocking", "socks", "cookies", "http2", "system-proxy"]
 
 [dependencies.syntect]
 version = "5.1"
@@ -94,8 +93,8 @@ http-body-util = "0.1.1"
 
 [features]
 default = ["online-tests", "rustls", "network-interface"]
-native-tls = ["reqwest/native-tls", "reqwest/native-tls-alpn"]
-rustls = ["reqwest/rustls-tls", "reqwest/rustls-tls-webpki-roots", "reqwest/rustls-tls-native-roots", "dep:rustls"]
+native-tls = ["reqwest/native-tls"]
+rustls = ["reqwest/rustls", "dep:rustls"]
 http3 = ["reqwest/http3"]
 
 # To be used by platforms that don't support binding to interface via SO_BINDTODEVICE
