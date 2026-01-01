@@ -17,6 +17,8 @@ pub(crate) fn additional_messages(err: &anyhow::Error, native_tls: bool) -> Vec<
 /// human-unfriendly Unix timestamps.
 ///
 /// Other rustls error messages (e.g. wrong host) are readable enough.
+///
+/// Note this only works on platforms where rustls-platform-verifier uses webpki for verification.
 #[cfg(feature = "rustls")]
 fn format_rustls_error(err: &anyhow::Error) -> Option<String> {
     use humantime::format_duration;
