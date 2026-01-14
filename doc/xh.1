@@ -1,4 +1,4 @@
-.TH XH 1 2025-12-16 0.25.2 "User Commands"
+.TH XH 1 2026-01-14 0.25.3 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -252,13 +252,13 @@ The default value is "0", i.e., there is no timeout limit.
 \fB\-\-proxy\fR=\fIPROTOCOL:URL\fR
 Use a proxy for a protocol. For example: \-\-proxy https:http://proxy.host:8080.
 
-PROTOCOL can be "http", "https" or "all".
+PROTOCOL can be "all", "http" or "https".
 
 If your proxy requires credentials, put them in the URL, like so: \-\-proxy http:socks5://user:password@proxy.host:8000.
 
 You can specify proxies for multiple protocols by repeating this option.
 
-The environment variables "http_proxy" and "https_proxy" can also be used, but are completely ignored if \-\-proxy is passed.
+The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but are completely ignored if \-\-proxy is passed.
 .TP 4
 \fB\-\-verify\fR=\fIVERIFY\fR
 If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -387,7 +387,10 @@ environment variable is to rename the binary to either http or https.
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
 .TP
-.BR http_proxy "=[protocol://]<host>[:port]"
+.BR ALL_PROXY "=[protocol://]<host>[:port]"
+Sets the proxy server for all requests (unless overridden for a specific protocol).
+.TP
+.BR HTTP_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTP.
 .TP
 .BR HTTPS_PROXY "=[protocol://]<host>[:port]"
