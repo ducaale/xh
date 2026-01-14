@@ -252,13 +252,13 @@ The default value is "0", i.e., there is no timeout limit.
 \fB\-\-proxy\fR=\fIPROTOCOL:URL\fR
 Use a proxy for a protocol. For example: \-\-proxy https:http://proxy.host:8080.
 
-PROTOCOL can be "http", "https" or "all".
+PROTOCOL can be "all", "http" or "https".
 
 If your proxy requires credentials, put them in the URL, like so: \-\-proxy http:socks5://user:password@proxy.host:8000.
 
 You can specify proxies for multiple protocols by repeating this option.
 
-The environment variables "http_proxy", "HTTPS_PROXY" and "ALL_PROXY" can also be used, but are completely ignored if \-\-proxy is passed.
+The environment variables "ALL_PROXY", "http_proxy" and "HTTPS_PROXY" and  can also be used, but are completely ignored if \-\-proxy is passed.
 .TP 4
 \fB\-\-verify\fR=\fIVERIFY\fR
 If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -387,14 +387,14 @@ environment variable is to rename the binary to either http or https.
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
 .TP
+.BR ALL_PROXY "=[protocol://]<host>[:port]"
+Sets the proxy server for all requests (unless overridden for a specific protocol).
+.TP
 .BR http_proxy "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTP.
 .TP
 .BR HTTPS_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTPS.
-.TP
-.BR ALL_PROXY "=[protocol://]<host>[:port]"
-Sets the proxy server to use when no protocol-specific proxy is set.
 .TP
 .B NO_PROXY
 List of comma-separated hosts for which to ignore the other proxy environment

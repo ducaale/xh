@@ -295,14 +295,14 @@ Example: --print=Hb"
 
     /// Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
     ///
-    /// PROTOCOL can be "http", "https" or "all".
+    /// PROTOCOL can be "all", "http" or "https".
     ///
     /// If your proxy requires credentials, put them in the URL, like so:
     /// --proxy http:socks5://user:password@proxy.host:8000.
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// The environment variables "http_proxy", "HTTPS_PROXY" and "ALL_PROXY" can also be used, but
+    /// The environment variables "ALL_PROXY", "http_proxy" and "HTTPS_PROXY" and  can also be used, but
     /// are completely ignored if --proxy is passed.
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,

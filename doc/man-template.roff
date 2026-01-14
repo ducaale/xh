@@ -81,14 +81,14 @@ environment variable is to rename the binary to either http or https.
 .BR REQUESTS_CA_BUNDLE ", " CURL_CA_BUNDLE
 Sets a custom CA bundle path.
 .TP
+.BR ALL_PROXY "=[protocol://]<host>[:port]"
+Sets the proxy server for all requests (unless overridden for a specific protocol).
+.TP
 .BR http_proxy "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTP.
 .TP
 .BR HTTPS_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTPS.
-.TP
-.BR ALL_PROXY "=[protocol://]<host>[:port]"
-Sets the proxy server for all requests (unless overridden for a specific protocol).
 .TP
 .B NO_PROXY
 List of comma-separated hosts for which to ignore the other proxy environment
