@@ -302,7 +302,7 @@ Example: --print=Hb"
     ///
     /// You can specify proxies for multiple protocols by repeating this option.
     ///
-    /// The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" and  can also be used, but
+    /// The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but
     /// are completely ignored if --proxy is passed.
     #[clap(long, value_name = "PROTOCOL:URL", number_of_values = 1)]
     pub proxy: Vec<Proxy>,
