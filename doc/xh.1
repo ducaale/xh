@@ -258,7 +258,7 @@ If your proxy requires credentials, put them in the URL, like so: \-\-proxy http
 
 You can specify proxies for multiple protocols by repeating this option.
 
-The environment variables "ALL_PROXY", "http_proxy" and "HTTPS_PROXY" and  can also be used, but are completely ignored if \-\-proxy is passed.
+The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" and  can also be used, but are completely ignored if \-\-proxy is passed.
 .TP 4
 \fB\-\-verify\fR=\fIVERIFY\fR
 If "no", skip SSL verification. If a file path, use it as a CA bundle.
@@ -390,7 +390,7 @@ Sets a custom CA bundle path.
 .BR ALL_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server for all requests (unless overridden for a specific protocol).
 .TP
-.BR http_proxy "=[protocol://]<host>[:port]"
+.BR HTTP_PROXY "=[protocol://]<host>[:port]"
 Sets the proxy server to use for HTTP.
 .TP
 .BR HTTPS_PROXY "=[protocol://]<host>[:port]"
