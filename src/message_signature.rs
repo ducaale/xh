@@ -86,11 +86,21 @@ pub fn sign_request(
     Ok(())
 }
 
+/// Resolves and expands message components for signature coverage.
+///
+/// This function handles:
+/// - Default components: If no components are specified, uses @method, @authority, @target-uri
+/// - @query-params expansion: Expands into individual @query-param components for each parameter
+/// - content-digest: Only includes if the request has a body
+///
+/// Note: @query-params is not a standard RFC 9421 component, but is commonly used as a
+/// convenience shorthand to sign all query parameters without listing them individually.
 fn resolve_components(request: &Request, components: Option<&[String]>) -> Vec<String> {
     let mut resolved = Vec::new();
     let source = if let Some(c) = components {
         c
     } else {
+        // RFC 9421 recommended minimal set for request signing
         &[
             "@method".to_string(),
             "@authority".to_string(),
@@ -123,6 +133,15 @@ fn resolve_components(request: &Request, components: Option<&[String]>) -> Vec<S
     resolved
 }
 
+/// Ensures the Content-Digest header is present if it's a covered component.
+///
+/// According to RFC 9530, the Content-Digest header uses the format:
+/// `sha-256=:<base64-encoded-hash>:`
+///
+/// This function:
+/// 1. Checks if "content-digest" is in the covered components
+/// 2. If yes and the header is missing, computes SHA-256 of the request body
+/// 3. Adds the Content-Digest header in the RFC 9530 format
 fn ensure_content_digest(request: &mut Request, components: &[String]) -> Result<()> {
     if components
         .iter()
@@ -132,6 +151,7 @@ fn ensure_content_digest(request: &mut Request, components: &[String]) -> Result
     {
         let bytes = buffer_request_body(request)?;
         let digest = Sha256::digest(&bytes);
+        // RFC 9530 format: algorithm=:base64-hash:
         let value = format!("sha-256=:{}:", STANDARD.encode(digest));
         request.headers_mut().insert(
             HeaderName::from_static("content-digest"),
@@ -153,10 +173,20 @@ fn build_signature_params(components: &[String]) -> Result<HttpSignatureParams> 
         .context("message-signature: Failed to create signature params")
 }
 
+/// Normalizes component identifiers for RFC 9421 compliance.
+///
+/// According to RFC 9421, derived components (starting with @) that have parameters
+/// must be quoted. For example:
+/// - `@query-param;name="foo"` -> `"@query-param";name="foo"`
+/// - `@method` -> `@method` (no parameters, no quotes needed)
+/// - `content-type` -> `content-type` (not a derived component)
+///
+/// This normalization is required for proper signature base construction.
 fn normalize_component_id(component: &str) -> String {
     if let Some(idx) = component.find(';') {
         let (name, params) = component.split_at(idx);
         if name.starts_with('@') && !name.starts_with('"') {
+            // Derived component with parameters must be quoted
             return format!("\"{}\"{}", name, params);
         }
     }
@@ -176,6 +206,14 @@ fn buffer_request_body(request: &mut Request) -> Result<Vec<u8>> {
     }
 }
 
+/// Determines the signing algorithm from the key material.
+///
+/// Algorithm detection logic:
+/// 1. If the key is in PEM format (contains "-----BEGIN"), parse it and use its algorithm
+///    (e.g., RSA-PSS-SHA512, ECDSA-P256-SHA256, Ed25519)
+/// 2. Otherwise, assume it's a raw symmetric key and default to HMAC-SHA256
+///
+/// This allows xh to support both asymmetric (PEM) and symmetric (raw) keys seamlessly.
 fn determine_alg_from_key(key_material: &[u8]) -> Result<AlgorithmName> {
     if let Ok(pem) = std::str::from_utf8(key_material) {
         if pem.contains("-----BEGIN") {
@@ -184,6 +222,7 @@ fn determine_alg_from_key(key_material: &[u8]) -> Result<AlgorithmName> {
             }
         }
     }
+    // Default to HMAC-SHA256 for raw key material
     Ok(AlgorithmName::HmacSha256)
 }
 
@@ -333,18 +372,46 @@ fn compute_request_target(request: &Request) -> String {
     target
 }
 
+/// Computes the @path derived component value according to RFC 9421 Section 2.2.6.
+///
+/// The @path component is the absolute path of the request target with no query component
+/// and no trailing question mark. According to RFC 9421:
+/// - An empty path string is normalized as a single slash ("/") character
+/// - Path components are represented before decoding any percent-encoded octets
+///
+/// For example:
+/// - URL "https://example.com/path?query" -> "/path"
+/// - URL "https://example.com" -> "/"
+/// - URL "https://example.com/" -> "/"
 fn compute_path(url: &Url) -> String {
     let path = url.path();
     if path.is_empty() {
+        // RFC 9421 Section 2.2.6: empty path is normalized as "/"
         "/".to_string()
     } else {
         path.to_string()
     }
 }
 
+/// Computes the @query derived component value according to RFC 9421 Section 2.2.7.
+///
+/// The @query component is the entire normalized query string including the leading "?"
+/// character. According to RFC 9421 Section 2.2.7:
+/// - When a query is present: the value is "?" + query string
+/// - When the query is absent: the value is the leading "?" character alone
+///
+/// This behavior is CORRECT per RFC 9421. Do NOT return an empty string when query is absent,
+/// as that would violate the specification and cause signature verification failures with
+/// RFC-compliant verifiers.
+///
+/// For example:
+/// - URL "https://example.com/path?param=value" -> "?param=value"
+/// - URL "https://example.com/path" -> "?"
 fn compute_query(url: &Url) -> String {
     match url.query() {
         Some(q) => format!("?{q}"),
+        // RFC 9421 Section 2.2.7: "If the query string is absent from the request message,
+        // the component value is the leading ? character alone"
         None => "?".to_string(),
     }
 }
