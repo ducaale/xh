@@ -1033,6 +1033,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "httpsig-hyper"
+version = "0.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de683cf1db6421de555ac6e46222a404bbba823d406560670fc3093de24543de"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures",
+ "http",
+ "http-body",
+ "http-body-util",
+ "httpsig",
+ "indexmap",
+ "sfv",
+ "sha2",
+ "thiserror 2.0.17",
+ "tracing",
+]
+
+[[package]]
 name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3365,6 +3385,7 @@ dependencies = [
  "form_urlencoded",
  "http-body-util",
  "httpsig",
+ "httpsig-hyper",
  "humantime",
  "hyper",
  "hyper-util",
