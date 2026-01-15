@@ -491,6 +491,9 @@ Example: xh --generate=complete-bash > xh.bash",
     /// The name of the binary.
     #[clap(skip)]
     pub bin_name: String,
+
+    #[command(flatten, next_help_heading = "UNSTABLE: Message Signature (RFC 9421)")]
+    pub m_sig: MessageSignature,
 }
 
 impl Cli {
@@ -802,6 +805,29 @@ pub enum AuthType {
     Basic,
     Bearer,
     Digest,
+}
+
+#[derive(clap::Args, Debug, Clone)]
+pub struct MessageSignature {
+    /// Message signature key identifier (RFC 9421).
+    #[arg(
+        long = "unstable-m-sig-id",
+        value_name = "KEY_ID",
+        requires = "m_sig_key"
+    )]
+    pub m_sig_id: Option<String>,
+
+    /// Message signature key material (RFC 9421).
+    ///
+    /// Can be a raw string or a file path starting with @.
+    #[arg(long = "unstable-m-sig-key", value_name = "KEY", requires = "m_sig_id")]
+    pub m_sig_key: Option<String>,
+
+    /// Comma-separated list of message signature components (RFC 9421).
+    ///
+    /// Example: "@method,@path,content-digest"
+    #[arg(long = "unstable-m-sig-comp", value_name = "COMPONENTS")]
+    pub m_sig_comp: Option<String>,
 }
 
 #[derive(ValueEnum, Debug, Clone)]

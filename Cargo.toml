@@ -54,6 +54,10 @@ url = "2.2.2"
 ruzstd = { version = "0.7", default-features = false, features = ["std"]}
 env_logger = { version = "0.11.3", default-features = false, features = ["color", "auto-color", "humantime"] }
 log = "0.4.21"
+base64 = "0.22.1"
+form_urlencoded = "1.0.1"
+httpsig = "0.0.20"
+sha2 = { version = "0.10", default-features = false }
 
 # Enable logging in transitive dependencies.
 # The rustls version number should be kept in sync with hyper/reqwest.
@@ -61,6 +65,7 @@ rustls = { version = "0.23.25", optional = true, default-features = false, featu
 tracing = { version = "0.1.41", default-features = false, features = ["log"] }
 percent-encoding = "2.3.1"
 sanitize-filename = "0.6.0"
+base64ct = "=1.7.3"
 
 [dependencies.reqwest]
 version = "0.13.1"
@@ -82,7 +87,6 @@ features = ["dump-create", "plist-load", "regex-onig", "yaml-load"]
 
 [dev-dependencies]
 assert_cmd = "2.0.8"
-form_urlencoded = "1.0.1"
 indoc = "2.0"
 rand = "0.8.3"
 predicates = "3.0"
