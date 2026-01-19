@@ -309,7 +309,14 @@ fn gather_derived_component_values(
 fn compute_authority(url: &Url) -> String {
     // According to RFC 9421 Section 2.2.3, the "@authority" derived component
     // consists of the host and, if present and non-default, the port number.
-    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    // IPv6 literals must be wrapped in brackets to match URI authority syntax (RFC 3986),
+    // which RFC 9421 relies on for @authority formatting.
+    let host = match url.host() {
+        Some(url::Host::Domain(domain)) => domain.to_ascii_lowercase(),
+        Some(url::Host::Ipv4(addr)) => addr.to_string(),
+        Some(url::Host::Ipv6(addr)) => format!("[{addr}]"),
+        None => String::new(),
+    };
     if let Some(port) = url.port() {
         if Some(port) != default_port_for_scheme(url.scheme()) {
             return format!("{host}:{port}");
@@ -525,6 +532,15 @@ mod tests {
         let id_query = HttpMessageComponentId::try_from("@query").unwrap();
         let values = gather_component_values(&req, &id_query, &query_params).unwrap();
         assert_eq!(values, vec!["?bar=baz"]);
+    }
+
+    #[test]
+    fn test_authority_ipv6_brackets() {
+        let url = Url::parse("http://[::1]:8080/").unwrap();
+        assert_eq!(compute_authority(&url), "[::1]:8080");
+
+        let default_port_url = Url::parse("http://[::1]/").unwrap();
+        assert_eq!(compute_authority(&default_port_url), "[::1]");
     }
 
     #[test]

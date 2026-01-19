@@ -1,4 +1,5 @@
 use crate::{get_command, server};
+use base64::engine::general_purpose::STANDARD;
 use httpsig_hyper::prelude::*;
 use httpsig_hyper::HyperSigError;
 
@@ -15,7 +16,7 @@ fn message_signature_verification_on_server() {
         async move {
             // 1. Prepare the verification key (HMAC SHA256)
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(key_material_inner);
+            let key_base64 = STANDARD.encode(key_material_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
 
             // 2. Verify the request using extension trait provided by httpsig-hyper
@@ -75,7 +76,7 @@ fn message_signature_auth_defaults() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
@@ -98,6 +99,68 @@ fn message_signature_auth_defaults() {
         .arg("post")
         .arg(server.base_url())
         .arg("foo=bar")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Signature: sig1="))
+        .stdout(predicates::str::contains("Signature-Input: sig1="));
+}
+
+#[test]
+fn message_signature_auth_ipv6_authority() {
+    let key = KEY_MATERIAL;
+    let key_id = "my-key";
+
+    let server = match server::http_v6(move |mut req| {
+        let key_inner = key.to_string();
+        let key_id_inner = key_id.to_string();
+        async move {
+            // Reconstruct absolute URI for verification of @target-uri and @authority
+            if let Some(host) = req.headers().get("host") {
+                let host_str = host.to_str().unwrap();
+                let uri_string = format!("http://{}{}", host_str, req.uri());
+                *req.uri_mut() = uri_string.parse().unwrap();
+            }
+
+            assert_eq!(req.method(), "GET");
+            assert!(req.headers().contains_key("Signature"));
+            assert!(req.headers().contains_key("Signature-Input"));
+
+            // Verify the signature
+            use base64::Engine;
+            let key_base64 = STANDARD.encode(&key_inner);
+            let shared_key = SharedKey::from_base64(&key_base64).unwrap();
+            use httpsig_hyper::MessageSignatureReq;
+            let result = req
+                .verify_message_signature(&shared_key, Some(&key_id_inner))
+                .await;
+            assert!(
+                result.is_ok(),
+                "Signature verification failed: {:?}",
+                result.err()
+            );
+
+            hyper::Response::default()
+        }
+    }) {
+        Some(server) => server,
+        None => {
+            eprintln!("IPv6 not available; skipping test");
+            return;
+        }
+    };
+
+    let host = server.host();
+    let url = if host.contains(':') {
+        format!("http://[{host}]:{}", server.port())
+    } else {
+        format!("http://{host}:{}", server.port())
+    };
+    let mut cmd = get_command();
+    cmd.arg("--unstable-m-sig-id=my-key")
+        .arg(format!("--unstable-m-sig-key={}", key))
+        .arg("-v")
+        .arg("get")
+        .arg(url)
         .assert()
         .success()
         .stdout(predicates::str::contains("Signature: sig1="))
@@ -134,7 +197,7 @@ fn message_signature_auth_with_custom_components_and_digest() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
@@ -188,7 +251,7 @@ fn message_signature_auth_with_multiple_set_cookie() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
@@ -233,7 +296,7 @@ fn message_signature_auth_sf_parameter() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
@@ -276,7 +339,7 @@ fn message_signature_auth_key_parameter() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
@@ -361,7 +424,7 @@ fn message_signature_with_basic_auth() {
 
             // Verify the signature
             use base64::Engine;
-            let key_base64 = base64::engine::general_purpose::STANDARD.encode(&key_inner);
+            let key_base64 = STANDARD.encode(&key_inner);
             let shared_key = SharedKey::from_base64(&key_base64).unwrap();
             use httpsig_hyper::MessageSignatureReq;
             let result = req
