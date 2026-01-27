@@ -420,3 +420,54 @@ fn message_signature_auth_normalization_assertion() {
         .success()
         .stdout(predicates::str::contains("Signature-Input: sig1="));
 }
+
+#[test]
+fn message_signature_auth_ed25519_pem() {
+    // Generated Ed25519 private key in PEM format
+    let key_pem = r#"-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIJthSCf1pnwSYvdXIrXHikXUix0dmvLEm2JwWF+87xKG
+-----END PRIVATE KEY-----"#;
+    let key_id = "ed25519-key";
+
+    let server = server::http(move |mut req| {
+        let key_pem_inner = key_pem.to_string();
+        let key_id_inner = key_id.to_string();
+        async move {
+            // Reconstruct absolute URI for verification of @target-uri and @authority
+            if let Some(host) = req.headers().get("host") {
+                let host_str = host.to_str().unwrap();
+                let uri_string = format!("http://{}{}", host_str, req.uri());
+                *req.uri_mut() = uri_string.parse().unwrap();
+            }
+
+            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
+            assert!(sig_input.contains("alg=\"ed25519\""));
+            assert!(sig_input.contains(r#"keyid="ed25519-key""#));
+
+            // Verify the signature using the public key
+            let secret_key = SecretKey::from_pem(&key_pem_inner).unwrap();
+            let public_key = secret_key.public_key();
+
+            use httpsig_hyper::MessageSignatureReq;
+            let result = req
+                .verify_message_signature(&public_key, Some(&key_id_inner))
+                .await;
+
+            assert!(
+                result.is_ok(),
+                "Signature verification failed: {:?}",
+                result.err()
+            );
+
+            hyper::Response::default()
+        }
+    });
+
+    get_command()
+        .arg("--unstable-m-sig-id=ed25519-key")
+        .arg(format!("--unstable-m-sig-key={}", key_pem))
+        .arg("get")
+        .arg(server.base_url())
+        .assert()
+        .success();
+}

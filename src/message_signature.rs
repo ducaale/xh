@@ -21,7 +21,7 @@ pub fn sign_request(
     request: &mut Request,
     key_id: &str,
     key_material: &str,
-    components: Option<&str>,
+    components: Option<&[String]>,
 ) -> Result<()> {
     let key = if let Some(path) = key_material.strip_prefix('@') {
         std::fs::read(crate::utils::expand_tilde(path))?
@@ -33,30 +33,13 @@ pub fn sign_request(
         key_material.as_bytes().to_vec()
     };
 
-    let components_vec = components.map(|cp| {
-        cp.split(',')
-            .map(|s| {
-                let component = s.trim();
-                if let Some(idx) = component.find(';') {
-                    let (name, params) = component.split_at(idx);
-                    format!("{}{}", name.to_lowercase(), params)
-                } else {
-                    component.to_lowercase()
-                }
-            })
-            .collect::<Vec<String>>()
-    });
+    let (signing_key, algorithm) = build_signing_key(&key, key_id)?;
 
-    let components = resolve_components(request, components_vec.as_deref());
+    let components = resolve_components(request, components);
     ensure_content_digest(request, &components)?;
 
     let mut signature_params = build_signature_params(&components)?;
-
-    let algorithm = determine_alg_from_key(&key)?;
     signature_params.set_alg(&algorithm);
-
-    let algorithm_for_key = determine_alg_from_key(&key)?;
-    let signing_key = build_signing_key(&key, algorithm_for_key, key_id)?;
 
     // Ensure keyid is included in Signature-Input
     signature_params.set_keyid(key_id);
@@ -206,52 +189,37 @@ fn buffer_request_body(request: &mut Request) -> Result<Vec<u8>> {
     }
 }
 
-/// Determines the signing algorithm from the key material.
-///
-/// Algorithm detection logic:
-/// 1. If the key is in PEM format (contains "-----BEGIN"), parse it and use its algorithm
-///    (e.g., RSA-PSS-SHA512, ECDSA-P256-SHA256, Ed25519)
-/// 2. Otherwise, assume it's a raw symmetric key and default to HMAC-SHA256
-///
-/// This allows xh to support both asymmetric (PEM) and symmetric (raw) keys seamlessly.
-fn determine_alg_from_key(key_material: &[u8]) -> Result<AlgorithmName> {
-    if let Ok(pem) = std::str::from_utf8(key_material) {
-        if pem.contains("-----BEGIN") {
-            if let Ok(secret) = SecretKey::from_pem(pem) {
-                return Ok(secret.alg());
-            }
-        }
-    }
-    // Default to HMAC-SHA256 for raw key material
-    Ok(AlgorithmName::HmacSha256)
-}
-
 fn build_signing_key(
     key_material: &[u8],
-    algorithm: AlgorithmName,
     key_id: &str,
-) -> Result<MessageSigningKey> {
-    let text = std::str::from_utf8(key_material).ok();
-
-    if let Some(pem) = text {
+) -> Result<(MessageSigningKey, AlgorithmName)> {
+    let algorithm = if let Ok(pem) = std::str::from_utf8(key_material) {
         if pem.contains("-----BEGIN") {
-            let secret = SecretKey::from_pem(pem)
-                .context("message-signature: Failed to parse private key PEM for signing")?;
-            return Ok(MessageSigningKey::Secret(secret, key_id.to_string()));
+            if let Ok(secret) = SecretKey::from_pem(pem) {
+                let alg = secret.alg();
+                return Ok((MessageSigningKey::Secret(secret, key_id.to_string()), alg));
+            }
         }
-    }
+        AlgorithmName::HmacSha256
+    } else {
+        AlgorithmName::HmacSha256
+    };
 
     match algorithm {
         AlgorithmName::HmacSha256 => {
             let encoded = STANDARD.encode(key_material);
             let shared_key = SharedKey::from_base64(&encoded)
                 .map_err(|e| anyhow!("message-signature: Failed to create HMAC key: {:?}", e))?;
-            Ok(MessageSigningKey::Shared(shared_key, key_id.to_string()))
+            Ok((
+                MessageSigningKey::Shared(shared_key, key_id.to_string()),
+                AlgorithmName::HmacSha256,
+            ))
         }
-        _ => {
-            let secret = SecretKey::from_bytes(algorithm, key_material)
+        alg => {
+            let secret = SecretKey::from_bytes(alg, key_material)
                 .context("message-signature: Failed to parse private key bytes")?;
-            Ok(MessageSigningKey::Secret(secret, key_id.to_string()))
+            let alg = secret.alg();
+            Ok((MessageSigningKey::Secret(secret, key_id.to_string()), alg))
         }
     }
 }
@@ -570,11 +538,10 @@ mod tests {
         let key_material = "secret";
 
         // Use the plural @query-params which expands automatically
-        let components = "@method,@query-params";
-
         // This will internally call resolve_components -> try_from("@query-param;name=\"param\"")
         // If this succeeds, then the logic is correct.
-        sign_request(&mut req, key_id, key_material, Some(components)).unwrap();
+        let components = vec!["@method".to_string(), "@query-params".to_string()];
+        sign_request(&mut req, key_id, key_material, Some(&components)).unwrap();
 
         let sig_input = req.headers()["signature-input"].to_str().unwrap();
         assert!(sig_input.contains("sig1="));
@@ -594,8 +561,12 @@ mod tests {
         let key_material = "secret"; // HMAC key
 
         // Explicitly include content-digest
-        let components = "@method,@authority,content-digest";
-        sign_request(&mut req, key_id, key_material, Some(components)).unwrap();
+        let components = vec![
+            "@method".to_string(),
+            "@authority".to_string(),
+            "content-digest".to_string(),
+        ];
+        sign_request(&mut req, key_id, key_material, Some(&components)).unwrap();
 
         assert!(req.headers().contains_key("signature"));
         assert!(req.headers().contains_key("signature-input"));
@@ -620,8 +591,8 @@ mod tests {
         let key_material = "secret";
 
         // Attempt to sign with the ;bs parameter which is currently unsupported by the underlying library
-        let components = "\"x-data\";bs";
-        let result = sign_request(&mut req, key_id, key_material, Some(components));
+        let components = vec!["\"x-data\";bs".to_string()];
+        let result = sign_request(&mut req, key_id, key_material, Some(&components));
 
         assert!(result.is_err());
         let err_msg = format!("{:?}", result.err().unwrap());
@@ -638,8 +609,8 @@ mod tests {
             .unwrap();
 
         // ;sf is implemented in the underlying library
-        let components = "\"x-struct\";sf";
-        let result = sign_request(&mut req, "key1", "secret", Some(components));
+        let components = vec!["\"x-struct\";sf".to_string()];
+        let result = sign_request(&mut req, "key1", "secret", Some(&components));
         assert!(result.is_ok(), "sf parameter should be supported");
     }
 
@@ -652,8 +623,8 @@ mod tests {
             .unwrap();
 
         // ;key is implemented in the underlying library
-        let components = "\"x-dict\";key=\"a\"";
-        let result = sign_request(&mut req, "key1", "secret", Some(components));
+        let components = vec!["\"x-dict\";key=\"a\"".to_string()];
+        let result = sign_request(&mut req, "key1", "secret", Some(&components));
         assert!(result.is_ok(), "key parameter should be supported");
     }
 
@@ -666,8 +637,8 @@ mod tests {
             .unwrap();
 
         // ;tr is explicitly NOT implemented in the underlying library
-        let components = "\"x-field\";tr";
-        let result = sign_request(&mut req, "key1", "secret", Some(components));
+        let components = vec!["\"x-field\";tr".to_string()];
+        let result = sign_request(&mut req, "key1", "secret", Some(&components));
 
         assert!(result.is_err());
         let err_msg = format!("{:?}", result.err().unwrap());
@@ -683,8 +654,8 @@ mod tests {
             .unwrap();
 
         // ;name is only for @query-param, using it on a regular field should error
-        let components = "\"x-field\";name=\"id\"";
-        let result = sign_request(&mut req, "key1", "secret", Some(components));
+        let components = vec!["\"x-field\";name=\"id\"".to_string()];
+        let result = sign_request(&mut req, "key1", "secret", Some(&components));
 
         assert!(result.is_err());
         let err_msg = format!("{:?}", result.err().unwrap());

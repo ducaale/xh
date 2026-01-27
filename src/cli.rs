@@ -263,6 +263,9 @@ Example: --print=Hb"
     #[clap(long)]
     pub ignore_netrc: bool,
 
+    #[command(flatten)]
+    pub m_sig: MessageSignature,
+
     /// Construct HTTP requests without sending them anywhere.
     #[clap(long)]
     pub offline: bool,
@@ -491,9 +494,6 @@ Example: xh --generate=complete-bash > xh.bash",
     /// The name of the binary.
     #[clap(skip)]
     pub bin_name: String,
-
-    #[command(flatten, next_help_heading = "UNSTABLE: Message Signature (RFC 9421)")]
-    pub m_sig: MessageSignature,
 }
 
 impl Cli {
@@ -825,9 +825,35 @@ pub struct MessageSignature {
 
     /// Comma-separated list of message signature components (RFC 9421).
     ///
+    /// If not specified, defaults to "@method, @authority, @target-uri".
+    /// "@query-params" is a shorthand for all query parameters.
+    /// "content-digest" is included if there's a body.
+    ///
     /// Example: "@method,@path,content-digest"
     #[arg(long = "unstable-m-sig-comp", value_name = "COMPONENTS")]
-    pub m_sig_comp: Option<String>,
+    pub m_sig_comp: Option<MessageSignatureComponents>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageSignatureComponents(pub Vec<String>);
+
+impl FromStr for MessageSignatureComponents {
+    type Err = std::convert::Infallible;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let components = s
+            .split(',')
+            .map(|s| {
+                let component = s.trim();
+                if let Some(idx) = component.find(';') {
+                    let (name, params) = component.split_at(idx);
+                    format!("{}{}", name.to_lowercase(), params)
+                } else {
+                    component.to_lowercase()
+                }
+            })
+            .collect();
+        Ok(MessageSignatureComponents(components))
+    }
 }
 
 #[derive(ValueEnum, Debug, Clone)]

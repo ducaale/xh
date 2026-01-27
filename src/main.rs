@@ -44,7 +44,9 @@ use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{
+    Cli, FormatOptions, HttpVersion, MessageSignatureComponents, Print, Proxy, Verify,
+};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -585,7 +587,10 @@ fn run(args: Cli) -> Result<ExitCode> {
                 &mut request,
                 key_id,
                 key_material,
-                args.m_sig.m_sig_comp.as_deref(),
+                args.m_sig
+                    .m_sig_comp
+                    .as_ref()
+                    .map(|MessageSignatureComponents(c)| c.as_slice()),
             )?;
         }
 
