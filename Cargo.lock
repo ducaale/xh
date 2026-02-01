@@ -363,25 +363,6 @@ dependencies = [
 
 [[package]]
 name = "cookie_store"
-version = "0.21.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eac901828f88a5241ee0600950ab981148a18f2f756900ffba1b125ca6a3ef9"
-dependencies = [
- "cookie",
- "document-features",
- "idna",
- "indexmap",
- "log",
- "publicsuffix",
- "serde",
- "serde_derive",
- "serde_json",
- "time",
- "url",
-]
-
-[[package]]
-name = "cookie_store"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fc4bff745c9b4c7fb1e97b25d13153da2bc7796260141df62378998d070207f"
@@ -389,6 +370,7 @@ dependencies = [
  "cookie",
  "document-features",
  "idna",
+ "indexmap",
  "log",
  "publicsuffix",
  "serde",
@@ -1826,7 +1808,7 @@ dependencies = [
  "base64",
  "bytes",
  "cookie",
- "cookie_store 0.22.0",
+ "cookie_store",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -1864,6 +1846,18 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "reqwest_cookie_store"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beb98c4d52ae6ceed18a0dff0564717623dd75fae08619ae0927332f0a81abbc"
+dependencies = [
+ "bytes",
+ "cookie_store",
+ "reqwest",
+ "url",
 ]
 
 [[package]]
@@ -3082,7 +3076,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_complete_nushell",
- "cookie_store 0.21.1",
+ "cookie_store",
  "digest_auth",
  "dirs",
  "encoding_rs",
@@ -3110,6 +3104,7 @@ dependencies = [
  "rand 0.8.5",
  "regex-lite",
  "reqwest",
+ "reqwest_cookie_store",
  "roff",
  "rpassword",
  "rustls",
