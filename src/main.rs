@@ -43,7 +43,7 @@ use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -268,11 +268,7 @@ fn run(args: Cli) -> Result<ExitCode> {
     }
 
     for proxy in args.proxy.into_iter().rev() {
-        client = client.proxy(match proxy {
-            Proxy::Http(url) => reqwest::Proxy::http(url),
-            Proxy::Https(url) => reqwest::Proxy::https(url),
-            Proxy::All(url) => reqwest::Proxy::all(url),
-        }?);
+        client = client.proxy(proxy.into_reqwest_proxy(&args.disable_proxy_for)?);
     }
 
     client = match args.http_version {
