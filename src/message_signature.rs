@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -101,8 +101,11 @@ fn resolve_components(request: &Request, components: Option<&[String]>) -> Vec<S
             // but many implementations use it to simplify signing all query parameters
             // without listing them explicitly.
             if let Some(query) = request.url().query() {
+                let mut seen = HashSet::new();
                 for (name, _) in form_urlencoded::parse(query.as_bytes()) {
-                    resolved.push(format!("@query-param;name=\"{}\"", name));
+                    if seen.insert(name.to_string()) {
+                        resolved.push(format!("@query-param;name=\"{}\"", name));
+                    }
                 }
             }
         } else if component == "content-digest" {
@@ -146,14 +149,54 @@ fn ensure_content_digest(request: &mut Request, components: &[String]) -> Result
 
 fn build_signature_params(components: &[String]) -> Result<HttpSignatureParams> {
     let mut component_ids = Vec::new();
+    let mut seen = HashSet::new();
     for c in components {
         let normalized = normalize_component_id(c);
         let id = HttpMessageComponentId::try_from(normalized.as_str())
             .with_context(|| format!("message-signature: Invalid component: {}", c))?;
+        // RFC 9421 requires each covered component identifier to appear at most once.
+        // Equivalence is based on component id semantics, where parameter order does
+        // not create a distinct identifier.
+        let uniqueness_key = component_uniqueness_key(&id);
+        if !seen.insert(uniqueness_key) {
+            bail!(
+                "message-signature: Duplicate covered component identifier: {}",
+                id
+            );
+        }
         component_ids.push(id);
     }
     HttpSignatureParams::try_new(&component_ids)
         .context("message-signature: Failed to create signature params")
+}
+
+/// Build a canonical key for RFC 9421 component-identifier uniqueness checks.
+///
+/// RFC 9421 treats component identifiers as unique entries in covered components,
+/// and two identifiers that differ only by parameter ordering are equivalent.
+/// We normalize:
+/// - component name (`HttpField` lowercased, derived names preserved), and
+/// - parameters (sorted, then joined),
+///
+/// so equivalent identifiers map to the same key.
+fn component_uniqueness_key(component_id: &HttpMessageComponentId) -> String {
+    let name = match &component_id.name {
+        HttpMessageComponentName::Derived(derived) => AsRef::<str>::as_ref(derived).to_string(),
+        HttpMessageComponentName::HttpField(field) => field.to_ascii_lowercase(),
+    };
+    let mut params: Vec<String> = component_id
+        .params
+        .0
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .collect();
+    params.sort_unstable();
+    if params.is_empty() {
+        name
+    } else {
+        format!("{name};{}", params.join(";"))
+    }
 }
 
 /// Normalizes component identifiers for RFC 9421 compliance.
@@ -685,6 +728,47 @@ mod tests {
 
         let defaults = resolve_components(&req, None);
         assert_eq!(defaults, vec!["@method", "@authority", "@target-uri"]);
+    }
+
+    #[test]
+    fn test_resolve_components_query_params_deduplicates_names() {
+        let req = Client::new()
+            .get("https://example.com/?id=1&id=2&name=alice&id=3")
+            .build()
+            .unwrap();
+        let input = vec!["@query-params".to_string()];
+
+        let resolved = resolve_components(&req, Some(&input));
+        assert_eq!(
+            resolved,
+            vec!["@query-param;name=\"id\"", "@query-param;name=\"name\""]
+        );
+    }
+
+    #[test]
+    fn test_duplicate_component_rejected() {
+        let components = vec!["@method".to_string(), "@method".to_string()];
+        let result = build_signature_params(&components);
+        assert!(result.is_err());
+        assert!(format!("{:?}", result.err().unwrap()).contains("Duplicate covered component"));
+    }
+
+    #[test]
+    fn test_equivalent_component_with_different_param_order_rejected() {
+        let first = HttpMessageComponentId::try_from("\"x-field\";sf;tr").unwrap();
+        let second = HttpMessageComponentId::try_from("\"x-field\";tr;sf").unwrap();
+        assert_eq!(
+            component_uniqueness_key(&first),
+            component_uniqueness_key(&second)
+        );
+
+        let components = vec![
+            "\"x-field\";sf;tr".to_string(),
+            "\"x-field\";tr;sf".to_string(),
+        ];
+        let result = build_signature_params(&components);
+        assert!(result.is_err());
+        assert!(format!("{:?}", result.err().unwrap()).contains("Duplicate covered component"));
     }
 
     #[test]

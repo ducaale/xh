@@ -826,12 +826,13 @@ pub struct MessageSignature {
     /// Comma-separated list of message signature components (RFC 9421).
     ///
     /// If not specified, defaults to "@method, @authority, @target-uri".
+    /// This flag can be passed multiple times; values are appended in order.
     /// "@query-params" is a shorthand for all query parameters.
     /// "content-digest" is included if there's a body.
     ///
     /// Example: "@method,@path,content-digest"
     #[arg(long = "unstable-m-sig-comp", value_name = "COMPONENTS")]
-    pub m_sig_comp: Option<MessageSignatureComponents>,
+    pub m_sig_comp: Vec<MessageSignatureComponents>,
 }
 
 #[derive(Debug, Clone)]
@@ -1761,6 +1762,23 @@ mod tests {
                 json_format: None
             }
         )
+    }
+
+    #[test]
+    fn parse_repeated_message_signature_components() {
+        let cli = parse([
+            "--unstable-m-sig-id=my-key",
+            "--unstable-m-sig-key=secret",
+            "--unstable-m-sig-comp=@method,@path",
+            "--unstable-m-sig-comp=date",
+            "get",
+            "example.org",
+        ])
+        .unwrap();
+
+        assert_eq!(cli.m_sig.m_sig_comp.len(), 2);
+        assert_eq!(cli.m_sig.m_sig_comp[0].0, vec!["@method", "@path"]);
+        assert_eq!(cli.m_sig.m_sig_comp[1].0, vec!["date"]);
     }
 
     #[test]

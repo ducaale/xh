@@ -44,9 +44,7 @@ use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{
-    Cli, FormatOptions, HttpVersion, MessageSignatureComponents, Print, Proxy, Verify,
-};
+use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -583,14 +581,18 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         if let (Some(key_id), Some(key_material)) = (&args.m_sig.m_sig_id, &args.m_sig.m_sig_key) {
+            let m_sig_components: Vec<String> = args
+                .m_sig
+                .m_sig_comp
+                .iter()
+                .flat_map(|components| components.0.iter().cloned())
+                .collect();
+
             message_signature::sign_request(
                 &mut request,
                 key_id,
                 key_material,
-                args.m_sig
-                    .m_sig_comp
-                    .as_ref()
-                    .map(|MessageSignatureComponents(c)| c.as_slice()),
+                (!m_sig_components.is_empty()).then_some(m_sig_components.as_slice()),
             )?;
         }
 

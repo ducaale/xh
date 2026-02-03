@@ -5,6 +5,15 @@ use httpsig_hyper::HyperSigError;
 
 const KEY_MATERIAL: &str = "secret-key-material";
 
+fn reconstruct_absolute_uri<B>(req: &mut hyper::Request<B>) {
+    // Reconstruct absolute URI for verification of @target-uri and @authority
+    if let Some(host) = req.headers().get("host") {
+        let host_str = host.to_str().unwrap();
+        let uri_string = format!("http://{}{}", host_str, req.uri());
+        *req.uri_mut() = uri_string.parse().unwrap();
+    }
+}
+
 #[test]
 fn message_signature_verification_on_server() {
     let key_id = "test-key";
@@ -39,10 +48,11 @@ fn message_signature_verification_on_server() {
     get_command()
         .arg(format!("--unstable-m-sig-id={}", key_id))
         .arg(format!("--unstable-m-sig-key={}", key_material))
-        .arg("--unstable-m-sig-comp=@method,@path,date")
+        .arg("--unstable-m-sig-comp=@method,@path")
+        .arg("--unstable-m-sig-comp=date")
         .arg("get")
         .arg(server.base_url())
-        .arg("date: Thu, 15 Jan 2026 12:00:00 GMT")
+        .arg("date:Thu, 15 Jan 2026 12:00:00 GMT")
         .assert()
         .success();
 }
@@ -56,12 +66,7 @@ fn message_signature_auth_defaults() {
         let key_inner = key.to_string();
         let key_id_inner = key_id.to_string();
         async move {
-            // Reconstruct absolute URI for verification of @target-uri and @authority
-            if let Some(host) = req.headers().get("host") {
-                let host_str = host.to_str().unwrap();
-                let uri_string = format!("http://{}{}", host_str, req.uri());
-                *req.uri_mut() = uri_string.parse().unwrap();
-            }
+            reconstruct_absolute_uri(&mut req);
 
             assert_eq!(req.method(), "POST");
             assert!(req.headers().contains_key("Signature"));
@@ -114,12 +119,7 @@ fn message_signature_auth_ipv6_authority() {
         let key_inner = key.to_string();
         let key_id_inner = key_id.to_string();
         async move {
-            // Reconstruct absolute URI for verification of @target-uri and @authority
-            if let Some(host) = req.headers().get("host") {
-                let host_str = host.to_str().unwrap();
-                let uri_string = format!("http://{}{}", host_str, req.uri());
-                *req.uri_mut() = uri_string.parse().unwrap();
-            }
+            reconstruct_absolute_uri(&mut req);
 
             assert_eq!(req.method(), "GET");
             assert!(req.headers().contains_key("Signature"));
@@ -176,12 +176,7 @@ fn message_signature_auth_with_custom_components_and_digest() {
         let key_inner = key.to_string();
         let key_id_inner = key_id.to_string();
         async move {
-            // Reconstruct absolute URI for verification of @target-uri and @authority
-            if let Some(host) = req.headers().get("host") {
-                let host_str = host.to_str().unwrap();
-                let uri_string = format!("http://{}{}", host_str, req.uri());
-                *req.uri_mut() = uri_string.parse().unwrap();
-            }
+            reconstruct_absolute_uri(&mut req);
 
             assert_eq!(req.method(), "POST");
             assert!(req.headers().contains_key("Signature"));
@@ -408,12 +403,7 @@ fn message_signature_with_basic_auth() {
         let key_inner = key.to_string();
         let key_id_inner = key_id.to_string();
         async move {
-            // Reconstruct absolute URI for verification of @target-uri and @authority
-            if let Some(host) = req.headers().get("host") {
-                let host_str = host.to_str().unwrap();
-                let uri_string = format!("http://{}{}", host_str, req.uri());
-                *req.uri_mut() = uri_string.parse().unwrap();
-            }
+            reconstruct_absolute_uri(&mut req);
 
             assert!(req.headers().contains_key("Authorization"));
             assert!(req.headers().contains_key("Signature"));
@@ -496,12 +486,7 @@ MC4CAQAwBQYDK2VwBCIEIJthSCf1pnwSYvdXIrXHikXUix0dmvLEm2JwWF+87xKG
         let key_pem_inner = key_pem.to_string();
         let key_id_inner = key_id.to_string();
         async move {
-            // Reconstruct absolute URI for verification of @target-uri and @authority
-            if let Some(host) = req.headers().get("host") {
-                let host_str = host.to_str().unwrap();
-                let uri_string = format!("http://{}{}", host_str, req.uri());
-                *req.uri_mut() = uri_string.parse().unwrap();
-            }
+            reconstruct_absolute_uri(&mut req);
 
             let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
             assert!(sig_input.contains("alg=\"ed25519\""));
