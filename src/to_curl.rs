@@ -97,6 +97,12 @@ pub fn translate(args: Cli) -> Result<Command> {
         // No equivalent
         (args.style.is_some(), "-s/--style"),
         // No equivalent
+        (args.m_sig.m_sig_id.is_some(), "--unstable-m-sig-id"),
+        // No equivalent
+        (args.m_sig.m_sig_key.is_some(), "--unstable-m-sig-key"),
+        // No equivalent
+        (!args.m_sig.m_sig_comp.is_empty(), "--unstable-m-sig-comp"),
+        // No equivalent
         (args.compress > 0, "-x/--compress"),
         // No equivalent
         (args.response_charset.is_some(), "--response-charset"),

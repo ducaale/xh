@@ -36,7 +36,13 @@ pub struct Server {
 impl Server {
     pub fn base_url(&self) -> String {
         match &*self.listener {
-            Listener::TcpListener(l) => format!("http://{}", l.local_addr().unwrap()),
+            Listener::TcpListener(l) => {
+                let addr = l.local_addr().unwrap();
+                match addr.ip() {
+                    std::net::IpAddr::V6(_) => format!("http://[{}]:{}", addr.ip(), addr.port()),
+                    std::net::IpAddr::V4(_) => format!("http://{}:{}", addr.ip(), addr.port()),
+                }
+            }
             #[cfg(unix)]
             _ => panic!("no base_url for unix server"),
         }
@@ -44,7 +50,17 @@ impl Server {
 
     pub fn url(&self, path: &str) -> String {
         match &*self.listener {
-            Listener::TcpListener(l) => format!("http://{}{}", l.local_addr().unwrap(), path),
+            Listener::TcpListener(l) => {
+                let addr = l.local_addr().unwrap();
+                match addr.ip() {
+                    std::net::IpAddr::V6(_) => {
+                        format!("http://[{}]:{}{}", addr.ip(), addr.port(), path)
+                    }
+                    std::net::IpAddr::V4(_) => {
+                        format!("http://{}:{}{}", addr.ip(), addr.port(), path)
+                    }
+                }
+            }
             #[cfg(unix)]
             _ => panic!("no url for unix server"),
         }
@@ -52,7 +68,10 @@ impl Server {
 
     pub fn host(&self) -> String {
         match &*self.listener {
-            Listener::TcpListener(_) => String::from("127.0.0.1"),
+            Listener::TcpListener(l) => match l.local_addr().unwrap().ip() {
+                std::net::IpAddr::V6(addr) => addr.to_string(),
+                std::net::IpAddr::V4(addr) => addr.to_string(),
+            },
             #[cfg(unix)]
             _ => panic!("no host for unix server"),
         }
@@ -124,7 +143,11 @@ where
     F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Response<Body>> + Send + 'static,
 {
-    http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))), false)
+    http_inner(
+        Arc::new(move |req| Box::new(Box::pin(func(req)))),
+        false,
+        None,
+    )
 }
 
 #[cfg(unix)]
@@ -133,13 +156,38 @@ where
     F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Response<Body>> + Send + 'static,
 {
-    http_inner(Arc::new(move |req| Box::new(Box::pin(func(req)))), true)
+    http_inner(
+        Arc::new(move |req| Box::new(Box::pin(func(req)))),
+        true,
+        None,
+    )
+}
+
+pub fn http_v6<F, Fut>(func: F) -> Option<Server>
+where
+    F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Response<Body>> + Send + 'static,
+{
+    let addr = std::net::SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 0));
+    if std::net::TcpListener::bind(addr).is_err() {
+        return None;
+    }
+
+    Some(http_inner(
+        Arc::new(move |req| Box::new(Box::pin(func(req)))),
+        false,
+        Some(addr),
+    ))
 }
 
 type Serv = dyn Fn(Request<hyper::body::Incoming>) -> Box<ServFut> + Send + Sync;
 type ServFut = dyn Future<Output = Response<Body>> + Send + Unpin;
 
-fn http_inner(func: Arc<Serv>, use_unix_socket: bool) -> Server {
+fn http_inner(
+    func: Arc<Serv>,
+    use_unix_socket: bool,
+    addr: Option<std::net::SocketAddr>,
+) -> Server {
     // Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
         let rt = runtime::Builder::new_current_thread()
@@ -163,7 +211,8 @@ fn http_inner(func: Arc<Serv>, use_unix_socket: bool) -> Server {
                         .unwrap()
                 }
             } else {
-                tokio::net::TcpListener::bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+                let addr = addr.unwrap_or(std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+                tokio::net::TcpListener::bind(&addr)
                     .await
                     .map(Listener::TcpListener)
                     .unwrap()

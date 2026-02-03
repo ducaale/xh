@@ -263,6 +263,9 @@ Example: --print=Hb"
     #[clap(long)]
     pub ignore_netrc: bool,
 
+    #[command(flatten)]
+    pub m_sig: MessageSignature,
+
     /// Construct HTTP requests without sending them anywhere.
     #[clap(long)]
     pub offline: bool,
@@ -802,6 +805,56 @@ pub enum AuthType {
     Basic,
     Bearer,
     Digest,
+}
+
+#[derive(clap::Args, Debug, Clone)]
+pub struct MessageSignature {
+    /// Message signature key identifier (RFC 9421).
+    #[arg(
+        long = "unstable-m-sig-id",
+        value_name = "KEY_ID",
+        requires = "m_sig_key"
+    )]
+    pub m_sig_id: Option<String>,
+
+    /// Message signature key material (RFC 9421).
+    ///
+    /// Can be a raw string or a file path starting with @.
+    #[arg(long = "unstable-m-sig-key", value_name = "KEY", requires = "m_sig_id")]
+    pub m_sig_key: Option<String>,
+
+    /// Comma-separated list of message signature components (RFC 9421).
+    ///
+    /// If not specified, defaults to "@method, @authority, @target-uri".
+    /// This flag can be passed multiple times; values are appended in order.
+    /// "@query-params" is a shorthand for all query parameters.
+    /// "content-digest" is included if there's a body.
+    ///
+    /// Example: "@method,@path,content-digest"
+    #[arg(long = "unstable-m-sig-comp", value_name = "COMPONENTS")]
+    pub m_sig_comp: Vec<MessageSignatureComponents>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageSignatureComponents(pub Vec<String>);
+
+impl FromStr for MessageSignatureComponents {
+    type Err = std::convert::Infallible;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let components = s
+            .split(',')
+            .map(|s| {
+                let component = s.trim();
+                if let Some(idx) = component.find(';') {
+                    let (name, params) = component.split_at(idx);
+                    format!("{}{}", name.to_lowercase(), params)
+                } else {
+                    component.to_lowercase()
+                }
+            })
+            .collect();
+        Ok(MessageSignatureComponents(components))
+    }
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -1709,6 +1762,23 @@ mod tests {
                 json_format: None
             }
         )
+    }
+
+    #[test]
+    fn parse_repeated_message_signature_components() {
+        let cli = parse([
+            "--unstable-m-sig-id=my-key",
+            "--unstable-m-sig-key=secret",
+            "--unstable-m-sig-comp=@method,@path",
+            "--unstable-m-sig-comp=date",
+            "get",
+            "example.org",
+        ])
+        .unwrap();
+
+        assert_eq!(cli.m_sig.m_sig_comp.len(), 2);
+        assert_eq!(cli.m_sig.m_sig_comp[0].0, vec!["@method", "@path"]);
+        assert_eq!(cli.m_sig.m_sig_comp[1].0, vec!["date"]);
     }
 
     #[test]

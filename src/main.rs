@@ -8,6 +8,7 @@ mod download;
 mod error_reporting;
 mod formatting;
 mod generation;
+mod message_signature;
 mod middleware;
 mod nested_json;
 mod netrc;
@@ -577,6 +578,22 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);
+        }
+
+        if let (Some(key_id), Some(key_material)) = (&args.m_sig.m_sig_id, &args.m_sig.m_sig_key) {
+            let m_sig_components: Vec<String> = args
+                .m_sig
+                .m_sig_comp
+                .iter()
+                .flat_map(|components| components.0.iter().cloned())
+                .collect();
+
+            message_signature::sign_request(
+                &mut request,
+                key_id,
+                key_material,
+                (!m_sig_components.is_empty()).then_some(m_sig_components.as_slice()),
+            )?;
         }
 
         request
