@@ -216,7 +216,7 @@ Example: --print=Hb"
 
     /// Download the body to a file instead of printing it.
     ///
-    /// The Accept-Encoding header is set to identify and any redirects will be followed.
+    /// The Accept-Encoding header is set to identity and any redirects will be followed.
     #[clap(short = 'd', long)]
     pub download: bool,
 
