@@ -273,6 +273,7 @@ impl Session {
                     raw_auth: Some(token.into()),
                 }
             }
+            &auth::Auth::Plugin(..) => {}
         }
     }
 

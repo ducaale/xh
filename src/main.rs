@@ -559,6 +559,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                 }
                 Auth::Bearer(token) => request_builder.bearer_auth(token),
                 Auth::Digest(..) => request_builder,
+                Auth::Plugin(..) => request_builder,
             }
         }
 
@@ -587,6 +588,10 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);
+        }
+
+        if let Some(Auth::Plugin(auth_plugin)) = &auth {
+            auth_plugin.authenticate(&mut request)?;
         }
 
         #[cfg(not(feature = "http-message-signatures"))]

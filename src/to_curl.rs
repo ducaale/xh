@@ -362,6 +362,9 @@ pub fn translate(args: Cli) -> Result<Command> {
                 cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
             }
+            AuthType::Plugin(..) => {
+                cmd.warn(format!("Ignored -A/--auth-type"));
+            }
         }
     }
 

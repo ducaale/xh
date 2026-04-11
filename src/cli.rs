@@ -802,12 +802,32 @@ fn construct_url(
     Ok(url)
 }
 
-#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     #[default]
     Basic,
     Bearer,
     Digest,
+    Plugin(String),
+}
+
+impl FromStr for AuthType {
+    type Err = anyhow::Error;
+
+    fn from_str(auth_type: &str) -> anyhow::Result<AuthType> {
+        match auth_type {
+            "basic" => Ok(AuthType::Basic),
+            "bearer" => Ok(AuthType::Bearer),
+            "digest" => Ok(AuthType::Digest),
+            auth_type => {
+                if let Some(name) = auth_type.strip_prefix("plugin:") {
+                    Ok(AuthType::Plugin(name.into()))
+                } else {
+                    return Err(anyhow!("Unknown auth_type '{auth_type}'"));
+                }
+            }
+        }
+    }
 }
 
 #[derive(clap::Args, Debug, Clone)]
