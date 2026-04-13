@@ -1360,6 +1360,7 @@ pub enum Generate {
     CompletePowershell,
     CompleteZsh,
     Man,
+    Md,
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.

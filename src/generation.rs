@@ -7,6 +7,7 @@ use crate::cli::Cli;
 use crate::cli::Generate;
 
 const MAN_TEMPLATE: &str = include_str!("../doc/man-template.roff");
+const MD_TEMPLATE: &str = include_str!("../doc/md-template.md");
 
 pub fn generate(bin_name: &str, generate: Generate) {
     let mut app = Cli::into_app();
@@ -49,7 +50,84 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
         Generate::Man => {
             generate_manpages(&mut app);
         }
+        Generate::Md => {
+            generate_markdown(&mut app);
+        }
     }
+}
+
+fn generate_markdown(app: &mut clap::Command) {
+    let items: Vec<_> = app.get_arguments().filter(|i| !i.is_hide_set()).collect();
+
+    let mut options = String::new();
+    let non_pos_items = items
+        .iter()
+        .filter(|a| !a.is_positional())
+        .collect::<Vec<_>>();
+
+    for opt in non_pos_items {
+        let mut header = String::new();
+        if let Some(short) = opt.get_short() {
+            header.push_str(&format!("`-{short}`"));
+        }
+        if let Some(long) = opt.get_long() {
+            if !header.is_empty() {
+                header.push_str(", ");
+            }
+            header.push_str(&format!("`--{long}`"));
+        }
+        if opt.get_action().takes_values() {
+            let value_name = &opt.get_value_names().unwrap();
+            if opt.get_long().is_some() {
+                header.push_str("=");
+            } else {
+                header.push_str(" ");
+            }
+            header.push_str(&format!("`{}`", value_name.join(" ")));
+        }
+
+        let mut body = String::new();
+
+        let mut help = opt
+            .get_long_help()
+            .or_else(|| opt.get_help())
+            .expect("option is missing help")
+            .to_string()
+            .replace("\n    ", "\n- ")
+            .replace('\n', "\n    ");
+        if !help.ends_with('.') {
+            help.push('.')
+        }
+
+        body.push_str(&help);
+
+        let possible_values = opt.get_possible_values();
+        if !possible_values.is_empty()
+            && !opt.is_hide_possible_values_set()
+            && opt.get_id() != "pretty"
+        {
+            let possible_values_text = format!(
+                "\n\n    [possible values: {}]",
+                possible_values
+                    .iter()
+                    .map(|v| v.get_name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            body.push_str(&possible_values_text);
+        }
+        options.push_str("- ");
+        options.push_str(&header);
+        options.push_str(": ");
+        options.push_str(&body);
+        options.push_str("\n\n")
+    }
+
+    let mut manpage = MD_TEMPLATE.to_string();
+
+    manpage = manpage.replace("{{options}}", options.trim());
+
+    print!("{manpage}");
 }
 
 fn generate_manpages(app: &mut clap::Command) {
