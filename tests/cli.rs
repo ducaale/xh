@@ -1414,13 +1414,46 @@ fn unsupported_tls_version_rustls() {
 #[test]
 fn forced_json() {
     let server = server::http(|req| async move {
-        assert_eq!(req.headers()["content-type"], "application/json");
         assert_eq!(req.headers()["accept"], "application/json, */*;q=0.5");
+        assert!(req.headers().get("content-type").is_none());
+        assert!(req.headers().get("content-length").is_none());
+        assert_eq!(req.body_as_string().await, "");
         hyper::Response::default()
     });
 
     get_command()
         .args(["--json", &server.base_url()])
+        .assert()
+        .success();
+}
+
+#[test]
+fn forced_json_offline_does_not_set_content_headers() {
+    get_command()
+        .args(["--offline", "--json", "post", ":"])
+        .assert()
+        .stdout(indoc! {r#"
+            POST / HTTP/1.1
+            Accept: application/json, */*;q=0.5
+            Accept-Encoding: gzip, deflate, br, zstd
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+
+        "#});
+}
+
+#[test]
+fn forced_json_preserves_manual_content_type() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()["content-type"], "text/plain");
+        assert_eq!(req.headers()["accept"], "application/json, */*;q=0.5");
+        assert_eq!(req.body_as_string().await, "");
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(["--json", &server.base_url(), "content-type:text/plain"])
         .assert()
         .success();
 }

@@ -37,7 +37,8 @@ use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
 use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
-    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HeaderValue, RANGE, USER_AGENT,
+    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HeaderValue, RANGE,
+    USER_AGENT,
 };
 use reqwest::tls;
 use url::Host;
@@ -139,6 +140,7 @@ fn run(args: Cli) -> Result<ExitCode> {
     } else {
         args.request_items.body()?
     };
+    let explicit_empty_json_body = matches!(&body, Body::Json(body) if body.is_null() && args.json);
 
     let method = args.method.unwrap_or_else(|| body.pick_method());
     log::debug!("HTTP method: {method}");
@@ -423,6 +425,8 @@ fn run(args: Cli) -> Result<ExitCode> {
             }
         }
     }
+    let had_content_length_header = headers.contains_key(CONTENT_LENGTH);
+    let had_content_type_header = headers.contains_key(CONTENT_TYPE);
 
     let mut request = {
         let mut request_builder = client
@@ -464,9 +468,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                         .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                         .json(&body)
                 } else if args.json {
-                    request_builder
-                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
-                        .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE))
+                    request_builder.header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                 } else {
                     // We're here because this is the default request type
                     // There's nothing to do
@@ -563,6 +565,15 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         let mut request = request_builder.headers(headers).build()?;
+
+        if explicit_empty_json_body {
+            if !had_content_length_header {
+                request.headers_mut().remove(CONTENT_LENGTH);
+            }
+            if !had_content_type_header {
+                request.headers_mut().remove(CONTENT_TYPE);
+            }
+        }
 
         if args.compress >= 1 {
             if request.headers().contains_key(CONTENT_ENCODING) {

@@ -444,7 +444,6 @@ pub fn translate(args: Cli) -> Result<Command> {
                 cmd.arg(json_string);
             }
             Body::Json(..) if args.json => {
-                cmd.header("content-type", JSON_CONTENT_TYPE);
                 cmd.header("accept", JSON_ACCEPT);
             }
             Body::Json(..) => {}
@@ -529,7 +528,7 @@ mod tests {
             ),
             (
                 "xh --json httpbin.org/post",
-                "curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5'",
+                "curl http://httpbin.org/post -H 'accept: application/json, */*;q=0.5'",
             ),
             (
                 "xh --form httpbin.org/post x@/dev/null",
