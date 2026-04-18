@@ -23,7 +23,7 @@ jobs:
             flags: --no-default-features --features=native-tls,online-tests # disables rustls
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            flags: --features=http3
+            flags: --features=http3,http-message-signatures
             rustflags: --cfg reqwest_unstable
           - target: x86_64-apple-darwin
             os: macos-15-intel
