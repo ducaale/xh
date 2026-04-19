@@ -234,11 +234,16 @@ Example: --print=Hb"
     ///
     /// Within a session, custom headers, auth credentials, as well as any cookies sent
     /// by the server persist between requests.
-    #[clap(long, value_name = "FILE")]
+    #[clap(long, value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
     pub session: Option<OsString>,
 
     /// Create or read a session without updating it from the request/response exchange.
-    #[clap(long, value_name = "FILE", conflicts_with = "session")]
+    #[clap(
+        long,
+        value_name = "FILE",
+        conflicts_with = "session",
+        value_hint = clap::ValueHint::FilePath
+    )]
     pub session_read_only: Option<OsString>,
 
     #[clap(skip)]

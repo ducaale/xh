@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Write};
 
 use clap_complete::Shell;
 use clap_complete_nushell::Nushell;
@@ -19,23 +19,9 @@ pub fn generate(bin_name: &str, generate: Generate) {
             clap_complete::generate(Shell::Elvish, &mut app, bin_name, &mut io::stdout());
         }
         Generate::CompleteFish => {
-            use std::io::Write;
-            let mut buf = Vec::new();
-            clap_complete::generate(Shell::Fish, &mut app, bin_name, &mut buf);
-            let mut stdout = io::stdout();
-            // Based on https://github.com/fish-shell/fish-shell/blob/1e61e6492db879ba6c32013f901d84b067ca22eb/share/completions/curl.fish#L1-L6
-            let preamble = format!(
-                r#"# Complete paths after @ in options:
-function __{bin_name}_complete_data
-    string match -qr '^(?<prefix>.*@)(?<path>.*)' -- (commandline -ct)
-    printf '%s\n' -- $prefix(__fish_complete_path $path)
-end
-complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{bin_name}_complete_data)"
-
-"#,
-            );
-            stdout.write_all(preamble.as_bytes()).unwrap();
-            stdout.write_all(&buf).unwrap();
+            io::stdout()
+                .write_all(&generate_fish_completion(bin_name))
+                .unwrap();
         }
         Generate::CompleteNushell => {
             clap_complete::generate(Nushell, &mut app, bin_name, &mut io::stdout());
@@ -50,6 +36,28 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
             generate_manpages(&mut app);
         }
     }
+}
+
+fn generate_fish_completion(bin_name: &str) -> Vec<u8> {
+    let mut app = Cli::into_app();
+    let mut buf = fish_preamble(bin_name).into_bytes();
+    clap_complete::generate(Shell::Fish, &mut app, bin_name, &mut buf);
+    buf
+}
+
+// Based on https://github.com/fish-shell/fish-shell/blob/1e61e6492db879ba6c32013f901d84b067ca22eb/share/completions/curl.fish#L1-L6
+fn fish_preamble(bin_name: &str) -> String {
+    format!(
+        r#"# Complete paths after @ in options:
+function __{bin_name}_complete_data
+    string match -qr '^(?<prefix>.*@)(?<path>.*)' -- (commandline -ct)
+    printf '%s\n' -- $prefix(__fish_complete_path $path)
+end
+complete -c {bin_name} -f
+complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{bin_name}_complete_data)"
+
+"#,
+    )
 }
 
 fn generate_manpages(app: &mut clap::Command) {
@@ -213,4 +221,26 @@ fn generate_manpages(app: &mut clap::Command) {
     manpage = manpage.replace("{{options}}", options_roff.to_roff().trim());
 
     print!("{manpage}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate_fish_completion;
+
+    #[test]
+    fn fish_completion_disables_default_file_completion() {
+        let completion = String::from_utf8(generate_fish_completion("xh")).unwrap();
+        assert!(completion.contains("complete -c xh -f\n"));
+    }
+
+    #[test]
+    fn fish_completion_keeps_session_file_completion() {
+        let completion = String::from_utf8(generate_fish_completion("xh")).unwrap();
+        assert!(completion.contains(
+            "complete -c xh -l session -d 'Create, or reuse and update a session' -r -F"
+        ));
+        assert!(completion.contains(
+            "complete -c xh -l session-read-only -d 'Create or read a session without updating it from the request/response exchange' -r -F"
+        ));
+    }
 }

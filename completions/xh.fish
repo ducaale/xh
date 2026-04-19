@@ -3,6 +3,7 @@ function __xh_complete_data
     string match -qr '^(?<prefix>.*@)(?<path>.*)' -- (commandline -ct)
     printf '%s\n' -- $prefix(__fish_complete_path $path)
 end
+complete -c xh -f
 complete -c xh -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__xh_complete_data)"
 
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
@@ -20,8 +21,8 @@ complete -c xh -l response-mime -d 'Override the response mime type for coloring
 complete -c xh -s p -l print -d 'String specifying what the output should contain' -r
 complete -c xh -s P -l history-print -d 'The same as --print but applies only to intermediary requests/responses' -r
 complete -c xh -s o -l output -d 'Save output to FILE instead of stdout' -r -F
-complete -c xh -l session -d 'Create, or reuse and update a session' -r
-complete -c xh -l session-read-only -d 'Create or read a session without updating it from the request/response exchange' -r
+complete -c xh -l session -d 'Create, or reuse and update a session' -r -F
+complete -c xh -l session-read-only -d 'Create or read a session without updating it from the request/response exchange' -r -F
 complete -c xh -s A -l auth-type -d 'Specify the auth mechanism' -r -f -a "basic\t''
 bearer\t''
 digest\t''"
