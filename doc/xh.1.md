@@ -81,59 +81,58 @@ command instead of sending a request.
 Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-j`, `--json`: (default) Serialize data items from the command line as a JSON object.
-    
-    Overrides both --form and --multipart.
+  
+  Overrides both --form and --multipart.
 
 - `-f`, `--form`: Serialize data items from the command line as form fields.
-    
-    Overrides both --json and --multipart.
+  
+  Overrides both --json and --multipart.
 
 - `--multipart`: Like --form, but force a multipart/form-data request even without files.
-    
-    Overrides both --json and --form.
+  
+  Overrides both --json and --form.
 
 - `--raw`=`RAW`: Pass raw request data without extra processing.
 
 - `--pretty`=`STYLE`: Controls output processing. Possible values are:
-    
-    - all      (default) Enable both coloring and formatting
-    - colors   Apply syntax highlighting to output
-    - format   Pretty-print json and sort headers
-    - none     Disable both coloring and formatting
-    
-    Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
+  
+  - `all`: (default) Enable both coloring and formatting
+  - `colors`: Apply syntax highlighting to output
+  - `format`: Pretty-print json and sort headers
+  - `none`: Disable both coloring and formatting
+  
+  Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 
 - `--format-options`=`FORMAT_OPTIONS`: Set output formatting options. Supported option are:
-    
-    - json.indent:<NUM>
-    - json.format:<true|false>
-    - xml.indent:<NUM>
-    - xml.format:<true|false>
-    - headers.sort:<true|false>
-    
-    Example: --format-options=json.indent:2,xml.indent:2,headers.sort:false.
+  
+  - `json.indent:<NUM>`
+  - `json.format:<true|false>`
+  - `xml.indent:<NUM>`
+  - `xml.format:<true|false>`
+  - `headers.sort:<true|false>`
+  
+  Example: --format-options=json.indent:2,headers.sort:false.
 
 - `-s`, `--style`=`THEME`: Output coloring style.
 
-    [possible values: auto, solarized, monokai, fruity]
-
+  [possible values: auto, solarized, monokai, fruity]
 - `--response-charset`=`ENCODING`: Override the response encoding for terminal display purposes.
-    
-    Example: --response-charset=latin1.
+  
+  Example: --response-charset=latin1.
 
 - `--response-mime`=`MIME_TYPE`: Override the response mime type for coloring and formatting for the terminal.
-    
-    Example: --response-mime=application/json.
+  
+  Example: --response-mime=application/json.
 
 - `-p`, `--print`=`FORMAT`: String specifying what the output should contain
-    
-    - 'H' request headers
-    - 'B' request body
-    - 'h' response headers
-    - 'b' response body
-    - 'm' response metadata
-    
-    Example: --print=Hb.
+  
+  - `H`: request headers
+  - `B`: request body
+  - `h`: response headers
+  - `b`: response body
+  - `m`: response metadata
+  
+  Example: --print=Hb.
 
 - `-h`, `--headers`: Print only the response headers. Shortcut for --print=h.
 
@@ -142,154 +141,151 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 - `-m`, `--meta`: Print only the response metadata. Shortcut for --print=m.
 
 - `-v`, `--verbose`: Print the whole request as well as the response.
-    
-    Additionally, this enables --all for printing intermediary requests/responses while following redirects.
-    
-    Using verbose twice i.e. -vv will print the response metadata as well.
-    
-    Equivalent to --print=HhBb --all.
+  
+  Additionally, this enables --all for printing intermediary requests/responses while following redirects.
+  
+  Using verbose twice i.e. -vv will print the response metadata as well.
+  
+  Equivalent to --print=HhBb --all.
 
 - `--debug`: Print full error stack traces and debug log messages.
-    
-    Logging can be configured in more detail using the `$RUST_LOG` environment variable. Set `RUST_LOG=trace` to show even more messages. See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
+  
+  Logging can be configured in more detail using the `$RUST_LOG` environment variable. Set `RUST_LOG=trace` to show even more messages. See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
 
 - `--all`: Show any intermediary requests/responses while following redirects with --follow.
 
 - `-P`, `--history-print`=`FORMAT`: The same as --print but applies only to intermediary requests/responses.
 
 - `-q`, `--quiet`: Do not print to stdout or stderr.
-    
-    Using quiet twice i.e. -qq will suppress warnings as well.
+  
+  Using quiet twice i.e. -qq will suppress warnings as well.
 
 - `-S`, `--stream`: Always stream the response body.
 
 - `-x`, `--compress`: Content compressed (encoded) with Deflate algorithm.
-    
-    The Content-Encoding header is set to deflate.
-    
-    Compression is skipped if it appears that compression ratio is negative. Compression can be forced by repeating this option.
-    
-    Note: Compression cannot be used if the Content-Encoding request header is present.
+  
+  The Content-Encoding header is set to deflate.
+  
+  Compression is skipped if it appears that compression ratio is negative. Compression can be forced by repeating this option.
+  
+  Note: Compression cannot be used if the Content-Encoding request header is present.
 
 - `-o`, `--output`=`FILE`: Save output to FILE instead of stdout.
 
 - `-d`, `--download`: Download the body to a file instead of printing it.
-    
-    The Accept-Encoding header is set to identity and any redirects will be followed.
+  
+  The Accept-Encoding header is set to identity and any redirects will be followed.
 
 - `-c`, `--continue`: Resume an interrupted download. Requires --download and --output.
 
 - `--session`=`FILE`: Create, or reuse and update a session.
-    
-    Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
+  
+  Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
 
 - `--session-read-only`=`FILE`: Create or read a session without updating it from the request/response exchange.
 
 - `-A`, `--auth-type`=`AUTH_TYPE`: Specify the auth mechanism.
 
-    [possible values: basic, bearer, digest]
-
+  [possible values: basic, bearer, digest]
 - `-a`, `--auth`=`USER[:PASS] | TOKEN`: Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
-    
-    PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
-    
-    TOKEN is expected if --auth-type=bearer.
+  
+  PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
+  
+  TOKEN is expected if --auth-type=bearer.
 
 - `--ignore-netrc`: Do not use credentials from .netrc.
 
 - `--offline`: Construct HTTP requests without sending them anywhere.
 
 - `--check-status`: (default) Exit with an error status code if the server replies with an error.
-    
-    The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error), or 3 on 3xx (Redirect) if --follow isn't set.
-    
-    If stdout is redirected then a warning is written to stderr.
+  
+  The exit code will be 4 on 4xx (Client Error), 5 on 5xx (Server Error), or 3 on 3xx (Redirect) if --follow isn't set.
+  
+  If stdout is redirected then a warning is written to stderr.
 
 - `-F`, `--follow`: Do follow redirects.
 
 - `--max-redirects`=`NUM`: Number of redirects to follow. Only respected if --follow is used.
 
 - `--timeout`=`SEC`: Connection timeout of the request.
-    
-    The default value is "0", i.e., there is no timeout limit.
+  
+  The default value is "0", i.e., there is no timeout limit.
 
 - `--proxy`=`PROTOCOL:URL`: Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
-    
-    PROTOCOL can be "all", "http" or "https".
-    
-    If your proxy requires credentials, put them in the URL, like so: --proxy http:socks5://user:password@proxy.host:8000.
-    
-    You can specify proxies for multiple protocols by repeating this option.
-    
-    The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but are completely ignored if --proxy is passed.
+  
+  PROTOCOL can be "all", "http" or "https".
+  
+  If your proxy requires credentials, put them in the URL, like so: --proxy http:socks5://user:password@proxy.host:8000.
+  
+  You can specify proxies for multiple protocols by repeating this option.
+  
+  The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but are completely ignored if --proxy is passed.
 
 - `--verify`=`VERIFY`: If "no", skip SSL verification. If a file path, use it as a CA bundle.
-    
-    Specifying a CA bundle will disable the system's built-in root certificates.
-    
-    "false" instead of "no" also works. The default is "yes" ("true").
+  
+  Specifying a CA bundle will disable the system's built-in root certificates.
+  
+  "false" instead of "no" also works. The default is "yes" ("true").
 
 - `--cert`=`FILE`: Use a client side certificate for SSL.
 
 - `--cert-key`=`FILE`: A private key file to use with --cert.
-    
-    Only necessary if the private key is not contained in the cert file.
+  
+  Only necessary if the private key is not contained in the cert file.
 
 - `--ssl`=`VERSION`: Force a particular TLS version.
-    
-    "auto" gives the default behavior of negotiating a version with the server.
+  
+  "auto" gives the default behavior of negotiating a version with the server.
 
-    [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
-
+  [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
 - `--native-tls`: Use the system TLS library instead of rustls (if enabled at compile time).
 
 - `--https`: Make HTTPS requests if not specified in the URL.
 
 - `--http-version`=`VERSION`: HTTP version to use.
 
-    [possible values: 1.0, 1.1, 2, 2-prior-knowledge, 3-prior-knowledge]
-
+  [possible values: 1.0, 1.1, 2, 2-prior-knowledge, 3-prior-knowledge]
 - `--resolve`=`HOST:ADDRESS`: Override DNS resolution for specific domain to a custom IP.
-    
-    You can override multiple domains by repeating this option.
-    
-    Example: --resolve=example.com:127.0.0.1.
+  
+  You can override multiple domains by repeating this option.
+  
+  Example: --resolve=example.com:127.0.0.1.
 
 - `--interface`=`NAME`: Bind to a network interface or local IP address.
-    
-    Example: --interface=eth0 --interface=192.168.0.2.
+  
+  Example: --interface=eth0 --interface=192.168.0.2.
 
 - `-4`, `--ipv4`: Resolve hostname to ipv4 addresses only.
 
 - `-6`, `--ipv6`: Resolve hostname to ipv6 addresses only.
 
 - `--unix-socket`=`FILE`: Connect using a Unix domain socket.
-    
-    Example: xh :/index.html --unix-socket=/var/run/temp.sock.
+  
+  Example: xh :/index.html --unix-socket=/var/run/temp.sock.
 
 - `-I`, `--ignore-stdin`: Do not attempt to read stdin.
-    
-    This disables the default behaviour of reading the request body from stdin when a redirected input is detected.
-    
-    It is recommended to pass this flag when using xh for scripting purposes. For more information, refer to https://httpie.io/docs/cli/best-practices.
+  
+  This disables the default behaviour of reading the request body from stdin when a redirected input is detected.
+  
+  It is recommended to pass this flag when using xh for scripting purposes. For more information, refer to https://httpie.io/docs/cli/best-practices.
 
 - `--curl`: Print a translation to a curl command.
-    
-    For translating the other way, try https://curl2httpie.online/.
+  
+  For translating the other way, try https://curl2httpie.online/.
 
 - `--curl-long`: Use the long versions of curl's flags.
 
 - `--generate`=`KIND`: Generate shell completions or man pages. Possible values are:
-    
-    - complete-bash         Generate completions for bash
-    - complete-elvish       Generate completions for elvish
-    - complete-fish         Generage completions for fish
-    - complete-nushell      Generate completions for nushell
-    - complete-powershell   Generate completions for powershell
-    - complete-zsh          Generate completions for zsh
-    - man                   Generate manual page in roff format
-    
-    Example: xh --generate=complete-bash > xh.bash.
+  
+  - `complete-bash`: Generate completions for bash
+  - `complete-elvish`: Generate completions for elvish
+  - `complete-fish`: Generage completions for fish
+  - `complete-nushell`: Generate completions for nushell
+  - `complete-powershell`: Generate completions for powershell
+  - `complete-zsh`: Generate completions for zsh
+  - `man`: Generate manual page in roff format
+  
+  Example: xh --generate=complete-bash > xh.bash.
 
 - `--help`: Print help.
 

@@ -92,14 +92,21 @@ fn generate_markdown(app: &mut clap::Command) {
             .get_long_help()
             .or_else(|| opt.get_help())
             .expect("option is missing help")
-            .to_string()
-            .replace("\n    ", "\n- ")
-            .replace('\n', "\n    ");
+            .to_string();
         if !help.ends_with('.') {
             help.push('.')
         }
 
-        body.push_str(&help);
+        for line in parse_help(&help) {
+            match line {
+                ParsedHelp::Definition(term, Some(description)) => {
+                    body.push_str(&format!("  - `{term}`: {description}"))
+                }
+                ParsedHelp::Definition(term, None) => body.push_str(&format!("  - `{term}`")),
+                ParsedHelp::Line(line) => body.push_str(&format!("  {line}")),
+            }
+            body.push_str("\n")
+        }
 
         let possible_values = opt.get_possible_values();
         if !possible_values.is_empty()
@@ -107,7 +114,7 @@ fn generate_markdown(app: &mut clap::Command) {
             && opt.get_id() != "pretty"
         {
             let possible_values_text = format!(
-                "\n\n    [possible values: {}]",
+                "\n  [possible values: {}]",
                 possible_values
                     .iter()
                     .map(|v| v.get_name())
@@ -119,8 +126,8 @@ fn generate_markdown(app: &mut clap::Command) {
         options.push_str("- ");
         options.push_str(&header);
         options.push_str(": ");
-        options.push_str(&body);
-        options.push_str("\n\n")
+        options.push_str(body.trim_start());
+        options.push_str("\n")
     }
 
     let mut manpage = MD_TEMPLATE.to_string();
@@ -213,7 +220,10 @@ fn generate_manpages(app: &mut clap::Command) {
         .collect::<Vec<_>>();
 
     for opt in non_pos_items {
+        options_roff.control("TP", ["4"]);
+
         let mut header = vec![];
+
         if let Some(short) = opt.get_short() {
             header.push(bold(format!("-{short}")));
         }
@@ -241,6 +251,8 @@ fn generate_manpages(app: &mut clap::Command) {
                 header.push(italic(value_name.join(" ")));
             }
         }
+        options_roff.text(header);
+
         let mut body = vec![];
 
         let mut help = opt
@@ -251,7 +263,43 @@ fn generate_manpages(app: &mut clap::Command) {
         if !help.ends_with('.') {
             help.push('.')
         }
-        body.push(roman(help));
+
+        let mut rs = false;
+        let mut pp = false;
+        for line in parse_help(&help) {
+            match line {
+                ParsedHelp::Definition(term, Some(description)) => {
+                    if !rs {
+                        rs = true;
+                        options_roff.control("RS", ["8"]);
+                    }
+                    options_roff.control("TP", ["8"]);
+                    options_roff.text([roman(term)]);
+                    options_roff.text([roman(description)]);
+                }
+                ParsedHelp::Definition(term, None) => {
+                    if !rs {
+                        rs = true;
+                        options_roff.control("RS", ["8"]);
+                    }
+                    options_roff.control("PP", []);
+                    options_roff.text([roman(term)]);
+                }
+                ParsedHelp::Line(line) => {
+                    if rs {
+                        rs = false;
+                        options_roff.control("RE", []);
+                        pp = true;
+                        options_roff.control("RS", ["4"]);
+                        options_roff.control("PP", []);
+                    }
+                    options_roff.text([roman(line)]);
+                }
+            }
+        }
+        if pp {
+            options_roff.control("RE", []);
+        }
 
         let possible_values = opt.get_possible_values();
         if !possible_values.is_empty()
@@ -268,8 +316,6 @@ fn generate_manpages(app: &mut clap::Command) {
             );
             body.push(roman(possible_values_text));
         }
-        options_roff.control("TP", ["4"]);
-        options_roff.text(header);
         options_roff.text(body);
     }
 
@@ -291,4 +337,27 @@ fn generate_manpages(app: &mut clap::Command) {
     manpage = manpage.replace("{{options}}", options_roff.to_roff().trim());
 
     print!("{manpage}");
+}
+
+enum ParsedHelp<'a> {
+    Line(&'a str),
+    Definition(&'a str, Option<&'a str>),
+}
+
+fn parse_help(body: &str) -> Vec<ParsedHelp<'_>> {
+    let mut parsed: Vec<ParsedHelp> = Vec::new();
+
+    for line in body.lines() {
+        if line.starts_with("    ") {
+            if let Some((term, description)) = line.trim_start().split_once("   ") {
+                parsed.push(ParsedHelp::Definition(term, Some(description.trim_start())))
+            } else {
+                parsed.push(ParsedHelp::Definition(line.trim_start(), None))
+            }
+        } else {
+            parsed.push(ParsedHelp::Line(line.trim_start()))
+        }
+    }
+
+    parsed
 }

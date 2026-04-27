@@ -109,7 +109,7 @@ Set output formatting options. Supported option are:
     xml.format:<true|false>
     headers.sort:<true|false>
 
-Example: --format-options=json.indent:2,xml.indent:2,headers.sort:false"
+Example: --format-options=json.indent:2,headers.sort:false"
     )]
     pub format_options: Vec<FormatOptions>,
 
@@ -137,11 +137,11 @@ Example: --format-options=json.indent:2,xml.indent:2,headers.sort:false"
         long_help = "\
 String specifying what the output should contain
 
-    'H' request headers
-    'B' request body
-    'h' response headers
-    'b' response body
-    'm' response metadata
+    H   request headers
+    B   request body
+    h   response headers
+    b   response body
+    m   response metadata
 
 Example: --print=Hb"
     )]
