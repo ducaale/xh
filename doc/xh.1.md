@@ -115,7 +115,8 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-s`, `--style`=`THEME`: Output coloring style.
 
-  [possible values: auto, solarized, monokai, fruity]
+  [possible values: `auto`, `solarized`, `monokai`, `fruity`]
+
 - `--response-charset`=`ENCODING`: Override the response encoding for terminal display purposes.
   
   Example: --response-charset=latin1.
@@ -186,7 +187,8 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-A`, `--auth-type`=`AUTH_TYPE`: Specify the auth mechanism.
 
-  [possible values: basic, bearer, digest]
+  [possible values: `basic`, `bearer`, `digest`]
+
 - `-a`, `--auth`=`USER[:PASS] | TOKEN`: Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
   
   PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
@@ -237,14 +239,16 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   "auto" gives the default behavior of negotiating a version with the server.
 
-  [possible values: auto, tls1, tls1.1, tls1.2, tls1.3]
+  [possible values: `auto`, `tls1`, `tls1.1`, `tls1.2`, `tls1.3`]
+
 - `--native-tls`: Use the system TLS library instead of rustls (if enabled at compile time).
 
 - `--https`: Make HTTPS requests if not specified in the URL.
 
 - `--http-version`=`VERSION`: HTTP version to use.
 
-  [possible values: 1.0, 1.1, 2, 2-prior-knowledge, 3-prior-knowledge]
+  [possible values: `1.0`, `1.1`, `2`, `2-prior-knowledge`, `3-prior-knowledge`]
+
 - `--resolve`=`HOST:ADDRESS`: Override DNS resolution for specific domain to a custom IP.
   
   You can override multiple domains by repeating this option.

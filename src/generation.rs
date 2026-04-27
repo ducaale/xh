@@ -114,10 +114,10 @@ fn generate_markdown(app: &mut clap::Command) {
             && opt.get_id() != "pretty"
         {
             let possible_values_text = format!(
-                "\n  [possible values: {}]",
+                "\n  [possible values: {}]\n",
                 possible_values
                     .iter()
-                    .map(|v| v.get_name())
+                    .map(|v| format!("`{}`", v.get_name()))
                     .collect::<Vec<_>>()
                     .join(", ")
             );
