@@ -77,13 +77,15 @@ fn generate_markdown(app: &mut clap::Command) {
             header.push_str(&format!("`--{long}`"));
         }
         if opt.get_action().takes_values() {
+            header.pop();
             let value_name = &opt.get_value_names().unwrap();
             if opt.get_long().is_some() {
                 header.push_str("=");
             } else {
                 header.push_str(" ");
             }
-            header.push_str(&format!("`{}`", value_name.join(" ")));
+            header.push_str(&value_name.join(" "));
+            header.push_str("`")
         }
 
         let mut body = String::new();

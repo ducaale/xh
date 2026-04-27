@@ -92,9 +92,9 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   Overrides both --json and --form.
 
-- `--raw`=`RAW`: Pass raw request data without extra processing.
+- `--raw=RAW`: Pass raw request data without extra processing.
 
-- `--pretty`=`STYLE`: Controls output processing. Possible values are:
+- `--pretty=STYLE`: Controls output processing. Possible values are:
   
   - `all`: (default) Enable both coloring and formatting
   - `colors`: Apply syntax highlighting to output
@@ -103,7 +103,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
 
-- `--format-options`=`FORMAT_OPTIONS`: Set output formatting options. Supported option are:
+- `--format-options=FORMAT_OPTIONS`: Set output formatting options. Supported option are:
   
   - `json.indent:<NUM>`
   - `json.format:<true|false>`
@@ -113,19 +113,19 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   Example: --format-options=json.indent:2,headers.sort:false.
 
-- `-s`, `--style`=`THEME`: Output coloring style.
+- `-s`, `--style=THEME`: Output coloring style.
 
   [possible values: `auto`, `solarized`, `monokai`, `fruity`]
 
-- `--response-charset`=`ENCODING`: Override the response encoding for terminal display purposes.
+- `--response-charset=ENCODING`: Override the response encoding for terminal display purposes.
   
   Example: --response-charset=latin1.
 
-- `--response-mime`=`MIME_TYPE`: Override the response mime type for coloring and formatting for the terminal.
+- `--response-mime=MIME_TYPE`: Override the response mime type for coloring and formatting for the terminal.
   
   Example: --response-mime=application/json.
 
-- `-p`, `--print`=`FORMAT`: String specifying what the output should contain
+- `-p`, `--print=FORMAT`: String specifying what the output should contain
   
   - `H`: request headers
   - `B`: request body
@@ -155,7 +155,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--all`: Show any intermediary requests/responses while following redirects with --follow.
 
-- `-P`, `--history-print`=`FORMAT`: The same as --print but applies only to intermediary requests/responses.
+- `-P`, `--history-print=FORMAT`: The same as --print but applies only to intermediary requests/responses.
 
 - `-q`, `--quiet`: Do not print to stdout or stderr.
   
@@ -171,7 +171,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   Note: Compression cannot be used if the Content-Encoding request header is present.
 
-- `-o`, `--output`=`FILE`: Save output to FILE instead of stdout.
+- `-o`, `--output=FILE`: Save output to FILE instead of stdout.
 
 - `-d`, `--download`: Download the body to a file instead of printing it.
   
@@ -179,17 +179,17 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-c`, `--continue`: Resume an interrupted download. Requires --download and --output.
 
-- `--session`=`FILE`: Create, or reuse and update a session.
+- `--session=FILE`: Create, or reuse and update a session.
   
   Within a session, custom headers, auth credentials, as well as any cookies sent by the server persist between requests.
 
-- `--session-read-only`=`FILE`: Create or read a session without updating it from the request/response exchange.
+- `--session-read-only=FILE`: Create or read a session without updating it from the request/response exchange.
 
-- `-A`, `--auth-type`=`AUTH_TYPE`: Specify the auth mechanism.
+- `-A`, `--auth-type=AUTH_TYPE`: Specify the auth mechanism.
 
   [possible values: `basic`, `bearer`, `digest`]
 
-- `-a`, `--auth`=`USER[:PASS] | TOKEN`: Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
+- `-a`, `--auth=USER[:PASS] | TOKEN`: Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
   
   PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
   
@@ -207,13 +207,13 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-F`, `--follow`: Do follow redirects.
 
-- `--max-redirects`=`NUM`: Number of redirects to follow. Only respected if --follow is used.
+- `--max-redirects=NUM`: Number of redirects to follow. Only respected if --follow is used.
 
-- `--timeout`=`SEC`: Connection timeout of the request.
+- `--timeout=SEC`: Connection timeout of the request.
   
   The default value is "0", i.e., there is no timeout limit.
 
-- `--proxy`=`PROTOCOL:URL`: Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
+- `--proxy=PROTOCOL:URL`: Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
   
   PROTOCOL can be "all", "http" or "https".
   
@@ -223,19 +223,19 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   
   The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but are completely ignored if --proxy is passed.
 
-- `--verify`=`VERIFY`: If "no", skip SSL verification. If a file path, use it as a CA bundle.
+- `--verify=VERIFY`: If "no", skip SSL verification. If a file path, use it as a CA bundle.
   
   Specifying a CA bundle will disable the system's built-in root certificates.
   
   "false" instead of "no" also works. The default is "yes" ("true").
 
-- `--cert`=`FILE`: Use a client side certificate for SSL.
+- `--cert=FILE`: Use a client side certificate for SSL.
 
-- `--cert-key`=`FILE`: A private key file to use with --cert.
+- `--cert-key=FILE`: A private key file to use with --cert.
   
   Only necessary if the private key is not contained in the cert file.
 
-- `--ssl`=`VERSION`: Force a particular TLS version.
+- `--ssl=VERSION`: Force a particular TLS version.
   
   "auto" gives the default behavior of negotiating a version with the server.
 
@@ -245,17 +245,17 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--https`: Make HTTPS requests if not specified in the URL.
 
-- `--http-version`=`VERSION`: HTTP version to use.
+- `--http-version=VERSION`: HTTP version to use.
 
   [possible values: `1.0`, `1.1`, `2`, `2-prior-knowledge`, `3-prior-knowledge`]
 
-- `--resolve`=`HOST:ADDRESS`: Override DNS resolution for specific domain to a custom IP.
+- `--resolve=HOST:ADDRESS`: Override DNS resolution for specific domain to a custom IP.
   
   You can override multiple domains by repeating this option.
   
   Example: --resolve=example.com:127.0.0.1.
 
-- `--interface`=`NAME`: Bind to a network interface or local IP address.
+- `--interface=NAME`: Bind to a network interface or local IP address.
   
   Example: --interface=eth0 --interface=192.168.0.2.
 
@@ -263,7 +263,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-6`, `--ipv6`: Resolve hostname to ipv6 addresses only.
 
-- `--unix-socket`=`FILE`: Connect using a Unix domain socket.
+- `--unix-socket=FILE`: Connect using a Unix domain socket.
   
   Example: xh :/index.html --unix-socket=/var/run/temp.sock.
 
@@ -279,7 +279,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--curl-long`: Use the long versions of curl's flags.
 
-- `--generate`=`KIND`: Generate shell completions or man pages. Possible values are:
+- `--generate=KIND`: Generate shell completions or man pages. Possible values are:
   
   - `complete-bash`: Generate completions for bash
   - `complete-elvish`: Generate completions for elvish
