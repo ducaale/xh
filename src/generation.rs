@@ -50,7 +50,7 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
         Generate::Man => {
             generate_manpages(&mut app);
         }
-        Generate::Md => {
+        Generate::Markdown => {
             generate_markdown(&mut app);
         }
     }
