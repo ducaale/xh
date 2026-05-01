@@ -36,7 +36,7 @@ command instead of sending a request.
 
 - `[REQUEST_ITEM ...]`:
 
-Optional key-value pairs to be included in the request.
+  Optional key-value pairs to be included in the request.
   
   The separator is used to determine the type:
   

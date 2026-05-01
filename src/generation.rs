@@ -155,16 +155,12 @@ fn generate_markdown(app: &mut clap::Command) {
             );
             body.push_str(&possible_values_text);
         }
-        options.push_str("- ");
-        options.push_str(&header);
-        options.push_str(": ");
-        options.push_str(body.trim_start());
-        options.push_str("\n")
+        options.push_str(&format!("- {header}: {}\n", body.trim_start()));
     }
 
     let mut manpage = MD_TEMPLATE.to_string();
 
-    manpage = manpage.replace("{{request_items}}", request_items.trim());
+    manpage = manpage.replace("{{request_items}}", request_items.trim_end());
     manpage = manpage.replace("{{options}}", options.trim());
 
     print!("{manpage}");
