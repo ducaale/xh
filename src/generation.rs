@@ -106,12 +106,12 @@ fn generate_markdown(app: &mut clap::Command) {
             header.pop();
             let value_name = &opt.get_value_names().unwrap();
             if opt.get_long().is_some() {
-                header.push_str("=");
+                header.push('=');
             } else {
-                header.push_str(" ");
+                header.push(' ');
             }
             header.push_str(&value_name.join(" "));
-            header.push_str("`")
+            header.push('`')
         }
 
         let mut body = String::new();
@@ -407,8 +407,8 @@ mod tests {
         let parsed = parse_help(indoc! {"
             String specifying what the output should contain
 
-                H request headers
-                B request body
+                'H' request headers
+                'B' request body
 
             Example: --print=Hb
         "});
