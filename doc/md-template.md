@@ -36,45 +36,7 @@ command instead of sending a request.
 
 - `[REQUEST_ITEM ...]`:
 
-  Optional key-value pairs to be included in the request.
-
-  The separator is used to determine the type:
-
-  - `key==value`:
-    Add a query string to the URL.
-
-  - `key=value`:
-    Add a JSON property (`--json`) or form field (`--form`) to the request body.
-
-  - `key:=value`:
-    Add a field with a literal JSON value to the request body.
-  
-    Example: `numbers:=[1,2,3] enabled:=true`
-
-  - `key@filename`:
-    Upload a file (requires `--form` or `--multipart`).
-  
-    To set the filename and mimetype, `;type=` and `;filename=` can be used respectively.
-  
-    Example: `pfp@ra.jpg;type=image/jpeg;filename=profile.jpg`
-
-  - `@filename`:
-    Use a file as the request body.
-
-  - `header:value`:
-    Add a header, e.g. `user-agent:foobar`
-
-  - `header:`:
-    Unset a header, e.g. `connection:`
-
-  - `header;`:
-    Add a header with an empty value.
-
-  An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
-  
-  A backslash can be used to escape special characters, e.g. `weird\:key=value`.
-  
-  To construct a complex JSON object, the `REQUEST_ITEM`'s key can be set to a JSON path instead of a field name. For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
+{{request_items}}
 
 ## OPTIONS
 

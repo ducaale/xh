@@ -36,45 +36,37 @@ command instead of sending a request.
 
 - `[REQUEST_ITEM ...]`:
 
-  Optional key-value pairs to be included in the request.
-
+Optional key-value pairs to be included in the request.
+  
   The separator is used to determine the type:
-
-  - `key==value`:
-    Add a query string to the URL.
-
-  - `key=value`:
-    Add a JSON property (`--json`) or form field (`--form`) to the request body.
-
-  - `key:=value`:
-    Add a field with a literal JSON value to the request body.
   
+  - `key==value`: Add a query string to the URL.
+    
+  - `key=value`: Add a JSON property (--json) or form field (--form) to the request body.
+    
+  - `key:=value`: Add a field with a literal JSON value to the request body.
+    
     Example: `numbers:=[1,2,3] enabled:=true`
-
-  - `key@filename`:
-    Upload a file (requires `--form` or `--multipart`).
-  
+    
+  - `key@filename`: Upload a file (requires --form or --multipart).
+    
     To set the filename and mimetype, `;type=` and `;filename=` can be used respectively.
-  
+    
     Example: `pfp@ra.jpg;type=image/jpeg;filename=profile.jpg`
-
-  - `@filename`:
-    Use a file as the request body.
-
-  - `header:value`:
-    Add a header, e.g. `user-agent:foobar`
-
-  - `header:`:
-    Unset a header, e.g. `connection:`
-
-  - `header;`:
-    Add a header with an empty value.
-
+    
+  - `@filename`: Use a file as the request body.
+    
+  - `header:value`: Add a header, e.g. `user-agent:foobar`
+    
+  - `header:`: Unset a header, e.g. `connection:`
+    
+  - `header;`: Add a header with an empty value.
+    
   An `@` prefix can be used to read a value from a file. For example: `x-api-key:@api-key.txt`.
   
   A backslash can be used to escape special characters, e.g. `weird\:key=value`.
   
-  To construct a complex JSON object, the `REQUEST_ITEM`'s key can be set to a JSON path instead of a field name. For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
+  To construct a complex JSON object, the REQUEST_ITEM's key can be set to a JSON path instead of a field name. For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
 
 ## OPTIONS
 
@@ -100,8 +92,8 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   - `colors`: Apply syntax highlighting to output
   - `format`: Pretty-print json and sort headers
   - `none`: Disable both coloring and formatting
-  
-  Defaults to "format" if the NO_COLOR env is set and to "none" if stdout is not tty.
+    
+  Defaults to `format` if the NO_COLOR env is set and to `none` if stdout is not tty.
 
 - `--format-options=FORMAT_OPTIONS`: Set output formatting options. Supported option are:
   
@@ -110,7 +102,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   - `xml.indent:<NUM>`
   - `xml.format:<true|false>`
   - `headers.sort:<true|false>`
-  
+    
   Example: --format-options=json.indent:2,headers.sort:false.
 
 - `-s`, `--style=THEME`: Output coloring style.
@@ -132,7 +124,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   - `h`: response headers
   - `b`: response body
   - `m`: response metadata
-  
+    
   Example: --print=Hb.
 
 - `-h`, `--headers`: Print only the response headers. Shortcut for --print=h.
@@ -191,7 +183,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-a`, `--auth=USER[:PASS] | TOKEN`: Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
   
-  PASS will be prompted if missing. Use a trailing colon (i.e. "USER:") to authenticate with just a username.
+  PASS will be prompted if missing. Use a trailing colon (i.e. `USER:`) to authenticate with just a username.
   
   TOKEN is expected if --auth-type=bearer.
 
@@ -211,23 +203,23 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--timeout=SEC`: Connection timeout of the request.
   
-  The default value is "0", i.e., there is no timeout limit.
+  The default value is `0`, i.e., there is no timeout limit.
 
 - `--proxy=PROTOCOL:URL`: Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080.
   
-  PROTOCOL can be "all", "http" or "https".
+  PROTOCOL can be `all`, `http` or `https`.
   
   If your proxy requires credentials, put them in the URL, like so: --proxy http:socks5://user:password@proxy.host:8000.
   
   You can specify proxies for multiple protocols by repeating this option.
   
-  The environment variables "ALL_PROXY", "HTTP_PROXY" and "HTTPS_PROXY" can also be used, but are completely ignored if --proxy is passed.
+  The environment variables `ALL_PROXY`, `HTTP_PROXY` and `HTTPS_PROXY` can also be used, but are completely ignored if --proxy is passed.
 
-- `--verify=VERIFY`: If "no", skip SSL verification. If a file path, use it as a CA bundle.
+- `--verify=VERIFY`: If `no`, skip SSL verification. If a file path, use it as a CA bundle.
   
   Specifying a CA bundle will disable the system's built-in root certificates.
   
-  "false" instead of "no" also works. The default is "yes" ("true").
+  `false` instead of `no` also works. The default is `yes` (`true`).
 
 - `--cert=FILE`: Use a client side certificate for SSL.
 
@@ -237,7 +229,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--ssl=VERSION`: Force a particular TLS version.
   
-  "auto" gives the default behavior of negotiating a version with the server.
+  `auto` gives the default behavior of negotiating a version with the server.
 
   [possible values: `auto`, `tls1`, `tls1.1`, `tls1.2`, `tls1.3`]
 
@@ -288,7 +280,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   - `complete-powershell`: Generate completions for powershell
   - `complete-zsh`: Generate completions for zsh
   - `man`: Generate manual page in roff format
-  
+    
   Example: xh --generate=complete-bash > xh.bash.
 
 - `--help`: Print help.
