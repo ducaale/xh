@@ -127,7 +127,7 @@ Options:
 Each option can be reset with a --no-OPTION argument.
 ```
 
-Run `xh help` for more detailed information.
+Run `xh help` or [`man xh`](/doc/xh.1.md) for more detailed information.
 
 ### Request Items
 
