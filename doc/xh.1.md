@@ -280,7 +280,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
   - `complete-powershell`: Generate completions for powershell
   - `complete-zsh`: Generate completions for zsh
   - `man`: Generate manual page in roff format
-  - `markdown`: Generate manual page in markdown format
+  - `man-markdown`: Generate manual page in markdown format
     
   Example: xh --generate=complete-bash > xh.bash.
 

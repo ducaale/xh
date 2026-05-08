@@ -416,7 +416,7 @@ Generate shell completions or man pages. Possible values are:
     complete-powershell   Generate completions for powershell
     complete-zsh          Generate completions for zsh
     man                   Generate manual page in roff format
-    markdown              Generate manual page in markdown format
+    man-markdown          Generate manual page in markdown format
 
 Example: xh --generate=complete-bash > xh.bash",
         conflicts_with = "raw_method_or_url"
@@ -1361,7 +1361,7 @@ pub enum Generate {
     CompletePowershell,
     CompleteZsh,
     Man,
-    Markdown,
+    ManMarkdown,
 }
 
 /// HTTPie uses Python's str.decode(). That one's very accepting of different spellings.
