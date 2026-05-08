@@ -337,8 +337,8 @@ fn parse_help(body: &str) -> Vec<ParsedHelp<'_>> {
                 indent = true;
             }
             if let Some(line) = line.strip_prefix("    ") {
-                if let Some(ParsedHelp::Definition(_, defintion)) = parsed.last_mut() {
-                    defintion.replace(line);
+                if let Some(ParsedHelp::Definition(_, description)) = parsed.last_mut() {
+                    description.replace(line);
                 } else {
                     parsed.push(ParsedHelp::Line(line))
                 }
