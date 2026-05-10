@@ -245,7 +245,7 @@ Example: --print=Hb"
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism.
-    #[clap(short = 'A', long, value_enum)]
+    #[clap(short = 'A', long)]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
@@ -255,7 +255,7 @@ Example: --print=Hb"
     ///
     /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
-    pub auth: Option<SecretString>,
+    pub auth: Vec<SecretString>,
 
     /// Authenticate with a bearer token.
     #[clap(long, value_name = "TOKEN", hide = true)]
@@ -613,9 +613,9 @@ impl Cli {
         if self.https {
             self.default_scheme = Some("https".to_string());
         }
-        if self.bearer.is_some() {
+        if let Some(bearer) = self.bearer.take() {
             self.auth_type = Some(AuthType::Bearer);
-            self.auth = self.bearer.take();
+            self.auth.push(bearer);
         }
         self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
             (true, true) => unreachable!(),

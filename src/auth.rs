@@ -38,7 +38,7 @@ impl Auth {
                 ))
             }
             AuthType::Bearer => Ok(Auth::Bearer(auth.into())),
-            AuthType::Plugin(name) => Ok(Auth::Plugin(AuthPlugin::new(name, auth.into()))),
+            AuthType::Plugin(..) => unreachable!(),
         }
     }
 
@@ -107,11 +107,11 @@ impl Middleware for DigestAuthMiddleware<'_> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct AuthPlugin {
     name: String,
-    auth: String,
+    auth: Vec<String>,
 }
 
 impl AuthPlugin {
-    pub fn new(name: String, auth: String) -> Self {
+    pub fn new(name: String, auth: Vec<String>) -> Self {
         AuthPlugin { name: name, auth }
     }
 }
@@ -157,8 +157,7 @@ impl AuthPlugin {
                 xh: env!("CARGO_PKG_VERSION"),
             },
             url: request.url().to_string(),
-            // TODO: support passing multiple --auth
-            auth: vec![self.auth.to_string()],
+            auth: self.auth.clone(),
             headers: request
                 .headers()
                 .iter()

@@ -43,9 +43,9 @@ use reqwest::tls;
 use url::Host;
 use utils::reason_phrase;
 
-use crate::auth::{Auth, DigestAuthMiddleware};
+use crate::auth::{Auth, AuthPlugin, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{AuthType, Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -531,7 +531,12 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         let auth_type = args.auth_type.unwrap_or_default();
-        if let Some(auth_from_arg) = args.auth {
+        if let AuthType::Plugin(name) = auth_type {
+            auth = Some(Auth::Plugin(AuthPlugin::new(
+                name,
+                args.auth.into_iter().map(|s| s.to_string()).collect(),
+            )));
+        } else if let Some(auth_from_arg) = args.auth.last() {
             auth = Some(Auth::from_str(
                 &auth_from_arg,
                 auth_type,
