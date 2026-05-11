@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process;
 
 use anyhow::{Context as _, Result, anyhow};
+use base64::{Engine as _, engine::general_purpose::STANDARD as base64_standard};
 use regex_lite::Regex;
 use reqwest::StatusCode;
 use reqwest::blocking::{Request, Response};
@@ -116,11 +117,6 @@ impl AuthPlugin {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct Meta {
-    xh: &'static str,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Header {
     name: String,
@@ -128,36 +124,45 @@ struct Header {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PluginOutput {
-    add_headers: Vec<Header>,
+#[serde(tag = "type", rename_all = "snake_case")]
+enum PluginOutput {
+    ModifyRequest { add_headers: Vec<Header> },
+    GetRequestWithBody,
 }
 
 #[derive(Debug, Serialize)]
-struct XhOutput {
+struct Meta {
+    xh: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct XhOutput<'a> {
     #[serde(rename = "__meta__")]
     meta: Meta,
+    method: String,
     url: String,
-    auth: Vec<String>,
     headers: Vec<Header>,
+    base64_body: Option<String>,
+    auth: &'a [String],
     current_dir: PathBuf,
 }
 
-impl AuthPlugin {
-    pub fn authenticate(&self, request: &mut Request) -> Result<()> {
-        // TODO: add tests. See https://stackoverflow.com/questions/77120851/rust-mocking-stdprocesschild-for-test
-        let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
-            .env("XH_AUTH_PLUGIN", "1")
-            .stdin(process::Stdio::piped())
-            .stdout(process::Stdio::piped())
-            .spawn()?;
+impl<'a> XhOutput<'a> {
+    fn new(request: &mut Request, include_body: bool, auth: &'a [String]) -> Result<Self> {
+        let mut base64_body = None;
+        if include_body {
+            if let Some(body) = request.body_mut() {
+                let body = body.buffer()?;
+                base64_body = Some(base64_standard.encode(body));
+            }
+        }
 
-        let xh_output = XhOutput {
+        Ok(XhOutput {
             meta: Meta {
                 xh: env!("CARGO_PKG_VERSION"),
             },
+            method: request.method().to_string(),
             url: request.url().to_string(),
-            auth: self.auth.clone(),
             headers: request
                 .headers()
                 .iter()
@@ -168,34 +173,67 @@ impl AuthPlugin {
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
+            base64_body,
+            auth,
             current_dir: current_dir()?,
-        };
+        })
+    }
+}
 
-        let child_stdin = child.stdin.as_mut().unwrap();
-        child_stdin.write_all(&serde_json::to_vec(&xh_output)?)?;
+impl AuthPlugin {
+    pub fn authenticate(&self, request: &mut Request) -> Result<()> {
+        let mut include_body = false;
+        for _ in 0..2 {
+            // TODO: add tests. See https://stackoverflow.com/questions/77120851/rust-mocking-stdprocesschild-for-test
+            log::debug!("Spawning plugin xh-plugin-{}", self.name);
+            let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
+                .env("XH_AUTH_PLUGIN", "1")
+                .env("XH_AUTH_PLUGIN_BODY", if include_body { "1" } else { "0" })
+                .stdin(process::Stdio::piped())
+                .stdout(process::Stdio::piped())
+                .spawn()
+                .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
 
-        let output = child
-            .wait_with_output()
-            .context("Failed to wait for plugin output")?;
+            let xh_output = XhOutput::new(request, include_body, &self.auth)?;
 
-        if !output.status.success() {
-            if let Some(code) = output.status.code() {
-                return Err(anyhow!("plugin exited with exit code {}", code));
+            let child_stdin = child.stdin.as_mut().unwrap();
+            if include_body {
+                log::debug!("Sending request including body to plugin's stdin");
             } else {
-                return Err(anyhow!("plugin exited no exit code"));
+                log::debug!("Sending request without body to plugin's stdin");
+            }
+            child_stdin.write_all(&serde_json::to_vec(&xh_output)?)?;
+
+            let output = child
+                .wait_with_output()
+                .context("Failed to wait for plugin output")?;
+
+            if !output.status.success() {
+                if let Some(code) = output.status.code() {
+                    return Err(anyhow!("Plugin exited with exit code {}", code));
+                } else {
+                    return Err(anyhow!("Plugin exited no exit code"));
+                }
+            }
+
+            let plugin_output = serde_json::from_slice::<PluginOutput>(&output.stdout)?;
+            match plugin_output {
+                PluginOutput::ModifyRequest { add_headers } => {
+                    log::debug!("Received 'add_headers' from plugin");
+                    request.headers_mut().extend(
+                        add_headers
+                            .iter()
+                            .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                            .collect::<Result<HeaderMap>>()?,
+                    );
+                    break;
+                }
+                PluginOutput::GetRequestWithBody => {
+                    log::debug!("Received 'get_request_with_body' from plugin");
+                    include_body = true;
+                }
             }
         }
-
-        // TODO: depending on exit code or pluginOutput, call plugin again with request body
-
-        let plugin_output = serde_json::from_slice::<PluginOutput>(&output.stdout)?;
-        request.headers_mut().extend(
-            plugin_output
-                .add_headers
-                .iter()
-                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
-                .collect::<Result<HeaderMap>>()?,
-        );
 
         Ok(())
     }
