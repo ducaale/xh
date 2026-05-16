@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+import json
+import sys
+from urllib.parse import urlparse
+
+request = json.loads(sys.stdin.read())
+url = urlparse(request["url"])
+
+output = {"type": "modify_request", "add_headers": []}
+
+if url.hostname == "example.com":
+    output["add_headers"].append({"name": "x-token", "value": "42"})
+
+print(json.dumps(output))

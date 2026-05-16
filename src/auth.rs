@@ -184,7 +184,6 @@ impl AuthPlugin {
     pub fn authenticate(&self, request: &mut Request) -> Result<()> {
         let mut include_body = false;
         for _ in 0..2 {
-            // TODO: add tests. See https://stackoverflow.com/questions/77120851/rust-mocking-stdprocesschild-for-test
             log::debug!("Spawning plugin xh-plugin-{}", self.name);
             let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
                 .env("XH_AUTH_PLUGIN", "1")
