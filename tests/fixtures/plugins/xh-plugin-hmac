@@ -1,41 +1,28 @@
 #!/usr/bin/env python
 
-import hmac
+import base64
 import hashlib
-import os
+import hmac
 import json
 import sys
-import base64
 
+stdin_data = json.loads(sys.stdin.read())
 
-if os.environ["XH_AUTH_PLUGIN_BODY"] != "1":
-    output = {
-        "type": "get_request_with_body"
-    }
+secret = stdin_data["auth"][0]
+body_base64 = stdin_data["next_request"]["body_base64"]
+
+output = {"add_headers": [], "remove_headers": []}
+
+if body_base64 is None:
     print(json.dumps(output))
     exit(0)
 
-request = json.loads(sys.stdin.read())
-secret = request["auth"][0]
-base64_body = request["base64_body"]
-
-output = {
-    "type": "modify_request",
-    "add_headers": []
-}
-
-if base64_body is None:
-    print(json.dumps(output))
-    exit(0)
-
-body = base64.b64decode(base64_body).decode("utf8")
+body = base64.b64decode(body_base64).decode("utf8")
 
 signature = hmac.new(
-     secret.encode("utf8"), body.encode("utf8"), hashlib.sha256
+    secret.encode("utf8"), body.encode("utf8"), hashlib.sha256
 ).hexdigest()
 
-output["add_headers"].append(
-    {"name": "x-signature", "value": signature}
-)
+output["add_headers"].append({"name": "x-signature", "value": signature})
 
 print(json.dumps(output))

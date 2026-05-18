@@ -595,7 +595,7 @@ fn run(args: Cli) -> Result<ExitCode> {
             request.headers_mut().remove(header);
         }
 
-        if let Some(Auth::Plugin(auth_plugin)) = &auth {
+        if let Some(Auth::Plugin(auth_plugin)) = &mut auth {
             auth_plugin.authenticate(&mut request)?;
         }
 

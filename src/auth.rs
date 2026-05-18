@@ -124,116 +124,97 @@ struct Header {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum PluginOutput {
-    ModifyRequest { add_headers: Vec<Header> },
-    GetRequestWithBody,
+struct PluginResponse {
+    remove_headers: Vec<String>,
+    add_headers: Vec<Header>,
 }
 
 #[derive(Debug, Serialize)]
-struct Meta {
-    xh: &'static str,
-}
-
-#[derive(Debug, Serialize)]
-struct XhOutput<'a> {
-    #[serde(rename = "__meta__")]
-    meta: Meta,
+struct NextRequest {
     method: String,
     url: String,
     headers: Vec<Header>,
-    base64_body: Option<String>,
+    body_base64: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct PluginInput<'a> {
+    next_request: NextRequest,
     auth: &'a [String],
     current_dir: PathBuf,
 }
 
-impl<'a> XhOutput<'a> {
-    fn new(request: &mut Request, include_body: bool, auth: &'a [String]) -> Result<Self> {
-        let mut base64_body = None;
-        if include_body {
-            if let Some(body) = request.body_mut() {
-                let body = body.buffer()?;
-                base64_body = Some(base64_standard.encode(body));
-            }
+impl<'a> PluginInput<'a> {
+    fn new(next_request: &mut Request, auth: &'a [String]) -> Result<Self> {
+        let mut body_base64 = None;
+        if let Some(body) = next_request.body_mut() {
+            let body = body.buffer()?;
+            body_base64 = Some(base64_standard.encode(body));
         }
 
-        Ok(XhOutput {
-            meta: Meta {
-                xh: env!("CARGO_PKG_VERSION"),
-            },
-            method: request.method().to_string(),
-            url: request.url().to_string(),
-            headers: request
-                .headers()
-                .iter()
-                .map(|(name, value)| {
-                    Ok(Header {
-                        name: name.to_string(),
-                        value: value.to_str()?.into(),
+        let plugin_input = PluginInput {
+            next_request: NextRequest {
+                method: next_request.method().to_string(),
+                url: next_request.url().to_string(),
+                headers: next_request
+                    .headers()
+                    .iter()
+                    .map(|(name, value)| {
+                        Ok(Header {
+                            name: name.to_string(),
+                            value: value.to_str()?.into(),
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?,
-            base64_body,
+                    .collect::<Result<Vec<_>>>()?,
+                body_base64,
+            },
             auth,
             current_dir: current_dir()?,
-        })
+        };
+
+        Ok(plugin_input)
     }
 }
 
 impl AuthPlugin {
-    pub fn authenticate(&self, request: &mut Request) -> Result<()> {
-        let mut include_body = false;
-        for _ in 0..2 {
-            log::debug!("Spawning plugin xh-plugin-{}", self.name);
-            let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
-                .env("XH_AUTH_PLUGIN", "1")
-                .env("XH_AUTH_PLUGIN_BODY", if include_body { "1" } else { "0" })
-                .stdin(process::Stdio::piped())
-                .stdout(process::Stdio::piped())
-                .spawn()
-                .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
+    pub fn authenticate(&mut self, next_request: &mut Request) -> Result<()> {
+        log::debug!("Spawning plugin xh-plugin-{}", self.name);
+        let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
+            .env("XH_AUTH_PLUGIN", "1")
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
 
-            let xh_output = XhOutput::new(request, include_body, &self.auth)?;
+        let plugin_input = PluginInput::new(next_request, &self.auth)?;
 
-            let child_stdin = child.stdin.as_mut().unwrap();
-            if include_body {
-                log::debug!("Sending request including body to plugin's stdin");
+        let child_stdin = child.stdin.as_mut().unwrap();
+        log::debug!("Writing to plugin's stdin");
+        child_stdin.write_all(&serde_json::to_vec(&plugin_input)?)?;
+
+        let output = child
+            .wait_with_output()
+            .context("Failed to wait for plugin output")?;
+
+        if !output.status.success() {
+            if let Some(code) = output.status.code() {
+                return Err(anyhow!("Plugin exited with exit code {}", code));
             } else {
-                log::debug!("Sending request without body to plugin's stdin");
-            }
-            child_stdin.write_all(&serde_json::to_vec(&xh_output)?)?;
-
-            let output = child
-                .wait_with_output()
-                .context("Failed to wait for plugin output")?;
-
-            if !output.status.success() {
-                if let Some(code) = output.status.code() {
-                    return Err(anyhow!("Plugin exited with exit code {}", code));
-                } else {
-                    return Err(anyhow!("Plugin exited no exit code"));
-                }
-            }
-
-            let plugin_output = serde_json::from_slice::<PluginOutput>(&output.stdout)?;
-            match plugin_output {
-                PluginOutput::ModifyRequest { add_headers } => {
-                    log::debug!("Received 'add_headers' from plugin");
-                    request.headers_mut().extend(
-                        add_headers
-                            .iter()
-                            .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
-                            .collect::<Result<HeaderMap>>()?,
-                    );
-                    break;
-                }
-                PluginOutput::GetRequestWithBody => {
-                    log::debug!("Received 'get_request_with_body' from plugin");
-                    include_body = true;
-                }
+                return Err(anyhow!("Plugin exited no exit code"));
             }
         }
 
+        let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
+        for header in plugin_output.remove_headers {
+            next_request.headers_mut().remove(header);
+        }
+        next_request.headers_mut().extend(
+            plugin_output
+                .add_headers
+                .iter()
+                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                .collect::<Result<HeaderMap>>()?,
+        );
         Ok(())
     }
 }

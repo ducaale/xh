@@ -4,10 +4,10 @@ import json
 import sys
 from urllib.parse import urlparse
 
-request = json.loads(sys.stdin.read())
-url = urlparse(request["url"])
+stdin_data = json.loads(sys.stdin.read())
+url = urlparse(stdin_data["next_request"]["url"])
 
-output = {"type": "modify_request", "add_headers": []}
+output = {"add_headers": [], "remove_headers": []}
 
 if url.hostname == "example.com":
     output["add_headers"].append({"name": "x-token", "value": "42"})
