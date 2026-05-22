@@ -6,31 +6,30 @@ use reqwest::header::{
 };
 use reqwest::{Method, StatusCode, Url};
 
-#[cfg(feature = "http-message-signatures")]
-use crate::cli::MessageSignature;
 use crate::middleware::{Context, Middleware};
 use crate::utils::{HeaderValueExt, clone_request};
 
-pub struct RedirectFollower {
+pub struct RedirectFollower<T> {
     max_redirects: usize,
-    #[cfg(feature = "http-message-signatures")]
-    message_signature: Option<MessageSignature>,
+    on_redirect: T,
 }
 
-impl RedirectFollower {
-    pub fn new(
-        max_redirects: usize,
-        #[cfg(feature = "http-message-signatures")] message_signature: Option<MessageSignature>,
-    ) -> Self {
+impl<T> RedirectFollower<T>
+where
+    T: FnMut(Request) -> Result<Request>,
+{
+    pub fn new(max_redirects: usize, on_redirect: T) -> Self {
         RedirectFollower {
             max_redirects,
-            #[cfg(feature = "http-message-signatures")]
-            message_signature,
+            on_redirect,
         }
     }
 }
 
-impl Middleware for RedirectFollower {
+impl<T> Middleware for RedirectFollower<T>
+where
+    T: FnMut(Request) -> Result<Request>,
+{
     fn handle(&mut self, mut ctx: Context, mut first_request: Request) -> Result<Response> {
         // This buffers the body in case we need it again later
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
@@ -38,7 +37,7 @@ impl Middleware for RedirectFollower {
         let mut response = self.next(&mut ctx, first_request)?;
         let mut remaining_redirects = self.max_redirects - 1;
 
-        while let Some(mut next_request) = get_next_request(request, &response) {
+        while let Some(next_request) = get_next_request(request, &response) {
             if remaining_redirects > 0 {
                 remaining_redirects -= 1;
             } else {
@@ -48,20 +47,7 @@ impl Middleware for RedirectFollower {
                 .into());
             }
 
-            #[cfg(feature = "http-message-signatures")]
-            if let Some(signature) = &self.message_signature {
-                if let Some((key_id, key_material)) = signature.key_pair() {
-                    let components = signature.flattened_components();
-                    let algorithm = signature.algorithm().map(Into::into);
-                    crate::message_signature::sign_request(
-                        &mut next_request,
-                        key_id,
-                        key_material,
-                        (!components.is_empty()).then_some(components.as_slice()),
-                        algorithm,
-                    )?;
-                }
-            }
+            let mut next_request = (self.on_redirect)(next_request)?;
 
             log::info!("Following redirect to {}", next_request.url());
             log::trace!("Remaining redirects: {remaining_redirects}");

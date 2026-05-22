@@ -679,6 +679,8 @@ fn run(args: Cli) -> Result<ExitCode> {
         printer.print_request_body(&mut request)?;
     }
 
+    let auth_digest = auth.clone();
+
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
@@ -709,22 +711,32 @@ fn run(args: Cli) -> Result<ExitCode> {
                 });
             }
             if args.follow {
-                #[cfg(feature = "http-message-signatures")]
-                {
-                    let message_signature = args.m_sig.has_key_pair().then_some(args.m_sig.clone());
-
-                    client = client.with(RedirectFollower::new(
-                        args.max_redirects.unwrap_or(10),
-                        message_signature,
-                    ));
-                }
-                #[cfg(not(feature = "http-message-signatures"))]
-                {
-                    client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
-                }
+                client = client.with(RedirectFollower::new(
+                    args.max_redirects.unwrap_or(10),
+                    |mut request| {
+                        #[cfg(feature = "http-message-signatures")]
+                        if let Some(signature) = &self.message_signature {
+                            if let Some((key_id, key_material)) = signature.key_pair() {
+                                let components = signature.flattened_components();
+                                let algorithm = signature.algorithm().map(Into::into);
+                                crate::message_signature::sign_request(
+                                    &mut next_request,
+                                    key_id,
+                                    key_material,
+                                    (!components.is_empty()).then_some(components.as_slice()),
+                                    algorithm,
+                                )?;
+                            }
+                        }
+                        if let Some(Auth::Plugin(auth_plugin)) = &mut auth {
+                            auth_plugin.authenticate(&mut request)?;
+                        }
+                        Ok(request)
+                    },
+                ));
             }
-            if let Some(Auth::Digest(username, password)) = &auth {
-                client = client.with(DigestAuthMiddleware::new(username, password));
+            if let Some(Auth::Digest(username, password)) = &auth_digest {
+                client = client.with(DigestAuthMiddleware::new(&username, &password));
             }
             client.execute(request)?
         };

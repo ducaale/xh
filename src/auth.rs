@@ -16,7 +16,7 @@ use crate::middleware::{Context, Middleware};
 use crate::netrc;
 use crate::utils::clone_request;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Auth {
     Bearer(String),
     Basic(String, Option<String>),
@@ -105,15 +105,20 @@ impl Middleware for DigestAuthMiddleware<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthPlugin {
     name: String,
     auth: Vec<String>,
+    state: serde_json::Value,
 }
 
 impl AuthPlugin {
     pub fn new(name: String, auth: Vec<String>) -> Self {
-        AuthPlugin { name: name, auth }
+        AuthPlugin {
+            name: name,
+            auth,
+            state: serde_json::Value::Null,
+        }
     }
 }
 
@@ -125,8 +130,9 @@ struct Header {
 
 #[derive(Debug, Deserialize)]
 struct PluginResponse {
-    remove_headers: Vec<String>,
-    add_headers: Vec<Header>,
+    remove_headers: Option<Vec<String>>,
+    add_headers: Option<Vec<Header>>,
+    set_state: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -138,14 +144,19 @@ struct NextRequest {
 }
 
 #[derive(Debug, Serialize)]
-struct PluginInput<'a> {
+struct PluginInput<'a, 'b> {
     next_request: NextRequest,
     auth: &'a [String],
+    state: &'b serde_json::Value,
     current_dir: PathBuf,
 }
 
-impl<'a> PluginInput<'a> {
-    fn new(next_request: &mut Request, auth: &'a [String]) -> Result<Self> {
+impl<'a, 'b> PluginInput<'a, 'b> {
+    fn new(
+        next_request: &mut Request,
+        auth: &'a [String],
+        state: &'b serde_json::Value,
+    ) -> Result<Self> {
         let mut body_base64 = None;
         if let Some(body) = next_request.body_mut() {
             let body = body.buffer()?;
@@ -169,6 +180,7 @@ impl<'a> PluginInput<'a> {
                 body_base64,
             },
             auth,
+            state,
             current_dir: current_dir()?,
         };
 
@@ -186,7 +198,7 @@ impl AuthPlugin {
             .spawn()
             .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
 
-        let plugin_input = PluginInput::new(next_request, &self.auth)?;
+        let plugin_input = PluginInput::new(next_request, &self.auth, &self.state)?;
 
         let child_stdin = child.stdin.as_mut().unwrap();
         log::debug!("Writing to plugin's stdin");
@@ -205,16 +217,22 @@ impl AuthPlugin {
         }
 
         let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
-        for header in plugin_output.remove_headers {
-            next_request.headers_mut().remove(header);
+        if let Some(headers_to_remove) = plugin_output.remove_headers {
+            for header in headers_to_remove {
+                next_request.headers_mut().remove(header);
+            }
         }
-        next_request.headers_mut().extend(
-            plugin_output
-                .add_headers
-                .iter()
-                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
-                .collect::<Result<HeaderMap>>()?,
-        );
+        if let Some(headers_to_add) = plugin_output.add_headers {
+            next_request.headers_mut().extend(
+                headers_to_add
+                    .iter()
+                    .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                    .collect::<Result<HeaderMap>>()?,
+            );
+        }
+        if let Some(state) = plugin_output.set_state {
+            self.state = state
+        }
         Ok(())
     }
 }

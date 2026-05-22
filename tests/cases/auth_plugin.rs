@@ -2,7 +2,9 @@ use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use hyper::header::HeaderValue;
 use indoc::indoc;
+use predicates::str::contains;
 
 use crate::prelude::*;
 
@@ -16,7 +18,7 @@ fn path_with_plugins_dir() -> OsString {
 }
 
 #[test]
-fn hostname_specific_auth() {
+fn set_auth_based_on_url() {
     get_command()
         .env("PATH", path_with_plugins_dir())
         .args(["example.com", "--offline", "--auth-type=plugin:token"])
@@ -32,6 +34,7 @@ fn hostname_specific_auth() {
 
         "#});
 
+    // no auth for example.org
     get_command()
         .env("PATH", path_with_plugins_dir())
         .args(["example.org", "--offline", "--auth-type=plugin:token"])
@@ -77,4 +80,34 @@ fn generate_signature_from_body() {
 
 
         "#});
+}
+
+#[test]
+fn plugin_can_set_state() {
+    let server = server::http(|req| async move {
+        if req.headers().get("redirect-counter") == Some(&HeaderValue::from_static("5")) {
+            return hyper::Response::builder().body("success!".into()).unwrap();
+        }
+        match req.uri().path() {
+            "/page_a" => hyper::Response::builder()
+                .status(302)
+                .header("location", "/page_a")
+                .body("".into())
+                .unwrap(),
+            "/page_b" => hyper::Response::builder()
+                .status(302)
+                .header("location", "/page_a")
+                .body("".into())
+                .unwrap(),
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .env("PATH", path_with_plugins_dir())
+        .arg(server.url("/page_a"))
+        .arg("--follow")
+        .arg("--auth-type=plugin:redirect-counter")
+        .assert()
+        .stdout(contains("success!"));
 }
