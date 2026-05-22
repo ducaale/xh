@@ -715,18 +715,16 @@ fn run(args: Cli) -> Result<ExitCode> {
                     args.max_redirects.unwrap_or(10),
                     |mut request| {
                         #[cfg(feature = "http-message-signatures")]
-                        if let Some(signature) = &self.message_signature {
-                            if let Some((key_id, key_material)) = signature.key_pair() {
-                                let components = signature.flattened_components();
-                                let algorithm = signature.algorithm().map(Into::into);
-                                crate::message_signature::sign_request(
-                                    &mut next_request,
-                                    key_id,
-                                    key_material,
-                                    (!components.is_empty()).then_some(components.as_slice()),
-                                    algorithm,
-                                )?;
-                            }
+                        if let Some((key_id, key_material)) = args.m_sig.key_pair() {
+                            let components = args.m_sig.flattened_components();
+                            let algorithm = args.m_sig.algorithm().map(Into::into);
+                            crate::message_signature::sign_request(
+                                &mut request,
+                                key_id,
+                                key_material,
+                                (!components.is_empty()).then_some(components.as_slice()),
+                                algorithm,
+                            )?;
                         }
                         if let Some(Auth::Plugin(auth_plugin)) = &mut auth {
                             auth_plugin.authenticate(&mut request)?;
