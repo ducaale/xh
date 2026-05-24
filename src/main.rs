@@ -191,6 +191,7 @@ fn run(args: Cli) -> Result<ExitCode> {
     let mut failure_code = None;
     let mut resume: Option<u64> = None;
     let mut auth = None;
+    let mut custom_auth = None;
     let mut save_auth_in_session = true;
 
     let verify = args.verify.unwrap_or_else(|| {
@@ -532,7 +533,7 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         let auth_type = args.auth_type.unwrap_or_default();
         if let AuthType::Plugin(name) = auth_type {
-            auth = Some(Auth::Plugin(AuthPlugin::new(
+            custom_auth = Some(Auth::Plugin(AuthPlugin::new(
                 name,
                 args.auth.into_iter().map(|s| s.to_string()).collect(),
             )));
@@ -595,7 +596,7 @@ fn run(args: Cli) -> Result<ExitCode> {
             request.headers_mut().remove(header);
         }
 
-        if let Some(Auth::Plugin(auth_plugin)) = &mut auth {
+        if let Some(Auth::Plugin(auth_plugin)) = &mut custom_auth {
             auth_plugin.authenticate(&mut request)?;
         }
 
@@ -679,8 +680,6 @@ fn run(args: Cli) -> Result<ExitCode> {
         printer.print_request_body(&mut request)?;
     }
 
-    let auth_digest = auth.clone();
-
     if !args.offline {
         let mut response = {
             let history_print = args.history_print.unwrap_or(print);
@@ -726,15 +725,15 @@ fn run(args: Cli) -> Result<ExitCode> {
                                 algorithm,
                             )?;
                         }
-                        if let Some(Auth::Plugin(auth_plugin)) = &mut auth {
+                        if let Some(Auth::Plugin(auth_plugin)) = &mut custom_auth {
                             auth_plugin.authenticate(&mut request)?;
                         }
                         Ok(request)
                     },
                 ));
             }
-            if let Some(Auth::Digest(username, password)) = &auth_digest {
-                client = client.with(DigestAuthMiddleware::new(&username, &password));
+            if let Some(Auth::Digest(username, password)) = &auth {
+                client = client.with(DigestAuthMiddleware::new(username, password));
             }
             client.execute(request)?
         };

@@ -16,7 +16,7 @@ use crate::middleware::{Context, Middleware};
 use crate::netrc;
 use crate::utils::clone_request;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Auth {
     Bearer(String),
     Basic(String, Option<String>),
@@ -105,7 +105,7 @@ impl Middleware for DigestAuthMiddleware<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct AuthPlugin {
     name: String,
     auth: Vec<String>,
