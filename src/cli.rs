@@ -244,8 +244,32 @@ Example: --print=Hb"
     #[clap(skip)]
     pub is_session_read_only: bool,
 
-    /// Specify the auth mechanism.
-    #[clap(short = 'A', long)]
+    /// Specify the auth mechanism. Supported auth types are "basic", "bearer" and "digest".
+    #[clap(
+        short = 'A',
+        long,
+        long_help = "\
+Specify the auth mechanism. Supported auth types are \"basic\", \"bearer\" and \"digest\".
+
+Custom auth strategy is supported via \"plugin:NAME\". This would look for an executable
+named \"xh-plugin-NAME\" and pass it a JSON object with following properties via stdin:
+
+    next_request[method]
+    next_request[url]
+    next_request[headers]
+    next_request[body_base64]
+    auth
+    state
+    current_dir
+
+The plugin needs to print a JSON object with following optional properties:
+
+    remove_headers   list of header names to be removed.
+    add_headers      list of headers to be added e.g \"[{name: x-token, value: 123}]\"
+    set_state        intermediate state that can hold JSON value of any shape.
+
+Example: --auth-type=oauth2 --auth=client_id:pluto --auth=client_secret:12345"
+    )]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
