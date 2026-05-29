@@ -21,7 +21,15 @@ fn path_with_plugins_dir() -> OsString {
 fn set_auth_based_on_url() {
     get_command()
         .env("PATH", path_with_plugins_dir())
-        .args(["example.com", "--offline", "--auth-type=plugin:token"])
+        .args([
+            "example.com",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=plugin:token.cmd"
+            } else {
+                "--auth-type=plugin:token"
+            },
+        ])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -37,7 +45,15 @@ fn set_auth_based_on_url() {
     // no auth for example.org
     get_command()
         .env("PATH", path_with_plugins_dir())
-        .args(["example.org", "--offline", "--auth-type=plugin:token"])
+        .args([
+            "example.org",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=plugin:token.cmd"
+            } else {
+                "--auth-type=plugin:token"
+            },
+        ])
         .assert()
         .stdout(indoc! {r#"
             GET / HTTP/1.1
@@ -57,7 +73,11 @@ fn generate_signature_from_body() {
         .args([
             ":",
             "--offline",
-            "--auth-type=plugin:hmac",
+            if cfg!(windows) {
+                "--auth-type=plugin:hmac.cmd"
+            } else {
+                "--auth-type=plugin:hmac"
+            },
             "--auth=123456",
             "hello=world",
         ])
@@ -107,7 +127,11 @@ fn plugin_can_set_state() {
         .env("PATH", path_with_plugins_dir())
         .arg(server.url("/page_a"))
         .arg("--follow")
-        .arg("--auth-type=plugin:redirect-counter")
+        .arg(if cfg!(windows) {
+            "--auth-type=plugin:redirect-counter.cmd"
+        } else {
+            "--auth-type=plugin:redirect-counter"
+        })
         .assert()
         .stdout(contains("success!"));
 }

@@ -1,6 +1,6 @@
 #[cfg(feature = "http-message-signatures")]
 mod auth_message_signature;
-#[cfg(unix)]
+#[cfg(feature = "plugin-tests")]
 mod auth_plugin;
 mod compress_request_body;
 mod download;
