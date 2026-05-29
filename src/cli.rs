@@ -847,7 +847,7 @@ impl FromStr for AuthType {
                 if let Some(name) = auth_type.strip_prefix("plugin:") {
                     Ok(AuthType::Plugin(name.into()))
                 } else {
-                    return Err(anyhow!("Unknown auth_type '{auth_type}'"));
+                    Err(anyhow!("Unknown auth_type '{auth_type}'"))
                 }
             }
         }

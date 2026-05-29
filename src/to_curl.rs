@@ -363,7 +363,7 @@ pub fn translate(args: Cli) -> Result<Command> {
                 cmd.arg(auth);
             }
             AuthType::Plugin(..) => {
-                cmd.warn(format!("Ignored -A/--auth-type"));
+                cmd.warn("Ignored -A/--auth-type".to_string());
             }
         }
     }

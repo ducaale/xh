@@ -115,7 +115,7 @@ pub struct AuthPlugin {
 impl AuthPlugin {
     pub fn new(name: String, auth: Vec<String>) -> Self {
         AuthPlugin {
-            name: name,
+            name,
             auth,
             state: serde_json::Value::Null,
         }

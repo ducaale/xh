@@ -539,7 +539,7 @@ fn run(args: Cli) -> Result<ExitCode> {
             )));
         } else if let Some(auth_from_arg) = args.auth.last() {
             auth = Some(Auth::from_str(
-                &auth_from_arg,
+                auth_from_arg,
                 auth_type,
                 url.host_str().unwrap_or("<host>"),
             )?);
