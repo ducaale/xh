@@ -1,2 +1,2 @@
 @echo off
-python xh-plugin-token
+python "%~dp0xh-plugin-token"

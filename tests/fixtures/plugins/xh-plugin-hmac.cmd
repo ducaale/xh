@@ -1,2 +1,2 @@
 @echo off
-python xh-plugin-hmac
+python "%~dp0xh-plugin-hmac"

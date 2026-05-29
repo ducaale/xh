@@ -1,2 +1,2 @@
 @echo off
-python xh-plugin-redirect-counter
+python "%~dp0xh-plugin-redirect-counter"
