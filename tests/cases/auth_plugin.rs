@@ -103,6 +103,33 @@ fn generate_signature_from_body() {
 }
 
 #[test]
+fn plugin_can_add_and_remove_header() {
+    get_command()
+        .env("PATH", path_with_plugins_dir())
+        .args([
+            "example.org",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=plugin:dice-roll.cmd"
+            } else {
+                "--auth-type=plugin:dice-roll"
+            },
+            "x-seed:42",
+        ])
+        .assert()
+        .stdout(indoc! {r#"
+            GET / HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br, zstd
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+            X-Random-Number: 4
+
+        "#});
+}
+
+#[test]
 fn plugin_can_set_state() {
     let server = server::http(|req| async move {
         if req.headers().get("redirect-counter") == Some(&HeaderValue::from_static("5")) {

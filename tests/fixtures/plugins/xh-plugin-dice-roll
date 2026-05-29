@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+import json
+
+output = {
+    "add_headers": [{"name": "x-random-number", "value": "4"}],
+    "remove_headers": ["x-seed"],
+}
+
+print(json.dumps(output))
