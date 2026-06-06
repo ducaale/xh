@@ -188,7 +188,7 @@ impl AuthPlugin {
     pub fn authenticate(&mut self, next_request: &mut Request) -> Result<()> {
         log::debug!("Spawning plugin xh-plugin-{}", self.name);
         let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
-            .env("XH_AUTH_PLUGIN", "1")
+            .env("XH_PLUGIN", "auth")
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
             .spawn()
