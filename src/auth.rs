@@ -1,6 +1,4 @@
-use std::env::current_dir;
 use std::io::{self, Write};
-use std::path::PathBuf;
 use std::process;
 
 use anyhow::{Context as _, Result, anyhow};
@@ -148,7 +146,6 @@ struct PluginInput<'a, 'b> {
     next_request: NextRequest,
     auth: &'a [String],
     state: &'b serde_json::Value,
-    current_dir: PathBuf,
 }
 
 impl<'a, 'b> PluginInput<'a, 'b> {
@@ -181,7 +178,6 @@ impl<'a, 'b> PluginInput<'a, 'b> {
             },
             auth,
             state,
-            current_dir: current_dir()?,
         };
 
         Ok(plugin_input)
