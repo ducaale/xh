@@ -342,7 +342,7 @@ Example: --auth-type=oauth2 --auth=client_id:pluto --auth=client_secret:12345",
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[clap(long, value_name = "VERIFY", value_parser = VerifyParser)]
+    #[clap(long, value_name = "VERIFY", value_parser)]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
@@ -1338,29 +1338,13 @@ pub enum Verify {
     CustomCaBundle(PathBuf),
 }
 
-impl clap::builder::ValueParserFactory for Verify {
-    type Parser = VerifyParser;
-    fn value_parser() -> Self::Parser {
-        VerifyParser
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct VerifyParser;
-impl clap::builder::TypedValueParser for VerifyParser {
-    type Value = Verify;
-
-    fn parse_ref(
-        &self,
-        _cmd: &clap::Command,
-        _arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
-    ) -> clap::error::Result<Self::Value, clap::Error> {
-        Ok(match value.to_ascii_lowercase().to_str() {
+impl From<OsString> for Verify {
+    fn from(value: OsString) -> Self {
+        match value.to_ascii_lowercase().to_str() {
             Some("no") | Some("false") => Verify::No,
             Some("yes") | Some("true") => Verify::Yes,
             _ => Verify::CustomCaBundle(PathBuf::from(value)),
-        })
+        }
     }
 }
 
