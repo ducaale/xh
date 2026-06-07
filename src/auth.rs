@@ -147,6 +147,7 @@ struct NextRequest {
     method: String,
     url: String,
     headers: Vec<Header>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     body_base64: Option<String>,
 }
 
