@@ -25,9 +25,9 @@ fn set_auth_based_on_url() {
             "example.com",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin:token.cmd"
+                "--auth-type=plugin-token.cmd"
             } else {
-                "--auth-type=plugin:token"
+                "--auth-type=plugin-token"
             },
         ])
         .assert()
@@ -49,9 +49,9 @@ fn set_auth_based_on_url() {
             "example.org",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin:token.cmd"
+                "--auth-type=plugin-token.cmd"
             } else {
-                "--auth-type=plugin:token"
+                "--auth-type=plugin-token"
             },
         ])
         .assert()
@@ -67,6 +67,31 @@ fn set_auth_based_on_url() {
 }
 
 #[test]
+fn can_refer_to_plugin_by_path() {
+    get_command()
+        .args([
+            "example.com",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=./tests/fixtures/plugins/xh-plugin-token.cmd"
+            } else {
+                "--auth-type=./tests/fixtures/plugins/xh-plugin-token"
+            },
+        ])
+        .assert()
+        .stdout(indoc! {r#"
+            GET / HTTP/1.1
+            Accept: */*
+            Accept-Encoding: gzip, deflate, br, zstd
+            Connection: keep-alive
+            Host: http.mock
+            User-Agent: xh/0.0.0 (test mode)
+            X-Token: 42
+
+        "#});
+}
+
+#[test]
 fn generate_signature_from_body() {
     get_command()
         .env("PATH", path_with_plugins_dir())
@@ -74,9 +99,9 @@ fn generate_signature_from_body() {
             ":",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin:hmac.cmd"
+                "--auth-type=plugin-hmac.cmd"
             } else {
-                "--auth-type=plugin:hmac"
+                "--auth-type=plugin-hmac"
             },
             "--auth=123456",
             "hello=world",
@@ -110,9 +135,9 @@ fn plugin_can_add_and_remove_header() {
             "example.org",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin:dice-roll.cmd"
+                "--auth-type=plugin-dice-roll.cmd"
             } else {
-                "--auth-type=plugin:dice-roll"
+                "--auth-type=plugin-dice-roll"
             },
             "x-seed:42",
         ])
@@ -155,9 +180,9 @@ fn plugin_can_set_state() {
         .arg(server.url("/page_a"))
         .arg("--follow")
         .arg(if cfg!(windows) {
-            "--auth-type=plugin:redirect-counter.cmd"
+            "--auth-type=plugin-redirect-counter.cmd"
         } else {
-            "--auth-type=plugin:redirect-counter"
+            "--auth-type=plugin-redirect-counter"
         })
         .assert()
         .stdout(contains("success!"));

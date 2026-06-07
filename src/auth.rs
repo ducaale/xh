@@ -237,13 +237,19 @@ impl AuthPlugin {
     }
 
     fn exec(&self, plugin_input: &[u8]) -> Result<Vec<u8>> {
-        log::debug!("Spawning plugin xh-plugin-{}", self.name);
-        let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
+        let plugin_path = if self.name.contains(std::path::is_separator) {
+            std::path::PathBuf::from(&self.name)
+        } else {
+            std::path::PathBuf::from(format!("xh-{}", self.name))
+        };
+
+        log::debug!("Spawning plugin '{:?}'", plugin_path);
+        let mut child = process::Command::new(&plugin_path)
             .env("XH_PLUGIN", "auth")
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
             .spawn()
-            .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
+            .map_err(|e| anyhow!("Unable to spawn plugin '{:?}': {}", plugin_path, e))?;
 
         let child_stdin = child.stdin.as_mut().unwrap();
         log::debug!("Writing to plugin's stdin");

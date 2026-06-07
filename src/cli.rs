@@ -251,7 +251,7 @@ Example: --print=Hb"
         long_help = "\
 Specify the auth mechanism. Supported auth types are \"basic\", \"bearer\" and \"digest\".
 
-Custom auth strategy is supported via \"plugin:NAME\". This would look for an executable
+Custom auth strategy is supported via \"plugin-NAME\". This would look for an executable
 named \"xh-plugin-NAME\" and pass it a JSON object with following properties via stdin:
 
     next_request[method]
@@ -832,6 +832,7 @@ pub enum AuthType {
     Basic,
     Bearer,
     Digest,
+    // TODO: store value as OsString since it can be a path
     Plugin(String),
 }
 
@@ -844,8 +845,8 @@ impl FromStr for AuthType {
             "bearer" => Ok(AuthType::Bearer),
             "digest" => Ok(AuthType::Digest),
             auth_type => {
-                if let Some(name) = auth_type.strip_prefix("plugin:") {
-                    Ok(AuthType::Plugin(name.into()))
+                if auth_type.starts_with("plugin-") || auth_type.contains(std::path::is_separator) {
+                    Ok(AuthType::Plugin(auth_type.into()))
                 } else {
                     Err(anyhow!("Unknown auth_type '{auth_type}'"))
                 }
