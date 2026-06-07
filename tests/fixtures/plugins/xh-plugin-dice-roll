@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 
 import json
+import sys
 
-output = {
-    "add_headers": [{"name": "x-random-number", "value": "4"}],
-    "remove_headers": ["x-seed"],
-}
+stdin_data = json.loads(sys.stdin.read())
+
+if stdin_data["type"] == "before_request":
+    output = {
+        "add_headers": [{"name": "x-random-number", "value": "4"}],
+        "remove_headers": ["x-seed"],
+    }
+else:
+    output = {}
 
 print(json.dumps(output))

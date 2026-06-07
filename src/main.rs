@@ -597,6 +597,7 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         if let Some(Auth::Plugin(auth_plugin)) = &mut custom_auth {
+            auth_plugin.configure()?;
             auth_plugin.authenticate(&mut request)?;
         }
 

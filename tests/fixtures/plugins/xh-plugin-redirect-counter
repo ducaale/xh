@@ -5,15 +5,14 @@ import sys
 
 stdin_data = json.loads(sys.stdin.read())
 
-state = stdin_data["state"] or 0
+if stdin_data["type"] == "before_request":
+    state = stdin_data["state"] or 0
+    next_state = state + 1
+    output = {
+        "set_state": next_state,
+        "add_headers": [{"name": "redirect-counter", "value": str(next_state)}],
+    }
+else:
+    output = {}
 
-next_state = state + 1
-
-print(
-    json.dumps(
-        {
-            "set_state": next_state,
-            "add_headers": [{"name": "redirect-counter", "value": str(next_state)}],
-        }
-    )
-)
+print(json.dumps(output))

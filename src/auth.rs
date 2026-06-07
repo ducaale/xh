@@ -108,6 +108,7 @@ pub struct AuthPlugin {
     name: String,
     auth: Vec<String>,
     state: serde_json::Value,
+    config: PluginConfig,
 }
 
 impl AuthPlugin {
@@ -116,8 +117,16 @@ impl AuthPlugin {
             name,
             auth,
             state: serde_json::Value::Null,
+            config: PluginConfig {
+                requires_body: Some(false),
+            },
         }
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+struct PluginConfig {
+    requires_body: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -142,29 +151,36 @@ struct NextRequest {
 }
 
 #[derive(Debug, Serialize)]
-struct PluginInput<'a, 'b> {
-    next_request: NextRequest,
-    auth: &'a [String],
-    state: &'b serde_json::Value,
+#[serde(tag = "type", rename_all = "snake_case")]
+enum PluginInput<'a, 'b> {
+    Configure,
+    BeforeRequest {
+        request: NextRequest,
+        auth: &'a [String],
+        state: &'b serde_json::Value,
+    },
 }
 
 impl<'a, 'b> PluginInput<'a, 'b> {
     fn new(
-        next_request: &mut Request,
+        request: &mut Request,
         auth: &'a [String],
         state: &'b serde_json::Value,
+        config: &PluginConfig,
     ) -> Result<Self> {
         let mut body_base64 = None;
-        if let Some(body) = next_request.body_mut() {
-            let body = body.buffer()?;
-            body_base64 = Some(base64_standard.encode(body));
+        if config.requires_body == Some(true) {
+            if let Some(body) = request.body_mut() {
+                let body = body.buffer()?;
+                body_base64 = Some(base64_standard.encode(body));
+            }
         }
 
-        let plugin_input = PluginInput {
-            next_request: NextRequest {
-                method: next_request.method().to_string(),
-                url: next_request.url().to_string(),
-                headers: next_request
+        let plugin_input = PluginInput::BeforeRequest {
+            request: NextRequest {
+                method: request.method().to_string(),
+                url: request.url().to_string(),
+                headers: request
                     .headers()
                     .iter()
                     .map(|(name, value)| {
@@ -185,34 +201,21 @@ impl<'a, 'b> PluginInput<'a, 'b> {
 }
 
 impl AuthPlugin {
+    pub fn configure(&mut self) -> Result<()> {
+        let plugin_input = PluginInput::Configure;
+        self.config = serde_json::from_slice::<PluginConfig>(
+            &self.exec(&serde_json::to_vec(&plugin_input)?)?,
+        )?;
+        Ok(())
+    }
+
     pub fn authenticate(&mut self, next_request: &mut Request) -> Result<()> {
-        log::debug!("Spawning plugin xh-plugin-{}", self.name);
-        let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
-            .env("XH_PLUGIN", "auth")
-            .stdin(process::Stdio::piped())
-            .stdout(process::Stdio::piped())
-            .spawn()
-            .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
+        let plugin_input = PluginInput::new(next_request, &self.auth, &self.state, &self.config)?;
 
-        let plugin_input = PluginInput::new(next_request, &self.auth, &self.state)?;
+        let plugin_output = serde_json::from_slice::<PluginResponse>(
+            &self.exec(&serde_json::to_vec(&plugin_input)?)?,
+        )?;
 
-        let child_stdin = child.stdin.as_mut().unwrap();
-        log::debug!("Writing to plugin's stdin");
-        child_stdin.write_all(&serde_json::to_vec(&plugin_input)?)?;
-
-        let output = child
-            .wait_with_output()
-            .context("Failed to wait for plugin output")?;
-
-        if !output.status.success() {
-            if let Some(code) = output.status.code() {
-                return Err(anyhow!("Plugin exited with exit code {}", code));
-            } else {
-                return Err(anyhow!("Plugin exited no exit code"));
-            }
-        }
-
-        let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
         if let Some(headers_to_remove) = plugin_output.remove_headers {
             for header in headers_to_remove {
                 next_request.headers_mut().remove(header);
@@ -230,6 +233,34 @@ impl AuthPlugin {
             self.state = state
         }
         Ok(())
+    }
+
+    fn exec(&self, plugin_input: &[u8]) -> Result<Vec<u8>> {
+        log::debug!("Spawning plugin xh-plugin-{}", self.name);
+        let mut child = process::Command::new(format!("xh-plugin-{}", self.name))
+            .env("XH_PLUGIN", "auth")
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow!("Unable to spawn plugin 'xh-plugin-{}': {}", self.name, e))?;
+
+        let child_stdin = child.stdin.as_mut().unwrap();
+        log::debug!("Writing to plugin's stdin");
+        child_stdin.write_all(plugin_input)?;
+
+        let output = child
+            .wait_with_output()
+            .context("Failed to wait for plugin output")?;
+
+        if !output.status.success() {
+            if let Some(code) = output.status.code() {
+                return Err(anyhow!("Plugin exited with exit code {}", code));
+            } else {
+                return Err(anyhow!("Plugin exited no exit code"));
+            }
+        }
+
+        Ok(output.stdout)
     }
 }
 

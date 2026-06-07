@@ -5,11 +5,15 @@ import sys
 from urllib.parse import urlparse
 
 stdin_data = json.loads(sys.stdin.read())
-url = urlparse(stdin_data["next_request"]["url"])
 
-output = {"add_headers": [], "remove_headers": []}
+if stdin_data["type"] == "before_request":
+    url = urlparse(stdin_data["request"]["url"])
 
-if url.hostname == "example.com":
-    output["add_headers"].append({"name": "x-token", "value": "42"})
+    output = {"add_headers": [], "remove_headers": []}
+
+    if url.hostname == "example.com":
+        output["add_headers"].append({"name": "x-token", "value": "42"})
+else:
+    output = {}
 
 print(json.dumps(output))

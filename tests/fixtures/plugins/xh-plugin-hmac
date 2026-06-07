@@ -8,21 +8,23 @@ import sys
 
 stdin_data = json.loads(sys.stdin.read())
 
-secret = stdin_data["auth"][0]
-body_base64 = stdin_data["next_request"]["body_base64"]
+if stdin_data["type"] == "configure":
+    output = {"requires_body": True}
+elif stdin_data["type"] == "before_request":
+    secret = stdin_data["auth"][0]
+    body_base64 = stdin_data["request"]["body_base64"]
 
-output = {"add_headers": [], "remove_headers": []}
+    output = {"add_headers": []}
 
-if body_base64 is None:
-    print(json.dumps(output))
-    exit(0)
+    if body_base64 is not None:
+        body = base64.b64decode(body_base64).decode("utf8")
 
-body = base64.b64decode(body_base64).decode("utf8")
+        signature = hmac.new(
+            secret.encode("utf8"), body.encode("utf8"), hashlib.sha256
+        ).hexdigest()
 
-signature = hmac.new(
-    secret.encode("utf8"), body.encode("utf8"), hashlib.sha256
-).hexdigest()
-
-output["add_headers"].append({"name": "x-signature", "value": signature})
+        output["add_headers"].append({"name": "x-signature", "value": signature})
+else:
+    output = {}
 
 print(json.dumps(output))
