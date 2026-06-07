@@ -11,8 +11,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::{Styles, TypedValueParser};
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use regex_lite::Regex;
@@ -268,7 +268,8 @@ The plugin needs to print a JSON object with following optional properties:
     add_headers      list of headers to be added e.g \"[{name: x-token, value: 123}]\"
     set_state        intermediate state that can hold JSON value of any shape.
 
-Example: --auth-type=oauth2 --auth=client_id:pluto --auth=client_secret:12345"
+Example: --auth-type=oauth2 --auth=client_id:pluto --auth=client_secret:12345",
+        value_parser = clap::builder::OsStringValueParser::new().try_map(parse_auth_type)
     )]
     pub auth_type: Option<AuthType>,
 
@@ -832,24 +833,22 @@ pub enum AuthType {
     Basic,
     Bearer,
     Digest,
-    // TODO: store value as OsString since it can be a path
-    Plugin(String),
+    Plugin(OsString),
 }
 
-impl FromStr for AuthType {
-    type Err = anyhow::Error;
-
-    fn from_str(auth_type: &str) -> anyhow::Result<AuthType> {
-        match auth_type {
-            "basic" => Ok(AuthType::Basic),
-            "bearer" => Ok(AuthType::Bearer),
-            "digest" => Ok(AuthType::Digest),
-            auth_type => {
-                if auth_type.starts_with("plugin-") || auth_type.contains(std::path::is_separator) {
-                    Ok(AuthType::Plugin(auth_type.into()))
-                } else {
-                    Err(anyhow!("Unknown auth_type '{auth_type}'"))
-                }
+fn parse_auth_type(auth_type: OsString) -> anyhow::Result<AuthType> {
+    match auth_type.to_str() {
+        Some("basic") => Ok(AuthType::Basic),
+        Some("bearer") => Ok(AuthType::Bearer),
+        Some("digest") => Ok(AuthType::Digest),
+        _ => {
+            let auth_type_str = auth_type.to_string_lossy();
+            if auth_type_str.starts_with("plugin-")
+                || auth_type_str.contains(std::path::is_separator)
+            {
+                Ok(AuthType::Plugin(auth_type))
+            } else {
+                Err(anyhow!("Unknown auth_type {:?}", auth_type))
             }
         }
     }

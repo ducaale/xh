@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::io::{self, Write};
 use std::process;
 
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::cli::AuthType;
 use crate::middleware::{Context, Middleware};
 use crate::netrc;
-use crate::utils::clone_request;
+use crate::utils::{clone_request, is_path};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Auth {
@@ -105,16 +106,16 @@ impl Middleware for DigestAuthMiddleware<'_> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AuthPlugin {
-    name: String,
+    name_or_path: OsString,
     auth: Vec<String>,
     state: serde_json::Value,
     config: PluginConfig,
 }
 
 impl AuthPlugin {
-    pub fn new(name: String, auth: Vec<String>) -> Self {
+    pub fn new(name_or_path: OsString, auth: Vec<String>) -> Self {
         AuthPlugin {
-            name,
+            name_or_path,
             auth,
             state: serde_json::Value::Null,
             config: PluginConfig {
@@ -237,19 +238,19 @@ impl AuthPlugin {
     }
 
     fn exec(&self, plugin_input: &[u8]) -> Result<Vec<u8>> {
-        let plugin_path = if self.name.contains(std::path::is_separator) {
-            std::path::PathBuf::from(&self.name)
+        let plugin_path = if is_path(&self.name_or_path) {
+            std::path::PathBuf::from(&self.name_or_path)
         } else {
-            std::path::PathBuf::from(format!("xh-{}", self.name))
+            std::path::PathBuf::from(format!("xh-{}", self.name_or_path.to_string_lossy()))
         };
 
-        log::debug!("Spawning plugin '{:?}'", plugin_path);
+        log::debug!("Spawning plugin {:?}", plugin_path);
         let mut child = process::Command::new(&plugin_path)
             .env("XH_PLUGIN", "auth")
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
             .spawn()
-            .map_err(|e| anyhow!("Unable to spawn plugin '{:?}': {}", plugin_path, e))?;
+            .map_err(|e| anyhow!("Unable to spawn plugin {:?}: {}", plugin_path, e))?;
 
         let child_stdin = child.stdin.as_mut().unwrap();
         log::debug!("Writing to plugin's stdin");
