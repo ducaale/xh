@@ -172,8 +172,8 @@ Example: --print=Hb"
 
     /// Print full error stack traces and debug log messages.
     ///
-    /// Logging can be configured in more detail using the `$RUST_LOG` environment
-    /// variable. Set `RUST_LOG=trace` to show even more messages.
+    /// Logging can be configured in more detail using the "$RUST_LOG" environment
+    /// variable. Set "RUST_LOG=trace" to show even more messages.
     /// See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
     #[clap(long)]
     pub debug: bool,
@@ -245,30 +245,12 @@ Example: --print=Hb"
     pub is_session_read_only: bool,
 
     /// Specify the auth mechanism. Supported auth types are "basic", "bearer" and "digest".
+    ///
+    /// Custom auth strategy is supported via "plugin-NAME" or "/path/to/plugin". The former
+    /// looks for an executable named "xh-plugin-NAME" in "$PATH".
     #[clap(
         short = 'A',
         long,
-        long_help = "\
-Specify the auth mechanism. Supported auth types are \"basic\", \"bearer\" and \"digest\".
-
-Custom auth strategy is supported via \"plugin-NAME\". This would look for an executable
-named \"xh-plugin-NAME\" and pass it a JSON object with following properties via stdin:
-
-    next_request[method]
-    next_request[url]
-    next_request[headers]
-    next_request[body_base64]
-    auth
-    state
-    current_dir
-
-The plugin needs to print a JSON object with following optional properties:
-
-    remove_headers   list of header names to be removed.
-    add_headers      list of headers to be added e.g \"[{name: x-token, value: 123}]\"
-    set_state        intermediate state that can hold JSON value of any shape.
-
-Example: --auth-type=oauth2 --auth=client_id:pluto --auth=client_secret:12345",
         value_parser = clap::builder::OsStringValueParser::new().try_map(parse_auth_type)
     )]
     pub auth_type: Option<AuthType>,
