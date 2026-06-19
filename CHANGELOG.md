@@ -1,4 +1,4 @@
-## [0.26.0] - 2026-06-19
+## [0.26.1] - 2026-06-19
 ### Features
 - Pretty-print XML responses, see #450 (@o1x3)
 - Add experimental HTTP message signatures (RFC 9421) support, see #448 (@zuisong)
