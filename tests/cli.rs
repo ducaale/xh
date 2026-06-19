@@ -1382,6 +1382,7 @@ fn bad_tls_version_nativetls() {
 }
 
 #[cfg(feature = "native-tls")]
+#[ignore = "should be removed since native-tls now supports TLS 1.3"]
 #[test]
 fn unsupported_tls_version_nativetls() {
     get_command()
