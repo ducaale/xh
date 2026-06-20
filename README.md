@@ -29,6 +29,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 |-------------------------------|----------------|--------------------------------------------|
 | Any                           | Cargo\*        | `cargo install xh --locked`                |
 | Any                           | [Huber]        | `huber install xh`                         |
+| Any                           | [Mise]         | `mise use xh --global`                     |
 | Android ([Termux])            | pkg            | `pkg install xh`                           |
 | Android ([Magisk]/[KernelSU]) | MMRL\*\*       | `mmrl install xhhttp`                      |
 | Alpine Linux                  | apk\*\*\*      | `apk add xh`                               |
@@ -57,6 +58,7 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 \*\*\*\*\* Enable COPR repo via `sudo dnf copr enable ducaale/xh`
 
 [Huber]: https://github.com/innobead/huber#installing-huber
+[Mise]: https://mise.jdx.dev
 [Magisk]: https://github.com/topjohnwu/Magisk
 [KernelSU]: https://kernelsu.org
 [Termux]: https://github.com/termux/termux-app
