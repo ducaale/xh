@@ -3,7 +3,6 @@ use std::io::{self, Write};
 use std::process;
 
 use anyhow::{Context as _, Result, anyhow};
-use base64::{Engine as _, engine::general_purpose::STANDARD as base64_standard};
 use regex_lite::Regex;
 use reqwest::StatusCode;
 use reqwest::blocking::{Request, Response};
@@ -108,29 +107,15 @@ impl Middleware for DigestAuthMiddleware<'_> {
 pub struct AuthPlugin {
     name_or_path: OsString,
     auth: Vec<String>,
-    state: serde_json::Value,
-    config: PluginConfig,
 }
 
 impl AuthPlugin {
     pub fn new(name_or_path: OsString, auth: Vec<String>) -> Self {
-        AuthPlugin {
-            name_or_path,
-            auth,
-            state: serde_json::Value::Null,
-            config: PluginConfig {
-                requires_body: Some(false),
-            },
-        }
+        AuthPlugin { name_or_path, auth }
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
-struct PluginConfig {
-    requires_body: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Header {
     name: String,
     value: String,
@@ -138,103 +123,34 @@ struct Header {
 
 #[derive(Debug, Deserialize)]
 struct PluginResponse {
-    remove_headers: Option<Vec<String>>,
-    add_headers: Option<Vec<Header>>,
-    set_state: Option<serde_json::Value>,
+    add_headers: Vec<Header>,
 }
 
 #[derive(Debug, Serialize)]
-struct NextRequest {
-    method: String,
-    url: String,
-    headers: Vec<Header>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    body_base64: Option<String>,
+struct PluginInput<'a> {
+    url: &'a str,
+    auth: &'a [String],
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum PluginInput<'a, 'b> {
-    Configure,
-    BeforeRequest {
-        request: NextRequest,
-        auth: &'a [String],
-        state: &'b serde_json::Value,
-    },
-}
-
-impl<'a, 'b> PluginInput<'a, 'b> {
-    fn new(
-        request: &mut Request,
-        auth: &'a [String],
-        state: &'b serde_json::Value,
-        config: &PluginConfig,
-    ) -> Result<Self> {
-        let mut body_base64 = None;
-        if config.requires_body == Some(true) {
-            if let Some(body) = request.body_mut() {
-                let body = body.buffer()?;
-                body_base64 = Some(base64_standard.encode(body));
-            }
-        }
-
-        let plugin_input = PluginInput::BeforeRequest {
-            request: NextRequest {
-                method: request.method().to_string(),
-                url: request.url().to_string(),
-                headers: request
-                    .headers()
-                    .iter()
-                    .map(|(name, value)| {
-                        Ok(Header {
-                            name: name.to_string(),
-                            value: value.to_str()?.into(),
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-                body_base64,
-            },
-            auth,
-            state,
-        };
-
-        Ok(plugin_input)
+impl<'a> PluginInput<'a> {
+    fn new(url: &'a str, auth: &'a [String]) -> Self {
+        PluginInput { url, auth }
     }
 }
 
 impl AuthPlugin {
-    pub fn configure(&mut self) -> Result<()> {
-        let plugin_input = PluginInput::Configure;
-        self.config = serde_json::from_slice::<PluginConfig>(
-            &self.exec(&serde_json::to_vec(&plugin_input)?)?,
-        )?;
-        Ok(())
-    }
-
-    pub fn authenticate(&mut self, next_request: &mut Request) -> Result<()> {
-        let plugin_input = PluginInput::new(next_request, &self.auth, &self.state, &self.config)?;
+    pub fn headers(&self, url: &str) -> Result<HeaderMap> {
+        let plugin_input = PluginInput::new(url, &self.auth);
 
         let plugin_output = serde_json::from_slice::<PluginResponse>(
             &self.exec(&serde_json::to_vec(&plugin_input)?)?,
         )?;
 
-        if let Some(headers_to_remove) = plugin_output.remove_headers {
-            for header in headers_to_remove {
-                next_request.headers_mut().remove(header);
-            }
-        }
-        if let Some(headers_to_add) = plugin_output.add_headers {
-            next_request.headers_mut().extend(
-                headers_to_add
-                    .iter()
-                    .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
-                    .collect::<Result<HeaderMap>>()?,
-            );
-        }
-        if let Some(state) = plugin_output.set_state {
-            self.state = state
-        }
-        Ok(())
+        plugin_output
+            .add_headers
+            .iter()
+            .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+            .collect::<Result<HeaderMap>>()
     }
 
     fn exec(&self, plugin_input: &[u8]) -> Result<Vec<u8>> {
@@ -246,7 +162,7 @@ impl AuthPlugin {
 
         log::debug!("Spawning plugin {:?}", plugin_path);
         let mut child = process::Command::new(&plugin_path)
-            .env("XH_PLUGIN", "auth")
+            .env("XH_PLUGIN", "simple_auth")
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
             .spawn()
@@ -261,6 +177,7 @@ impl AuthPlugin {
             .context("Failed to wait for plugin output")?;
 
         if !output.status.success() {
+            // TODO: support standardised way of reporting errors from plugin
             if let Some(code) = output.status.code() {
                 return Err(anyhow!("Plugin exited with exit code {}", code));
             } else {

@@ -191,7 +191,6 @@ fn run(args: Cli) -> Result<ExitCode> {
     let mut failure_code = None;
     let mut resume: Option<u64> = None;
     let mut auth = None;
-    let mut custom_auth = None;
     let mut save_auth_in_session = true;
 
     let verify = args.verify.unwrap_or_else(|| {
@@ -533,7 +532,7 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         let auth_type = args.auth_type.unwrap_or_default();
         if let AuthType::Plugin(name) = auth_type {
-            custom_auth = Some(Auth::Plugin(AuthPlugin::new(
+            auth = Some(Auth::Plugin(AuthPlugin::new(
                 name,
                 args.auth.into_iter().map(|s| s.to_string()).collect(),
             )));
@@ -565,7 +564,10 @@ fn run(args: Cli) -> Result<ExitCode> {
                 }
                 Auth::Bearer(token) => request_builder.bearer_auth(token),
                 Auth::Digest(..) => request_builder,
-                Auth::Plugin(..) => request_builder,
+                Auth::Plugin(auth_plugin) => {
+                    // TODO: save headers from plugin in session
+                    request_builder.headers(auth_plugin.headers(url.as_str())?)
+                }
             }
         }
 
@@ -594,11 +596,6 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);
-        }
-
-        if let Some(Auth::Plugin(auth_plugin)) = &mut custom_auth {
-            auth_plugin.configure()?;
-            auth_plugin.authenticate(&mut request)?;
         }
 
         #[cfg(not(feature = "http-message-signatures"))]
@@ -713,7 +710,7 @@ fn run(args: Cli) -> Result<ExitCode> {
             if args.follow {
                 client = client.with(RedirectFollower::new(
                     args.max_redirects.unwrap_or(10),
-                    |mut request| {
+                    |request| {
                         #[cfg(feature = "http-message-signatures")]
                         if let Some((key_id, key_material)) = args.m_sig.key_pair() {
                             let components = args.m_sig.flattened_components();
@@ -725,9 +722,6 @@ fn run(args: Cli) -> Result<ExitCode> {
                                 (!components.is_empty()).then_some(components.as_slice()),
                                 algorithm,
                             )?;
-                        }
-                        if let Some(Auth::Plugin(auth_plugin)) = &mut custom_auth {
-                            auth_plugin.authenticate(&mut request)?;
                         }
                         Ok(request)
                     },

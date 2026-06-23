@@ -6,14 +6,11 @@ from urllib.parse import urlparse
 
 stdin_data = json.loads(sys.stdin.read())
 
-if stdin_data["type"] == "before_request":
-    url = urlparse(stdin_data["request"]["url"])
+url = urlparse(stdin_data["url"])
 
-    output = {"add_headers": [], "remove_headers": []}
+output = {"add_headers": []}
 
-    if url.hostname == "example.com":
-        output["add_headers"].append({"name": "x-token", "value": "42"})
-else:
-    output = {}
+if url.hostname == "example.com":
+    output["add_headers"].append({"name": "x-token", "value": "42"})
 
 print(json.dumps(output))
