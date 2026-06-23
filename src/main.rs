@@ -710,8 +710,8 @@ fn run(args: Cli) -> Result<ExitCode> {
             if args.follow {
                 client = client.with(RedirectFollower::new(
                     args.max_redirects.unwrap_or(10),
-                    |request| {
-                        #[cfg(feature = "http-message-signatures")]
+                    #[cfg(feature = "http-message-signatures")]
+                    |mut request| {
                         if let Some((key_id, key_material)) = args.m_sig.key_pair() {
                             let components = args.m_sig.flattened_components();
                             let algorithm = args.m_sig.algorithm().map(Into::into);
@@ -725,6 +725,8 @@ fn run(args: Cli) -> Result<ExitCode> {
                         }
                         Ok(request)
                     },
+                    #[cfg(not(feature = "http-message-signatures"))]
+                    Ok,
                 ));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
