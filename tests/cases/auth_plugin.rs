@@ -88,3 +88,22 @@ fn can_refer_to_plugin_by_path() {
 
         "#});
 }
+
+#[test]
+fn can_parse_error_from_plugin() {
+    get_command()
+        .args([
+            "example.com",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=./tests/fixtures/plugins/xh-plugin-token.cmd"
+            } else {
+                "--auth-type=./tests/fixtures/plugins/xh-plugin-token"
+            },
+            "--auth=secret-token",
+        ])
+        .assert()
+        .stderr(indoc! {r#"
+            xh: error: -a/--auth cannot be used with xh-plugin-token
+        "#});
+}

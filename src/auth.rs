@@ -126,6 +126,11 @@ struct PluginResponse {
     add_headers: Vec<Header>,
 }
 
+#[derive(Debug, Deserialize)]
+struct PluginResponseErr {
+    error_message: String,
+}
+
 #[derive(Debug, Serialize)]
 struct PluginInput<'a> {
     url: &'a str,
@@ -177,7 +182,10 @@ impl AuthPlugin {
             .context("Failed to wait for plugin output")?;
 
         if !output.status.success() {
-            // TODO: support standardised way of reporting errors from plugin
+            if let Ok(PluginResponseErr { error_message }) = serde_json::from_slice(&output.stdout)
+            {
+                return Err(anyhow!(error_message));
+            }
             if let Some(code) = output.status.code() {
                 return Err(anyhow!("Plugin exited with exit code {}", code));
             } else {
