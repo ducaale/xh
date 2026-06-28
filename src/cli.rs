@@ -11,8 +11,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::{Styles, TypedValueParser};
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use regex_lite::Regex;
@@ -172,8 +172,8 @@ Example: --print=Hb"
 
     /// Print full error stack traces and debug log messages.
     ///
-    /// Logging can be configured in more detail using the `$RUST_LOG` environment
-    /// variable. Set `RUST_LOG=trace` to show even more messages.
+    /// Logging can be configured in more detail using the "$RUST_LOG" environment
+    /// variable. Set "RUST_LOG=trace" to show even more messages.
     /// See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
     #[clap(long)]
     pub debug: bool,
@@ -244,8 +244,15 @@ Example: --print=Hb"
     #[clap(skip)]
     pub is_session_read_only: bool,
 
-    /// Specify the auth mechanism.
-    #[clap(short = 'A', long, value_enum)]
+    /// Specify the auth mechanism. Supported auth types are "basic", "bearer" and "digest".
+    ///
+    /// Custom auth strategy is supported via "plugin-NAME" or "/path/to/plugin". The former
+    /// looks for an executable named "xh-plugin-NAME" in "$PATH".
+    #[clap(
+        short = 'A',
+        long,
+        value_parser = clap::builder::OsStringValueParser::new().try_map(parse_auth_type)
+    )]
     pub auth_type: Option<AuthType>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
@@ -255,7 +262,7 @@ Example: --print=Hb"
     ///
     /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
-    pub auth: Option<SecretString>,
+    pub auth: Vec<SecretString>,
 
     /// Authenticate with a bearer token.
     #[clap(long, value_name = "TOKEN", hide = true)]
@@ -317,7 +324,7 @@ Example: --print=Hb"
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[clap(long, value_name = "VERIFY", value_parser = VerifyParser)]
+    #[clap(long, value_name = "VERIFY", value_parser)]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
@@ -613,9 +620,9 @@ impl Cli {
         if self.https {
             self.default_scheme = Some("https".to_string());
         }
-        if self.bearer.is_some() {
+        if let Some(bearer) = self.bearer.take() {
             self.auth_type = Some(AuthType::Bearer);
-            self.auth = self.bearer.take();
+            self.auth.push(bearer);
         }
         self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
             (true, true) => unreachable!(),
@@ -802,12 +809,31 @@ fn construct_url(
     Ok(url)
 }
 
-#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     #[default]
     Basic,
     Bearer,
     Digest,
+    Plugin(OsString),
+}
+
+fn parse_auth_type(auth_type: OsString) -> anyhow::Result<AuthType> {
+    match auth_type.to_str() {
+        Some("basic") => Ok(AuthType::Basic),
+        Some("bearer") => Ok(AuthType::Bearer),
+        Some("digest") => Ok(AuthType::Digest),
+        _ => {
+            let auth_type_str = auth_type.to_string_lossy();
+            if auth_type_str.starts_with("plugin-")
+                || auth_type_str.contains(std::path::is_separator)
+            {
+                Ok(AuthType::Plugin(auth_type))
+            } else {
+                Err(anyhow!("Unknown auth_type {:?}", auth_type))
+            }
+        }
+    }
 }
 
 #[derive(clap::Args, Debug, Clone)]
@@ -1294,29 +1320,13 @@ pub enum Verify {
     CustomCaBundle(PathBuf),
 }
 
-impl clap::builder::ValueParserFactory for Verify {
-    type Parser = VerifyParser;
-    fn value_parser() -> Self::Parser {
-        VerifyParser
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct VerifyParser;
-impl clap::builder::TypedValueParser for VerifyParser {
-    type Value = Verify;
-
-    fn parse_ref(
-        &self,
-        _cmd: &clap::Command,
-        _arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
-    ) -> clap::error::Result<Self::Value, clap::Error> {
-        Ok(match value.to_ascii_lowercase().to_str() {
+impl From<OsString> for Verify {
+    fn from(value: OsString) -> Self {
+        match value.to_ascii_lowercase().to_str() {
             Some("no") | Some("false") => Verify::No,
             Some("yes") | Some("true") => Verify::Yes,
             _ => Verify::CustomCaBundle(PathBuf::from(value)),
-        })
+        }
     }
 }
 

@@ -43,9 +43,9 @@ use reqwest::tls;
 use url::Host;
 use utils::reason_phrase;
 
-use crate::auth::{Auth, DigestAuthMiddleware};
+use crate::auth::{Auth, AuthPlugin, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{AuthType, Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -531,9 +531,15 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         let auth_type = args.auth_type.unwrap_or_default();
-        if let Some(auth_from_arg) = args.auth {
+        if let AuthType::Plugin(name) = auth_type {
+            auth = Some(Auth::Plugin(AuthPlugin::exec(
+                name,
+                url.to_string(),
+                args.auth.into_iter().map(|s| s.to_string()).collect(),
+            )?));
+        } else if let Some(auth_from_arg) = args.auth.last() {
             auth = Some(Auth::from_str(
-                &auth_from_arg,
+                auth_from_arg,
                 auth_type,
                 url.host_str().unwrap_or("<host>"),
             )?);
@@ -550,7 +556,7 @@ fn run(args: Cli) -> Result<ExitCode> {
         if let Some(auth) = &auth {
             if let Some(ref mut s) = session {
                 if save_auth_in_session {
-                    s.save_auth(auth);
+                    s.save_auth(auth)?;
                 }
             }
             request_builder = match auth {
@@ -559,6 +565,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                 }
                 Auth::Bearer(token) => request_builder.bearer_auth(token),
                 Auth::Digest(..) => request_builder,
+                Auth::Plugin(auth_plugin) => request_builder.headers(auth_plugin.headers.clone()),
             }
         }
 
@@ -699,19 +706,26 @@ fn run(args: Cli) -> Result<ExitCode> {
                 });
             }
             if args.follow {
-                #[cfg(feature = "http-message-signatures")]
-                {
-                    let message_signature = args.m_sig.has_key_pair().then_some(args.m_sig.clone());
-
-                    client = client.with(RedirectFollower::new(
-                        args.max_redirects.unwrap_or(10),
-                        message_signature,
-                    ));
-                }
-                #[cfg(not(feature = "http-message-signatures"))]
-                {
-                    client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
-                }
+                client = client.with(RedirectFollower::new(
+                    args.max_redirects.unwrap_or(10),
+                    #[cfg(feature = "http-message-signatures")]
+                    |mut request| {
+                        if let Some((key_id, key_material)) = args.m_sig.key_pair() {
+                            let components = args.m_sig.flattened_components();
+                            let algorithm = args.m_sig.algorithm().map(Into::into);
+                            crate::message_signature::sign_request(
+                                &mut request,
+                                key_id,
+                                key_material,
+                                (!components.is_empty()).then_some(components.as_slice()),
+                                algorithm,
+                            )?;
+                        }
+                        Ok(request)
+                    },
+                    #[cfg(not(feature = "http-message-signatures"))]
+                    Ok,
+                ));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));

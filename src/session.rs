@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::auth;
-use crate::utils::{config_dir, test_mode};
+use crate::utils::{config_dir, is_path, test_mode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -252,7 +252,7 @@ impl Session {
         }
     }
 
-    pub fn save_auth(&mut self, auth: &auth::Auth) {
+    pub fn save_auth(&mut self, auth: &auth::Auth) -> Result<()> {
         match auth {
             auth::Auth::Basic(username, password) => {
                 let password = password.as_deref().unwrap_or("");
@@ -273,7 +273,14 @@ impl Session {
                     raw_auth: Some(token.into()),
                 }
             }
+            auth::Auth::Plugin(auth_plugin) => {
+                let auth_headers = auth_plugin.headers.clone();
+                let mut session_headers = self.headers()?;
+                session_headers.extend(auth_headers);
+                self.save_headers(&session_headers)?;
+            }
         }
+        Ok(())
     }
 
     pub fn cookies(&self) -> impl Iterator<Item = Result<cookie_store::Cookie<'static>>> + '_ {
@@ -365,10 +372,6 @@ fn xh_version() -> String {
     } else {
         env!("CARGO_PKG_VERSION").into()
     }
-}
-
-fn is_path(value: &OsString) -> bool {
-    value.to_string_lossy().contains(std::path::is_separator)
 }
 
 fn path_from_url(url: &Url) -> Result<String> {

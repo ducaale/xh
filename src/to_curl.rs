@@ -344,7 +344,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Already the default, so a bit questionable
         cmd.arg("--no-netrc");
     }
-    if let Some(auth) = args.auth {
+    if let Some(auth) = args.auth.last().cloned() {
         match args.auth_type.unwrap_or_default() {
             AuthType::Basic => {
                 cmd.arg("--basic");
@@ -361,6 +361,9 @@ pub fn translate(args: Cli) -> Result<Command> {
             AuthType::Bearer => {
                 cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
+            }
+            AuthType::Plugin(..) => {
+                cmd.warn("Ignored -A/--auth-type".to_string());
             }
         }
     }
