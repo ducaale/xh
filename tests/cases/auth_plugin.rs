@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::path::PathBuf;
 
 use indoc::indoc;
@@ -106,4 +107,43 @@ fn can_parse_error_from_plugin() {
         .stderr(indoc! {r#"
             xh: error: -a/--auth cannot be used with xh-plugin-token
         "#});
+}
+
+#[test]
+fn persist_in_session() {
+    let mut path_to_session = std::env::temp_dir();
+    let file_name = random_string();
+    path_to_session.push(file_name);
+
+    get_command()
+        .env("PATH", path_with_plugins_dir())
+        .args([
+            "example.com",
+            "--offline",
+            if cfg!(windows) {
+                "--auth-type=plugin-token.cmd"
+            } else {
+                "--auth-type=plugin-token"
+            },
+        ])
+        .arg(format!("--session={}", path_to_session.to_string_lossy()))
+        .assert()
+        .success();
+
+    let session_content = fs::read_to_string(path_to_session).unwrap();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&session_content).unwrap(),
+        serde_json::json!({
+            "__meta__": {
+                "about": "xh session file",
+                "xh": "0.0.0"
+            },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [],
+            "headers": [
+                { "name": "x-token", "value": "42" }
+            ]
+        })
+    );
 }

@@ -103,15 +103,15 @@ impl Middleware for DigestAuthMiddleware<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct AuthPlugin {
-    name_or_path: OsString,
-    auth: Vec<String>,
+#[derive(Debug, Serialize)]
+struct PluginInput<'a> {
+    url: &'a str,
+    auth: &'a [String],
 }
 
-impl AuthPlugin {
-    pub fn new(name_or_path: OsString, auth: Vec<String>) -> Self {
-        AuthPlugin { name_or_path, auth }
+impl<'a> PluginInput<'a> {
+    fn new(url: &'a str, auth: &'a [String]) -> Self {
+        PluginInput { url, auth }
     }
 }
 
@@ -131,38 +131,19 @@ struct PluginResponseErr {
     error_message: String,
 }
 
-#[derive(Debug, Serialize)]
-struct PluginInput<'a> {
-    url: &'a str,
-    auth: &'a [String],
-}
-
-impl<'a> PluginInput<'a> {
-    fn new(url: &'a str, auth: &'a [String]) -> Self {
-        PluginInput { url, auth }
-    }
+#[derive(Debug, PartialEq, Eq)]
+pub struct AuthPlugin {
+    pub headers: HeaderMap,
 }
 
 impl AuthPlugin {
-    pub fn headers(&self, url: &str) -> Result<HeaderMap> {
-        let plugin_input = PluginInput::new(url, &self.auth);
+    pub fn exec(name_or_path: OsString, url: String, auth: Vec<String>) -> Result<Self> {
+        let plugin_input = PluginInput::new(&url, &auth);
 
-        let plugin_output = serde_json::from_slice::<PluginResponse>(
-            &self.exec(&serde_json::to_vec(&plugin_input)?)?,
-        )?;
-
-        plugin_output
-            .add_headers
-            .iter()
-            .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
-            .collect::<Result<HeaderMap>>()
-    }
-
-    fn exec(&self, plugin_input: &[u8]) -> Result<Vec<u8>> {
-        let plugin_path = if is_path(&self.name_or_path) {
-            std::path::PathBuf::from(&self.name_or_path)
+        let plugin_path = if is_path(&name_or_path) {
+            std::path::PathBuf::from(&name_or_path)
         } else {
-            std::path::PathBuf::from(format!("xh-{}", self.name_or_path.to_string_lossy()))
+            std::path::PathBuf::from(format!("xh-{}", name_or_path.to_string_lossy()))
         };
 
         log::debug!("Spawning plugin {:?}", plugin_path);
@@ -175,7 +156,7 @@ impl AuthPlugin {
 
         let child_stdin = child.stdin.as_mut().unwrap();
         log::debug!("Writing to plugin's stdin");
-        child_stdin.write_all(plugin_input)?;
+        child_stdin.write_all(&serde_json::to_vec(&plugin_input)?)?;
 
         let output = child
             .wait_with_output()
@@ -193,7 +174,15 @@ impl AuthPlugin {
             }
         }
 
-        Ok(output.stdout)
+        let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
+
+        Ok(AuthPlugin {
+            headers: plugin_output
+                .add_headers
+                .iter()
+                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                .collect::<Result<HeaderMap>>()?,
+        })
     }
 }
 

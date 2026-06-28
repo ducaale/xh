@@ -532,10 +532,11 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         let auth_type = args.auth_type.unwrap_or_default();
         if let AuthType::Plugin(name) = auth_type {
-            auth = Some(Auth::Plugin(AuthPlugin::new(
+            auth = Some(Auth::Plugin(AuthPlugin::exec(
                 name,
+                url.to_string(),
                 args.auth.into_iter().map(|s| s.to_string()).collect(),
-            )));
+            )?));
         } else if let Some(auth_from_arg) = args.auth.last() {
             auth = Some(Auth::from_str(
                 auth_from_arg,
@@ -555,7 +556,7 @@ fn run(args: Cli) -> Result<ExitCode> {
         if let Some(auth) = &auth {
             if let Some(ref mut s) = session {
                 if save_auth_in_session {
-                    s.save_auth(auth);
+                    s.save_auth(auth)?;
                 }
             }
             request_builder = match auth {
@@ -564,10 +565,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                 }
                 Auth::Bearer(token) => request_builder.bearer_auth(token),
                 Auth::Digest(..) => request_builder,
-                Auth::Plugin(auth_plugin) => {
-                    // TODO: save headers from plugin in session
-                    request_builder.headers(auth_plugin.headers(url.as_str())?)
-                }
+                Auth::Plugin(auth_plugin) => request_builder.headers(auth_plugin.headers.clone()),
             }
         }
 
