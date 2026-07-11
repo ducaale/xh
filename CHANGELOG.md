@@ -1,4 +1,8 @@
 ## Unreleased
+### Bug fixes
+- Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)
+
+## [0.26.1] - 2026-06-19
 ### Features
 - Pretty-print XML responses, see #450 (@o1x3)
 - Add experimental HTTP message signatures (RFC 9421) support, see #448 (@zuisong)

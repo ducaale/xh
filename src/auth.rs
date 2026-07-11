@@ -54,7 +54,7 @@ impl Auth {
 pub fn parse_auth(auth: &str, host: &str) -> io::Result<(String, Option<String>)> {
     if let Some(cap) = Regex::new(r"^([^:]*):$").unwrap().captures(auth) {
         Ok((cap[1].to_string(), None))
-    } else if let Some(cap) = Regex::new(r"^(.+?):(.+)$").unwrap().captures(auth) {
+    } else if let Some(cap) = Regex::new(r"^(.*?):(.+)$").unwrap().captures(auth) {
         let username = cap[1].to_string();
         let password = cap[2].to_string();
         Ok((username, Some(password)))
@@ -197,6 +197,8 @@ mod tests {
             ("user:password", ("user", Some("password"))),
             ("user:pass:with:colons", ("user", Some("pass:with:colons"))),
             (":", ("", None)),
+            (":password", ("", Some("password"))),
+            (":pass:with:colons", ("", Some("pass:with:colons"))),
         ];
         for (input, output) in expected {
             let (user, pass) = parse_auth(input, "").unwrap();

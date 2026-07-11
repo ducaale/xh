@@ -732,6 +732,20 @@ fn user_auth() {
 }
 
 #[test]
+fn empty_user_password_auth() {
+    let server = server::http(|req| async move {
+        // base64 of ":pass"
+        assert_eq!(req.headers()["Authorization"], "Basic OnBhc3M=");
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(["--auth=:pass", &server.base_url()])
+        .assert()
+        .success();
+}
+
+#[test]
 fn bearer_auth() {
     let server = server::http(|req| async move {
         assert_eq!(req.headers()["Authorization"], "Bearer SomeToken");
@@ -1382,6 +1396,7 @@ fn bad_tls_version_nativetls() {
 }
 
 #[cfg(feature = "native-tls")]
+#[ignore = "should be removed since native-tls now supports TLS 1.3"]
 #[test]
 fn unsupported_tls_version_nativetls() {
     get_command()
