@@ -246,8 +246,22 @@ Example: --print=Hb"
 
     /// Specify the auth mechanism. Supported auth types are "basic", "bearer" and "digest".
     ///
-    /// Custom auth strategy is supported via "plugin-NAME" or "/path/to/plugin". The former
+    /// Custom auth is supported via "plugin-NAME" or "/path/to/plugin". The former
     /// looks for an executable named "xh-plugin-NAME" in "$PATH".
+    ///
+    /// The plugin receives request url and --auth values via stdin:
+    ///
+    /// { "url": "http://example.org/api/v1/hello", "auth": [] }
+    ///
+    /// It can either output headers to add via stdout:
+    ///
+    /// { "add_headers": [{ "name": "x-signature", "value": "12345678" }] }
+    ///
+    /// or exit with non-zero code and optionally output error message via stdout:
+    ///
+    /// { "error_message": "-a/--auth cannot be used with plugin-token" }
+    ///
+    /// Example: --auth-type=plugin-x99 --auth=id:pluto --auth=scope:read
     #[clap(
         short = 'A',
         long,
