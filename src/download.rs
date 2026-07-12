@@ -5,15 +5,15 @@ use std::time::Instant;
 
 use crate::content_disposition;
 use crate::decoder::{decompress, get_compression_type};
-use crate::utils::{HeaderValueExt, copy_largebuf, test_pretend_term};
-use anyhow::{Context, Result, anyhow};
+use crate::utils::{copy_largebuf, test_pretend_term, HeaderValueExt};
+use anyhow::{anyhow, Context, Result};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use mime2ext::mime2ext;
 use regex_lite::Regex;
 use reqwest::{
-    StatusCode,
     blocking::Response,
-    header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, HeaderMap},
+    header::{HeaderMap, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE},
+    StatusCode,
 };
 
 fn get_content_length(headers: &HeaderMap) -> Option<u64> {
@@ -201,6 +201,8 @@ pub fn download_file(
         buffer = Box::new(io::stdout());
     }
 
+    let to_stdout = dest_name.to_string_lossy() == "<stdout>";
+
     let starting_length: u64;
     let total_length: Option<u64>;
     if let Some(resume) = resume {
@@ -222,11 +224,13 @@ pub fn download_file(
     let pb = if quiet {
         None
     } else if let Some(total_length) = total_length {
-        eprintln!(
-            "Downloading {} to {:?}",
-            HumanBytes(total_length - starting_length),
-            dest_name
-        );
+        if !to_stdout {
+            eprintln!(
+                "Downloading {} to {:?}",
+                HumanBytes(total_length - starting_length),
+                dest_name
+            );
+        }
         let style = ProgressStyle::default_bar()
             .template(if color {
                 BAR_TEMPLATE
@@ -236,7 +240,9 @@ pub fn download_file(
             .progress_chars("#>-");
         Some(ProgressBar::new(total_length).with_style(style))
     } else {
-        eprintln!("Downloading to {dest_name:?}");
+        if !to_stdout {
+            eprintln!("Downloading to {dest_name:?}");
+        }
         let style = ProgressStyle::default_bar().template(if color {
             SPINNER_TEMPLATE
         } else {
@@ -260,15 +266,17 @@ pub fn download_file(
             let downloaded_length = pb.position() - starting_length;
             pb.finish_and_clear();
             let time_taken = starting_time.elapsed();
-            if !time_taken.is_zero() {
-                eprintln!(
-                    "Done. {} in {:.5}s ({}/s)",
-                    HumanBytes(downloaded_length),
-                    time_taken.as_secs_f64(),
-                    HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
-                );
-            } else {
-                eprintln!("Done. {}", HumanBytes(downloaded_length));
+            if !to_stdout {
+                if !time_taken.is_zero() {
+                    eprintln!(
+                        "Done. {} in {:.5}s ({}/s)",
+                        HumanBytes(downloaded_length),
+                        time_taken.as_secs_f64(),
+                        HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
+                    );
+                } else {
+                    eprintln!("Done. {}", HumanBytes(downloaded_length));
+                }
             }
         }
         None => {
