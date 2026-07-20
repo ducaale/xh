@@ -90,6 +90,9 @@ fn get_base_command() -> Command {
     cmd.env("HOME", "");
     cmd.env("NETRC", "");
     cmd.env("XH_CONFIG_DIR", "");
+    // Tests talk to a local server, so never route through a proxy. A system
+    // proxy is picked up even when no proxy env vars are set.
+    cmd.env("NO_PROXY", "127.0.0.1,localhost,example.com");
     #[cfg(target_os = "windows")]
     cmd.env("XH_TEST_MODE_WIN_HOME_DIR", "");
     cmd.env("RUST_BACKTRACE", "0");
