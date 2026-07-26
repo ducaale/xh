@@ -1,4 +1,4 @@
-## Unreleased
+## [0.26.2] - 2026-07-26
 ### Bug fixes
 - Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)
 - Decode all frames in concatenated zstd response bodies, see #470 (@snowyukitty)
