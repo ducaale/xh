@@ -437,7 +437,7 @@ Example: xh --generate=complete-bash > xh.bash",
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    #[clap(value_name = "[METHOD] URL", required = true)]
+    #[clap(value_name = "[METHOD] URL", required_unless_present = "generate")]
     raw_method_or_url: Option<String>,
 
     /// Optional key-value pairs to be included in the request.

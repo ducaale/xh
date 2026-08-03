@@ -369,6 +369,21 @@ mod tests {
     use indoc::indoc;
 
     #[test]
+    fn nushell_completion_allows_generate_without_url() {
+        let mut app = Cli::into_app();
+        let mut output = Vec::new();
+        clap_complete::generate(Nushell, &mut app, "xh", &mut output);
+        let output = String::from_utf8(output).unwrap();
+
+        assert!(
+            output
+                .lines()
+                .any(|line| line.trim_start().starts_with("raw_method_or_url?: string")),
+            "generated completion should make raw_method_or_url optional"
+        );
+    }
+
+    #[test]
     fn parse_help_with_definition() {
         let parsed = parse_help(indoc! {r#"
             Controls output processing. Possible values are:
