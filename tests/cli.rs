@@ -2213,6 +2213,103 @@ fn named_sessions() {
     );
 }
 
+/// Regression test: session files can contain credentials (Authorization
+/// headers, cookies), so they must not be created with permissions wider
+/// than owner-only, regardless of the process's umask.
+#[cfg(unix)]
+#[test]
+fn session_files_are_created_with_owner_only_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let server = server::http(|_req| async move {
+        hyper::Response::builder().body("".into()).unwrap()
+    });
+
+    let config_dir = tempdir().unwrap();
+    let random_name = random_string();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(server.base_url())
+        .arg(format!("--session={random_name}"))
+        .arg("--bearer=hello")
+        .assert()
+        .success();
+
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
+        [
+            "sessions",
+            &format!("127.0.0.1_{}", server.port()),
+            &format!("{random_name}.json"),
+        ]
+        .iter()
+        .collect(),
+    );
+
+    let mode = fs::metadata(&path_to_session).unwrap().permissions().mode();
+    assert_eq!(
+        mode & 0o777,
+        0o600,
+        "session file must be owner-only, got mode {:o}",
+        mode & 0o777
+    );
+}
+
+/// Regression test: a session file created by an older xh version (before
+/// owner-only permissions were enforced) must have its permissions
+/// corrected the next time it's written to, not just left as-is.
+#[cfg(unix)]
+#[test]
+fn preexisting_session_file_permissions_are_corrected() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let server = server::http(|_req| async move {
+        hyper::Response::builder().body("".into()).unwrap()
+    });
+
+    let config_dir = tempdir().unwrap();
+    let random_name = random_string();
+
+    let path_to_session = config_dir.path().join::<std::path::PathBuf>(
+        [
+            "sessions",
+            &format!("127.0.0.1_{}", server.port()),
+            &format!("{random_name}.json"),
+        ]
+        .iter()
+        .collect(),
+    );
+    fs::create_dir_all(path_to_session.parent().unwrap()).unwrap();
+    fs::write(
+        &path_to_session,
+        serde_json::json!({
+            "__meta__": { "about": "xh session file", "xh": "0.0.0" },
+            "auth": { "type": null, "raw_auth": null },
+            "cookies": [],
+            "headers": []
+        })
+        .to_string(),
+    )
+    .unwrap();
+    fs::set_permissions(&path_to_session, fs::Permissions::from_mode(0o664)).unwrap();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(server.base_url())
+        .arg(format!("--session={random_name}"))
+        .arg("--bearer=hello")
+        .assert()
+        .success();
+
+    let mode = fs::metadata(&path_to_session).unwrap().permissions().mode();
+    assert_eq!(
+        mode & 0o777,
+        0o600,
+        "pre-existing session file's permissions must be corrected, got mode {:o}",
+        mode & 0o777
+    );
+}
+
 #[test]
 fn anonymous_sessions() {
     let server = server::http(|_req| async move {

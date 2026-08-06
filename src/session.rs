@@ -348,7 +348,7 @@ impl Session {
             if let Some(parent_path) = self.path.parent() {
                 fs::create_dir_all(parent_path)?;
             }
-            let mut session_file = fs::File::create(&self.path)?;
+            let mut session_file = create_session_file(&self.path)?;
             log::debug!("Persisting session to {:?}", self.path);
             let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
             let mut ser = serde_json::Serializer::with_formatter(&mut session_file, formatter);
@@ -357,6 +357,32 @@ impl Session {
         }
         Ok(())
     }
+}
+
+/// Create (or truncate) the session file with permissions restricted to
+/// the owner, since session files can contain credentials (Authorization
+/// headers, cookies). Relying on the umask alone leaves the file
+/// group- or world-readable under common umask settings.
+#[cfg(unix)]
+fn create_session_file(path: &std::path::Path) -> Result<fs::File> {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    // `mode` above only applies when the file is newly created; a
+    // pre-existing session file (e.g. from an older xh version, before
+    // this permission was enforced) needs its permissions corrected
+    // explicitly.
+    file.set_permissions(fs::Permissions::from_mode(0o600))?;
+    Ok(file)
+}
+
+#[cfg(not(unix))]
+fn create_session_file(path: &std::path::Path) -> Result<fs::File> {
+    Ok(fs::File::create(path)?)
 }
 
 fn xh_version() -> String {
