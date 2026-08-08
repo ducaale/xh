@@ -27,15 +27,11 @@ bearer\t''
 digest\t''"
 complete -c xh -s a -l auth -d 'Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)' -r
 complete -c xh -l bearer -d 'Authenticate with a bearer token' -r
-complete -c xh -l unstable-m-sig-id -d 'Message signature key identifier (RFC 9421)' -r
-complete -c xh -l unstable-m-sig-key -d 'Message signature key material (RFC 9421)' -r
-complete -c xh -l unstable-m-sig-alg -d 'Message signature algorithm (RFC 9421)' -r -f -a "hmac-sha256\t''
-ed25519\t''
-ecdsa-p256-sha256\t''
-ecdsa-p384-sha384\t''
-rsa-v1_5-sha256\t''
-rsa-pss-sha512\t''"
-complete -c xh -l unstable-m-sig-comp -d 'Comma-separated list of message signature components (RFC 9421)' -r
+complete -c xh -l httpsig-keyid -d 'Message signature key identifier (RFC 9421)' -r
+complete -c xh -l httpsig-key -d 'Message signature key or key file (RFC 9421)' -r
+complete -c xh -l httpsig-algo -d 'Message signature algorithm (RFC 9421)' -r -f -a "hmac-sha256\t''
+ed25519\t''"
+complete -c xh -l httpsig-headers -d 'Space-separated list of message signature components (RFC 9421)' -r
 complete -c xh -l max-redirects -d 'Number of redirects to follow. Only respected if --follow is used' -r
 complete -c xh -l timeout -d 'Connection timeout of the request' -r
 complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080' -r
@@ -119,10 +115,10 @@ complete -c xh -l no-auth-type
 complete -c xh -l no-auth
 complete -c xh -l no-bearer
 complete -c xh -l no-ignore-netrc
-complete -c xh -l no-unstable-m-sig-id
-complete -c xh -l no-unstable-m-sig-key
-complete -c xh -l no-unstable-m-sig-alg
-complete -c xh -l no-unstable-m-sig-comp
+complete -c xh -l no-httpsig-keyid
+complete -c xh -l no-httpsig-key
+complete -c xh -l no-httpsig-algo
+complete -c xh -l no-httpsig-headers
 complete -c xh -l no-offline
 complete -c xh -l no-check-status
 complete -c xh -l no-follow

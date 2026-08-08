@@ -189,6 +189,24 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--ignore-netrc`: Do not use credentials from .netrc.
 
+- `--httpsig-keyid=KEY_ID`: Message signature key identifier (RFC 9421).
+
+- `--httpsig-key=KEY_OR_@FILE`: Message signature key or key file (RFC 9421).
+  
+  Pass a hex-encoded key directly, or prefix a file path with `@`.
+
+- `--httpsig-algo=ALG`: Message signature algorithm (RFC 9421).
+  
+  Supported algorithms: hmac-sha256 and ed25519.
+
+  [possible values: `hmac-sha256`, `ed25519`]
+
+- `--httpsig-headers=COMPONENTS`: Space-separated list of message signature components (RFC 9421).
+  
+  If not specified, defaults to `method authority path`, plus `query` when the URL has a query string. If this flag is passed multiple times, the last value is used. Derived components are method, authority, path, and query. Header fields use a trailing colon, as in `content-digest:`.
+  
+  Example: `method path content-digest:`.
+
 - `--offline`: Construct HTTP requests without sending them anywhere.
 
 - `--check-status`: (default) Exit with an error status code if the server replies with an error.

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::env;
 use std::ffi::OsString;
@@ -266,7 +267,7 @@ Example: --print=Hb"
     pub ignore_netrc: bool,
 
     #[command(flatten)]
-    pub m_sig: MessageSignature,
+    pub httpsig: HttpsigOptions,
 
     /// Construct HTTP requests without sending them anywhere.
     #[clap(long)]
@@ -811,121 +812,272 @@ pub enum AuthType {
 }
 
 #[derive(clap::Args, Debug, Clone)]
-pub struct MessageSignature {
+pub struct HttpsigOptions {
     /// Message signature key identifier (RFC 9421).
     #[arg(
-        long = "unstable-m-sig-id",
+        long = "httpsig-keyid",
         value_name = "KEY_ID",
-        requires = "m_sig_key",
+        requires = "httpsig_key",
         hide = cfg!(not(feature = "http-message-signatures"))
     )]
-    pub m_sig_id: Option<String>,
+    pub httpsig_key_id: Option<String>,
 
-    /// Message signature key material (RFC 9421).
+    /// Message signature key or key file (RFC 9421).
     ///
-    /// Can be a raw string or a file path starting with @.
+    /// Pass a hex-encoded key directly, or prefix a file path with `@`.
     #[arg(
-        long = "unstable-m-sig-key",
-        value_name = "KEY",
-        requires = "m_sig_id",
+        long = "httpsig-key",
+        value_name = "KEY_OR_@FILE",
+        requires = "httpsig_key_id",
         hide = cfg!(not(feature = "http-message-signatures"))
     )]
-    pub m_sig_key: Option<String>,
+    pub httpsig_key: Option<MessageSignatureKey>,
 
     /// Message signature algorithm (RFC 9421).
     ///
-    /// Supported algorithms: hmac-sha256, ed25519, ecdsa-p256-sha256,
-    /// ecdsa-p384-sha384, rsa-v1_5-sha256, rsa-pss-sha512.
+    /// Supported algorithms: hmac-sha256 and ed25519.
     #[arg(
-        long = "unstable-m-sig-alg",
+        long = "httpsig-algo",
         value_name = "ALG",
-        hide_possible_values = true,
-        requires = "m_sig_key",
+        requires = "httpsig_key",
         hide = cfg!(not(feature = "http-message-signatures"))
     )]
-    pub m_sig_alg: Option<MessageSignatureAlgorithm>,
+    pub httpsig_algorithm: Option<MessageSignatureAlgorithm>,
 
-    /// Comma-separated list of message signature components (RFC 9421).
+    /// Space-separated list of message signature components (RFC 9421).
     ///
-    /// If not specified, defaults to "@method, @authority, @target-uri".
-    /// This flag can be passed multiple times; values are appended in order.
-    /// "@query-params" is a shorthand for all query parameters.
-    /// "content-digest" is included if there's a body.
+    /// If not specified, defaults to "method authority path", plus "query"
+    /// when the URL has a query string.
+    /// If this flag is passed multiple times, the last value is used.
+    /// Derived components are method, authority, path, and query.
+    /// Header fields use a trailing colon, as in "content-digest:".
     ///
-    /// Example: "@method,@path,content-digest"
+    /// Example: "method path content-digest:"
     #[arg(
-        long = "unstable-m-sig-comp",
+        long = "httpsig-headers",
         value_name = "COMPONENTS",
         hide = cfg!(not(feature = "http-message-signatures"))
     )]
-    pub m_sig_comp: Vec<MessageSignatureComponents>,
+    pub httpsig_headers: Option<MessageSignatureComponents>,
 }
 
-#[allow(unused)]
-impl MessageSignature {
-    pub fn has_key_pair(&self) -> bool {
-        self.m_sig_id.is_some() && self.m_sig_key.is_some()
+impl HttpsigOptions {
+    /// Whether any HTTP Message Signature option was provided.
+    pub fn is_requested(&self) -> bool {
+        self.httpsig_key_id.is_some()
+            || self.httpsig_key.is_some()
+            || self.httpsig_algorithm.is_some()
+            || self.httpsig_headers.is_some()
     }
 
-    pub fn key_pair(&self) -> Option<(&str, &str)> {
-        Some((self.m_sig_id.as_deref()?, self.m_sig_key.as_deref()?))
-    }
-
-    pub fn algorithm(&self) -> Option<MessageSignatureAlgorithm> {
-        self.m_sig_alg
-    }
-
-    pub fn has_components(&self) -> bool {
-        self.m_sig_comp
-            .iter()
-            .any(|components| !components.0.is_empty())
-    }
-
+    /// Whether both parts required to sign a request were supplied.
     #[cfg(feature = "http-message-signatures")]
-    pub fn flattened_components(&self) -> Vec<String> {
-        self.m_sig_comp
-            .iter()
-            .flat_map(|components| components.0.iter().cloned())
-            .collect()
+    pub fn has_key_pair(&self) -> bool {
+        self.httpsig_key_id.is_some() && self.httpsig_key.is_some()
+    }
+
+    /// Return the key identifier and key source as one validated pair.
+    #[cfg(feature = "http-message-signatures")]
+    pub fn key_pair(&self) -> Option<(&str, &MessageSignatureKey)> {
+        Some((self.httpsig_key_id.as_deref()?, self.httpsig_key.as_ref()?))
+    }
+
+    /// Return the explicitly selected algorithm, if any.
+    #[cfg(feature = "http-message-signatures")]
+    pub fn algorithm(&self) -> Option<MessageSignatureAlgorithm> {
+        self.httpsig_algorithm
+    }
+
+    /// Return the validated component list supplied by the user.
+    #[cfg(feature = "http-message-signatures")]
+    pub fn components(&self) -> Option<&[MessageSignatureComponent]> {
+        self.httpsig_headers
+            .as_ref()
+            .map(|components| components.0.as_slice())
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MessageSignatureComponents(pub Vec<String>);
+/// A curl-compatible HTTP Message Signature key source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MessageSignatureKey {
+    /// Hex-encoded key material supplied directly on the command line.
+    Hex(String),
+    /// A file path supplied with the curl `@filename` syntax.
+    File(String),
+}
+
+impl FromStr for MessageSignatureKey {
+    type Err = String;
+
+    fn from_str(key: &str) -> Result<Self, Self::Err> {
+        if let Some(path) = key.strip_prefix('@') {
+            if path.is_empty() {
+                return Err("HTTP message signature key file path cannot be empty".to_string());
+            }
+            return Ok(Self::File(path.to_string()));
+        }
+
+        if !key.is_empty() && key.len() % 2 == 0 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Ok(Self::Hex(key.to_string()));
+        }
+
+        Err("HTTP message signature key must be hexadecimal or @FILE".to_string())
+    }
+}
+
+impl fmt::Display for MessageSignatureKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Hex(key) => f.write_str(key),
+            Self::File(path) => write!(f, "@{path}"),
+        }
+    }
+}
+
+const MAX_MESSAGE_SIGNATURE_COMPONENTS: usize = 16;
+
+/// A component accepted by curl's `--httpsig-headers` option.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MessageSignatureComponent {
+    /// The RFC 9421 `@method` derived component.
+    Method,
+    /// The RFC 9421 `@authority` derived component.
+    Authority,
+    /// The RFC 9421 `@path` derived component.
+    Path,
+    /// The RFC 9421 `@query` derived component.
+    Query,
+    /// A lowercase HTTP field name, without curl's trailing colon marker.
+    Header(String),
+}
+
+impl MessageSignatureComponent {
+    /// Return the canonical identifier expected by the RFC 9421 signing library.
+    #[cfg(feature = "http-message-signatures")]
+    pub fn rfc_name(&self) -> &str {
+        match self {
+            Self::Method => "@method",
+            Self::Authority => "@authority",
+            Self::Path => "@path",
+            Self::Query => "@query",
+            Self::Header(name) => name,
+        }
+    }
+
+    /// Whether this component names the given HTTP field.
+    #[cfg(feature = "http-message-signatures")]
+    pub fn is_header(&self, expected: &str) -> bool {
+        matches!(self, Self::Header(name) if name == expected)
+    }
+}
+
+impl fmt::Display for MessageSignatureComponent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Method => f.write_str("method"),
+            Self::Authority => f.write_str("authority"),
+            Self::Path => f.write_str("path"),
+            Self::Query => f.write_str("query"),
+            Self::Header(name) => write!(f, "{name}:"),
+        }
+    }
+}
+
+/// The validated component list for one `--httpsig-headers` value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MessageSignatureComponents(pub Vec<MessageSignatureComponent>);
+
+impl fmt::Display for MessageSignatureComponents {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (index, component) in self.0.iter().enumerate() {
+            if index > 0 {
+                f.write_str(" ")?;
+            }
+            component.fmt(f)?;
+        }
+        Ok(())
+    }
+}
 
 impl FromStr for MessageSignatureComponents {
-    type Err = std::convert::Infallible;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let components = s
-            .split(',')
-            .map(|s| {
-                let component = s.trim();
-                if let Some(idx) = component.find(';') {
-                    let (name, params) = component.split_at(idx);
-                    format!("{}{}", name.to_lowercase(), params)
-                } else {
-                    component.to_lowercase()
-                }
-            })
-            .collect();
-        Ok(MessageSignatureComponents(components))
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let components = value
+            .split_whitespace()
+            .map(MessageSignatureComponent::from_str)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if components.is_empty() {
+            return Err("no HTTP message signature components specified".to_string());
+        }
+        if components.len() > MAX_MESSAGE_SIGNATURE_COMPONENTS {
+            return Err(format!(
+                "too many HTTP message signature components (maximum {MAX_MESSAGE_SIGNATURE_COMPONENTS})"
+            ));
+        }
+
+        let mut seen = HashSet::new();
+        if let Some(duplicate) = components
+            .iter()
+            .find(|component| !seen.insert((*component).clone()))
+        {
+            return Err(format!(
+                "duplicate HTTP message signature component `{duplicate}`"
+            ));
+        }
+
+        Ok(Self(components))
     }
 }
 
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+impl FromStr for MessageSignatureComponent {
+    type Err = String;
+
+    fn from_str(component: &str) -> Result<Self, Self::Err> {
+        if component.contains(['"', '\\']) {
+            return Err(format!(
+                "invalid HTTP message signature component `{component}`"
+            ));
+        }
+
+        let component = component.to_ascii_lowercase();
+        if let Some(header) = component.strip_suffix(':') {
+            if header.is_empty() {
+                return Err("HTTP message signature header name cannot be empty".to_string());
+            }
+            return Ok(Self::Header(header.to_string()));
+        }
+
+        match component.as_str() {
+            "method" => Ok(Self::Method),
+            "authority" => Ok(Self::Authority),
+            "path" => Ok(Self::Path),
+            "query" => Ok(Self::Query),
+            _ => Err(format!(
+                "unknown HTTP message signature component `{component}`; use method, authority, path, query, or a header name ending in `:`"
+            )),
+        }
+    }
+}
+
+#[derive(Default, ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageSignatureAlgorithm {
     #[clap(name = "hmac-sha256")]
     HmacSha256,
     #[clap(name = "ed25519")]
+    #[default]
     Ed25519,
-    #[clap(name = "ecdsa-p256-sha256")]
-    EcdsaP256Sha256,
-    #[clap(name = "ecdsa-p384-sha384")]
-    EcdsaP384Sha384,
-    #[clap(name = "rsa-v1_5-sha256")]
-    RsaV15Sha256,
-    #[clap(name = "rsa-pss-sha512")]
-    RsaPssSha512,
+}
+
+impl fmt::Display for MessageSignatureAlgorithm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::HmacSha256 => f.write_str("hmac-sha256"),
+            Self::Ed25519 => f.write_str("ed25519"),
+        }
+    }
 }
 
 #[cfg(feature = "http-message-signatures")]
@@ -934,10 +1086,6 @@ impl From<MessageSignatureAlgorithm> for httpsig_hyper::prelude::AlgorithmName {
         match value {
             MessageSignatureAlgorithm::HmacSha256 => Self::HmacSha256,
             MessageSignatureAlgorithm::Ed25519 => Self::Ed25519,
-            MessageSignatureAlgorithm::EcdsaP256Sha256 => Self::EcdsaP256Sha256,
-            MessageSignatureAlgorithm::EcdsaP384Sha384 => Self::EcdsaP384Sha384,
-            MessageSignatureAlgorithm::RsaV15Sha256 => Self::RsaV1_5Sha256,
-            MessageSignatureAlgorithm::RsaPssSha512 => Self::RsaPssSha512,
         }
     }
 }
@@ -1868,40 +2016,135 @@ mod tests {
     }
 
     #[test]
-    fn parse_repeated_message_signature_components() {
+    fn repeated_message_signature_components_use_last_value() {
         let cli = parse([
-            "--unstable-m-sig-id=my-key",
-            "--unstable-m-sig-key=secret",
-            "--unstable-m-sig-comp=@method,@path",
-            "--unstable-m-sig-comp=date",
+            "--httpsig-keyid=my-key",
+            "--httpsig-key=736563726574",
+            "--httpsig-headers=method path",
+            "--httpsig-headers=date:",
             "get",
             "example.org",
         ])
         .unwrap();
 
-        assert_eq!(cli.m_sig.m_sig_comp.len(), 2);
-        assert_eq!(cli.m_sig.m_sig_comp[0].0, vec!["@method", "@path"]);
-        assert_eq!(cli.m_sig.m_sig_comp[1].0, vec!["date"]);
+        assert_eq!(
+            cli.httpsig.httpsig_headers.unwrap().0,
+            vec![MessageSignatureComponent::Header("date".to_string())]
+        );
     }
 
     #[test]
+    fn message_signature_components_match_curl_syntax() {
+        for components in [
+            "@method authority",
+            "method content-type",
+            "method;sf",
+            "\"x-dict\";key=\"a\"",
+            "",
+        ] {
+            assert!(
+                parse([
+                    "--httpsig-keyid=my-key",
+                    "--httpsig-key=736563726574",
+                    &format!("--httpsig-headers={components}"),
+                    "get",
+                    "example.org",
+                ])
+                .is_err(),
+                "unexpectedly accepted {components:?}"
+            );
+        }
+
+        let duplicate = "--httpsig-headers=method method";
+        assert!(
+            parse([
+                "--httpsig-keyid=my-key",
+                "--httpsig-key=736563726574",
+                duplicate,
+                "get",
+                "example.org",
+            ])
+            .is_err()
+        );
+
+        let too_many = format!(
+            "--httpsig-headers={}",
+            (0..17)
+                .map(|index| format!("x-header-{index}:"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        assert!(
+            parse([
+                "--httpsig-keyid=my-key",
+                "--httpsig-key=736563726574",
+                &too_many,
+                "get",
+                "example.org",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn message_signature_key_matches_curl_syntax() {
+        for key in ["key.hex", "secret", "@", "123"] {
+            assert!(
+                parse([
+                    "--httpsig-keyid=my-key",
+                    &format!("--httpsig-key={key}"),
+                    "get",
+                    "example.org",
+                ])
+                .is_err(),
+                "unexpectedly accepted {key:?}"
+            );
+        }
+
+        for key in ["736563726574", "@key.hex"] {
+            assert!(
+                parse([
+                    "--httpsig-keyid=my-key",
+                    &format!("--httpsig-key={key}"),
+                    "get",
+                    "example.org",
+                ])
+                .is_ok(),
+                "unexpectedly rejected {key:?}"
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "http-message-signatures")]
     fn parse_message_signature_algorithm() {
         let cli = parse([
-            "--unstable-m-sig-id=my-key",
-            "--unstable-m-sig-key=secret",
-            "--unstable-m-sig-alg=rsa-v1_5-sha256",
+            "--httpsig-keyid=my-key",
+            "--httpsig-key=736563726574",
+            "--httpsig-algo=hmac-sha256",
             "get",
             "example.org",
         ])
         .unwrap();
 
         assert_eq!(
-            cli.m_sig.m_sig_alg,
-            Some(MessageSignatureAlgorithm::RsaV15Sha256)
+            cli.httpsig.httpsig_algorithm,
+            Some(MessageSignatureAlgorithm::HmacSha256)
         );
         assert_eq!(
-            cli.m_sig.algorithm(),
-            Some(MessageSignatureAlgorithm::RsaV15Sha256)
+            cli.httpsig.algorithm(),
+            Some(MessageSignatureAlgorithm::HmacSha256)
+        );
+
+        assert!(
+            parse([
+                "--httpsig-keyid=my-key",
+                "--httpsig-key=736563726574",
+                "--httpsig-algo=rsa-v1_5-sha256",
+                "get",
+                "example.org",
+            ])
+            .is_err()
         );
     }
 

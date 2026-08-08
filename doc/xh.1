@@ -1,4 +1,4 @@
-.TH XH 1 2026-07-26 0.26.2 "User Commands"
+.TH XH 1 2026-08-03 0.26.2 "User Commands"
 
 .SH NAME
 xh \- Friendly and fast tool for sending HTTP requests
@@ -295,6 +295,32 @@ TOKEN is expected if \-\-auth\-type=bearer.
 .TP 4
 \fB\-\-ignore\-netrc\fR
 Do not use credentials from .netrc.
+
+.TP 4
+\fB\-\-httpsig\-keyid\fR=\fIKEY_ID\fR
+Message signature key identifier (RFC 9421).
+
+.TP 4
+\fB\-\-httpsig\-key\fR=\fIKEY_OR_@FILE\fR
+Message signature key or key file (RFC 9421).
+
+Pass a hex\-encoded key directly, or prefix a file path with `@`.
+
+.TP 4
+\fB\-\-httpsig\-algo\fR=\fIALG\fR
+Message signature algorithm (RFC 9421).
+
+Supported algorithms: hmac\-sha256 and ed25519.
+
+
+[possible values: hmac\-sha256, ed25519]
+.TP 4
+\fB\-\-httpsig\-headers\fR=\fICOMPONENTS\fR
+Space\-separated list of message signature components (RFC 9421).
+
+If not specified, defaults to "method authority path", plus "query" when the URL has a query string. If this flag is passed multiple times, the last value is used. Derived components are method, authority, path, and query. Header fields use a trailing colon, as in "content\-digest:".
+
+Example: "method path content\-digest:".
 
 .TP 4
 \fB\-\-offline\fR

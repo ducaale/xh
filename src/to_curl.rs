@@ -97,14 +97,6 @@ pub fn translate(args: Cli) -> Result<Command> {
         // No equivalent
         (args.style.is_some(), "-s/--style"),
         // No equivalent
-        (args.m_sig.m_sig_id.is_some(), "--unstable-m-sig-id"),
-        // No equivalent
-        (args.m_sig.m_sig_key.is_some(), "--unstable-m-sig-key"),
-        // No equivalent
-        (args.m_sig.m_sig_alg.is_some(), "--unstable-m-sig-alg"),
-        // No equivalent
-        (args.m_sig.has_components(), "--unstable-m-sig-comp"),
-        // No equivalent
         (args.compress > 0, "-x/--compress"),
         // No equivalent
         (args.response_charset.is_some(), "--response-charset"),
@@ -365,6 +357,24 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
+    if let Some(ref key_id) = args.httpsig.httpsig_key_id {
+        cmd.arg("--httpsig-keyid");
+        cmd.arg(key_id);
+    }
+
+    if let Some(ref key) = args.httpsig.httpsig_key {
+        cmd.arg("--httpsig-key");
+        cmd.arg(key.to_string());
+    }
+    if let Some(algorithm) = args.httpsig.httpsig_algorithm {
+        cmd.arg("--httpsig-algo");
+        cmd.arg(algorithm.to_string());
+    }
+    if let Some(ref components) = args.httpsig.httpsig_headers {
+        cmd.arg("--httpsig-headers");
+        cmd.arg(components.to_string());
+    }
+
     if let Some(raw) = args.raw {
         if args.form {
             cmd.header("content-type", FORM_CONTENT_TYPE);
@@ -573,6 +583,14 @@ mod tests {
             (
                 "xh https://exmaple.com/ hello:你好",
                 "curl https://exmaple.com/ -H 'hello: 你好'",
+            ),
+            (
+                "xh http://example.com/ --httpsig-keyid=my-key --httpsig-key=736563726574 --httpsig-algo=ed25519 --httpsig-headers=method",
+                "curl http://example.com/ --httpsig-keyid my-key --httpsig-key 736563726574 --httpsig-algo ed25519 --httpsig-headers method",
+            ),
+            (
+                "xh http://example.com/ --httpsig-headers=method",
+                "curl http://example.com/ --httpsig-headers method",
             ),
         ];
         for (input, output) in expected {

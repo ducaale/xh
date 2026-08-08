@@ -108,6 +108,8 @@ fn run(args: Cli) -> Result<ExitCode> {
     }
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
+    // Keep the user-provided fields separate from xh's generated defaults so
+    // HTTP Message Signatures only cover headers the caller explicitly set.
     let url = url_with_query(args.url, &args.request_items.query()?);
     log::debug!("Complete URL: {url}");
 
@@ -424,6 +426,13 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
     }
 
+    // Session headers are also user-configured fields. Capture them after
+    // session loading, while excluding cookies moved into the cookie jar.
+    let mut explicit_signature_headers = headers.clone();
+    #[cfg(feature = "http-message-signatures")]
+    let signature_headers_preprovided =
+        headers.contains_key("signature") || headers.contains_key("signature-input");
+
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
@@ -587,36 +596,27 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);
+            explicit_signature_headers.remove(header);
         }
 
         #[cfg(not(feature = "http-message-signatures"))]
-        if args.m_sig.m_sig_id.is_some()
-            || args.m_sig.m_sig_key.is_some()
-            || args.m_sig.m_sig_alg.is_some()
-            || args.m_sig.has_components()
-        {
+        if args.httpsig.is_requested() {
             return Err(anyhow!(
                 "This binary was built without message signature support. Enable the `http-message-signatures` feature."
             ));
         }
 
         #[cfg(feature = "http-message-signatures")]
-        if args.m_sig.has_components() && !args.m_sig.has_key_pair() {
-            return Err(anyhow!(
-                "Message signature components require both --unstable-m-sig-id and --unstable-m-sig-key."
-            ));
-        }
-
-        #[cfg(feature = "http-message-signatures")]
-        if let Some((key_id, key_material)) = args.m_sig.key_pair() {
-            let m_sig_components = args.m_sig.flattened_components();
-            let m_sig_algorithm = args.m_sig.algorithm().map(Into::into);
+        if args.httpsig.is_requested() {
+            if !args.httpsig.has_key_pair() {
+                return Err(anyhow!(
+                    "HTTP message signatures require both --httpsig-keyid and --httpsig-key."
+                ));
+            }
             message_signature::sign_request(
                 &mut request,
-                key_id,
-                key_material,
-                (!m_sig_components.is_empty()).then_some(m_sig_components.as_slice()),
-                m_sig_algorithm,
+                &args.httpsig,
+                &explicit_signature_headers,
             )?;
         }
 
@@ -701,11 +701,20 @@ fn run(args: Cli) -> Result<ExitCode> {
             if args.follow {
                 #[cfg(feature = "http-message-signatures")]
                 {
-                    let message_signature = args.m_sig.has_key_pair().then_some(args.m_sig.clone());
+                    // If the caller supplied either signature field, preserve
+                    // that complete signature across redirects instead of
+                    // generating a partial replacement after xh removes it.
+                    let message_signature = args
+                        .httpsig
+                        .has_key_pair()
+                        .then_some(args.httpsig.clone())
+                        .filter(|_| !signature_headers_preprovided);
 
                     client = client.with(RedirectFollower::new(
                         args.max_redirects.unwrap_or(10),
                         message_signature,
+                        explicit_signature_headers.clone(),
+                        signature_headers_preprovided,
                     ));
                 }
                 #[cfg(not(feature = "http-message-signatures"))]

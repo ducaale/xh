@@ -7,25 +7,35 @@ use reqwest::header::{
 use reqwest::{Method, StatusCode, Url};
 
 #[cfg(feature = "http-message-signatures")]
-use crate::cli::MessageSignature;
+use crate::cli::HttpsigOptions;
 use crate::middleware::{Context, Middleware};
 use crate::utils::{HeaderValueExt, clone_request};
 
 pub struct RedirectFollower {
     max_redirects: usize,
     #[cfg(feature = "http-message-signatures")]
-    message_signature: Option<MessageSignature>,
+    httpsig: Option<HttpsigOptions>,
+    #[cfg(feature = "http-message-signatures")]
+    explicit_signature_headers: HeaderMap,
+    #[cfg(feature = "http-message-signatures")]
+    preserve_signature_headers: bool,
 }
 
 impl RedirectFollower {
     pub fn new(
         max_redirects: usize,
-        #[cfg(feature = "http-message-signatures")] message_signature: Option<MessageSignature>,
+        #[cfg(feature = "http-message-signatures")] httpsig: Option<HttpsigOptions>,
+        #[cfg(feature = "http-message-signatures")] explicit_signature_headers: HeaderMap,
+        #[cfg(feature = "http-message-signatures")] preserve_signature_headers: bool,
     ) -> Self {
         RedirectFollower {
             max_redirects,
             #[cfg(feature = "http-message-signatures")]
-            message_signature,
+            httpsig,
+            #[cfg(feature = "http-message-signatures")]
+            explicit_signature_headers,
+            #[cfg(feature = "http-message-signatures")]
+            preserve_signature_headers,
         }
     }
 }
@@ -38,7 +48,17 @@ impl Middleware for RedirectFollower {
         let mut response = self.next(&mut ctx, first_request)?;
         let mut remaining_redirects = self.max_redirects - 1;
 
-        while let Some(mut next_request) = get_next_request(request, &response) {
+        loop {
+            #[cfg(feature = "http-message-signatures")]
+            let previous_url = request.url().clone();
+            let Some(mut next_request) = get_next_request(
+                request,
+                &response,
+                #[cfg(feature = "http-message-signatures")]
+                self.preserve_signature_headers,
+            ) else {
+                break;
+            };
             if remaining_redirects > 0 {
                 remaining_redirects -= 1;
             } else {
@@ -49,16 +69,14 @@ impl Middleware for RedirectFollower {
             }
 
             #[cfg(feature = "http-message-signatures")]
-            if let Some(signature) = &self.message_signature {
-                if let Some((key_id, key_material)) = signature.key_pair() {
-                    let components = signature.flattened_components();
-                    let algorithm = signature.algorithm().map(Into::into);
+            if let Some(httpsig) = &self.httpsig {
+                // Sign only same-origin redirects. A cross-origin redirect is
+                // a new trust boundary and must not receive the old signature.
+                if !is_cross_domain_redirect(next_request.url(), &previous_url) {
                     crate::message_signature::sign_request(
                         &mut next_request,
-                        key_id,
-                        key_material,
-                        (!components.is_empty()).then_some(components.as_slice()),
-                        algorithm,
+                        httpsig,
+                        &self.explicit_signature_headers,
                     )?;
                 }
             }
@@ -93,7 +111,14 @@ impl std::fmt::Display for TooManyRedirects {
 impl std::error::Error for TooManyRedirects {}
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607
-fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {
+fn get_next_request(
+    mut request: Request,
+    response: &Response,
+    #[cfg(feature = "http-message-signatures")] preserve_signature_headers: bool,
+) -> Option<Request> {
+    #[cfg(not(feature = "http-message-signatures"))]
+    let preserve_signature_headers = false;
+
     let get_next_url = |request: &Request| {
         let location = response.headers().get(LOCATION)?;
         let url = location
@@ -111,10 +136,13 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
             let next_url = get_next_url(&request)?;
             log::trace!("Preparing redirect to {next_url}");
             let prev_url = request.url();
-            if is_cross_domain_redirect(&next_url, prev_url) {
+            let cross_domain = is_cross_domain_redirect(&next_url, prev_url);
+            if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            remove_signature_headers(request.headers_mut());
+            if !preserve_signature_headers {
+                remove_signature_headers(request.headers_mut());
+            }
             remove_content_headers(request.headers_mut());
             *request.url_mut() = next_url;
             *request.body_mut() = None;
@@ -129,10 +157,13 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
             let next_url = get_next_url(&request)?;
             log::trace!("Preparing redirect to {next_url}");
             let prev_url = request.url();
-            if is_cross_domain_redirect(&next_url, prev_url) {
+            let cross_domain = is_cross_domain_redirect(&next_url, prev_url);
+            if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            remove_signature_headers(request.headers_mut());
+            if !preserve_signature_headers {
+                remove_signature_headers(request.headers_mut());
+            }
             *request.url_mut() = next_url;
             Some(request)
         }
@@ -142,7 +173,8 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/redirect.rs#L234-L246
 fn is_cross_domain_redirect(next: &Url, previous: &Url) -> bool {
-    next.host_str() != previous.host_str()
+    next.scheme() != previous.scheme()
+        || next.host_str() != previous.host_str()
         || next.port_or_known_default() != previous.port_or_known_default()
 }
 
@@ -187,5 +219,13 @@ mod tests {
 
         assert!(!headers.contains_key(CONTENT_LENGTH));
         assert!(!headers.contains_key("content-digest"));
+    }
+
+    #[test]
+    fn scheme_changes_are_cross_origin_redirects() {
+        let previous: Url = "http://example.com/path".parse().unwrap();
+        let next: Url = "https://example.com/path".parse().unwrap();
+
+        assert!(is_cross_domain_redirect(&next, &previous));
     }
 }
