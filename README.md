@@ -47,6 +47,8 @@ iwr -useb https://raw.githubusercontent.com/ducaale/xh/master/install.ps1 | iex
 | Windows                       | Chocolatey     | `choco install xh`                         |
 | Windows                       | Winget         | `winget add ducaale.xh`                    |
 
+After Scoop, Chocolatey, Winget, or `cargo install` on Windows, open a **new** terminal so `PATH` picks up `xh`.
+
 \* Make sure that you have Rust 1.85 or later installed
 
 \*\* You will need to install the [MMRL CLI](https://github.com/DerGoogler/MMRL-CLI/releases)
