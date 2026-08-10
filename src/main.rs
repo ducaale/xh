@@ -657,7 +657,14 @@ fn run(args: Cli) -> Result<ExitCode> {
         .format_options
         .iter()
         .fold(FormatOptions::default(), FormatOptions::merge);
-    let mut printer = Printer::new(pretty, theme, args.stream, buffer, format_options);
+    let mut printer = Printer::new(
+        pretty,
+        theme,
+        args.stream,
+        args.buffer,
+        buffer,
+        format_options,
+    );
 
     let response_charset = args.response_charset;
     let response_mime = args.response_mime.as_deref();

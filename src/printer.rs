@@ -44,6 +44,24 @@ struct BinaryGuard<'a, T: Read> {
     checked: bool,
 }
 
+fn copy_stream(
+    reader: &mut impl Read,
+    writer: &mut impl Write,
+    line_buffered: bool,
+    check_binary: bool,
+) -> io::Result<()> {
+    if !line_buffered {
+        return copy_largebuf(reader, writer, true);
+    }
+
+    let mut guard = BinaryGuard::new(reader, check_binary);
+    while let Some(lines) = guard.read_lines()? {
+        writer.write_all(lines)?;
+        writer.flush()?;
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 struct FoundBinaryData;
 
@@ -125,6 +143,7 @@ pub struct Printer {
     color: bool,
     theme: Theme,
     stream: Option<bool>,
+    buffer_stream: Option<bool>,
     buffer: Buffer,
 }
 
@@ -133,6 +152,7 @@ impl Printer {
         pretty: Pretty,
         theme: Theme,
         stream: impl Into<Option<bool>>,
+        buffer_stream: impl Into<Option<bool>>,
         buffer: Buffer,
         format_options: FormatOptions,
     ) -> Self {
@@ -144,6 +164,7 @@ impl Printer {
             sort_headers: format_options.headers_sort.unwrap_or(pretty.format()),
             color: pretty.color(),
             stream: stream.into(),
+            buffer_stream: buffer_stream.into(),
             theme,
             buffer,
         }
@@ -246,15 +267,9 @@ impl Printer {
     }
 
     fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
-        if !self.buffer.is_terminal() {
-            return copy_largebuf(reader, &mut self.buffer, true);
-        }
-        let mut guard = BinaryGuard::new(reader, true);
-        while let Some(lines) = guard.read_lines()? {
-            self.buffer.write_all(lines)?;
-            self.buffer.flush()?;
-        }
-        Ok(())
+        let is_terminal = self.buffer.is_terminal();
+        let line_buffered = is_terminal && self.buffer_stream != Some(false);
+        copy_stream(reader, &mut self.buffer, line_buffered, is_terminal)
     }
 
     fn print_colorized_stream(
@@ -333,6 +348,9 @@ impl Printer {
         content_type: ContentType,
         body: &mut impl Read,
     ) -> io::Result<()> {
+        if self.buffer_stream == Some(false) {
+            return self.print_stream(body);
+        }
         match content_type {
             ContentType::Json => self.print_json_stream(body),
             ContentType::Xml => self.print_syntax_stream(body, "xml"),
@@ -758,7 +776,14 @@ mod tests {
         let theme = args.style.unwrap_or_default();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, theme, false, buffer, FormatOptions::default())
+        Printer::new(
+            pretty,
+            theme,
+            false,
+            args.buffer,
+            buffer,
+            FormatOptions::default(),
+        )
     }
 
     fn temp_path() -> String {
@@ -766,6 +791,36 @@ mod tests {
         let filename = random_string();
         dir.push(filename);
         dir.to_str().unwrap().to_owned()
+    }
+
+    struct PartialThenError(bool);
+
+    impl Read for PartialThenError {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            if self.0 {
+                Err(io::Error::other("stream paused"))
+            } else {
+                self.0 = true;
+                let chunk = b"incomplete event";
+                buf[..chunk.len()].copy_from_slice(chunk);
+                Ok(chunk.len())
+            }
+        }
+    }
+
+    #[test]
+    fn no_buffer_writes_incomplete_stream_chunks() {
+        let mut output = Vec::new();
+        let error =
+            copy_stream(&mut PartialThenError(false), &mut output, false, false).unwrap_err();
+        assert_eq!(error.to_string(), "stream paused");
+        assert_eq!(output, b"incomplete event");
+
+        let mut output = Vec::new();
+        let error =
+            copy_stream(&mut PartialThenError(false), &mut output, true, false).unwrap_err();
+        assert_eq!(error.to_string(), "stream paused");
+        assert!(output.is_empty());
     }
 
     #[test]

@@ -196,6 +196,13 @@ Example: --print=Hb"
     #[clap(short = 'S', long = "stream", name = "stream")]
     pub stream_raw: bool,
 
+    /// Buffer streaming output until a complete line is available.
+    ///
+    /// Enabled by default for terminal output. Use --no-buffer to flush each
+    /// response chunk immediately, which is useful for SSE and streaming SSR.
+    #[clap(long = "buffer", name = "buffer")]
+    pub buffer_raw: bool,
+
     ///  Content compressed (encoded) with Deflate algorithm.
     ///
     ///  The Content-Encoding header is set to deflate.
@@ -209,6 +216,9 @@ Example: --print=Hb"
 
     #[clap(skip)]
     pub stream: Option<bool>,
+
+    #[clap(skip)]
+    pub buffer: Option<bool>,
 
     /// Save output to FILE instead of stdout.
     #[clap(short = 'o', long, value_name = "FILE")]
@@ -624,6 +634,12 @@ impl Cli {
             (false, false) => None,
         };
         self.stream = match (self.stream_raw, matches.get_flag("no-stream")) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            (false, false) => None,
+        };
+        self.buffer = match (self.buffer_raw, matches.get_flag("no-buffer")) {
             (true, true) => unreachable!(),
             (true, false) => Some(true),
             (false, true) => Some(false),
@@ -1787,6 +1803,24 @@ mod tests {
 
         let cli = parse(["--no-stream", "--stream", ":"]).unwrap();
         assert_eq!(cli.stream, Some(true));
+    }
+
+    #[test]
+    fn negating_buffer() {
+        let cli = parse([":"]).unwrap();
+        assert_eq!(cli.buffer, None);
+
+        let cli = parse(["--buffer", ":"]).unwrap();
+        assert_eq!(cli.buffer, Some(true));
+
+        let cli = parse(["--no-buffer", ":"]).unwrap();
+        assert_eq!(cli.buffer, Some(false));
+
+        let cli = parse(["--buffer", "--no-buffer", ":"]).unwrap();
+        assert_eq!(cli.buffer, Some(false));
+
+        let cli = parse(["--no-buffer", "--buffer", ":"]).unwrap();
+        assert_eq!(cli.buffer, Some(true));
     }
 
     #[test]
