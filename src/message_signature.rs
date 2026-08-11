@@ -6,19 +6,15 @@ use httpsig_hyper::prelude::{
 };
 use hyper::http;
 use reqwest::blocking::Request;
-use reqwest::header::{HeaderMap, HeaderName};
+use reqwest::header::HeaderName;
 
 use crate::cli::{HttpsigOptions, MessageSignatureComponent, MessageSignatureKey};
 
-/// Apply the curl-compatible HTTP Message Signature options to a request.
+/// Apply the HTTP Message Signature options to a request.
 ///
-/// `explicit_headers` contains only headers supplied by the user. This keeps
-/// xh-generated defaults such as `User-Agent` out of the signature base.
-pub fn sign_request(
-    request: &mut Request,
-    httpsig: &HttpsigOptions,
-    explicit_headers: &HeaderMap,
-) -> Result<()> {
+/// Signing covers only headers that are actually present on the request, so
+/// the signature matches exactly what will be sent.
+pub fn sign_request(request: &mut Request, httpsig: &HttpsigOptions) -> Result<()> {
     // Match curl: a caller-provided Signature or Signature-Input means the
     // request is already signed and automatic signing is skipped entirely.
     if request.headers().contains_key("signature")
@@ -35,7 +31,7 @@ pub fn sign_request(
     let signing_key = build_signing_key(&key, key_id, &algorithm)?;
 
     let components = resolve_components(request, httpsig.components());
-    validate_header_components(request, explicit_headers, &components)?;
+    validate_header_components(request, &components)?;
 
     let mut signature_params = build_signature_params(&components)?;
     signature_params.set_alg(&algorithm);
@@ -51,18 +47,17 @@ pub fn sign_request(
         .uri(request.url().as_str())
         .body(reqwest::Body::default())
         .context("message-signature: Failed to build temporary HTTP request")?;
-    // Only copy explicitly supplied fields that are still present in the
-    // actual request. Redirects and request construction may remove headers.
-    for name in explicit_headers.keys() {
-        if let Some(values) = request.headers().get_all(name).iter().next() {
-            http_request
-                .headers_mut()
-                .append(name.clone(), values.clone());
-        }
-        for value in request.headers().get_all(name).iter().skip(1) {
-            http_request
-                .headers_mut()
-                .append(name.clone(), value.clone());
+    // Copy the header values being signed from the actual request so the
+    // signature covers exactly what will be sent.
+    for component in &components {
+        if let MessageSignatureComponent::Header(name) = component {
+            let header_name = HeaderName::from_bytes(name.as_bytes())
+                .with_context(|| format!("message-signature: Invalid header component: {name}"))?;
+            for value in request.headers().get_all(&header_name) {
+                http_request
+                    .headers_mut()
+                    .append(header_name.clone(), value.clone());
+            }
         }
     }
 
@@ -119,16 +114,15 @@ fn resolve_components(
         .collect()
 }
 
-/// Curl resolves header components only against fields explicitly supplied by
-/// the caller; generated defaults are deliberately not eligible.
+/// Header components must resolve to a header that is actually present in the
+/// request being signed.
 fn validate_header_components(
     request: &Request,
-    explicit_headers: &HeaderMap,
     components: &[MessageSignatureComponent],
 ) -> Result<()> {
     for component in components {
         if let MessageSignatureComponent::Header(name) = component {
-            if !explicit_headers.contains_key(name) || !request.headers().contains_key(name) {
+            if !request.headers().contains_key(name) {
                 bail!("message-signature: Header `{name}:` not found in request");
             }
         }
@@ -379,14 +373,14 @@ mod tests {
                 .unwrap();
             let before = request.headers().clone();
 
-            sign_request(&mut request, &options, &HeaderMap::new()).unwrap();
+            sign_request(&mut request, &options).unwrap();
 
             assert_eq!(request.headers(), &before);
         }
     }
 
     #[test]
-    fn generated_headers_are_not_available_as_signature_components() {
+    fn header_components_sign_only_headers_present_in_request() {
         let options = HttpsigOptions {
             httpsig_key_id: Some("key".to_string()),
             httpsig_key: Some(MessageSignatureKey::Hex("736563726574".to_string())),
@@ -395,13 +389,19 @@ mod tests {
                 MessageSignatureComponent::Header("user-agent".to_string()),
             ])),
         };
+
+        // A generated default present on the request is signable.
         let mut request = Client::new()
             .get("http://example.com")
             .header("user-agent", "xh/0.0.0")
             .build()
             .unwrap();
+        sign_request(&mut request, &options).unwrap();
+        assert!(request.headers().contains_key("signature"));
 
-        let error = sign_request(&mut request, &options, &HeaderMap::new()).unwrap_err();
+        // An absent header cannot be signed.
+        let mut request = Client::new().get("http://example.com").build().unwrap();
+        let error = sign_request(&mut request, &options).unwrap_err();
         assert!(error.to_string().contains("Header `user-agent:` not found"));
     }
 }

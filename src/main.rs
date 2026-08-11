@@ -108,8 +108,6 @@ fn run(args: Cli) -> Result<ExitCode> {
     }
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
-    // Keep the user-provided fields separate from xh's generated defaults so
-    // HTTP Message Signatures only cover headers the caller explicitly set.
     let url = url_with_query(args.url, &args.request_items.query()?);
     log::debug!("Complete URL: {url}");
 
@@ -426,13 +424,6 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
     }
 
-    // Session headers are also user-configured fields. Capture them after
-    // session loading, while excluding cookies moved into the cookie jar.
-    let mut explicit_signature_headers = headers.clone();
-    #[cfg(feature = "http-message-signatures")]
-    let signature_headers_preprovided =
-        headers.contains_key("signature") || headers.contains_key("signature-input");
-
     let mut request = {
         let mut request_builder = client
             .request(method, url.clone())
@@ -596,7 +587,6 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         for header in &headers_to_unset {
             request.headers_mut().remove(header);
-            explicit_signature_headers.remove(header);
         }
 
         #[cfg(not(feature = "http-message-signatures"))]
@@ -613,11 +603,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                     "HTTP message signatures require both --httpsig-keyid and --httpsig-key."
                 ));
             }
-            message_signature::sign_request(
-                &mut request,
-                &args.httpsig,
-                &explicit_signature_headers,
-            )?;
+            message_signature::sign_request(&mut request, &args.httpsig)?;
         }
 
         request
@@ -699,28 +685,24 @@ fn run(args: Cli) -> Result<ExitCode> {
                 });
             }
             if args.follow {
-                #[cfg(feature = "http-message-signatures")]
-                {
-                    // If the caller supplied either signature field, preserve
-                    // that complete signature across redirects instead of
-                    // generating a partial replacement after xh removes it.
-                    let message_signature = args
-                        .httpsig
-                        .has_key_pair()
-                        .then_some(args.httpsig.clone())
-                        .filter(|_| !signature_headers_preprovided);
-
-                    client = client.with(RedirectFollower::new(
-                        args.max_redirects.unwrap_or(10),
-                        message_signature,
-                        explicit_signature_headers.clone(),
-                        signature_headers_preprovided,
-                    ));
-                }
-                #[cfg(not(feature = "http-message-signatures"))]
-                {
-                    client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
-                }
+                client = client.with(RedirectFollower::new(
+                    args.max_redirects.unwrap_or(10),
+                    #[allow(unused)]
+                    |previous_url, mut request| {
+                        #[cfg(feature = "http-message-signatures")]
+                        {
+                            // Sign only same-origin redirects. A cross-origin
+                            // redirect is a new trust boundary and must not
+                            // receive the old signature.
+                            if !redirect::is_cross_domain_redirect(request.url(), previous_url)
+                                && args.httpsig.has_key_pair()
+                            {
+                                message_signature::sign_request(&mut request, &args.httpsig)?;
+                            }
+                        }
+                        Ok(request)
+                    },
+                ));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));

@@ -6,41 +6,30 @@ use reqwest::header::{
 };
 use reqwest::{Method, StatusCode, Url};
 
-#[cfg(feature = "http-message-signatures")]
-use crate::cli::HttpsigOptions;
 use crate::middleware::{Context, Middleware};
 use crate::utils::{HeaderValueExt, clone_request};
 
-pub struct RedirectFollower {
+pub struct RedirectFollower<T> {
     max_redirects: usize,
-    #[cfg(feature = "http-message-signatures")]
-    httpsig: Option<HttpsigOptions>,
-    #[cfg(feature = "http-message-signatures")]
-    explicit_signature_headers: HeaderMap,
-    #[cfg(feature = "http-message-signatures")]
-    preserve_signature_headers: bool,
+    on_redirect: T,
 }
 
-impl RedirectFollower {
-    pub fn new(
-        max_redirects: usize,
-        #[cfg(feature = "http-message-signatures")] httpsig: Option<HttpsigOptions>,
-        #[cfg(feature = "http-message-signatures")] explicit_signature_headers: HeaderMap,
-        #[cfg(feature = "http-message-signatures")] preserve_signature_headers: bool,
-    ) -> Self {
+impl<T> RedirectFollower<T>
+where
+    T: FnMut(&Url, Request) -> Result<Request>,
+{
+    pub fn new(max_redirects: usize, on_redirect: T) -> Self {
         RedirectFollower {
             max_redirects,
-            #[cfg(feature = "http-message-signatures")]
-            httpsig,
-            #[cfg(feature = "http-message-signatures")]
-            explicit_signature_headers,
-            #[cfg(feature = "http-message-signatures")]
-            preserve_signature_headers,
+            on_redirect,
         }
     }
 }
 
-impl Middleware for RedirectFollower {
+impl<T> Middleware for RedirectFollower<T>
+where
+    T: FnMut(&Url, Request) -> Result<Request>,
+{
     fn handle(&mut self, mut ctx: Context, mut first_request: Request) -> Result<Response> {
         // This buffers the body in case we need it again later
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
@@ -49,14 +38,8 @@ impl Middleware for RedirectFollower {
         let mut remaining_redirects = self.max_redirects - 1;
 
         loop {
-            #[cfg(feature = "http-message-signatures")]
             let previous_url = request.url().clone();
-            let Some(mut next_request) = get_next_request(
-                request,
-                &response,
-                #[cfg(feature = "http-message-signatures")]
-                self.preserve_signature_headers,
-            ) else {
+            let Some(next_request) = get_next_request(request, &response) else {
                 break;
             };
             if remaining_redirects > 0 {
@@ -68,18 +51,7 @@ impl Middleware for RedirectFollower {
                 .into());
             }
 
-            #[cfg(feature = "http-message-signatures")]
-            if let Some(httpsig) = &self.httpsig {
-                // Sign only same-origin redirects. A cross-origin redirect is
-                // a new trust boundary and must not receive the old signature.
-                if !is_cross_domain_redirect(next_request.url(), &previous_url) {
-                    crate::message_signature::sign_request(
-                        &mut next_request,
-                        httpsig,
-                        &self.explicit_signature_headers,
-                    )?;
-                }
-            }
+            let mut next_request = (self.on_redirect)(&previous_url, next_request)?;
 
             log::info!("Following redirect to {}", next_request.url());
             log::trace!("Remaining redirects: {remaining_redirects}");
@@ -111,14 +83,7 @@ impl std::fmt::Display for TooManyRedirects {
 impl std::error::Error for TooManyRedirects {}
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/async_impl/client.rs#L1500-L1607
-fn get_next_request(
-    mut request: Request,
-    response: &Response,
-    #[cfg(feature = "http-message-signatures")] preserve_signature_headers: bool,
-) -> Option<Request> {
-    #[cfg(not(feature = "http-message-signatures"))]
-    let preserve_signature_headers = false;
-
+fn get_next_request(mut request: Request, response: &Response) -> Option<Request> {
     let get_next_url = |request: &Request| {
         let location = response.headers().get(LOCATION)?;
         let url = location
@@ -140,9 +105,7 @@ fn get_next_request(
             if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            if !preserve_signature_headers {
-                remove_signature_headers(request.headers_mut());
-            }
+            remove_signature_headers(request.headers_mut());
             remove_content_headers(request.headers_mut());
             *request.url_mut() = next_url;
             *request.body_mut() = None;
@@ -161,9 +124,7 @@ fn get_next_request(
             if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            if !preserve_signature_headers {
-                remove_signature_headers(request.headers_mut());
-            }
+            remove_signature_headers(request.headers_mut());
             *request.url_mut() = next_url;
             Some(request)
         }
@@ -172,7 +133,7 @@ fn get_next_request(
 }
 
 // See https://github.com/seanmonstar/reqwest/blob/bbeb1ede4e8098481c3de6f2cafb8ecca1db4ede/src/redirect.rs#L234-L246
-fn is_cross_domain_redirect(next: &Url, previous: &Url) -> bool {
+pub(crate) fn is_cross_domain_redirect(next: &Url, previous: &Url) -> bool {
     next.scheme() != previous.scheme()
         || next.host_str() != previous.host_str()
         || next.port_or_known_default() != previous.port_or_known_default()

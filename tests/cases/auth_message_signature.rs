@@ -190,38 +190,6 @@ fn message_signature_cross_origin_redirect_drops_signature() {
 }
 
 #[test]
-fn user_provided_signature_survives_cross_origin_redirect() {
-    let target = server::http(|req| async move {
-        assert_eq!(req.headers()["Signature"], "sig1=:pre-signed-value=");
-        assert_eq!(
-            req.headers()["Signature-Input"],
-            r#"sig1=("@method" "@path");alg="hmac-sha256";keyid="k""#
-        );
-        hyper::Response::default()
-    });
-    let target_url = target.url("/final");
-    let redirect = server::http(move |_req| {
-        let target_url = target_url.clone();
-        async move {
-            hyper::Response::builder()
-                .status(302)
-                .header("Location", target_url)
-                .body(Default::default())
-                .unwrap()
-        }
-    });
-
-    base_get_command()
-        .arg("--follow")
-        .arg("get")
-        .arg(redirect.url("/redirect"))
-        .arg("signature: sig1=:pre-signed-value=")
-        .arg(r#"signature-input: sig1=("@method" "@path");alg="hmac-sha256";keyid="k""#)
-        .assert()
-        .success();
-}
-
-#[test]
 fn message_signature_auth_defaults() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
