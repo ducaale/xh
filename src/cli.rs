@@ -935,8 +935,6 @@ impl fmt::Display for MessageSignatureKey {
     }
 }
 
-const MAX_MESSAGE_SIGNATURE_COMPONENTS: usize = 16;
-
 /// A component accepted by curl's `--httpsig-headers` option.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MessageSignatureComponent {
@@ -1011,11 +1009,6 @@ impl FromStr for MessageSignatureComponents {
 
         if components.is_empty() {
             return Err("no HTTP message signature components specified".to_string());
-        }
-        if components.len() > MAX_MESSAGE_SIGNATURE_COMPONENTS {
-            return Err(format!(
-                "too many HTTP message signature components (maximum {MAX_MESSAGE_SIGNATURE_COMPONENTS})"
-            ));
         }
 
         let mut seen = HashSet::new();
@@ -2061,24 +2054,6 @@ mod tests {
                 "--httpsig-keyid=my-key",
                 "--httpsig-key=736563726574",
                 duplicate,
-                "get",
-                "example.org",
-            ])
-            .is_err()
-        );
-
-        let too_many = format!(
-            "--httpsig-headers={}",
-            (0..17)
-                .map(|index| format!("x-header-{index}:"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-        assert!(
-            parse([
-                "--httpsig-keyid=my-key",
-                "--httpsig-key=736563726574",
-                &too_many,
                 "get",
                 "example.org",
             ])
