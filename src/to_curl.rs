@@ -5,7 +5,10 @@ use os_display::Quotable;
 use reqwest::{Method, tls};
 use std::ffi::OsString;
 
-use crate::cli::{AuthType, Cli, HttpVersion, Verify};
+use crate::cli::{
+    AuthType, Cli, HttpVersion, MessageSignatureAlgorithm, MessageSignatureComponent,
+    MessageSignatureKey, Verify,
+};
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE, RequestItem};
 use crate::utils::{HeaderValueExt, url_with_query};
 
@@ -364,15 +367,34 @@ pub fn translate(args: Cli) -> Result<Command> {
 
     if let Some(ref key) = args.httpsig.httpsig_key {
         cmd.arg("--httpsig-key");
-        cmd.arg(key.to_string());
+        cmd.arg(match key {
+            MessageSignatureKey::Hex(key) => key.clone(),
+            MessageSignatureKey::File(path) => format!("@{}", path.to_string_lossy()),
+        });
     }
     if let Some(algorithm) = args.httpsig.httpsig_algorithm {
         cmd.arg("--httpsig-algo");
-        cmd.arg(algorithm.to_string());
+        cmd.arg(match algorithm {
+            MessageSignatureAlgorithm::HmacSha256 => "hmac-sha256",
+            MessageSignatureAlgorithm::Ed25519 => "ed25519",
+        });
     }
     if let Some(ref components) = args.httpsig.httpsig_headers {
         cmd.arg("--httpsig-headers");
-        cmd.arg(components.to_string());
+        cmd.arg(
+            components
+                .0
+                .iter()
+                .map(|component| match component {
+                    MessageSignatureComponent::Method => "method".to_string(),
+                    MessageSignatureComponent::Authority => "authority".to_string(),
+                    MessageSignatureComponent::Path => "path".to_string(),
+                    MessageSignatureComponent::Query => "query".to_string(),
+                    MessageSignatureComponent::Header(name) => format!("{name}:"),
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
     }
 
     if let Some(raw) = args.raw {
@@ -587,10 +609,6 @@ mod tests {
             (
                 "xh http://example.com/ --httpsig-keyid=my-key --httpsig-key=736563726574 --httpsig-algo=ed25519 --httpsig-headers=method",
                 "curl http://example.com/ --httpsig-keyid my-key --httpsig-key 736563726574 --httpsig-algo ed25519 --httpsig-headers method",
-            ),
-            (
-                "xh http://example.com/ --httpsig-headers=method",
-                "curl http://example.com/ --httpsig-headers method",
             ),
         ];
         for (input, output) in expected {
