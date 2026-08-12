@@ -491,6 +491,7 @@ fn message_signature_rejects_non_curl_component_syntax() {
 
 #[test]
 fn message_signature_components_require_key_pair() {
+    // clap rejects --httpsig-headers without a key pair.
     base_get_command()
         .arg("--offline")
         .arg("--httpsig-headers=method")
@@ -498,9 +499,7 @@ fn message_signature_components_require_key_pair() {
         .arg("https://example.com")
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "HTTP message signatures require both --httpsig-keyid and --httpsig-key.",
-        ));
+        .stderr(predicates::str::contains("--httpsig-keyid <KEY_ID>"));
 }
 
 #[test]

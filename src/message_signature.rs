@@ -27,10 +27,13 @@ pub fn sign_request(request: &mut Request, httpsig: &HttpsigOptions) -> Result<(
         .key_pair()
         .context("message-signature: Missing key or key identifier")?;
     let key = load_key(key_source)?;
-    let algorithm: AlgorithmName = httpsig.algorithm().unwrap_or_default().into();
+    let algorithm: AlgorithmName = httpsig.httpsig_algorithm.unwrap_or_default().into();
     let signing_key = build_signing_key(&key, key_id, &algorithm)?;
 
-    let components = resolve_components(request, httpsig.components());
+    let components = resolve_components(
+        request,
+        httpsig.httpsig_headers.as_ref().map(|c| c.0.as_slice()),
+    );
     validate_header_components(request, &components)?;
 
     let mut signature_params = build_signature_params(&components)?;
@@ -136,7 +139,7 @@ fn build_signature_params(components: &[MessageSignatureComponent]) -> Result<Ht
         .iter()
         .map(|component| {
             HttpMessageComponentId::try_from(component.rfc_name())
-                .with_context(|| format!("message-signature: Invalid component: {component}"))
+                .with_context(|| format!("message-signature: Invalid component: {component:?}"))
         })
         .collect::<Result<Vec<_>>>()?;
     HttpSignatureParams::try_new(&component_ids)
@@ -275,7 +278,7 @@ mod tests {
     fn key_file_ignores_crlf_like_curl() {
         let file = key_file("7365\r\n6372\n6574");
         let key = load_key(&MessageSignatureKey::File(
-            file.path().display().to_string(),
+            file.path().as_os_str().to_owned(),
         ))
         .unwrap();
         assert_eq!(key, b"secret");
@@ -289,7 +292,7 @@ mod tests {
         ] {
             let file = key_file(contents);
             let error = load_key(&MessageSignatureKey::File(
-                file.path().display().to_string(),
+                file.path().as_os_str().to_owned(),
             ))
             .unwrap_err();
             assert!(error.to_string().contains("hex-encoded key"));
@@ -303,7 +306,7 @@ mod tests {
 
         let file = key_file("736563726574\n");
         let from_file = load_key(&MessageSignatureKey::File(
-            file.path().display().to_string(),
+            file.path().as_os_str().to_owned(),
         ))
         .unwrap();
         assert_eq!(from_file, b"secret");

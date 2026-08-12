@@ -598,11 +598,6 @@ fn run(args: Cli) -> Result<ExitCode> {
 
         #[cfg(feature = "http-message-signatures")]
         if args.httpsig.is_requested() {
-            if !args.httpsig.has_key_pair() {
-                return Err(anyhow!(
-                    "HTTP message signatures require both --httpsig-keyid and --httpsig-key."
-                ));
-            }
             message_signature::sign_request(&mut request, &args.httpsig)?;
         }
 
