@@ -1,3 +1,7 @@
+## Unreleased
+### Bug fixes
+- Don't set a JSON `Content-Type` for `--json` requests without a body, see #218
+
 ## [0.26.2] - 2026-07-26
 ### Bug fixes
 - Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)

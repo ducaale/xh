@@ -1435,6 +1435,21 @@ fn forced_json() {
     });
 
     get_command()
+        .args(["--json", &server.base_url(), "key=value"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn forced_json_without_body() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers().get("content-type"), None);
+        assert_eq!(req.headers()["accept"], "application/json, */*;q=0.5");
+        assert_eq!(req.body_as_string().await, "");
+        hyper::Response::default()
+    });
+
+    get_command()
         .args(["--json", &server.base_url()])
         .assert()
         .success();

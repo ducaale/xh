@@ -464,9 +464,8 @@ fn run(args: Cli) -> Result<ExitCode> {
                         .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                         .json(&body)
                 } else if args.json {
-                    request_builder
-                        .header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
-                        .header(CONTENT_TYPE, HeaderValue::from_static(JSON_CONTENT_TYPE))
+                    // Don't set Content-Type: there's no JSON body to describe
+                    request_builder.header(ACCEPT, HeaderValue::from_static(JSON_ACCEPT))
                 } else {
                     // We're here because this is the default request type
                     // There's nothing to do
