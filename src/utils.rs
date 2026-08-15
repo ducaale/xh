@@ -124,6 +124,10 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
+pub fn is_hex(value: &str) -> bool {
+    !value.is_empty() && value.len() % 2 == 0 && value.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 pub fn url_with_query(mut url: Url, query: &[(&str, Cow<str>)]) -> Url {
     if !query.is_empty() {
         // If we run this even without adding pairs it adds a `?`, hence
