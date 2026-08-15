@@ -685,13 +685,14 @@ fn run(args: Cli) -> Result<ExitCode> {
                     #[allow(unused)]
                     |previous_url, mut request| {
                         #[cfg(feature = "http-message-signatures")]
-                        {
-                            // Sign only same-origin redirects. A cross-origin
-                            // redirect is a new trust boundary and must not
-                            // receive the old signature.
-                            if !redirect::is_cross_domain_redirect(request.url(), previous_url)
-                                && args.httpsig.has_key_pair()
-                            {
+                        if args.httpsig.is_requested() {
+                            // A redirect invalidates the existing signature, so
+                            // drop it and re-sign only same-origin redirects; a
+                            // cross-origin redirect is a new trust boundary and
+                            // must not receive the old signature.
+                            request.headers_mut().remove("signature");
+                            request.headers_mut().remove("signature-input");
+                            if !redirect::is_cross_domain_redirect(request.url(), previous_url) {
                                 message_signature::sign_request(&mut request, &args.httpsig)?;
                             }
                         }

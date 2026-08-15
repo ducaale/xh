@@ -23,9 +23,11 @@ pub fn sign_request(request: &mut Request, httpsig: &HttpsigOptions) -> Result<(
         return Ok(());
     }
 
-    let (key_id, key_source) = httpsig
-        .key_pair()
-        .context("message-signature: Missing key or key identifier")?;
+    // clap's `requires` ensures a key pair is present whenever any --httpsig-*
+    // option is given, so this guard only handles the defensive case.
+    let Some((key_id, key_source)) = httpsig.key_pair() else {
+        return Ok(());
+    };
     let key = load_key(key_source)?;
     let algorithm: AlgorithmName = httpsig.httpsig_algorithm.unwrap_or_default().into();
     let signing_key = build_signing_key(&key, key_id, &algorithm)?;
@@ -176,7 +178,7 @@ fn load_key(source: &MessageSignatureKey) -> Result<Vec<u8>> {
 }
 
 fn decode_hex_key(hex: &str) -> Option<Vec<u8>> {
-    if hex.is_empty() || hex.len() % 2 != 0 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if !crate::utils::is_hex(hex) {
         return None;
     }
 

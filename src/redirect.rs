@@ -105,7 +105,6 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
             if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            remove_signature_headers(request.headers_mut());
             remove_content_headers(request.headers_mut());
             *request.url_mut() = next_url;
             *request.body_mut() = None;
@@ -124,7 +123,6 @@ fn get_next_request(mut request: Request, response: &Response) -> Option<Request
             if cross_domain {
                 remove_sensitive_headers(request.headers_mut());
             }
-            remove_signature_headers(request.headers_mut());
             *request.url_mut() = next_url;
             Some(request)
         }
@@ -157,12 +155,6 @@ fn remove_content_headers(headers: &mut HeaderMap) {
     headers.remove(CONTENT_TYPE);
     headers.remove(CONTENT_LENGTH);
     headers.remove("content-digest");
-}
-
-fn remove_signature_headers(headers: &mut HeaderMap) {
-    log::debug!("Removing signature headers before redirect");
-    headers.remove("signature");
-    headers.remove("signature-input");
 }
 
 #[cfg(test)]

@@ -873,12 +873,6 @@ impl HttpsigOptions {
             || self.httpsig_headers.is_some()
     }
 
-    /// Whether both parts required to sign a request were supplied.
-    #[cfg(feature = "http-message-signatures")]
-    pub fn has_key_pair(&self) -> bool {
-        self.httpsig_key_id.is_some() && self.httpsig_key.is_some()
-    }
-
     /// Return the key identifier and key source as one validated pair.
     #[cfg(feature = "http-message-signatures")]
     pub fn key_pair(&self) -> Option<(&str, &MessageSignatureKey)> {
@@ -909,7 +903,7 @@ fn parse_message_signature_key(key: OsString) -> Result<MessageSignatureKey, Str
         return Ok(MessageSignatureKey::File(OsString::from(path)));
     }
 
-    if !key.is_empty() && key.len() % 2 == 0 && key.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    if crate::utils::is_hex(key) {
         return Ok(MessageSignatureKey::Hex(key.to_string()));
     }
 
@@ -986,12 +980,6 @@ impl FromStr for MessageSignatureComponent {
     type Err = String;
 
     fn from_str(component: &str) -> Result<Self, Self::Err> {
-        if component.contains(['"', '\\']) {
-            return Err(format!(
-                "invalid HTTP message signature component `{component}`"
-            ));
-        }
-
         let component = component.to_ascii_lowercase();
         if let Some(header) = component.strip_suffix(':') {
             if header.is_empty() {
