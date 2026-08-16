@@ -170,6 +170,7 @@ impl AuthPlugin {
             if let Some(code) = output.status.code() {
                 return Err(anyhow!("Plugin exited with exit code {}", code));
             } else {
+                // Usually means termination by a signal
                 return Err(anyhow!("Plugin exited no exit code"));
             }
         }
