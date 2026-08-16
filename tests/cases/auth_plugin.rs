@@ -9,10 +9,13 @@ use crate::prelude::*;
 
 fn path_with_plugins_dir() -> OsString {
     let path = env::var_os("PATH").expect("PATH var missing");
-    env::join_paths(env::split_paths(&path).chain([PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/plugins"
-    ))]))
+    env::join_paths(
+        std::iter::once(PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/plugins"
+        )))
+        .chain(env::split_paths(&path)),
+    )
     .unwrap()
 }
 
