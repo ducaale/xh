@@ -252,7 +252,7 @@ impl Session {
         }
     }
 
-    pub fn save_auth(&mut self, auth: &auth::Auth) -> Result<()> {
+    pub fn save_auth(&mut self, auth: &auth::Auth) {
         match auth {
             auth::Auth::Basic(username, password) => {
                 let password = password.as_deref().unwrap_or("");
@@ -273,14 +273,8 @@ impl Session {
                     raw_auth: Some(token.into()),
                 }
             }
-            auth::Auth::Plugin(auth_plugin) => {
-                let auth_headers = auth_plugin.headers.clone();
-                let mut session_headers = self.headers()?;
-                session_headers.extend(auth_headers);
-                self.save_headers(&session_headers)?;
-            }
+            auth::Auth::Plugin(..) => {}
         }
-        Ok(())
     }
 
     pub fn cookies(&self) -> impl Iterator<Item = Result<cookie_store::Cookie<'static>>> + '_ {

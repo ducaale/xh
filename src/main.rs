@@ -537,6 +537,7 @@ fn run(args: Cli) -> Result<ExitCode> {
                 url.to_string(),
                 args.auth.into_iter().map(|s| s.to_string()).collect(),
             )?));
+            save_auth_in_session = false;
         } else if let Some(auth_from_arg) = args.auth.last() {
             auth = Some(Auth::from_str(
                 auth_from_arg,
@@ -556,7 +557,7 @@ fn run(args: Cli) -> Result<ExitCode> {
         if let Some(auth) = &auth {
             if let Some(ref mut s) = session {
                 if save_auth_in_session {
-                    s.save_auth(auth)?;
+                    s.save_auth(auth);
                 }
             }
             request_builder = match auth {
