@@ -9,16 +9,16 @@ use reqwest::{Method, StatusCode, Url};
 use crate::middleware::{Context, Middleware};
 use crate::utils::{HeaderValueExt, clone_request};
 
-pub struct RedirectFollower<T> {
+pub struct RedirectFollower<F> {
     max_redirects: usize,
-    on_redirect: T,
+    on_redirect: F,
 }
 
-impl<T> RedirectFollower<T>
+impl<F> RedirectFollower<F>
 where
-    T: FnMut(Request) -> Result<Request>,
+    F: FnMut(Request) -> Result<Request>,
 {
-    pub fn new(max_redirects: usize, on_redirect: T) -> Self {
+    pub fn new(max_redirects: usize, on_redirect: F) -> Self {
         RedirectFollower {
             max_redirects,
             on_redirect,
@@ -26,9 +26,9 @@ where
     }
 }
 
-impl<T> Middleware for RedirectFollower<T>
+impl<F> Middleware for RedirectFollower<F>
 where
-    T: FnMut(Request) -> Result<Request>,
+    F: FnMut(Request) -> Result<Request>,
 {
     fn handle(&mut self, mut ctx: Context, mut first_request: Request) -> Result<Response> {
         // This buffers the body in case we need it again later
