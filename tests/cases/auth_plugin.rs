@@ -1,6 +1,5 @@
 use std::env;
 use std::ffi::OsString;
-use std::fs;
 use std::path::PathBuf;
 
 use indoc::indoc;
