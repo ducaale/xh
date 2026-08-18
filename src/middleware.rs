@@ -1,7 +1,8 @@
+use std::io::Cursor;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use reqwest::blocking::{Client, Request, Response};
+use reqwest::blocking::{Body, Client, Request, Response};
 
 #[derive(Clone)]
 pub struct ResponseMeta {
@@ -83,6 +84,27 @@ pub trait Middleware {
         }
 
         Ok(())
+    }
+}
+
+/// Rewraps the request body into a stream of unknown length so that hyper sends
+/// it with `Transfer-Encoding: chunked` instead of a `Content-Length` header.
+///
+/// This is added as the innermost middleware so that every request that actually
+/// reaches the wire (including redirects and digest-auth retries, which buffer
+/// and clone the body upstream) is framed in chunks.
+pub struct ChunkedTransfer;
+
+impl Middleware for ChunkedTransfer {
+    fn handle(&mut self, mut ctx: Context, mut request: Request) -> Result<Response> {
+        let body = match request.body_mut() {
+            Some(body) => Some(body.buffer()?.to_vec()),
+            None => None,
+        };
+        if let Some(body) = body {
+            *request.body_mut() = Some(Body::new(Cursor::new(body)));
+        }
+        self.next(&mut ctx, request)
     }
 }
 

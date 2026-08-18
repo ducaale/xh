@@ -340,6 +340,10 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.opt("-H", "--header");
         cmd.arg(format!("{header}:"));
     }
+    if args.chunked {
+        // curl sends the body chunked if you set this header explicitly.
+        cmd.header("Transfer-Encoding", "chunked");
+    }
     if args.ignore_netrc {
         // Already the default, so a bit questionable
         cmd.arg("--no-netrc");

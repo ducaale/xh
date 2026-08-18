@@ -7,7 +7,9 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use mime::Mime;
 use reqwest::blocking::{Body, Request, Response};
 use reqwest::cookie::CookieStore;
-use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST, HeaderMap, HeaderValue};
+use reqwest::header::{
+    ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HOST, HeaderMap, HeaderValue, TRANSFER_ENCODING,
+};
 use url::Url;
 
 use crate::formatting::headers::HeaderFormatter;
@@ -370,10 +372,14 @@ impl Printer {
         // reqwest and hyper add certain headers, but only in the process of
         // sending the request, which we haven't done yet
         if let Some(body) = request.body().and_then(Body::as_bytes) {
-            // Added at https://github.com/seanmonstar/reqwest/blob/c4ebb07343/src/blocking/request.rs#L144
-            headers
-                .entry(CONTENT_LENGTH)
-                .or_insert_with(|| body.len().into());
+            // A chunked body is framed by Transfer-Encoding, so no Content-Length
+            // is sent (and the two are mutually exclusive).
+            if !headers.contains_key(TRANSFER_ENCODING) {
+                // Added at https://github.com/seanmonstar/reqwest/blob/c4ebb07343/src/blocking/request.rs#L144
+                headers
+                    .entry(CONTENT_LENGTH)
+                    .or_insert_with(|| body.len().into());
+            }
         }
         if let Some(host) = request.url().host_str() {
             // FIXME: in case of HTTP/2 we probably don't send this. But we probably

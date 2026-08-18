@@ -37,7 +37,8 @@ use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
 use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
-    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HeaderValue, RANGE, USER_AGENT,
+    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HeaderValue, RANGE,
+    TRANSFER_ENCODING, USER_AGENT,
 };
 use reqwest::tls;
 use url::Host;
@@ -47,7 +48,7 @@ use crate::auth::{Auth, DigestAuthMiddleware};
 use crate::buffer::Buffer;
 use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
-use crate::middleware::ClientWithMiddleware;
+use crate::middleware::{ChunkedTransfer, ClientWithMiddleware};
 use crate::printer::Printer;
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE};
 use crate::session::Session;
@@ -629,6 +630,18 @@ fn run(args: Cli) -> Result<ExitCode> {
             .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
     }
 
+    // Advertise chunked transfer encoding on the request. The body is actually
+    // rewrapped into an unsized stream by the ChunkedTransfer middleware right
+    // before sending, so that hyper drops the Content-Length header and frames
+    // the body in chunks. Setting the header here means it also shows up in the
+    // printed request (and in --offline mode, where no middleware runs); dropping
+    // Content-Length keeps that representation consistent with the wire.
+    if args.chunked && request.body().is_some() {
+        let headers = request.headers_mut();
+        headers.remove(CONTENT_LENGTH);
+        headers.insert(TRANSFER_ENCODING, HeaderValue::from_static("chunked"));
+    }
+
     log::trace!("Built reqwest request");
     // Note: Debug impl is incomplete?
     log::trace!("{request:#?}");
@@ -715,6 +728,11 @@ fn run(args: Cli) -> Result<ExitCode> {
             }
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));
+            }
+            if args.chunked {
+                // Must be the innermost middleware so the body is streamed on
+                // the actual send, after any upstream buffering/cloning.
+                client = client.with(ChunkedTransfer);
             }
             client.execute(request)?
         };

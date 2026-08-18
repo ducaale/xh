@@ -207,6 +207,13 @@ Example: --print=Hb"
     #[clap(short = 'x', long = "compress", name = "compress", action = ArgAction::Count)]
     pub compress: u8,
 
+    /// Send the request body using chunked transfer encoding.
+    ///
+    /// The Transfer-Encoding header is set to chunked and no Content-Length header
+    /// is sent. This has no effect on requests without a body.
+    #[clap(long = "chunked", name = "chunked")]
+    pub chunked: bool,
+
     #[clap(skip)]
     pub stream: Option<bool>,
 

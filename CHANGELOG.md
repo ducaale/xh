@@ -1,3 +1,7 @@
+## [Unreleased]
+### Features
+- Add `--chunked` for sending the request body with chunked transfer encoding, see #4 (@ChrisJr404)
+
 ## [0.26.2] - 2026-07-26
 ### Bug fixes
 - Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)

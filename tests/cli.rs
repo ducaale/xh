@@ -275,6 +275,95 @@ fn post_empty_body() {
 }
 
 #[test]
+fn chunked_request_body() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "POST");
+        assert_eq!(
+            req.headers().get(reqwest::header::TRANSFER_ENCODING),
+            Some(&HeaderValue::from_static("chunked"))
+        );
+        assert_eq!(req.headers().get(reqwest::header::CONTENT_LENGTH), None);
+        assert_eq!(req.body_as_string().await, r#"{"foo":"bar"}"#);
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(["--chunked", "post", &server.base_url(), "foo=bar"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn chunked_has_no_effect_without_a_body() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), "GET");
+        assert_eq!(req.headers().get(reqwest::header::TRANSFER_ENCODING), None);
+        hyper::Response::default()
+    });
+
+    get_command()
+        .args(["--chunked", "get", &server.base_url()])
+        .assert()
+        .success();
+}
+
+#[test]
+fn chunked_request_body_survives_redirect() {
+    let server = server::http(|req| async move {
+        assert_eq!(
+            req.headers().get(reqwest::header::TRANSFER_ENCODING),
+            Some(&HeaderValue::from_static("chunked"))
+        );
+        assert_eq!(req.headers().get(reqwest::header::CONTENT_LENGTH), None);
+        match req.uri().path() {
+            "/first" => {
+                assert_eq!(req.body_as_string().await, r#"{"foo":"bar"}"#);
+                hyper::Response::builder()
+                    .status(307)
+                    .header("Location", "/second")
+                    .body("redirecting...".into())
+                    .unwrap()
+            }
+            "/second" => {
+                assert_eq!(req.body_as_string().await, r#"{"foo":"bar"}"#);
+                hyper::Response::default()
+            }
+            _ => panic!("unknown path"),
+        }
+    });
+
+    get_command()
+        .args([
+            "--chunked",
+            "--follow",
+            "post",
+            &server.url("/first"),
+            "foo=bar",
+        ])
+        .assert()
+        .success();
+    server.assert_hits(2);
+}
+
+#[test]
+fn chunked_shows_transfer_encoding_header_when_offline() {
+    use predicates::boolean::PredicateBooleanExt;
+    get_command()
+        .args(["--offline", "--chunked", ":", "foo=bar"])
+        .assert()
+        .stdout(contains("Transfer-Encoding: chunked"))
+        .stdout(contains("Content-Length").not());
+}
+
+#[test]
+fn chunked_curl_translation() {
+    get_command()
+        .args(["--curl", "--chunked", ":", "foo=bar"])
+        .assert()
+        .stdout(contains("-H 'Transfer-Encoding: chunked'"));
+}
+
+#[test]
 fn nested_json() {
     let server = server::http(|req| async move {
         assert_eq!(
