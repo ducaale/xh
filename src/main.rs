@@ -590,15 +590,15 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         #[cfg(not(feature = "http-message-signatures"))]
-        if args.httpsig.is_requested() {
+        if args.httpsig.signing_data().is_some() {
             return Err(anyhow!(
                 "This binary was built without message signature support. Enable the `http-message-signatures` feature."
             ));
         }
 
         #[cfg(feature = "http-message-signatures")]
-        if args.httpsig.is_requested() {
-            message_signature::sign_request(&mut request, &args.httpsig)?;
+        if let Some((key_id, key, algo, components)) = args.httpsig.signing_data() {
+            message_signature::sign_request(&mut request, key_id, key, algo, components)?;
         }
 
         request
@@ -685,15 +685,17 @@ fn run(args: Cli) -> Result<ExitCode> {
                     #[allow(unused)]
                     |previous_url, mut request| {
                         #[cfg(feature = "http-message-signatures")]
-                        if args.httpsig.is_requested() {
-                            // A redirect invalidates the existing signature, so
-                            // drop it and re-sign only same-origin redirects; a
-                            // cross-origin redirect is a new trust boundary and
-                            // must not receive the old signature.
+                        if let Some((key_id, key, algo, components)) = args.httpsig.signing_data() {
                             request.headers_mut().remove("signature");
                             request.headers_mut().remove("signature-input");
                             if !redirect::is_cross_domain_redirect(request.url(), previous_url) {
-                                message_signature::sign_request(&mut request, &args.httpsig)?;
+                                message_signature::sign_request(
+                                    &mut request,
+                                    key_id,
+                                    key,
+                                    algo,
+                                    components,
+                                )?;
                             }
                         }
                         Ok(request)

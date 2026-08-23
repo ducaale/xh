@@ -865,33 +865,29 @@ pub struct HttpsigOptions {
 }
 
 impl HttpsigOptions {
-    /// Whether any HTTP Message Signature option was provided.
-    pub fn is_requested(&self) -> bool {
-        self.httpsig_key_id.is_some()
-            || self.httpsig_key.is_some()
-            || self.httpsig_algorithm.is_some()
-            || self.httpsig_headers.is_some()
-    }
-
-    /// Return the key identifier and key source as one validated pair.
-    #[cfg(feature = "http-message-signatures")]
-    pub fn key_pair(&self) -> Option<(&str, &MessageSignatureKey)> {
-        Some((self.httpsig_key_id.as_deref()?, self.httpsig_key.as_ref()?))
+    pub fn signing_data(
+        &self,
+    ) -> Option<(
+        &str,
+        &MessageSignatureKey,
+        MessageSignatureAlgorithm,
+        Option<&[MessageSignatureComponent]>,
+    )> {
+        let key_id = self.httpsig_key_id.as_deref()?;
+        let key = self.httpsig_key.as_ref()?;
+        let algorithm = self.httpsig_algorithm.unwrap_or_default();
+        let components = self.httpsig_headers.as_ref().map(|c| c.0.as_slice());
+        Some((key_id, key, algorithm, components))
     }
 }
 
-/// A curl-compatible HTTP Message Signature key source.
+/// HTTP Message Signature key source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageSignatureKey {
-    /// Hex-encoded key material supplied directly on the command line.
     Hex(String),
-    /// A file path supplied with the curl `@filename` syntax.
     File(OsString),
 }
 
-/// Parse a curl-style `--httpsig-key` value, accepting either a hex-encoded
-/// key or a file path prefixed with `@`. File paths are kept as `OsString`,
-/// matching how xh parses other path options.
 fn parse_message_signature_key(key: OsString) -> Result<MessageSignatureKey, String> {
     let key = key
         .to_str()
@@ -910,39 +906,13 @@ fn parse_message_signature_key(key: OsString) -> Result<MessageSignatureKey, Str
     Err("HTTP message signature key must be hexadecimal or @FILE".to_string())
 }
 
-/// A component accepted by curl's `--httpsig-headers` option.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MessageSignatureComponent {
-    /// The RFC 9421 `@method` derived component.
     Method,
-    /// The RFC 9421 `@authority` derived component.
     Authority,
-    /// The RFC 9421 `@path` derived component.
     Path,
-    /// The RFC 9421 `@query` derived component.
     Query,
-    /// A lowercase HTTP field name, without curl's trailing colon marker.
     Header(String),
-}
-
-impl MessageSignatureComponent {
-    /// Return the canonical identifier expected by the RFC 9421 signing library.
-    #[cfg(feature = "http-message-signatures")]
-    pub fn rfc_name(&self) -> &str {
-        match self {
-            Self::Method => "@method",
-            Self::Authority => "@authority",
-            Self::Path => "@path",
-            Self::Query => "@query",
-            Self::Header(name) => name,
-        }
-    }
-
-    /// Whether this component names the given HTTP field.
-    #[cfg(feature = "http-message-signatures")]
-    pub fn is_header(&self, expected: &str) -> bool {
-        matches!(self, Self::Header(name) if name == expected)
-    }
 }
 
 /// The validated component list for one `--httpsig-headers` value.
