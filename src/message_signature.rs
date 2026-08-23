@@ -113,7 +113,13 @@ fn ensure_content_digest(
         .any(|c| matches!(c, MessageSignatureComponent::Header(name) if name == "content-digest"));
     if wants_digest && !request.headers().contains_key("content-digest") && request.body().is_some()
     {
-        let bytes = buffer_request_body(request)?;
+        let bytes = if let Some(body) = request.body_mut() {
+            body.buffer()
+                .context("message-signature: Failed to buffer request body for Content-Digest")?
+                .to_vec()
+        } else {
+            Vec::new()
+        };
         let digest = Sha256::digest(&bytes);
         let value = format!("sha-256=:{}:", STANDARD.encode(digest));
         request.headers_mut().insert(
@@ -121,21 +127,11 @@ fn ensure_content_digest(
             HeaderValue::from_str(&value)
                 .context("message-signature: Invalid Content-Digest value")?,
         );
+        if let Some(body) = request.body_mut() {
+            *body = ReqwestBody::from(bytes);
+        }
     }
     Ok(())
-}
-
-fn buffer_request_body(request: &mut Request) -> Result<Vec<u8>> {
-    if let Some(body) = request.body_mut() {
-        let bytes = body
-            .buffer()
-            .context("message-signature: Failed to buffer request body for Content-Digest")?
-            .to_vec();
-        *body = ReqwestBody::from(bytes.clone());
-        Ok(bytes)
-    } else {
-        Ok(Vec::new())
-    }
 }
 
 /// Convert validated CLI components to RFC 9421 identifiers for httpsig-hyper.
