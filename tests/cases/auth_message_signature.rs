@@ -1,5 +1,4 @@
 use crate::{get_command as base_get_command, server};
-use assert_cmd::cmd::Command;
 use base64::engine::general_purpose::STANDARD;
 use httpsig_hyper::HyperSigError;
 use httpsig_hyper::prelude::*;
@@ -9,12 +8,6 @@ use tempfile::NamedTempFile;
 const KEY_MATERIAL: &str = "secret-key-material";
 const KEY_HEX: &str = "7365637265742d6b65792d6d6174657269616c";
 const ED25519_KEY_HEX: &str = "0101010101010101010101010101010101010101010101010101010101010101";
-
-fn get_command() -> Command {
-    let mut command = base_get_command();
-    command.arg("--httpsig-algo=hmac-sha256");
-    command
-}
 
 fn key_file(contents: impl AsRef<[u8]>) -> NamedTempFile {
     let mut file = NamedTempFile::new().unwrap();
@@ -65,9 +58,10 @@ fn message_signature_verification_on_server() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg(format!("--httpsig-keyid={}", key_id))
         .arg(format!("--httpsig-key={KEY_HEX}"))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--httpsig-headers=method path")
         .arg("--httpsig-headers=date:")
         .arg("get")
@@ -103,6 +97,7 @@ fn message_signature_ed25519_is_the_default() {
     base_get_command()
         .arg(format!("--httpsig-keyid={key_id}"))
         .arg(format!("--httpsig-key={ED25519_KEY_HEX}"))
+        .arg("--httpsig-algo=ed25519")
         .arg("get")
         .arg(server.base_url())
         .assert()
@@ -149,9 +144,10 @@ fn message_signature_redirect_follow_re_signs_request() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--follow")
         .arg("get")
         .arg(server.url("/redirect"))
@@ -179,9 +175,10 @@ fn message_signature_cross_origin_redirect_drops_signature() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--follow")
         .arg("get")
         .arg(redirect.url("/redirect"))
@@ -231,9 +228,10 @@ fn message_signature_auth_defaults() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("post")
         .arg(server.base_url())
@@ -281,9 +279,10 @@ fn message_signature_auth_with_resolve_override() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg(format!("--resolve=example.com:{}", server.host()))
         .arg("get")
         .arg(format!("http://example.com:{}/resolve", server.port()))
@@ -338,9 +337,10 @@ fn message_signature_auth_ipv6_authority() {
     } else {
         format!("http://{host}:{}", server.port())
     };
-    let mut cmd = get_command();
+    let mut cmd = base_get_command();
     cmd.arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("get")
         .arg(url)
@@ -393,9 +393,10 @@ fn message_signature_auth_with_custom_components_and_digest() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--httpsig-headers=method path content-digest:")
         .arg("-v")
         .arg("post")
@@ -450,9 +451,10 @@ fn message_signature_auth_with_multiple_set_cookie() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--httpsig-headers=method set-cookie:")
         .arg("-v")
         .arg("get")
@@ -542,11 +544,12 @@ fn message_signature_with_basic_auth() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--auth=user:pass")
         .arg("--auth-type=basic")
         .arg("--httpsig-keyid=my-key")
         .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("get")
         .arg(server.base_url())
@@ -560,9 +563,10 @@ fn message_signature_with_basic_auth() {
 
 #[test]
 fn message_signature_missing_key_file_fails() {
-    get_command()
+    base_get_command()
         .arg("--httpsig-keyid=some-key")
         .arg("--httpsig-key=@non_existent_file.txt")
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("get")
         .arg("http://localhost:1")
         .assert()
