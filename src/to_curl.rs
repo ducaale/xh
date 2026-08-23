@@ -119,6 +119,8 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Already the default (usually, depends on compile time options)
         // Unclear if you can even change this at runtime
         (args.native_tls, "--native-tls"),
+        // No equivalent
+        (args.auth_plugin.is_some(), "--auth-plugin"),
     ];
 
     for (present, flag) in ignored {
@@ -361,9 +363,6 @@ pub fn translate(args: Cli) -> Result<Command> {
             AuthType::Bearer => {
                 cmd.arg("--oauth2-bearer");
                 cmd.arg(auth);
-            }
-            AuthType::Plugin(..) => {
-                cmd.warn("Ignored -A/--auth-type".to_string());
             }
         }
     }

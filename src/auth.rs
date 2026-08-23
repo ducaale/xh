@@ -37,7 +37,6 @@ impl Auth {
                 ))
             }
             AuthType::Bearer => Ok(Auth::Bearer(auth.into())),
-            AuthType::Plugin(..) => unreachable!(),
         }
     }
 
@@ -46,7 +45,6 @@ impl Auth {
             AuthType::Basic => Some(Auth::Basic(entry.login?, Some(entry.password))),
             AuthType::Bearer => Some(Auth::Bearer(entry.password)),
             AuthType::Digest => Some(Auth::Digest(entry.login?, entry.password)),
-            AuthType::Plugin(..) => None,
         }
     }
 }
@@ -143,7 +141,7 @@ impl AuthPlugin {
         let plugin_path = if is_path(&name_or_path) {
             std::path::PathBuf::from(&name_or_path)
         } else {
-            std::path::PathBuf::from(format!("xh-{}", name_or_path.to_string_lossy()))
+            std::path::PathBuf::from(format!("xh-plugin-{}", name_or_path.to_string_lossy()))
         };
 
         log::debug!("Spawning plugin {:?}", plugin_path);

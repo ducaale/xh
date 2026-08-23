@@ -45,7 +45,7 @@ use utils::reason_phrase;
 
 use crate::auth::{Auth, AuthPlugin, DigestAuthMiddleware};
 use crate::buffer::Buffer;
-use crate::cli::{AuthType, Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
+use crate::cli::{Cli, FormatOptions, HttpVersion, Print, Proxy, Verify};
 use crate::download::{download_file, get_file_size};
 use crate::middleware::ClientWithMiddleware;
 use crate::printer::Printer;
@@ -531,7 +531,7 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         let auth_type = args.auth_type.unwrap_or_default();
-        if let AuthType::Plugin(name) = auth_type {
+        if let Some(name) = args.auth_plugin {
             auth = Some(Auth::Plugin(AuthPlugin::exec(
                 name,
                 url.to_string(),

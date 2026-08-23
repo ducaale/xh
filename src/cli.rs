@@ -11,8 +11,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
-use clap::builder::{Styles, TypedValueParser};
 use clap::{self, ArgAction, FromArgMatches, ValueEnum};
 use encoding_rs::Encoding;
 use regex_lite::Regex;
@@ -244,10 +244,14 @@ Example: --print=Hb"
     #[clap(skip)]
     pub is_session_read_only: bool,
 
-    /// Specify the auth mechanism. Supported auth types are "basic", "bearer" and "digest".
+    /// Specify the auth mechanism.
+    #[clap(short = 'A', long, value_enum)]
+    pub auth_type: Option<AuthType>,
+
+    /// Use a custom auth plugin.
     ///
-    /// Custom auth is supported via "plugin-NAME" or "/path/to/plugin". The former
-    /// looks for an executable named "xh-plugin-NAME" in "$PATH".
+    /// If "NAME" is used instead of "/path/to/plugin", It will
+    /// look for an executable named "xh-plugin-NAME" in "$PATH".
     ///
     /// The plugin receives request url and --auth values via stdin:
     ///
@@ -261,13 +265,9 @@ Example: --print=Hb"
     ///
     /// { "error_message": "-a/--auth cannot be used with plugin-token" }
     ///
-    /// Example: --auth-type=plugin-x99 --auth=id:pluto --auth=scope:read
-    #[clap(
-        short = 'A',
-        long,
-        value_parser = clap::builder::OsStringValueParser::new().try_map(parse_auth_type)
-    )]
-    pub auth_type: Option<AuthType>,
+    /// Example: --auth-plugin=x99 --auth=id:pluto --auth=scope:read
+    #[clap(long, value_name = "PLUGIN")]
+    pub auth_plugin: Option<OsString>,
 
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
     ///
@@ -823,31 +823,12 @@ fn construct_url(
     Ok(url)
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthType {
     #[default]
     Basic,
     Bearer,
     Digest,
-    Plugin(OsString),
-}
-
-fn parse_auth_type(auth_type: OsString) -> anyhow::Result<AuthType> {
-    match auth_type.to_str() {
-        Some("basic") => Ok(AuthType::Basic),
-        Some("bearer") => Ok(AuthType::Bearer),
-        Some("digest") => Ok(AuthType::Digest),
-        _ => {
-            let auth_type_str = auth_type.to_string_lossy();
-            if auth_type_str.starts_with("plugin-")
-                || auth_type_str.contains(std::path::is_separator)
-            {
-                Ok(AuthType::Plugin(auth_type))
-            } else {
-                Err(anyhow!("Unknown auth_type {:?}", auth_type))
-            }
-        }
-    }
 }
 
 #[derive(clap::Args, Debug, Clone)]

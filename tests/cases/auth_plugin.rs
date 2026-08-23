@@ -26,9 +26,9 @@ fn set_auth_based_on_url() {
             "example.com",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin-token.cmd"
+                "--auth-plugin=token.cmd"
             } else {
-                "--auth-type=plugin-token"
+                "--auth-plugin=token"
             },
         ])
         .assert()
@@ -50,9 +50,9 @@ fn set_auth_based_on_url() {
             "example.org",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=plugin-token.cmd"
+                "--auth-plugin=token.cmd"
             } else {
-                "--auth-type=plugin-token"
+                "--auth-plugin=token"
             },
         ])
         .assert()
@@ -74,9 +74,9 @@ fn can_refer_to_plugin_by_path() {
             "example.com",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=./tests/fixtures/plugins/xh-plugin-token.cmd"
+                "--auth-plugin=./tests/fixtures/plugins/xh-plugin-token.cmd"
             } else {
-                "--auth-type=./tests/fixtures/plugins/xh-plugin-token"
+                "--auth-plugin=./tests/fixtures/plugins/xh-plugin-token"
             },
         ])
         .assert()
@@ -99,9 +99,9 @@ fn can_parse_error_from_plugin() {
             "example.com",
             "--offline",
             if cfg!(windows) {
-                "--auth-type=./tests/fixtures/plugins/xh-plugin-token.cmd"
+                "--auth-plugin=./tests/fixtures/plugins/xh-plugin-token.cmd"
             } else {
-                "--auth-type=./tests/fixtures/plugins/xh-plugin-token"
+                "--auth-plugin=./tests/fixtures/plugins/xh-plugin-token"
             },
             "--auth=secret-token",
         ])
