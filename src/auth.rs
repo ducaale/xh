@@ -138,11 +138,13 @@ impl AuthPlugin {
     pub fn exec(name_or_path: OsString, url: String, auth: Vec<String>) -> Result<Self> {
         let plugin_input = PluginInput::new(&url, &auth);
 
-        let plugin_path = if is_path(&name_or_path) {
-            std::path::PathBuf::from(&name_or_path)
+        let plugin_path = std::path::PathBuf::from(if is_path(&name_or_path) {
+            name_or_path
         } else {
-            std::path::PathBuf::from(format!("xh-plugin-{}", name_or_path.to_string_lossy()))
-        };
+            let mut name = OsString::from("xh-plugin-");
+            name.push(name_or_path);
+            name
+        });
 
         log::debug!("Spawning plugin {:?}", plugin_path);
         let mut child = process::Command::new(&plugin_path)
