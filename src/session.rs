@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::auth;
-use crate::utils::{config_dir, test_mode};
+use crate::utils::{config_dir, is_path, test_mode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -273,6 +273,7 @@ impl Session {
                     raw_auth: Some(token.into()),
                 }
             }
+            auth::Auth::Plugin(..) => {}
         }
     }
 
@@ -365,10 +366,6 @@ fn xh_version() -> String {
     } else {
         env!("CARGO_PKG_VERSION").into()
     }
-}
-
-fn is_path(value: &OsString) -> bool {
-    value.to_string_lossy().contains(std::path::is_separator)
 }
 
 fn path_from_url(url: &Url) -> Result<String> {

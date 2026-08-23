@@ -17,23 +17,23 @@ jobs:
         job:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            flags: --features=native-tls
+            flags: --features=native-tls,plugin-tests
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            flags: --no-default-features --features=native-tls,online-tests # disables rustls
+            flags: --no-default-features --features=native-tls,online-tests,plugin-tests # disables rustls
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            flags: --features=http3,http-message-signatures
+            flags: --features=http3,http-message-signatures,plugin-tests
             rustflags: --cfg reqwest_unstable
           - target: x86_64-apple-darwin
             os: macos-15-intel
-            flags: --features=native-tls
+            flags: --features=native-tls,plugin-tests
           - target: aarch64-apple-darwin
             os: macos-latest
-            flags: --features=native-tls
+            flags: --features=native-tls,plugin-tests
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            flags: --features=native-tls
+            flags: --features=native-tls,plugin-tests
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             use-cross: true

@@ -111,6 +111,7 @@ network-interface = ["dep:network-interface"]
 
 online-tests = []
 ipv6-tests = []
+plugin-tests = []
 
 [package.metadata.cross.build.env]
 passthrough = ["CARGO_PROFILE_RELEASE_LTO"]

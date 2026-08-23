@@ -1,21 +1,25 @@
-use std::io;
+use std::ffi::OsString;
+use std::io::{self, Write};
+use std::process;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result, anyhow};
 use regex_lite::Regex;
 use reqwest::StatusCode;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::{AUTHORIZATION, HeaderValue, WWW_AUTHENTICATE};
+use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue, WWW_AUTHENTICATE};
+use serde::{Deserialize, Serialize};
 
 use crate::cli::AuthType;
 use crate::middleware::{Context, Middleware};
 use crate::netrc;
-use crate::utils::clone_request;
+use crate::utils::{clone_request, is_path};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Auth {
     Bearer(String),
     Basic(String, Option<String>),
     Digest(String, String),
+    Plugin(AuthPlugin),
 }
 
 impl Auth {
@@ -94,6 +98,92 @@ impl Middleware for DigestAuthMiddleware<'_> {
             }
             _ => Ok(response),
         }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct PluginInput<'a> {
+    url: &'a str,
+    auth: &'a [String],
+}
+
+impl<'a> PluginInput<'a> {
+    fn new(url: &'a str, auth: &'a [String]) -> Self {
+        PluginInput { url, auth }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct Header {
+    name: String,
+    value: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginResponse {
+    add_headers: Vec<Header>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginResponseErr {
+    error_message: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct AuthPlugin {
+    pub headers: HeaderMap,
+}
+
+impl AuthPlugin {
+    pub fn exec(name_or_path: OsString, url: String, auth: Vec<String>) -> Result<Self> {
+        let plugin_input = PluginInput::new(&url, &auth);
+
+        let plugin_path = std::path::PathBuf::from(if is_path(&name_or_path) {
+            name_or_path
+        } else {
+            let mut name = OsString::from("xh-plugin-");
+            name.push(name_or_path);
+            name
+        });
+
+        log::debug!("Spawning plugin {:?}", plugin_path);
+        let mut child = process::Command::new(&plugin_path)
+            .env("XH_PLUGIN", "auth")
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow!("Unable to spawn plugin {:?}: {}", plugin_path, e))?;
+
+        let child_stdin = child.stdin.as_mut().unwrap();
+        log::debug!("Writing to plugin's stdin");
+        child_stdin.write_all(&serde_json::to_vec(&plugin_input)?)?;
+
+        let output = child
+            .wait_with_output()
+            .context("Failed to wait for plugin output")?;
+
+        if !output.status.success() {
+            if let Ok(PluginResponseErr { error_message }) = serde_json::from_slice(&output.stdout)
+            {
+                return Err(anyhow!(error_message));
+            }
+            if let Some(code) = output.status.code() {
+                return Err(anyhow!("Plugin exited with exit code {}", code));
+            } else {
+                // Usually means termination by a signal
+                return Err(anyhow!("Plugin exited no exit code"));
+            }
+        }
+
+        let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
+
+        Ok(AuthPlugin {
+            headers: plugin_output
+                .add_headers
+                .iter()
+                .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
+                .collect::<Result<HeaderMap>>()?,
+        })
     }
 }
 

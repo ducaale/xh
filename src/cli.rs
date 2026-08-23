@@ -172,8 +172,8 @@ Example: --print=Hb"
 
     /// Print full error stack traces and debug log messages.
     ///
-    /// Logging can be configured in more detail using the `$RUST_LOG` environment
-    /// variable. Set `RUST_LOG=trace` to show even more messages.
+    /// Logging can be configured in more detail using the "$RUST_LOG" environment
+    /// variable. Set "RUST_LOG=trace" to show even more messages.
     /// See https://docs.rs/env_logger/0.11.3/env_logger/#enabling-logging.
     #[clap(long)]
     pub debug: bool,
@@ -248,6 +248,27 @@ Example: --print=Hb"
     #[clap(short = 'A', long, value_enum)]
     pub auth_type: Option<AuthType>,
 
+    /// Use a custom auth plugin.
+    ///
+    /// If "NAME" is used instead of "/path/to/plugin", It will
+    /// look for an executable named "xh-plugin-NAME" in "$PATH".
+    ///
+    /// The plugin receives request url and --auth values via stdin:
+    ///
+    /// { "url": "http://example.org/api/v1/hello", "auth": [] }
+    ///
+    /// It can either output headers to add via stdout:
+    ///
+    /// { "add_headers": [{ "name": "x-signature", "value": "12345678" }] }
+    ///
+    /// or exit with non-zero code and optionally output error message via stdout:
+    ///
+    /// { "error_message": "-a/--auth cannot be used with plugin-token" }
+    ///
+    /// Example: --auth-plugin=x99 --auth=id:pluto --auth=scope:read
+    #[clap(long, value_name = "PLUGIN")]
+    pub auth_plugin: Option<OsString>,
+
     /// Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer).
     ///
     /// PASS will be prompted if missing. Use a trailing colon (i.e. "USER:")
@@ -255,7 +276,7 @@ Example: --print=Hb"
     ///
     /// TOKEN is expected if --auth-type=bearer.
     #[clap(short = 'a', long, value_name = "USER[:PASS] | TOKEN")]
-    pub auth: Option<SecretString>,
+    pub auth: Vec<SecretString>,
 
     /// Authenticate with a bearer token.
     #[clap(long, value_name = "TOKEN", hide = true)]
@@ -317,7 +338,7 @@ Example: --print=Hb"
     /// Specifying a CA bundle will disable the system's built-in root certificates.
     ///
     /// "false" instead of "no" also works. The default is "yes" ("true").
-    #[clap(long, value_name = "VERIFY", value_parser = VerifyParser)]
+    #[clap(long, value_name = "VERIFY", value_parser)]
     pub verify: Option<Verify>,
 
     /// Use a client side certificate for SSL.
@@ -613,9 +634,9 @@ impl Cli {
         if self.https {
             self.default_scheme = Some("https".to_string());
         }
-        if self.bearer.is_some() {
+        if let Some(bearer) = self.bearer.take() {
             self.auth_type = Some(AuthType::Bearer);
-            self.auth = self.bearer.take();
+            self.auth.push(bearer);
         }
         self.check_status = match (self.check_status_raw, matches.get_flag("no-check-status")) {
             (true, true) => unreachable!(),
@@ -1294,29 +1315,13 @@ pub enum Verify {
     CustomCaBundle(PathBuf),
 }
 
-impl clap::builder::ValueParserFactory for Verify {
-    type Parser = VerifyParser;
-    fn value_parser() -> Self::Parser {
-        VerifyParser
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct VerifyParser;
-impl clap::builder::TypedValueParser for VerifyParser {
-    type Value = Verify;
-
-    fn parse_ref(
-        &self,
-        _cmd: &clap::Command,
-        _arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
-    ) -> clap::error::Result<Self::Value, clap::Error> {
-        Ok(match value.to_ascii_lowercase().to_str() {
+impl From<OsString> for Verify {
+    fn from(value: OsString) -> Self {
+        match value.to_ascii_lowercase().to_str() {
             Some("no") | Some("false") => Verify::No,
             Some("yes") | Some("true") => Verify::Yes,
             _ => Verify::CustomCaBundle(PathBuf::from(value)),
-        })
+        }
     }
 }
 
