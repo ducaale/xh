@@ -346,7 +346,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Already the default, so a bit questionable
         cmd.arg("--no-netrc");
     }
-    if let Some(auth) = args.auth.last().cloned() {
+    if let (Some(auth), None) = (args.auth.last().cloned(), args.auth_plugin) {
         match args.auth_type.unwrap_or_default() {
             AuthType::Basic => {
                 cmd.arg("--basic");
