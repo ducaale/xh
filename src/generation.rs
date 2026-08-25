@@ -39,7 +39,24 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
             stdout.write_all(&buf).unwrap();
         }
         Generate::CompleteNushell => {
-            clap_complete::generate(Nushell, &mut app, bin_name, &mut io::stdout());
+            use std::io::Write;
+            let mut buf = Vec::new();
+            clap_complete::generate(Nushell, &mut app, bin_name, &mut buf);
+            // clap_complete_nushell does not honor Arg::hide and emits these as
+            // required positionals. Nushell then rejects `xh --generate ...` at
+            // parse time, and the clap-internal names should not appear in
+            // completions.
+            let script = String::from_utf8(buf).unwrap();
+            let mut stdout = io::stdout();
+            for line in script.lines() {
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("raw_method_or_url")
+                    || trimmed.starts_with("...raw_rest_args")
+                {
+                    continue;
+                }
+                writeln!(stdout, "{line}").unwrap();
+            }
         }
         Generate::CompletePowershell => {
             clap_complete::generate(Shell::PowerShell, &mut app, bin_name, &mut io::stdout());

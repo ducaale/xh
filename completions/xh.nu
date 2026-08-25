@@ -145,8 +145,6 @@ module completions {
     --no-generate
     --no-help
     --version(-V)             # Print version
-    raw_method_or_url: string # The request URL, preceded by an optional HTTP method
-    ...raw_rest_args: string  # Optional key-value pairs to be included in the request.
   ]
 
 }

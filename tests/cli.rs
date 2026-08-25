@@ -3886,3 +3886,15 @@ fn reason_phrase_is_preserved() {
 
         "#});
 }
+
+#[test]
+fn nushell_completions_omit_raw_positionals() {
+    get_base_command()
+        .args(["--generate", "complete-nushell"])
+        .assert()
+        .success()
+        .stdout(contains("export extern xh"))
+        .stdout(function(|script: &str| {
+            !script.contains("raw_method_or_url") && !script.contains("raw_rest_args")
+        }));
+}
