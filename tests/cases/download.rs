@@ -489,3 +489,98 @@ fn error_code_416_is_not_ignored_when_not_resuming_download() {
 
     assert_eq!(fs::exists(filename).unwrap(), false);
 }
+
+#[test]
+fn it_errors_on_incomplete_download_when_resuming() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.headers()[hyper::header::RANGE], "bytes=5-");
+
+        // Promises 7 more bytes but only sends 4 of them.
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 5-11/12")
+            .body(" wor".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("Done."))
+        .stderr(contains("Incomplete download: size=12; downloaded=9"));
+
+    assert_eq!(fs::read_to_string(&filename).unwrap(), "Hello wor");
+}
+
+#[test]
+fn it_errors_on_incomplete_download_when_resuming_quietly() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(206)
+            .header(hyper::header::CONTENT_RANGE, "bytes 5-11/12")
+            .body(" wor".into())
+            .unwrap()
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let filename = dir.path().join("input.txt");
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&filename)
+        .unwrap()
+        .write_all(b"Hello")
+        .unwrap();
+
+    get_command()
+        .arg("--download")
+        .arg("--continue")
+        .arg("--quiet")
+        .arg("--output")
+        .arg(&filename)
+        .arg(server.base_url())
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(contains("Incomplete download: size=12; downloaded=9"));
+}
+
+#[test]
+fn it_does_not_error_on_complete_download() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .body("file contents\n".into())
+            .unwrap()
+    });
+
+    let dir = tempdir().unwrap();
+    let outfile = dir.path().join("outfile");
+    get_command()
+        .arg("--download")
+        .arg("--output")
+        .arg(&outfile)
+        .arg(server.base_url())
+        .assert()
+        .success()
+        .stderr(contains("Done."));
+
+    assert_eq!(fs::read_to_string(&outfile).unwrap(), "file contents\n");
+}
