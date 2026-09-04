@@ -164,7 +164,7 @@ const SPINNER_TEMPLATE: &str = "{spinner:.green} {bytes} {bytes_per_sec} {wide_m
 const UNCOLORED_SPINNER_TEMPLATE: &str = "{spinner} {bytes} {bytes_per_sec} {wide_msg}";
 
 pub fn download_file(
-    mut response: Response,
+    response: Response,
     file_name: Option<PathBuf>,
     // If we fall back on taking the filename from the URL it has to be the
     // original URL, before redirects. That's less surprising and matches
@@ -220,7 +220,8 @@ pub fn download_file(
     let starting_time = Instant::now();
 
     let pb = if quiet {
-        None
+        // Still counts the downloaded bytes, it just doesn't display anything.
+        ProgressBar::hidden()
     } else if let Some(total_length) = total_length {
         eprintln!(
             "Downloading {} to {:?}",
@@ -234,7 +235,7 @@ pub fn download_file(
                 UNCOLORED_BAR_TEMPLATE
             })?
             .progress_chars("#>-");
-        Some(ProgressBar::new(total_length).with_style(style))
+        ProgressBar::new(total_length).with_style(style)
     } else {
         eprintln!("Downloading to {dest_name:?}");
         let style = ProgressStyle::default_bar().template(if color {
@@ -242,43 +243,58 @@ pub fn download_file(
         } else {
             UNCOLORED_SPINNER_TEMPLATE
         })?;
-        Some(ProgressBar::new_spinner().with_style(style))
+        ProgressBar::new_spinner().with_style(style)
     };
-    if let Some(pb) = &pb {
-        pb.set_position(starting_length);
-        pb.reset_eta();
+    pb.set_position(starting_length);
+    pb.reset_eta();
+
+    let compression_type = get_compression_type(response.headers());
+    copy_largebuf(
+        &mut decompress(&mut pb.wrap_read(response), compression_type),
+        &mut buffer,
+        false,
+    )?;
+    // The progress bar wraps the response before it's decompressed, so this is
+    // the number of bytes we received, matching the units of `total_length`.
+    let total_downloaded_length = pb.position();
+    let downloaded_length = total_downloaded_length - starting_length;
+    pb.finish_and_clear();
+
+    // Only meaningful if the body wasn't compressed: a decoder may stop short of the
+    // end of the stream, and a truncated compressed body fails while decoding anyway.
+    let incomplete = total_length.filter(|&total_length| {
+        compression_type.is_none() && total_downloaded_length != total_length
+    });
+
+    if !quiet {
+        let verb = if incomplete.is_some() {
+            "Interrupted"
+        } else {
+            "Done"
+        };
+        let time_taken = starting_time.elapsed();
+        if !time_taken.is_zero() {
+            eprintln!(
+                "{verb}. {} in {:.5}s ({}/s)",
+                HumanBytes(downloaded_length),
+                time_taken.as_secs_f64(),
+                HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
+            );
+        } else {
+            eprintln!("{verb}. {}", HumanBytes(downloaded_length));
+        }
+        if incomplete.is_some() {
+            // Separate the summary from the error message that follows.
+            eprintln!();
+        }
     }
 
-    match pb {
-        Some(ref pb) => {
-            let compression_type = get_compression_type(response.headers());
-            copy_largebuf(
-                &mut decompress(&mut pb.wrap_read(response), compression_type),
-                &mut buffer,
-                false,
-            )?;
-            let downloaded_length = pb.position() - starting_length;
-            pb.finish_and_clear();
-            let time_taken = starting_time.elapsed();
-            if !time_taken.is_zero() {
-                eprintln!(
-                    "Done. {} in {:.5}s ({}/s)",
-                    HumanBytes(downloaded_length),
-                    time_taken.as_secs_f64(),
-                    HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
-                );
-            } else {
-                eprintln!("Done. {}", HumanBytes(downloaded_length));
-            }
-        }
-        None => {
-            let compression_type = get_compression_type(response.headers());
-            copy_largebuf(
-                &mut decompress(&mut response, compression_type),
-                &mut buffer,
-                false,
-            )?;
-        }
+    if let Some(total_length) = incomplete {
+        return Err(anyhow!(
+            "Incomplete download: size={}; downloaded={}",
+            total_length,
+            total_downloaded_length
+        ));
     }
 
     Ok(())
