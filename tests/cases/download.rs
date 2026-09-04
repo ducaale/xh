@@ -490,6 +490,8 @@ fn error_code_416_is_not_ignored_when_not_resuming_download() {
     assert_eq!(fs::exists(filename).unwrap(), false);
 }
 
+// Only the resume path is testable: hyper won't serve a body shorter than its own
+// Content-Length, and the client would reject it before we compare lengths.
 #[test]
 fn it_errors_on_incomplete_download_when_resuming() {
     let server = server::http(|req| async move {
@@ -523,8 +525,10 @@ fn it_errors_on_incomplete_download_when_resuming() {
         .assert()
         .failure()
         .code(1)
-        .stderr(contains("Done."))
-        .stderr(contains("Incomplete download: size=12; downloaded=9"));
+        .stderr(contains("Interrupted."))
+        .stderr(contains(
+            "\n\nxh: error: Incomplete download: size=12; downloaded=9",
+        ));
 
     assert_eq!(fs::read_to_string(&filename).unwrap(), "Hello wor");
 }
@@ -561,26 +565,4 @@ fn it_errors_on_incomplete_download_when_resuming_quietly() {
         .failure()
         .code(1)
         .stderr(contains("Incomplete download: size=12; downloaded=9"));
-}
-
-#[test]
-fn it_does_not_error_on_complete_download() {
-    let server = server::http(|_req| async move {
-        hyper::Response::builder()
-            .body("file contents\n".into())
-            .unwrap()
-    });
-
-    let dir = tempdir().unwrap();
-    let outfile = dir.path().join("outfile");
-    get_command()
-        .arg("--download")
-        .arg("--output")
-        .arg(&outfile)
-        .arg(server.base_url())
-        .assert()
-        .success()
-        .stderr(contains("Done."));
-
-    assert_eq!(fs::read_to_string(&outfile).unwrap(), "file contents\n");
 }

@@ -260,32 +260,41 @@ pub fn download_file(
     let downloaded_length = total_downloaded_length - starting_length;
     pb.finish_and_clear();
 
+    // Only meaningful if the body wasn't compressed: a decoder may stop short of the
+    // end of the stream, and a truncated compressed body fails while decoding anyway.
+    let incomplete = total_length.filter(|&total_length| {
+        compression_type.is_none() && total_downloaded_length != total_length
+    });
+
     if !quiet {
+        let verb = if incomplete.is_some() {
+            "Interrupted"
+        } else {
+            "Done"
+        };
         let time_taken = starting_time.elapsed();
         if !time_taken.is_zero() {
             eprintln!(
-                "Done. {} in {:.5}s ({}/s)",
+                "{verb}. {} in {:.5}s ({}/s)",
                 HumanBytes(downloaded_length),
                 time_taken.as_secs_f64(),
                 HumanBytes((downloaded_length as f64 / time_taken.as_secs_f64()) as u64)
             );
         } else {
-            eprintln!("Done. {}", HumanBytes(downloaded_length));
+            eprintln!("{verb}. {}", HumanBytes(downloaded_length));
+        }
+        if incomplete.is_some() {
+            // Separate the summary from the error message that follows.
+            eprintln!();
         }
     }
 
-    // Only meaningful if the body wasn't compressed: a decoder may stop reading
-    // before the end of the stream (e.g. GzDecoder stops after the first member),
-    // which would leave trailing bytes uncounted. A compressed body that's cut
-    // short fails while decoding instead.
-    if let Some(total_length) = total_length {
-        if compression_type.is_none() && total_downloaded_length != total_length {
-            return Err(anyhow!(
-                "Incomplete download: size={}; downloaded={}",
-                total_length,
-                total_downloaded_length
-            ));
-        }
+    if let Some(total_length) = incomplete {
+        return Err(anyhow!(
+            "Incomplete download: size={}; downloaded={}",
+            total_length,
+            total_downloaded_length
+        ));
     }
 
     Ok(())
