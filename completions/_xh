@@ -38,10 +38,10 @@ none\:"Disable both coloring and formatting"))' \
 '-a+[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN:_default' \
 '--auth=[Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)]:USER[:PASS] | TOKEN:_default' \
 '--bearer=[Authenticate with a bearer token]:TOKEN:_default' \
-'--unstable-m-sig-id=[Message signature key identifier (RFC 9421)]:KEY_ID:_default' \
-'--unstable-m-sig-key=[Message signature key material (RFC 9421)]:KEY:_default' \
-'--unstable-m-sig-alg=[Message signature algorithm (RFC 9421)]:ALG:(hmac-sha256 ed25519 ecdsa-p256-sha256 ecdsa-p384-sha384 rsa-v1_5-sha256 rsa-pss-sha512)' \
-'*--unstable-m-sig-comp=[Comma-separated list of message signature components (RFC 9421)]:COMPONENTS:_default' \
+'--httpsig-keyid=[Message signature key identifier (RFC 9421)]:KEY_ID:_default' \
+'--httpsig-key=[Message signature key or key file (RFC 9421)]:KEY_OR_@FILE:_default' \
+'--httpsig-algo=[Message signature algorithm (RFC 9421)]:ALG:(hmac-sha256 ed25519)' \
+'--httpsig-headers=[Space-separated list of message signature components (RFC 9421)]:COMPONENTS:_default' \
 '--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM:_default' \
 '--timeout=[Connection timeout of the request]:SEC:_default' \
 '*--proxy=[Use a proxy for a protocol. For example\: --proxy https\:http\://proxy.host\:8080]:PROTOCOL:URL:_default' \
@@ -125,10 +125,10 @@ none\:"Disable both coloring and formatting"))' \
 '--no-auth[]' \
 '--no-bearer[]' \
 '--no-ignore-netrc[]' \
-'--no-unstable-m-sig-id[]' \
-'--no-unstable-m-sig-key[]' \
-'--no-unstable-m-sig-alg[]' \
-'--no-unstable-m-sig-comp[]' \
+'--no-httpsig-keyid[]' \
+'--no-httpsig-key[]' \
+'--no-httpsig-algo[]' \
+'--no-httpsig-headers[]' \
 '--no-offline[]' \
 '--no-check-status[]' \
 '--no-follow[]' \

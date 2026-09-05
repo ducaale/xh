@@ -1,13 +1,20 @@
-use crate::{get_command, server};
+use crate::{get_command as base_get_command, server};
 use base64::engine::general_purpose::STANDARD;
 use httpsig_hyper::HyperSigError;
 use httpsig_hyper::prelude::*;
+use std::io::Write;
+use tempfile::NamedTempFile;
 
 const KEY_MATERIAL: &str = "secret-key-material";
-const RSA_KEY_FIXTURE: &str = "tests/fixtures/keys/rsa_private_key_pkcs8.pem";
+const KEY_HEX: &str = "7365637265742d6b65792d6d6174657269616c";
+const ED25519_KEY_HEX: &str = "0101010101010101010101010101010101010101010101010101010101010101";
 
-fn fixture_path(relative_path: &str) -> String {
-    format!("{}/{}", env!("CARGO_MANIFEST_DIR"), relative_path)
+fn key_file(contents: impl AsRef<[u8]>) -> NamedTempFile {
+    let mut file = NamedTempFile::new().unwrap();
+    for byte in contents.as_ref() {
+        write!(file, "{byte:02x}").unwrap();
+    }
+    file
 }
 
 fn reconstruct_absolute_uri<B>(req: &mut hyper::Request<B>) {
@@ -51,11 +58,12 @@ fn message_signature_verification_on_server() {
         }
     });
 
-    get_command()
-        .arg(format!("--unstable-m-sig-id={}", key_id))
-        .arg(format!("--unstable-m-sig-key={}", key_material))
-        .arg("--unstable-m-sig-comp=@method,@path")
-        .arg("--unstable-m-sig-comp=date")
+    base_get_command()
+        .arg(format!("--httpsig-keyid={}", key_id))
+        .arg(format!("--httpsig-key={KEY_HEX}"))
+        .arg("--httpsig-algo=hmac-sha256")
+        .arg("--httpsig-headers=method path")
+        .arg("--httpsig-headers=date:")
         .arg("get")
         .arg(server.base_url())
         .arg("date:Thu, 15 Jan 2026 12:00:00 GMT")
@@ -64,9 +72,43 @@ fn message_signature_verification_on_server() {
 }
 
 #[test]
+fn message_signature_ed25519_is_the_default() {
+    let key_id = "ed25519-key";
+    let server = server::http(move |mut req| async move {
+        reconstruct_absolute_uri(&mut req);
+
+        let secret_key = SecretKey::from_bytes(&AlgorithmName::Ed25519, &[1; 32]).unwrap();
+        let public_key = secret_key.public_key();
+        use httpsig_hyper::MessageSignatureReq;
+        let result = req
+            .verify_message_signature(&public_key, Some(key_id))
+            .await;
+
+        assert!(result.is_ok(), "Signature verification failed: {result:?}");
+        assert!(
+            req.headers()["Signature-Input"]
+                .to_str()
+                .unwrap()
+                .contains("alg=\"ed25519\"")
+        );
+        hyper::Response::default()
+    });
+
+    base_get_command()
+        .arg(format!("--httpsig-keyid={key_id}"))
+        .arg(format!("--httpsig-key={ED25519_KEY_HEX}"))
+        .arg("--httpsig-algo=ed25519")
+        .arg("get")
+        .arg(server.base_url())
+        .assert()
+        .success();
+}
+
+#[test]
 fn message_signature_redirect_follow_re_signs_request() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |mut req| {
         let key_inner = key.to_string();
@@ -102,9 +144,10 @@ fn message_signature_redirect_follow_re_signs_request() {
         }
     });
 
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("--follow")
         .arg("get")
         .arg(server.url("/redirect"))
@@ -113,9 +156,41 @@ fn message_signature_redirect_follow_re_signs_request() {
 }
 
 #[test]
+fn message_signature_cross_origin_redirect_drops_signature() {
+    let key_file = key_file(KEY_MATERIAL);
+    let target = server::http(|req| async move {
+        assert!(!req.headers().contains_key("Signature"));
+        assert!(!req.headers().contains_key("Signature-Input"));
+        hyper::Response::default()
+    });
+    let target_url = target.url("/final");
+    let redirect = server::http(move |_req| {
+        let target_url = target_url.clone();
+        async move {
+            hyper::Response::builder()
+                .status(302)
+                .header("Location", target_url)
+                .body(Default::default())
+                .unwrap()
+        }
+    });
+
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
+        .arg("--follow")
+        .arg("get")
+        .arg(redirect.url("/redirect"))
+        .assert()
+        .success();
+}
+
+#[test]
 fn message_signature_auth_defaults() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |mut req| {
         let key_inner = key.to_string();
@@ -129,9 +204,9 @@ fn message_signature_auth_defaults() {
 
             let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
 
-            // Expect default components: @method, @authority, @target-uri
+            // Expect default components: @method, @authority, @path
             assert!(sig_input.contains("sig1="));
-            assert!(sig_input.contains(r#""@method" "@authority" "@target-uri""#));
+            assert!(sig_input.contains(r#""@method" "@authority" "@path""#));
             assert!(sig_input.contains(r#"keyid="my-key""#));
 
             // Verify the signature
@@ -153,9 +228,10 @@ fn message_signature_auth_defaults() {
         }
     });
 
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("post")
         .arg(server.base_url())
@@ -170,6 +246,7 @@ fn message_signature_auth_defaults() {
 fn message_signature_auth_with_resolve_override() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |mut req| {
         let key_inner = key.to_string();
@@ -202,9 +279,10 @@ fn message_signature_auth_with_resolve_override() {
         }
     });
 
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg(format!("--resolve=example.com:{}", server.host()))
         .arg("get")
         .arg(format!("http://example.com:{}/resolve", server.port()))
@@ -216,6 +294,7 @@ fn message_signature_auth_with_resolve_override() {
 fn message_signature_auth_ipv6_authority() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = match server::http_v6(move |mut req| {
         let key_inner = key.to_string();
@@ -258,9 +337,10 @@ fn message_signature_auth_ipv6_authority() {
     } else {
         format!("http://{host}:{}", server.port())
     };
-    let mut cmd = get_command();
-    cmd.arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
+    let mut cmd = base_get_command();
+    cmd.arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("get")
         .arg(url)
@@ -274,6 +354,7 @@ fn message_signature_auth_ipv6_authority() {
 fn message_signature_auth_with_custom_components_and_digest() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |mut req| {
         let key_inner = key.to_string();
@@ -287,7 +368,7 @@ fn message_signature_auth_with_custom_components_and_digest() {
             assert!(req.headers().contains_key("Content-Digest"));
 
             let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-            assert!(sig_input.contains(r#""@method" "@target-uri" "content-digest""#));
+            assert!(sig_input.contains(r#""@method" "@path" "content-digest""#));
             assert!(!sig_input.contains(r#""@authority""#)); // We overrode defaults
 
             let digest = req.headers()["Content-Digest"].to_str().unwrap();
@@ -312,13 +393,15 @@ fn message_signature_auth_with_custom_components_and_digest() {
         }
     });
 
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=@method,@target-uri,content-digest")
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
+        .arg("--httpsig-headers=method path content-digest:")
         .arg("-v")
         .arg("post")
         .arg(server.base_url())
+        .arg("content-digest:sha-256=:O6iQfnolIydIjfOQ7VF8Rblt6tAzYAIZvcpxB9HT+Io=:")
         .arg("foo=bar")
         .assert()
         .success()
@@ -331,6 +414,7 @@ fn message_signature_auth_with_custom_components_and_digest() {
 fn message_signature_auth_with_multiple_set_cookie() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |req| {
         let key_inner = key.to_string();
@@ -341,7 +425,7 @@ fn message_signature_auth_with_multiple_set_cookie() {
             // Assertions for correctness:
             // 1. Label sig1 should be present
             assert!(sig_input.contains("sig1="));
-            // 2. normalize_component_id: @method should NOT be quoted if no params
+            // 2. Derived RFC components are emitted with their canonical name.
             assert!(sig_input.contains("@method"));
             // 3. Set-Cookie should be present
             assert!(sig_input.contains(r#""set-cookie""#));
@@ -367,10 +451,11 @@ fn message_signature_auth_with_multiple_set_cookie() {
         }
     });
 
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=@method,set-cookie")
+    base_get_command()
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
+        .arg("--httpsig-headers=method set-cookie:")
         .arg("-v")
         .arg("get")
         .arg(server.base_url())
@@ -383,142 +468,47 @@ fn message_signature_auth_with_multiple_set_cookie() {
 }
 
 #[test]
-fn message_signature_auth_sf_parameter() {
-    let key = KEY_MATERIAL;
-    let key_id = "my-key";
-
-    let server = server::http(move |req| {
-        let key_inner = key.to_string();
-        let key_id_inner = key_id.to_string();
-        async move {
-            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-            assert!(sig_input.contains(r#""x-struct";sf"#));
-
-            // Verify the signature
-            use base64::Engine;
-            let key_base64 = STANDARD.encode(&key_inner);
-            let shared_key =
-                SharedKey::from_base64(&AlgorithmName::HmacSha256, &key_base64).unwrap();
-            use httpsig_hyper::MessageSignatureReq;
-            let result = req
-                .verify_message_signature(&shared_key, Some(&key_id_inner))
-                .await;
-            assert!(
-                result.is_ok(),
-                "Signature verification failed: {:?}",
-                result.err()
-            );
-
-            hyper::Response::default()
-        }
-    });
-
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=\"x-struct\";sf")
-        .arg("-v")
-        .arg("get")
-        .arg(server.base_url())
-        .arg("x-struct:a=1, b=2")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Signature-Input: sig1="));
-}
-
-#[test]
-fn message_signature_auth_key_parameter() {
-    let key = KEY_MATERIAL;
-    let key_id = "my-key";
-
-    let server = server::http(move |req| {
-        let key_inner = key.to_string();
-        let key_id_inner = key_id.to_string();
-        async move {
-            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-            assert!(sig_input.contains(r#""x-dict";key="a""#));
-
-            // Verify the signature
-            use base64::Engine;
-            let key_base64 = STANDARD.encode(&key_inner);
-            let shared_key =
-                SharedKey::from_base64(&AlgorithmName::HmacSha256, &key_base64).unwrap();
-            use httpsig_hyper::MessageSignatureReq;
-            let result = req
-                .verify_message_signature(&shared_key, Some(&key_id_inner))
-                .await;
-
-            assert!(
-                result.is_ok(),
-                "Signature verification failed: {:?}",
-                result.err()
-            );
-
-            hyper::Response::default()
-        }
-    });
-
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=\"x-dict\";key=\"a\"")
-        .arg("-v")
-        .arg("get")
-        .arg(server.base_url())
-        .arg("x-dict:a=1, b=2")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Signature-Input: sig1="));
-}
-
-#[test]
-fn message_signature_auth_unsupported_parameters() {
-    let key = KEY_MATERIAL;
-    let url = "http://localhost:1";
-
-    // Test ;bs (Byte Sequence) - currently unsupported by httpsig
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=\"x-data\";bs")
-        .arg("get")
-        .arg(url)
-        .arg("x-data:hello")
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("not supported"));
-
-    // Test ;tr (Trailers) - currently unsupported by httpsig
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=\"x-field\";tr")
-        .arg("get")
-        .arg(url)
-        .arg("x-field:value")
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("not supported"));
+fn message_signature_rejects_non_curl_component_syntax() {
+    for components in [
+        "@method authority",
+        "method content-type",
+        "\"x-struct\";sf",
+        "\"x-dict\";key=\"a\"",
+        "@query-param;name=\"id\"",
+    ] {
+        base_get_command()
+            .arg("--offline")
+            .arg("--httpsig-keyid=my-key")
+            .arg(format!("--httpsig-key={KEY_HEX}"))
+            .arg(format!("--httpsig-headers={components}"))
+            .arg("get")
+            .arg("https://example.com")
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(
+                "HTTP message signature component",
+            ));
+    }
 }
 
 #[test]
 fn message_signature_components_require_key_pair() {
-    get_command()
+    // clap rejects --httpsig-headers without a key pair.
+    base_get_command()
         .arg("--offline")
-        .arg("--unstable-m-sig-comp=@method")
+        .arg("--httpsig-headers=method")
         .arg("get")
         .arg("https://example.com")
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "Message signature components require both --unstable-m-sig-id and --unstable-m-sig-key.",
-        ));
+        .stderr(predicates::str::contains("--httpsig-keyid <KEY_ID>"));
 }
 
 #[test]
 fn message_signature_with_basic_auth() {
     let key = KEY_MATERIAL;
     let key_id = "my-key";
+    let key_file = key_file(key);
 
     let server = server::http(move |mut req| {
         let key_inner = key.to_string();
@@ -554,11 +544,12 @@ fn message_signature_with_basic_auth() {
         }
     });
 
-    get_command()
+    base_get_command()
         .arg("--auth=user:pass")
         .arg("--auth-type=basic")
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
+        .arg("--httpsig-keyid=my-key")
+        .arg(format!("--httpsig-key=@{}", key_file.path().display()))
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("-v")
         .arg("get")
         .arg(server.base_url())
@@ -571,138 +562,16 @@ fn message_signature_with_basic_auth() {
 }
 
 #[test]
-fn message_signature_auth_normalization_assertion() {
-    let key = KEY_MATERIAL;
-
-    let server = server::http(move |req| {
-        async move {
-            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-
-            // Assert normalize_component_id: "@query-param" should be quoted because it has params
-            // Even if input as @query-param;name="id", it should be normalized to "@query-param";name="id"
-            assert!(sig_input.contains(r#""@query-param";name="id""#));
-
-            hyper::Response::default()
-        }
-    });
-
-    get_command()
-        .arg("--unstable-m-sig-id=my-key")
-        .arg(format!("--unstable-m-sig-key={}", key))
-        .arg("--unstable-m-sig-comp=@method,@query-param;name=\"id\"")
-        .arg("-v")
-        .arg("get")
-        .arg(format!("{}/?id=123", server.base_url()))
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Signature-Input: sig1="));
-}
-
-#[test]
-fn message_signature_auth_ed25519_pem() {
-    // Generated Ed25519 private key in PEM format
-    let key_pem = r#"-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIJthSCf1pnwSYvdXIrXHikXUix0dmvLEm2JwWF+87xKG
------END PRIVATE KEY-----"#;
-    let key_id = "ed25519-key";
-
-    let server = server::http(move |mut req| {
-        let key_pem_inner = key_pem.to_string();
-        let key_id_inner = key_id.to_string();
-        async move {
-            reconstruct_absolute_uri(&mut req);
-
-            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-            assert!(sig_input.contains("alg=\"ed25519\""));
-            assert!(sig_input.contains(r#"keyid="ed25519-key""#));
-
-            // Verify the signature using the public key
-            let secret_key = SecretKey::from_pem(&AlgorithmName::Ed25519, &key_pem_inner).unwrap();
-            let public_key = secret_key.public_key();
-
-            use httpsig_hyper::MessageSignatureReq;
-            let result = req
-                .verify_message_signature(&public_key, Some(&key_id_inner))
-                .await;
-
-            assert!(
-                result.is_ok(),
-                "Signature verification failed: {:?}",
-                result.err()
-            );
-
-            hyper::Response::default()
-        }
-    });
-
-    get_command()
-        .arg("--unstable-m-sig-id=ed25519-key")
-        .arg(format!("--unstable-m-sig-key={}", key_pem))
-        .arg("get")
-        .arg(server.base_url())
-        .assert()
-        .success();
-}
-
-#[test]
-fn message_signature_auth_rsa_pem() {
-    let key_pem = std::fs::read_to_string(fixture_path(RSA_KEY_FIXTURE)).unwrap();
-    let key_id = "rsa-key";
-
-    let server = server::http(move |mut req| {
-        let key_pem_inner = key_pem.clone();
-        let key_id_inner = key_id.to_string();
-        async move {
-            reconstruct_absolute_uri(&mut req);
-
-            let sig_input = req.headers()["Signature-Input"].to_str().unwrap();
-            assert!(sig_input.contains("alg=\"rsa-v1_5-sha256\""));
-            assert!(sig_input.contains(r#"keyid="rsa-key""#));
-
-            let secret_key =
-                SecretKey::from_pem(&AlgorithmName::RsaV1_5Sha256, &key_pem_inner).unwrap();
-            let public_key = secret_key.public_key();
-
-            use httpsig_hyper::MessageSignatureReq;
-            let result = req
-                .verify_message_signature(&public_key, Some(&key_id_inner))
-                .await;
-            assert!(
-                result.is_ok(),
-                "RSA signature verification failed: {:?}",
-                result.err()
-            );
-
-            hyper::Response::default()
-        }
-    });
-
-    get_command()
-        .arg("--unstable-m-sig-id=rsa-key")
-        .arg("--unstable-m-sig-alg=rsa-v1_5-sha256")
-        .arg(format!(
-            "--unstable-m-sig-key=@{}",
-            fixture_path(RSA_KEY_FIXTURE)
-        ))
-        .arg("get")
-        .arg(server.base_url())
-        .assert()
-        .success();
-}
-
-#[test]
-fn message_signature_auth_rsa_pem_requires_explicit_algorithm() {
-    get_command()
-        .arg("--unstable-m-sig-id=rsa-key")
-        .arg(format!(
-            "--unstable-m-sig-key=@{}",
-            fixture_path(RSA_KEY_FIXTURE)
-        ))
+fn message_signature_missing_key_file_fails() {
+    base_get_command()
+        .arg("--httpsig-keyid=some-key")
+        .arg("--httpsig-key=@non_existent_file.txt")
+        .arg("--httpsig-algo=hmac-sha256")
         .arg("get")
         .arg("http://localhost:1")
         .assert()
         .failure()
         .stderr(predicates::str::contains(
-            "RSA private keys require an explicit algorithm",
+            "message-signature: Failed to read key file: non_existent_file.txt",
         ));
 }

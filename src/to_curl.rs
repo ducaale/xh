@@ -5,7 +5,10 @@ use os_display::Quotable;
 use reqwest::{Method, tls};
 use std::ffi::OsString;
 
-use crate::cli::{AuthType, Cli, HttpVersion, Verify};
+use crate::cli::{
+    AuthType, Cli, HttpVersion, MessageSignatureAlgorithm, MessageSignatureComponent,
+    MessageSignatureKey, Verify,
+};
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE, RequestItem};
 use crate::utils::{HeaderValueExt, url_with_query};
 
@@ -96,14 +99,6 @@ pub fn translate(args: Cli) -> Result<Command> {
         (args.pretty.is_some(), "--pretty"),
         // No equivalent
         (args.style.is_some(), "-s/--style"),
-        // No equivalent
-        (args.m_sig.m_sig_id.is_some(), "--unstable-m-sig-id"),
-        // No equivalent
-        (args.m_sig.m_sig_key.is_some(), "--unstable-m-sig-key"),
-        // No equivalent
-        (args.m_sig.m_sig_alg.is_some(), "--unstable-m-sig-alg"),
-        // No equivalent
-        (args.m_sig.has_components(), "--unstable-m-sig-comp"),
         // No equivalent
         (args.compress > 0, "-x/--compress"),
         // No equivalent
@@ -365,6 +360,43 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
+    if let Some(ref key_id) = args.httpsig.httpsig_key_id {
+        cmd.arg("--httpsig-keyid");
+        cmd.arg(key_id);
+    }
+
+    if let Some(ref key) = args.httpsig.httpsig_key {
+        cmd.arg("--httpsig-key");
+        cmd.arg(match key {
+            MessageSignatureKey::Hex(key) => key.clone(),
+            MessageSignatureKey::File(path) => format!("@{}", path.to_string_lossy()),
+        });
+    }
+    if let Some(algorithm) = args.httpsig.httpsig_algorithm {
+        cmd.arg("--httpsig-algo");
+        cmd.arg(match algorithm {
+            MessageSignatureAlgorithm::HmacSha256 => "hmac-sha256",
+            MessageSignatureAlgorithm::Ed25519 => "ed25519",
+        });
+    }
+    if let Some(ref components) = args.httpsig.httpsig_headers {
+        cmd.arg("--httpsig-headers");
+        cmd.arg(
+            components
+                .0
+                .iter()
+                .map(|component| match component {
+                    MessageSignatureComponent::Method => "method".to_string(),
+                    MessageSignatureComponent::Authority => "authority".to_string(),
+                    MessageSignatureComponent::Path => "path".to_string(),
+                    MessageSignatureComponent::Query => "query".to_string(),
+                    MessageSignatureComponent::Header(name) => format!("{name}:"),
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+    }
+
     if let Some(raw) = args.raw {
         if args.form {
             cmd.header("content-type", FORM_CONTENT_TYPE);
@@ -573,6 +605,10 @@ mod tests {
             (
                 "xh https://exmaple.com/ hello:你好",
                 "curl https://exmaple.com/ -H 'hello: 你好'",
+            ),
+            (
+                "xh http://example.com/ --httpsig-keyid=my-key --httpsig-key=736563726574 --httpsig-algo=ed25519 --httpsig-headers=method",
+                "curl http://example.com/ --httpsig-keyid my-key --httpsig-key 736563726574 --httpsig-algo ed25519 --httpsig-headers method",
             ),
         ];
         for (input, output) in expected {
