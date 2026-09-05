@@ -348,12 +348,13 @@ impl Session {
             if let Some(parent_path) = self.path.parent() {
                 fs::create_dir_all(parent_path)?;
             }
-            let mut session_file = fs::File::create(&self.path)?;
+            let mut session_file = io::BufWriter::new(fs::File::create(&self.path)?);
             log::debug!("Persisting session to {:?}", self.path);
             let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
             let mut ser = serde_json::Serializer::with_formatter(&mut session_file, formatter);
             self.content.serialize(&mut ser)?;
             session_file.write_all(b"\n")?;
+            session_file.flush()?;
         }
         Ok(())
     }
