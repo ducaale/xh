@@ -43,7 +43,7 @@ none\:"Disable both coloring and formatting"))' \
 '--unstable-m-sig-alg=[Message signature algorithm (RFC 9421)]:ALG:(hmac-sha256 ed25519 ecdsa-p256-sha256 ecdsa-p384-sha384 rsa-v1_5-sha256 rsa-pss-sha512)' \
 '*--unstable-m-sig-comp=[Comma-separated list of message signature components (RFC 9421)]:COMPONENTS:_default' \
 '--max-redirects=[Number of redirects to follow. Only respected if --follow is used]:NUM:_default' \
-'--timeout=[Connection timeout of the request]:SEC:_default' \
+'--timeout=[Timeout for connect, read and write operations]:SEC:_default' \
 '*--proxy=[Use a proxy for a protocol. For example\: --proxy https\:http\://proxy.host\:8080]:PROTOCOL:URL:_default' \
 '--verify=[If "no", skip SSL verification. If a file path, use it as a CA bundle]:VERIFY:_default' \
 '--cert=[Use a client side certificate for SSL]:FILE:_files' \

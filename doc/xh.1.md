@@ -201,7 +201,7 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--max-redirects=NUM`: Number of redirects to follow. Only respected if --follow is used.
 
-- `--timeout=SEC`: Connection timeout of the request.
+- `--timeout=SEC`: Timeout for connect, read and write operations.
   
   The default value is `0`, i.e., there is no timeout limit.
 

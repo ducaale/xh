@@ -43,7 +43,7 @@ set edit:completion:arg-completer[xh] = {|@words|
             cand --unstable-m-sig-alg 'Message signature algorithm (RFC 9421)'
             cand --unstable-m-sig-comp 'Comma-separated list of message signature components (RFC 9421)'
             cand --max-redirects 'Number of redirects to follow. Only respected if --follow is used'
-            cand --timeout 'Connection timeout of the request'
+            cand --timeout 'Timeout for connect, read and write operations'
             cand --proxy 'Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080'
             cand --verify 'If "no", skip SSL verification. If a file path, use it as a CA bundle'
             cand --cert 'Use a client side certificate for SSL'

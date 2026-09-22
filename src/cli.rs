@@ -292,7 +292,7 @@ Example: --print=Hb"
     #[clap(long, value_name = "NUM")]
     pub max_redirects: Option<usize>,
 
-    /// Connection timeout of the request.
+    /// Timeout for connect, read and write operations.
     ///
     /// The default value is "0", i.e., there is no timeout limit.
     #[clap(long, value_name = "SEC")]

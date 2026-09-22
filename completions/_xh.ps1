@@ -46,7 +46,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--unstable-m-sig-alg', '--unstable-m-sig-alg', [CompletionResultType]::ParameterName, 'Message signature algorithm (RFC 9421)')
             [CompletionResult]::new('--unstable-m-sig-comp', '--unstable-m-sig-comp', [CompletionResultType]::ParameterName, 'Comma-separated list of message signature components (RFC 9421)')
             [CompletionResult]::new('--max-redirects', '--max-redirects', [CompletionResultType]::ParameterName, 'Number of redirects to follow. Only respected if --follow is used')
-            [CompletionResult]::new('--timeout', '--timeout', [CompletionResultType]::ParameterName, 'Connection timeout of the request')
+            [CompletionResult]::new('--timeout', '--timeout', [CompletionResultType]::ParameterName, 'Timeout for connect, read and write operations')
             [CompletionResult]::new('--proxy', '--proxy', [CompletionResultType]::ParameterName, 'Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080')
             [CompletionResult]::new('--verify', '--verify', [CompletionResultType]::ParameterName, 'If "no", skip SSL verification. If a file path, use it as a CA bundle')
             [CompletionResult]::new('--cert', '--cert', [CompletionResultType]::ParameterName, 'Use a client side certificate for SSL')

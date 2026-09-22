@@ -37,7 +37,7 @@ rsa-v1_5-sha256\t''
 rsa-pss-sha512\t''"
 complete -c xh -l unstable-m-sig-comp -d 'Comma-separated list of message signature components (RFC 9421)' -r
 complete -c xh -l max-redirects -d 'Number of redirects to follow. Only respected if --follow is used' -r
-complete -c xh -l timeout -d 'Connection timeout of the request' -r
+complete -c xh -l timeout -d 'Timeout for connect, read and write operations' -r
 complete -c xh -l proxy -d 'Use a proxy for a protocol. For example: --proxy https:http://proxy.host:8080' -r
 complete -c xh -l verify -d 'If "no", skip SSL verification. If a file path, use it as a CA bundle' -r
 complete -c xh -l cert -d 'Use a client side certificate for SSL' -r -F
