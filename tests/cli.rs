@@ -3886,3 +3886,19 @@ fn reason_phrase_is_preserved() {
 
         "#});
 }
+
+#[test]
+fn nushell_completions_omit_raw_positionals() {
+    // xh internally models the URL and request items as positional arguments,
+    // but those must not leak into the generated completions. Nushell would
+    // otherwise reject `xh --generate ...` for missing a required positional.
+    // https://github.com/ducaale/xh/issues/473
+    get_base_command()
+        .args(["--generate", "complete-nushell"])
+        .assert()
+        .success()
+        .stdout(contains("export extern xh"))
+        .stdout(function(|script: &str| {
+            !script.contains("raw_method_or_url") && !script.contains("raw_rest_args")
+        }));
+}

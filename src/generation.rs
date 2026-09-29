@@ -39,7 +39,25 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
             stdout.write_all(&buf).unwrap();
         }
         Generate::CompleteNushell => {
-            clap_complete::generate(Nushell, &mut app, bin_name, &mut io::stdout());
+            use std::io::Write;
+            let mut buf = Vec::new();
+            clap_complete::generate(Nushell, &mut app, bin_name, &mut buf);
+            // clap_complete_nushell does not support Arg::hide, so the internal
+            // positional arguments are filtered out manually. Otherwise Nushell
+            // would treat raw_method_or_url as a required positional and reject
+            // commands such as `xh --generate man` at parse time.
+            // https://github.com/ducaale/xh/issues/473
+            let script = String::from_utf8(buf).unwrap();
+            let mut stdout = io::stdout();
+            for line in script.lines() {
+                let signature = line.trim_start().trim_start_matches("...");
+                if signature.starts_with("raw_method_or_url")
+                    || signature.starts_with("raw_rest_args")
+                {
+                    continue;
+                }
+                writeln!(stdout, "{line}").unwrap();
+            }
         }
         Generate::CompletePowershell => {
             clap_complete::generate(Shell::PowerShell, &mut app, bin_name, &mut io::stdout());
