@@ -1,3 +1,7 @@
+## [Unreleased]
+### Bug fixes
+- Don't negotiate HTTP/2 when a custom `Host` header is provided, as HTTP/2 servers reject it, see #493
+
 ## [0.26.2] - 2026-07-26
 ### Bug fixes
 - Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)

@@ -37,7 +37,8 @@ use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
 use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
-    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HeaderValue, RANGE, USER_AGENT,
+    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HOST, HeaderMap, HeaderValue, RANGE,
+    USER_AGENT,
 };
 use reqwest::tls;
 use url::Host;
@@ -286,7 +287,14 @@ fn run(args: Cli) -> Result<ExitCode> {
     client = match args.http_version {
         Some(HttpVersion::Http10 | HttpVersion::Http11) => client.http1_only(),
         Some(HttpVersion::Http2PriorKnowledge) => client.http2_prior_knowledge(),
-        Some(HttpVersion::Http2) => client,
+        Some(HttpVersion::Http2) => {
+            if headers.contains_key(HOST) {
+                log::warn!(
+                    "A custom Host header is sent as-is over HTTP/2 and may be rejected by the server"
+                );
+            }
+            client
+        }
         Some(HttpVersion::Http3PriorKnowledge) => {
             #[cfg(feature = "http3")]
             {
@@ -301,6 +309,10 @@ fn run(args: Cli) -> Result<ExitCode> {
                     "This binary was built without support for HTTP/3. Enable the `http3` feature."
                 ));
             }
+        }
+        None if prefers_http1(&headers) => {
+            log::debug!("Custom Host header provided; not negotiating HTTP/2");
+            client.http1_only()
         }
         None => client,
     };
@@ -781,6 +793,15 @@ fn run(args: Cli) -> Result<ExitCode> {
     Ok(failure_code.unwrap_or(ExitCode::SUCCESS))
 }
 
+/// HTTP/2 has no `Host` header: the server expects `:authority` instead, and
+/// reqwest/hyper would send a custom `Host` as a regular header next to the
+/// `:authority` derived from the URL, which servers reject as a protocol error.
+/// Changing `:authority` isn't an option as the connection (DNS, SNI) is derived
+/// from the same URL, so avoid HTTP/2 like HTTPie does.
+fn prefers_http1(headers: &HeaderMap) -> bool {
+    headers.contains_key(HOST)
+}
+
 /// Configure backtraces for standard panics and anyhow using `$RUST_BACKTRACE`.
 ///
 /// Note: they only check the environment variable once, so this won't take effect if
@@ -801,5 +822,21 @@ fn setup_backtraces() {
     // SAFETY: No other threads are running at this time.
     unsafe {
         std::env::set_var("RUST_BACKTRACE", "1");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::header::USER_AGENT;
+
+    #[test]
+    fn custom_host_header_prefers_http1() {
+        let mut headers = HeaderMap::new();
+        assert!(!prefers_http1(&headers));
+        headers.insert(USER_AGENT, HeaderValue::from_static("xh"));
+        assert!(!prefers_http1(&headers));
+        headers.insert(HOST, HeaderValue::from_static("example.com"));
+        assert!(prefers_http1(&headers));
     }
 }
