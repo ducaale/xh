@@ -172,26 +172,30 @@ impl AuthPlugin {
             if let Ok(PluginResponseErr { error_message }) = serde_json::from_slice(&output.stdout)
             {
                 return Err(anyhow!(error_message));
+            } else {
+                log::debug!(
+                    "Failed to parse plugin output: {:?}",
+                    String::from_utf8_lossy(&output.stdout),
+                )
             }
             if let Some(code) = output.status.code() {
-                return Err(anyhow!(
-                    "Plugin exited with exit code {}\nPlugin output: {}",
-                    code,
-                    String::from_utf8_lossy(&output.stdout)
-                ));
+                return Err(anyhow!("Plugin exited with exit code {}", code,));
             } else {
                 // Usually means termination by a signal
-                return Err(anyhow!(
-                    "Plugin exited no exit code\nPlugin output: {}",
-                    String::from_utf8_lossy(&output.stdout)
-                ));
+                return Err(anyhow!("Plugin exited no exit code",));
             }
         }
 
-        let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
+        let plugin_output =
+            serde_json::from_slice::<PluginResponse>(&output.stdout).with_context(|| {
+                format!(
+                    "Failed to parse plugin output: {:?}",
+                    String::from_utf8_lossy(&output.stdout),
+                )
+            })?;
 
         for key in plugin_output.extra.keys() {
-            log::debug!("Unknown '{key}' key received from plugin");
+            log::debug!("Unknown {key:?} key received from plugin");
         }
 
         Ok(AuthPlugin {
