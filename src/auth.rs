@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::{self, Write};
 use std::process;
@@ -8,6 +9,7 @@ use reqwest::StatusCode;
 use reqwest::blocking::{Request, Response};
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue, WWW_AUTHENTICATE};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::cli::AuthType;
 use crate::middleware::{Context, Middleware};
@@ -121,7 +123,10 @@ struct Header {
 
 #[derive(Debug, Deserialize)]
 struct PluginResponse {
-    add_headers: Vec<Header>,
+    add_headers: Option<Vec<Header>>,
+
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -177,9 +182,14 @@ impl AuthPlugin {
 
         let plugin_output = serde_json::from_slice::<PluginResponse>(&output.stdout)?;
 
+        for key in plugin_output.extra.keys() {
+            log::debug!("Unknown '{key}' key received from plugin");
+        }
+
         Ok(AuthPlugin {
             headers: plugin_output
                 .add_headers
+                .unwrap_or_default()
                 .iter()
                 .map(|Header { name, value }| Ok((name.try_into()?, value.try_into()?)))
                 .collect::<Result<HeaderMap>>()?,
