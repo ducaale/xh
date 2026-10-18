@@ -154,6 +154,7 @@ impl AuthPlugin {
         log::debug!("Spawning plugin {:?}", plugin_path);
         let mut child = process::Command::new(&plugin_path)
             .env("XH_PLUGIN", "auth")
+            .env("XH_VERSION", env!("CARGO_PKG_VERSION"))
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
             .spawn()
