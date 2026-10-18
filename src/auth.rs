@@ -173,10 +173,17 @@ impl AuthPlugin {
                 return Err(anyhow!(error_message));
             }
             if let Some(code) = output.status.code() {
-                return Err(anyhow!("Plugin exited with exit code {}", code));
+                return Err(anyhow!(
+                    "Plugin exited with exit code {}\nPlugin output: {}",
+                    code,
+                    String::from_utf8_lossy(&output.stdout)
+                ));
             } else {
                 // Usually means termination by a signal
-                return Err(anyhow!("Plugin exited no exit code"));
+                return Err(anyhow!(
+                    "Plugin exited no exit code\nPlugin output: {}",
+                    String::from_utf8_lossy(&output.stdout)
+                ));
             }
         }
 
