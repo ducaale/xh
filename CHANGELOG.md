@@ -1,3 +1,10 @@
+## Unreleased
+### Security fixes
+- Upgrade rustls-webpki to v0.103.16 and webpki-root-certs to v1.0.10
+
+### Features
+- Detect and error on incomplete downloads, see #487 (@AkshayDhola)
+
 ## [0.26.2] - 2026-07-26
 ### Bug fixes
 - Fix `--auth` ignoring credentials when the username is empty (e.g. `-a :password`), see #467 (@upuddu)
