@@ -369,7 +369,7 @@ xh get httpbin.org/json id==5 sort==true
 
 Send a GET request and include a header named `X-Api-Key` with value `12345`:
 ```
-xh get Ihttpbin.org/json x-api-key:12345
+xh get httpbin.org/json x-api-key:12345
 ```
 
 Send a POST request with body read from stdin:
