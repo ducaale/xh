@@ -21,6 +21,7 @@ mod session;
 mod to_curl;
 mod utils;
 
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::{self, IsTerminal, Read, Write as _};
@@ -37,10 +38,11 @@ use hyper::header::CONTENT_ENCODING;
 use redirect::RedirectFollower;
 use reqwest::blocking::{Body as ReqwestBody, Client};
 use reqwest::header::{
-    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HeaderValue, RANGE, USER_AGENT,
+    ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_TYPE, COOKIE, HOST, HeaderMap, HeaderName,
+    HeaderValue, RANGE, USER_AGENT,
 };
 use reqwest::tls;
-use url::Host;
+use url::{Host, Url};
 use utils::reason_phrase;
 
 use crate::auth::{Auth, DigestAuthMiddleware};
@@ -283,7 +285,37 @@ fn run(args: Cli) -> Result<ExitCode> {
         }?);
     }
 
-    client = match args.http_version {
+    // Session headers are part of the map that will be sent. Load once here so
+    // the version choice below sees them, then reuse this session after build.
+    let mut session = match &args.session {
+        Some(name_or_path) => Some(
+            Session::load_session(url.clone(), name_or_path.clone(), args.is_session_read_only)
+                .with_context(|| {
+                    format!("couldn't load session {:?}", name_or_path.to_string_lossy())
+                })?,
+        ),
+        None => None,
+    };
+    if let Some(ref s) = session {
+        headers = {
+            let mut session_headers = s.headers()?;
+            session_headers.extend(headers);
+            session_headers
+        };
+    }
+
+    // h2 sets :authority from the URI and still emits a user Host header.
+    // Strict servers reject that mismatch. Fold it into the HTTP/1.1 arm
+    // without changing args.http_version: the request builder still sends
+    // Connection: keep-alive for an unset version, and http1_only() is what
+    // stops ALPN from selecting HTTP/2. Explicit HTTP/2 and HTTP/3 stay put.
+    let client_http_version = match args.http_version.clone() {
+        None if host_override_requires_http1(&headers, &headers_to_unset, &url) => {
+            Some(HttpVersion::Http11)
+        }
+        version => version,
+    };
+    client = match client_http_version {
         Some(HttpVersion::Http10 | HttpVersion::Http11) => client.http1_only(),
         Some(HttpVersion::Http2PriorKnowledge) => client.http2_prior_knowledge(),
         Some(HttpVersion::Http2) => client,
@@ -393,24 +425,8 @@ fn run(args: Cli) -> Result<ExitCode> {
     log::trace!("{client:#?}");
     let client = client.build()?;
 
-    let mut session = match &args.session {
-        Some(name_or_path) => Some(
-            Session::load_session(url.clone(), name_or_path.clone(), args.is_session_read_only)
-                .with_context(|| {
-                    format!("couldn't load session {:?}", name_or_path.to_string_lossy())
-                })?,
-        ),
-        None => None,
-    };
-
     if let Some(ref mut s) = session {
         auth = s.auth()?;
-
-        headers = {
-            let mut session_headers = s.headers()?;
-            session_headers.extend(headers);
-            session_headers
-        };
         s.save_headers(&headers)?;
 
         let mut cookie_jar = cookie_jar.lock().unwrap();
@@ -802,4 +818,39 @@ fn setup_backtraces() {
     unsafe {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
+}
+
+/// Whether a `Host` value that will be sent differs from the `:authority` h2
+/// would emit for `url`.
+///
+/// A missing `Host`, or `Host` present only in `headers_to_unset`, keeps the
+/// normal version selection. Comparison is ASCII-case-insensitive against
+/// `host`, `[ipv6]`, or `host:port` / `[ipv6]:port` when [`Url::port`] is
+/// `Some` (it is `None` for the scheme default).
+fn host_override_requires_http1(
+    headers: &HeaderMap<HeaderValue>,
+    headers_to_unset: &HashSet<HeaderName>,
+    url: &Url,
+) -> bool {
+    if headers_to_unset.contains(&HOST) {
+        return false;
+    }
+    let authority = http2_authority(url);
+    headers.get_all(HOST).iter().any(|value| match &authority {
+        Some(authority) => !value.as_bytes().eq_ignore_ascii_case(authority.as_bytes()),
+        None => true,
+    })
+}
+
+fn http2_authority(url: &Url) -> Option<String> {
+    let host = url.host_str()?;
+    let host = if matches!(url.host(), Some(Host::Ipv6(_))) {
+        format!("[{host}]")
+    } else {
+        host.to_owned()
+    };
+    Some(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host,
+    })
 }

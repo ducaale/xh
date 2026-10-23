@@ -1,3 +1,7 @@
+## [Unreleased]
+### Bug fixes
+- Use HTTP/1.1 when an HTTPS `Host` override would conflict with HTTP/2 `:authority`, see #493
+
 ## [0.26.3] - 2026-10-21
 ### Security fixes
 - Upgrade rustls-webpki to v0.103.16 and webpki-root-certs to v1.0.10

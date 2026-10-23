@@ -3298,6 +3298,186 @@ fn http2_prior_knowledge() {
         .stdout(contains("Hello HTTP/2.0"));
 }
 
+#[test]
+fn host_override_is_sent_on_http1() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.version(), hyper::Version::HTTP_11);
+        assert_eq!(req.headers()["host"], "example.test");
+        hyper::Response::default()
+    });
+    get_command()
+        .arg(server.base_url())
+        .arg("Host:example.test")
+        .assert()
+        .success();
+}
+
+#[test]
+fn explicit_http1_sends_mismatched_host() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.version(), hyper::Version::HTTP_11);
+        assert_eq!(req.headers()["host"], "example.test");
+        hyper::Response::builder()
+            .body("from-server".into())
+            .unwrap()
+    });
+    get_command()
+        .arg("--print=b")
+        .arg("--http-version=1.1")
+        .arg(server.base_url())
+        .arg("Host:example.test")
+        .assert()
+        .success()
+        .stdout(contains("from-server"));
+}
+
+#[test]
+fn explicit_http2_keeps_host_override() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.version(), hyper::Version::HTTP_2);
+        let host = req
+            .headers()
+            .get("host")
+            .and_then(|value| value.to_str().ok());
+        let authority = req.uri().authority().map(|authority| authority.as_str());
+        assert!(
+            host == Some("example.test") || authority == Some("example.test"),
+            "host={host:?} authority={authority:?}"
+        );
+        hyper::Response::default()
+    });
+
+    // An explicit HTTP/2 choice is not downgraded to HTTP/1.1.
+    get_command()
+        .arg("--http-version=2")
+        .arg(server.base_url())
+        .arg("Host:example.test")
+        .assert()
+        .failure()
+        .stderr(contains("UserUnsupportedVersion"));
+
+    get_command()
+        .arg("--http-version=2-prior-knowledge")
+        .arg(server.base_url())
+        .arg("Host:example.test")
+        .assert()
+        .success();
+}
+
+#[test]
+fn session_replays_host_override() {
+    let server = server::http(|req| async move {
+        use reqwest::header::HeaderValue;
+        assert_eq!(req.version(), hyper::Version::HTTP_11);
+        assert_eq!(
+            req.headers()
+                .get_all("host")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            [&HeaderValue::from_static("example.test")]
+        );
+        hyper::Response::default()
+    });
+
+    let config_dir = tempdir().unwrap();
+    let name = random_string();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(server.base_url())
+        .arg(format!("--session={name}"))
+        .arg("Host:example.test")
+        .assert()
+        .success();
+
+    get_command()
+        .env("XH_CONFIG_DIR", config_dir.path())
+        .arg(server.base_url())
+        .arg(format!("--session={name}"))
+        .assert()
+        .success();
+
+    server.assert_hits(2);
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn equivalent_host_keeps_negotiated_http_version() {
+    let url = "https://httpbingo.org/json";
+    let baseline = get_command().args(["--print=h", url]).assert().success();
+    let with_host = get_command()
+        .args(["--print=h", url, "Host:httpbingo.org"])
+        .assert()
+        .success();
+
+    let status_version = |stdout: &[u8]| {
+        String::from_utf8_lossy(stdout)
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .to_owned()
+    };
+    assert_eq!(
+        status_version(&baseline.get_output().stdout),
+        status_version(&with_host.get_output().stdout)
+    );
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn mismatched_host_uses_http1() {
+    get_command()
+        .args([
+            "--print=hH",
+            "https://httpbingo.org/json",
+            "Host:example.com",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("HTTP/1.1 "))
+        .stdout(contains("Host: example.com"))
+        .stderr(function(|err: &str| !err.contains("protocol error")));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn unset_host_keeps_version_and_conflicting_hosts_use_http1() {
+    let url = "https://httpbingo.org/json";
+    let baseline = get_command().args(["--print=h", url]).assert().success();
+    let unset = get_command()
+        .args(["--print=h", url, "Host:"])
+        .assert()
+        .success();
+
+    let status_version = |stdout: &[u8]| {
+        String::from_utf8_lossy(stdout)
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .to_owned()
+    };
+    assert_eq!(
+        status_version(&baseline.get_output().stdout),
+        status_version(&unset.get_output().stdout),
+        "unsetting Host should keep the normal version"
+    );
+
+    // Two Host values are invalid, so the server responds 400. The client still
+    // has to choose HTTP/1.1 instead of failing the HTTP/2 handshake.
+    get_command()
+        .args([
+            "--print=h",
+            "--no-check-status",
+            url,
+            "Host:httpbingo.org",
+            "Host:example.com",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("HTTP/1.1 "))
+        .stderr(function(|err: &str| !err.contains("protocol error")));
+}
+
 #[cfg(all(feature = "online-tests", feature = "http3", feature = "rustls"))]
 #[test]
 fn http3_prior_knowledge() {
