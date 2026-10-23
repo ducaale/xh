@@ -226,7 +226,7 @@ xh httpbin.org/get user-agent:foobar
 ### Disadvantages
 
 - Not all of HTTPie's features are implemented. ([#4](https://github.com/ducaale/xh/issues/4))
-- No plugin system.
+- Limited plugin support.
 - General immaturity. HTTPie is old and well-tested.
 - Worse documentation.
 

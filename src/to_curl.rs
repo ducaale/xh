@@ -119,6 +119,8 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Already the default (usually, depends on compile time options)
         // Unclear if you can even change this at runtime
         (args.native_tls, "--native-tls"),
+        // No equivalent
+        (args.auth_plugin.is_some(), "--auth-plugin"),
     ];
 
     for (present, flag) in ignored {
@@ -344,7 +346,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         // Already the default, so a bit questionable
         cmd.arg("--no-netrc");
     }
-    if let Some(auth) = args.auth {
+    if let (Some(auth), None) = (args.auth.last().cloned(), args.auth_plugin) {
         match args.auth_type.unwrap_or_default() {
             AuthType::Basic => {
                 cmd.arg("--basic");

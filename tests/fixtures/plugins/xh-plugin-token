@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+import json
+import sys
+from urllib.parse import urlparse
+
+stdin_data = json.loads(sys.stdin.read())
+
+if len(stdin_data["auth"]) > 0:
+    print(
+        json.dumps({"error_message": "-a/--auth cannot be used with xh-plugin-token"})
+    )
+    exit(1)
+
+url = urlparse(stdin_data["url"])
+
+output = {"add_headers": []}
+
+if url.hostname == "example.com":
+    output["add_headers"].append({"name": "x-token", "value": "42"})
+
+print(json.dumps(output))
