@@ -488,71 +488,94 @@ fn streaming_decode() {
 
 #[test]
 fn unbuffered_terminal_output_does_not_wait_for_newline() {
-    use std::io::{BufRead, BufReader, Read};
-    use std::net::TcpListener;
-    use std::process::Stdio;
-    use std::sync::mpsc;
-    use std::thread;
+    fn case(content_type: &'static str, first_chunk: &'static [u8], last_chunk: &'static [u8]) {
+        use std::io::{BufRead, BufReader, Read};
+        use std::net::TcpListener;
+        use std::process::Stdio;
+        use std::sync::mpsc;
+        use std::thread;
 
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    let (ready_tx, ready_rx) = mpsc::channel();
-    let (release_tx, release_rx) = mpsc::channel();
-    let server = thread::spawn(move || {
-        let (mut socket, _) = listener.accept().unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_secs(10)))
-            .unwrap();
-        let mut request = BufReader::new(&socket);
-        let mut line = String::new();
-        while request.read_line(&mut line).unwrap() != 0 {
-            if line == "\r\n" {
-                break;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .unwrap();
+            let mut request = BufReader::new(&socket);
+            let mut line = String::new();
+            while request.read_line(&mut line).unwrap() != 0 {
+                if line == "\r\n" {
+                    break;
+                }
+                line.clear();
             }
-            line.clear();
-        }
-        socket
-            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nhello")
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: {content_type}; charset=utf-8\r\n\r\n",
+                first_chunk.len() + last_chunk.len(),
+            );
+            socket.write_all(headers.as_bytes()).unwrap();
+            socket.write_all(first_chunk).unwrap();
+            ready_tx.send(()).unwrap();
+            let _ = release_rx.recv();
+            socket.write_all(last_chunk).unwrap();
+        });
+
+        let base = get_command();
+        let mut child = std::process::Command::new(base.get_program())
+            .args(base.get_args())
+            .envs(
+                base.get_envs()
+                    .filter_map(|(key, value)| value.map(|value| (key, value))),
+            )
+            .args([
+                "--ignore-stdin",
+                "--print=b",
+                "--pretty=all",
+                "--unbuffered",
+                &url,
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .unwrap();
-        ready_tx.send(()).unwrap();
-        let _ = release_rx.recv_timeout(Duration::from_secs(10));
-        socket.write_all(b" world").unwrap();
-    });
+        let mut stdout = child.stdout.take().unwrap();
+        let mut stderr = child.stderr.take().unwrap();
+        let stderr_reader = thread::spawn(move || {
+            let mut diagnostics = Vec::new();
+            stderr.read_to_end(&mut diagnostics).unwrap();
+            diagnostics
+        });
+        let (output_tx, output_rx) = mpsc::channel();
+        let reader = thread::spawn(move || {
+            let mut first = vec![0; first_chunk.len()];
+            stdout.read_exact(&mut first).unwrap();
+            output_tx.send(first).unwrap();
+            let mut rest = String::new();
+            stdout.read_to_string(&mut rest).unwrap();
+            rest
+        });
 
-    let base = get_command();
-    let mut child = std::process::Command::new(base.get_program())
-        .args(base.get_args())
-        .envs(
-            base.get_envs()
-                .filter_map(|(key, value)| value.map(|value| (key, value))),
-        )
-        .args(["--ignore-stdin", "--print=b", "--unbuffered", &url])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdout = child.stdout.take().unwrap();
-    let (output_tx, output_rx) = mpsc::channel();
-    let reader = thread::spawn(move || {
-        let mut first = [0; 5];
-        stdout.read_exact(&mut first).unwrap();
-        output_tx.send(first).unwrap();
-        let mut rest = String::new();
-        stdout.read_to_string(&mut rest).unwrap();
-        rest
-    });
+        ready_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        let first = output_rx.recv_timeout(Duration::from_secs(5));
+        release_tx.send(()).unwrap();
+        let mut output = child.wait_with_output().unwrap();
+        output.stderr = stderr_reader.join().unwrap();
+        let rest = reader.join().unwrap();
+        server.join().unwrap();
+        assert!(output.status.success(), "{output:?}");
+        assert_eq!(
+            first.expect("output waited for the rest of the response"),
+            first_chunk
+        );
+        assert_eq!(rest.as_bytes(), [last_chunk, b"\n"].concat());
+    }
 
-    ready_rx.recv_timeout(Duration::from_secs(10)).unwrap();
-    let first = output_rx.recv_timeout(Duration::from_secs(5));
-    release_tx.send(()).unwrap();
-    let rest = reader.join().unwrap();
-    server.join().unwrap();
-    assert!(child.wait().unwrap().success());
-    assert_eq!(
-        first.expect("output waited for the rest of the response"),
-        *b"hello"
-    );
-    assert_eq!(rest, " world\n");
+    case("text/plain", b"hello", b" world");
+    case("text/html", b"<div>", b"X</div>");
+    case("application/json", b"{\"x\":", b"\"y\"}");
 }
 
 #[test]
