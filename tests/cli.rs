@@ -487,6 +487,150 @@ fn streaming_decode() {
 }
 
 #[test]
+fn unbuffered_terminal_output_does_not_wait_for_newline() {
+    use std::io::{BufRead, BufReader, Read};
+    use std::net::TcpListener;
+    use std::process::Stdio;
+    use std::sync::mpsc;
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let server = thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        let mut request = BufReader::new(&socket);
+        let mut line = String::new();
+        while request.read_line(&mut line).unwrap() != 0 {
+            if line == "\r\n" {
+                break;
+            }
+            line.clear();
+        }
+        socket
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nhello")
+            .unwrap();
+        ready_tx.send(()).unwrap();
+        let _ = release_rx.recv_timeout(Duration::from_secs(10));
+        socket.write_all(b" world").unwrap();
+    });
+
+    let base = get_command();
+    let mut child = std::process::Command::new(base.get_program())
+        .args(base.get_args())
+        .envs(
+            base.get_envs()
+                .filter_map(|(key, value)| value.map(|value| (key, value))),
+        )
+        .args(["--ignore-stdin", "--print=b", "--unbuffered", &url])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let (output_tx, output_rx) = mpsc::channel();
+    let reader = thread::spawn(move || {
+        let mut first = [0; 5];
+        stdout.read_exact(&mut first).unwrap();
+        output_tx.send(first).unwrap();
+        let mut rest = String::new();
+        stdout.read_to_string(&mut rest).unwrap();
+        rest
+    });
+
+    ready_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+    let first = output_rx.recv_timeout(Duration::from_secs(5));
+    release_tx.send(()).unwrap();
+    let rest = reader.join().unwrap();
+    server.join().unwrap();
+    assert!(child.wait().unwrap().success());
+    assert_eq!(
+        first.expect("output waited for the rest of the response"),
+        *b"hello"
+    );
+    assert_eq!(rest, " world\n");
+}
+
+#[test]
+fn unbuffered_skips_body_formatting_and_coloring() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "application/json")
+            .body(r#"{"foo":"bar"}"#.into())
+            .unwrap()
+    });
+
+    get_command()
+        .args([
+            "--print=b",
+            "--pretty=all",
+            "--unbuffered",
+            &server.base_url(),
+        ])
+        .assert()
+        .success()
+        .stdout("{\"foo\":\"bar\"}\n");
+}
+
+#[test]
+fn unbuffered_terminal_decoding() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "text/plain; charset=utf-16le")
+            .body(b"\xff\xfe\xe9\x00".as_ref().into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        .success()
+        .stdout("é\n");
+}
+
+#[test]
+fn unbuffered_terminal_rejects_binary_data() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .body(b"foo\0bar".as_ref().into())
+            .unwrap()
+    });
+
+    let output = get_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        .success()
+        .stdout(contains(BINARY_SUPPRESSOR))
+        .get_output()
+        .stdout
+        .clone();
+    assert!(!output.contains(&0));
+}
+
+#[test]
+fn unbuffered_redirected_output_preserves_bytes() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "application/json; charset=latin1")
+            .body(b"\xe9\0".as_ref().into())
+            .unwrap()
+    });
+
+    let output = redirecting_command()
+        .args(["--pretty=all", "--unbuffered", &server.base_url()])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(output, b"\xe9\0");
+}
+
+#[test]
 fn only_decode_for_terminal() {
     let server = server::http(|_req| async move {
         hyper::Response::builder()

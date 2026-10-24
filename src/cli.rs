@@ -196,6 +196,12 @@ Example: --print=Hb"
     #[clap(short = 'S', long = "stream", name = "stream")]
     pub stream_raw: bool,
 
+    /// Stream response chunks without waiting for line breaks.
+    ///
+    /// Implies --stream and disables response body formatting and coloring.
+    #[clap(long)]
+    pub unbuffered: bool,
+
     ///  Content compressed (encoded) with Deflate algorithm.
     ///
     ///  The Content-Encoding header is set to deflate.
@@ -1787,6 +1793,22 @@ mod tests {
 
         let cli = parse(["--no-stream", "--stream", ":"]).unwrap();
         assert_eq!(cli.stream, Some(true));
+    }
+
+    #[test]
+    fn negating_unbuffered() {
+        assert!(!parse([":"]).unwrap().unbuffered);
+        assert!(parse(["--unbuffered", ":"]).unwrap().unbuffered);
+        assert!(
+            !parse(["--unbuffered", "--no-unbuffered", ":"])
+                .unwrap()
+                .unbuffered
+        );
+        assert!(
+            parse(["--no-unbuffered", "--unbuffered", ":"])
+                .unwrap()
+                .unbuffered
+        );
     }
 
     #[test]

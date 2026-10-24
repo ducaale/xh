@@ -152,7 +152,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg("--trace");
         cmd.arg("-");
     }
-    if args.stream == Some(true) {
+    if args.unbuffered || args.stream == Some(true) {
         // curl sorta streams by default, but its buffer stops it from
         // showing up right away
         cmd.opt("-N", "--no-buffer");
@@ -479,6 +479,11 @@ mod tests {
     fn examples() {
         let expected = vec![
             ("xh httpbin.org/get", "curl http://httpbin.org/get"),
+            ("xh --unbuffered example.org", "curl -N http://example.org/"),
+            (
+                "xh --curl-long --unbuffered example.org",
+                "curl --no-buffer http://example.org/",
+            ),
             ("xh httpbin.org/get -4", "curl http://httpbin.org/get -4"),
             ("xh httpbin.org/get -6", "curl http://httpbin.org/get -6"),
             (

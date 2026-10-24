@@ -30,8 +30,8 @@ const BINARY_SUPPRESSOR: &str = concat!(
     "\n"
 );
 
-/// A wrapper around a reader that reads line by line, (optionally) returning
-/// an error if the line appears to be binary.
+/// A wrapper around a reader that (optionally) rejects binary data.
+/// Complete lines can be read when needed for syntax highlighting.
 ///
 /// This is meant for streaming output. `checked` should typically be
 /// set to buffer.is_terminal(), but if you need neither checking nor
@@ -42,6 +42,17 @@ struct BinaryGuard<'a, T: Read> {
     reader: BufReader<&'a mut T>,
     buffer: Vec<u8>,
     checked: bool,
+}
+
+impl<T: Read> Read for BinaryGuard<'_, T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.reader.read(buf)?;
+        if self.checked && buf[..n].contains(&b'\0') {
+            Err(io::Error::new(io::ErrorKind::InvalidData, FoundBinaryData))
+        } else {
+            Ok(n)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -125,6 +136,7 @@ pub struct Printer {
     color: bool,
     theme: Theme,
     stream: Option<bool>,
+    unbuffered: bool,
     buffer: Buffer,
 }
 
@@ -133,6 +145,7 @@ impl Printer {
         pretty: Pretty,
         theme: Theme,
         stream: impl Into<Option<bool>>,
+        unbuffered: bool,
         buffer: Buffer,
         format_options: FormatOptions,
     ) -> Self {
@@ -144,6 +157,7 @@ impl Printer {
             sort_headers: format_options.headers_sort.unwrap_or(pretty.format()),
             color: pretty.color(),
             stream: stream.into(),
+            unbuffered,
             theme,
             buffer,
         }
@@ -250,11 +264,15 @@ impl Printer {
             return copy_largebuf(reader, &mut self.buffer, true);
         }
         let mut guard = BinaryGuard::new(reader, true);
-        while let Some(lines) = guard.read_lines()? {
-            self.buffer.write_all(lines)?;
-            self.buffer.flush()?;
+        if self.unbuffered {
+            copy_largebuf(&mut guard, &mut self.buffer, true)
+        } else {
+            while let Some(lines) = guard.read_lines()? {
+                self.buffer.write_all(lines)?;
+                self.buffer.flush()?;
+            }
+            Ok(())
         }
-        Ok(())
     }
 
     fn print_colorized_stream(
@@ -333,6 +351,9 @@ impl Printer {
         content_type: ContentType,
         body: &mut impl Read,
     ) -> io::Result<()> {
+        if self.unbuffered {
+            return self.print_stream(body);
+        }
         match content_type {
             ContentType::Json => self.print_json_stream(body),
             ContentType::Xml => self.print_syntax_stream(body, "xml"),
@@ -449,10 +470,13 @@ impl Printer {
         let mut body = decompress(response, compression_type);
 
         // Automatically activate stream mode when it hasn't been set by the user and the content type is stream
-        let stream = self.stream.unwrap_or(content_type.is_stream());
+        let stream = self.unbuffered || self.stream.unwrap_or(content_type.is_stream());
 
         if !self.buffer.is_terminal() {
-            if (self.color || self.format_json || self.format_xml) && content_type.is_text() {
+            if !self.unbuffered
+                && (self.color || self.format_json || self.format_xml)
+                && content_type.is_text()
+            {
                 // The user explicitly asked for formatting even though this is
                 // going into a file, and the response is at least supposed to be
                 // text, so decode it
@@ -753,12 +777,40 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn binary_guard_checks_each_chunk() {
+        let mut reader = b"hello".as_slice().chain(b"\0world".as_slice());
+        let mut guard = BinaryGuard::new(&mut reader, true);
+        let mut buf = [0; 16];
+        assert_eq!(guard.read(&mut buf).unwrap(), 5);
+        assert_eq!(&buf[..5], b"hello");
+        let error = guard.read(&mut buf).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.get_ref().unwrap().is::<FoundBinaryData>());
+    }
+
+    #[test]
+    fn binary_guard_unchecked_chunks() {
+        let mut reader = b"foo\0bar".as_slice();
+        let mut guard = BinaryGuard::new(&mut reader, false);
+        let mut output = Vec::new();
+        guard.read_to_end(&mut output).unwrap();
+        assert_eq!(output, b"foo\0bar");
+    }
+
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
         let theme = args.style.unwrap_or_default();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, theme, false, buffer, FormatOptions::default())
+        Printer::new(
+            pretty,
+            theme,
+            false,
+            false,
+            buffer,
+            FormatOptions::default(),
+        )
     }
 
     fn temp_path() -> String {

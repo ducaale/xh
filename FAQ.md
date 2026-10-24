@@ -1,3 +1,14 @@
+<h3 name="unbuffered">How can I see streaming output before a line is complete?</h3>
+
+Use `xh --unbuffered URL`. This implies `--stream` and flushes response chunks as
+they arrive, without waiting for a newline. Response body formatting and coloring
+are disabled; header formatting is unchanged.
+
+Terminal output is still decoded to UTF-8 and checked for binary data, but text
+already printed cannot be taken back if a later chunk contains a null byte.
+Redirected output stays undecoded and unformatted. Regular `--stream`
+keeps its existing line buffering and formatting behavior.
+
 <h3 name="header-value-encoding">Why do some HTTP headers show up mangled?</h3>
 
 HTTP header values are officially only supposed to contain ASCII. Other bytes are "opaque data":
