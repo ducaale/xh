@@ -384,7 +384,13 @@ pub fn translate(args: Cli) -> Result<Command> {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField { key, value, .. } => {
-                    cmd.opt("-F", "--form");
+                    // -F gives special meaning to values starting with '<' or '"'
+                    // and to ';', but we want to send them literally
+                    if value.starts_with(['<', '"']) || value.contains(';') {
+                        cmd.arg("--form-string");
+                    } else {
+                        cmd.opt("-F", "--form");
+                    }
                     cmd.arg(format!("{key}={value}"));
                 }
                 RequestItem::DataFieldFromFile { key, value, .. } => {
@@ -538,6 +544,18 @@ mod tests {
             (
                 "xh --form httpbin.org/post",
                 "curl http://httpbin.org/post -H 'content-type: application/x-www-form-urlencoded'",
+            ),
+            (
+                "xh --multipart httpbin.org/post x=y",
+                "curl http://httpbin.org/post -F 'x=y'",
+            ),
+            (
+                "xh --multipart httpbin.org/post x=<y",
+                "curl http://httpbin.org/post --form-string 'x=<y'",
+            ),
+            (
+                "xh --multipart httpbin.org/post x=a;type=b",
+                "curl http://httpbin.org/post --form-string 'x=a;type=b'",
             ),
             (
                 "xh --bearer foobar post httpbin.org/post",
