@@ -411,7 +411,7 @@ Generate shell completions or man pages. Possible values are:
 
     complete-bash         Generate completions for bash
     complete-elvish       Generate completions for elvish
-    complete-fish         Generage completions for fish
+    complete-fish         Generate completions for fish
     complete-nushell      Generate completions for nushell
     complete-powershell   Generate completions for powershell
     complete-zsh          Generate completions for zsh
