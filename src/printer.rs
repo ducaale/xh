@@ -188,17 +188,20 @@ impl Printer {
             return self.print_syntax_text(text, "json");
         }
 
+        let mut buf = Vec::new();
+        if serde_json_format(self.json_indent_level, text, &mut buf).is_err() {
+            // valid_json doesn't decode strings, so e.g. a lone surrogate escape
+            // only fails here; print the text as it is rather than half of it
+            return self.print_syntax_text(text, "json");
+        }
+        buf.write_all(b"\n\n")?;
         if self.color {
-            let mut buf = Vec::new();
-            serde_json_format(self.json_indent_level, text, &mut buf)?;
-            buf.write_all(b"\n\n")?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
             self.print_colorized_text(&text, "json")
         } else {
-            serde_json_format(self.json_indent_level, text, &mut self.buffer)?;
-            self.buffer.write_all(b"\n\n")?;
+            self.buffer.write_all(&buf)?;
             self.buffer.flush()?;
             Ok(())
         }

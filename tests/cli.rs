@@ -1547,6 +1547,24 @@ fn inferred_nonjson_output() {
 }
 
 #[test]
+fn json_output_with_lone_surrogate() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            // Valid JSON, but the escape decodes to an unpaired surrogate
+            .body(r#"{"a":"\ud83d","b":1}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", &server.base_url()])
+        .assert()
+        .stdout(indoc! {r#"
+            {"a":"\ud83d","b":1}
+        "#})
+        .success();
+}
+
+#[test]
 fn noninferred_json_output() {
     let server = server::http(|_req| async move {
         hyper::Response::builder()
