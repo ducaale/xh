@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use brotli::Decompressor as BrotliDecoder;
-use flate2::read::{GzDecoder, ZlibDecoder};
+use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
 use reqwest::header::{CONTENT_ENCODING, CONTENT_LENGTH, HeaderMap, TRANSFER_ENCODING};
 use ruzstd::frame::ReadFrameHeaderError;
 use ruzstd::frame_decoder::FrameDecoderError;
@@ -197,12 +197,66 @@ pub fn decompress(
     OuterReader {
         decoder: match compression_type {
             CompressionType::Gzip => Box::new(GzDecoder::new(reader)),
-            CompressionType::Deflate => Box::new(ZlibDecoder::new(reader)),
+            CompressionType::Deflate => Box::new(LazyDeflateDecoder::new(reader)),
             // 32K is the default buffer size for gzip and deflate
             CompressionType::Brotli => Box::new(BrotliDecoder::new(reader, 32 * 1024)),
             CompressionType::Zstd => Box::new(LazyZstdDecoder::new(reader)),
         },
         status: Some(status),
+    }
+}
+
+/// A deflate decoder that also accepts raw deflate data without the zlib
+/// wrapper, which some servers send. Like curl and urllib3, it looks at the
+/// first two bytes to tell them apart, and reads nothing until it is read.
+enum LazyDeflateDecoder<R: Read> {
+    Pending {
+        reader: Option<R>,
+        head: [u8; 2],
+        len: usize,
+    },
+    Zlib(ZlibDecoder<DeflateInput<R>>),
+    Raw(DeflateDecoder<DeflateInput<R>>),
+}
+
+type DeflateInput<R> = io::Chain<io::Take<io::Cursor<[u8; 2]>>, R>;
+
+impl<R: Read> LazyDeflateDecoder<R> {
+    fn new(reader: R) -> Self {
+        LazyDeflateDecoder::Pending {
+            reader: Some(reader),
+            head: [0; 2],
+            len: 0,
+        }
+    }
+}
+
+impl<R: Read> Read for LazyDeflateDecoder<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if let LazyDeflateDecoder::Pending { reader, head, len } = self {
+            let inner = reader.as_mut().expect("reader is only taken once");
+            while *len < 2 {
+                match inner.read(&mut head[*len..])? {
+                    0 => break,
+                    n => *len += n,
+                }
+            }
+            // RFC 1950: compression method 8 and a header checksum divisible by 31
+            let zlib = *len < 2 || (head[0] & 0x0f == 8 && u16::from_be_bytes(*head) % 31 == 0);
+            let input = io::Cursor::new(*head)
+                .take(*len as u64)
+                .chain(reader.take().unwrap());
+            *self = if zlib {
+                LazyDeflateDecoder::Zlib(ZlibDecoder::new(input))
+            } else {
+                LazyDeflateDecoder::Raw(DeflateDecoder::new(input))
+            };
+        }
+        match self {
+            LazyDeflateDecoder::Zlib(decoder) => decoder.read(buf),
+            LazyDeflateDecoder::Raw(decoder) => decoder.read(buf),
+            LazyDeflateDecoder::Pending { .. } => unreachable!(),
+        }
     }
 }
 
@@ -395,6 +449,29 @@ mod tests {
     }
 
     #[test]
+    fn deflate_accepts_zlib_and_raw_streams() {
+        struct OneByteReader<'a>(&'a [u8]);
+        impl Read for OneByteReader<'_> {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                let len = buf.len().min(self.0.len()).min(1);
+                buf[..len].copy_from_slice(&self.0[..len]);
+                self.0 = &self.0[len..];
+                Ok(len)
+            }
+        }
+
+        let zlib = include_bytes!("../tests/fixtures/responses/hello_world.zz");
+        let raw = &zlib[2..zlib.len() - 4];
+        for input in [&zlib[..], raw] {
+            let mut output = Vec::new();
+            decompress(&mut OneByteReader(input), Some(CompressionType::Deflate))
+                .read_to_end(&mut output)
+                .unwrap();
+            assert_eq!(output, b"Hello world\n");
+        }
+    }
+
+    #[test]
     fn zstd_decodes_concatenated_and_skippable_frames() {
         let frame = include_bytes!("../tests/fixtures/responses/hello_world.zst");
         let skipped = b"not compressed";
@@ -517,7 +594,8 @@ mod tests {
             // Still the easiest way to check that we're preserving the error
             let expected_kind = match compression_type {
                 CompressionType::Gzip => io::ErrorKind::UnexpectedEof,
-                CompressionType::Deflate => io::ErrorKind::InvalidInput,
+                // "bad" has no zlib header, so it is decoded as raw deflate
+                CompressionType::Deflate => io::ErrorKind::UnexpectedEof,
                 CompressionType::Brotli => io::ErrorKind::InvalidData,
                 CompressionType::Zstd => io::ErrorKind::Other,
             };

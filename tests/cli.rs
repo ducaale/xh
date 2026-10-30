@@ -3533,6 +3533,32 @@ fn deflate() {
 }
 
 #[test]
+fn deflate_without_zlib_header() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.zz").unwrap();
+        let raw_deflate = compressed_bytes[2..compressed_bytes.len() - 4].to_vec();
+        hyper::Response::builder()
+            .header("date", "N/A")
+            .header("content-encoding", "deflate")
+            .body(raw_deflate.into())
+            .unwrap()
+    });
+
+    get_command()
+        .arg(server.base_url())
+        .assert()
+        .stdout(indoc! {r#"
+            HTTP/1.1 200 OK
+            Content-Encoding: deflate
+            Content-Length: 14
+            Date: N/A
+
+            Hello world
+
+        "#});
+}
+
+#[test]
 fn brotli() {
     let server = server::http(|_req| async move {
         let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.br").unwrap();
