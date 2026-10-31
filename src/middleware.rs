@@ -86,18 +86,18 @@ pub trait Middleware {
     }
 }
 
-pub struct ClientWithMiddleware<'a, T>
+pub struct ClientWithMiddleware<'a, F>
 where
-    T: FnMut(&mut Response, &mut Request) -> Result<()>,
+    F: FnMut(&mut Response, &mut Request) -> Result<()>,
 {
     client: &'a Client,
-    printer: Option<T>,
+    printer: Option<F>,
     middlewares: Vec<Box<dyn Middleware + 'a>>,
 }
 
-impl<'a, T> ClientWithMiddleware<'a, T>
+impl<'a, F> ClientWithMiddleware<'a, F>
 where
-    T: FnMut(&mut Response, &mut Request) -> Result<()> + 'a,
+    F: FnMut(&mut Response, &mut Request) -> Result<()> + 'a,
 {
     pub fn new(client: &'a Client) -> Self {
         ClientWithMiddleware {
@@ -107,7 +107,7 @@ where
         }
     }
 
-    pub fn with_printer(mut self, printer: T) -> Self {
+    pub fn with_printer(mut self, printer: F) -> Self {
         self.printer = Some(printer);
         self
     }
