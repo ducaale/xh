@@ -76,11 +76,12 @@ impl Middleware for DigestAuthMiddleware<'_> {
         let mut response = self.next(&mut ctx, clone_request(&mut request)?)?;
         match response.headers().get(WWW_AUTHENTICATE) {
             Some(wwwauth) if response.status() == StatusCode::UNAUTHORIZED => {
-                let mut context = digest_auth::AuthContext::new(
-                    self.username,
-                    self.password,
-                    request.url().path(),
-                );
+                let uri = match request.url().query() {
+                    Some(query) => format!("{}?{}", request.url().path(), query),
+                    None => request.url().path().to_string(),
+                };
+                let mut context = digest_auth::AuthContext::new(self.username, self.password, &uri);
+                context.method = digest_auth::HttpMethod(request.method().as_str().into());
                 if let Some(cnonc) = std::env::var_os("XH_TEST_DIGEST_AUTH_CNONCE") {
                     context.set_custom_cnonce(cnonc.to_string_lossy().to_string());
                 }
