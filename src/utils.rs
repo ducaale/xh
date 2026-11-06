@@ -124,6 +124,10 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
+pub fn is_path(value: &std::ffi::OsString) -> bool {
+    value.to_string_lossy().contains(std::path::is_separator)
+}
+
 pub fn url_with_query(mut url: Url, query: &[(&str, Cow<str>)]) -> Url {
     if !query.is_empty() {
         // If we run this even without adding pairs it adds a `?`, hence
