@@ -784,6 +784,77 @@ fn digest_auth() {
     server.assert_hits(2);
 }
 
+#[test]
+fn digest_auth_post() {
+    let server = server::http(|req| async move {
+        assert_eq!(req.method(), hyper::Method::POST);
+        if req.headers().get("Authorization").is_none() {
+            hyper::Response::builder()
+                .status(401)
+                .header(
+                    "WWW-Authenticate",
+                    r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#,
+                )
+                .body("".into())
+                .unwrap()
+        } else {
+            let auth = req.headers()["Authorization"].to_str().unwrap();
+            assert!(
+                auth.contains(r#"response="7d0bf8fffc48a78065df8a05dcba4062""#),
+                "expected POST digest response, got: {auth}"
+            );
+            hyper::Response::builder()
+                .body("authenticated".into())
+                .unwrap()
+        }
+    });
+
+    get_command()
+        .env("XH_TEST_DIGEST_AUTH_CNONCE", "testcnonce")
+        .arg("post")
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg(server.base_url())
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+
+    server.assert_hits(2);
+}
+
+#[test]
+fn digest_auth_with_query_params() {
+    let server = server::http(|req| async move {
+        if req.headers().get("Authorization").is_none() {
+            hyper::Response::builder()
+                .status(401)
+                .header(
+                    "WWW-Authenticate",
+                    r#"Digest realm="me@xh.com", nonce="e5051361f053723a807674177fc7022f", qop="auth, auth-int", opaque="9dcf562038f1ec1c8d02f218ef0e7a4b", algorithm=MD5, stale=FALSE"#,
+                )
+                .body("".into())
+                .unwrap()
+        } else {
+            let auth = req.headers()["Authorization"].to_str().unwrap();
+            assert!(
+                auth.contains(r#"uri="/foo?bar=baz""#),
+                "expected uri to contain query parameters, got: {auth}"
+            );
+            hyper::Response::builder()
+                .body("authenticated".into())
+                .unwrap()
+        }
+    });
+
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg(format!("{}/foo?bar=baz", server.base_url()))
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+
+    server.assert_hits(2);
+}
+
 #[cfg(feature = "online-tests")]
 #[test]
 fn successful_digest_auth() {
@@ -791,6 +862,29 @@ fn successful_digest_auth() {
         .arg("--auth-type=digest")
         .arg("--auth=ahmed:12345")
         .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn successful_digest_auth_post() {
+    get_command()
+        .arg("post")
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345")
+        .assert()
+        .stdout(contains("HTTP/1.1 200 OK"));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn successful_digest_auth_with_query() {
+    get_command()
+        .arg("--auth-type=digest")
+        .arg("--auth=ahmed:12345")
+        .arg("httpbingo.org/digest-auth/auth/ahmed/12345?foo=bar")
         .assert()
         .stdout(contains("HTTP/1.1 200 OK"));
 }
