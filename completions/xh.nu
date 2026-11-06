@@ -12,8 +12,8 @@ module completions {
     [ "basic" "bearer" "digest" ]
   }
 
-  def "nu-complete xh m_sig_alg" [] {
-    [ "hmac-sha256" "ed25519" "ecdsa-p256-sha256" "ecdsa-p384-sha384" "rsa-v1_5-sha256" "rsa-pss-sha512" ]
+  def "nu-complete xh httpsig_algorithm" [] {
+    [ "hmac-sha256" "ed25519" ]
   }
 
   def "nu-complete xh ssl" [] {
@@ -59,10 +59,10 @@ module completions {
     --auth(-a): string        # Authenticate as USER with PASS (-A basic|digest) or with TOKEN (-A bearer)
     --bearer: string          # Authenticate with a bearer token
     --ignore-netrc            # Do not use credentials from .netrc
-    --unstable-m-sig-id: string # Message signature key identifier (RFC 9421)
-    --unstable-m-sig-key: string # Message signature key material (RFC 9421)
-    --unstable-m-sig-alg: string@"nu-complete xh m_sig_alg" # Message signature algorithm (RFC 9421)
-    --unstable-m-sig-comp: string # Comma-separated list of message signature components (RFC 9421)
+    --httpsig-keyid: string   # Message signature key identifier (RFC 9421)
+    --httpsig-key: string     # Message signature key or key file (RFC 9421)
+    --httpsig-algo: string@"nu-complete xh httpsig_algorithm" # Message signature algorithm (RFC 9421)
+    --httpsig-headers: string # Space-separated list of message signature components (RFC 9421)
     --offline                 # Construct HTTP requests without sending them anywhere
     --check-status            # (default) Exit with an error status code if the server replies with an error
     --follow(-F)              # Do follow redirects
@@ -116,10 +116,10 @@ module completions {
     --no-auth
     --no-bearer
     --no-ignore-netrc
-    --no-unstable-m-sig-id
-    --no-unstable-m-sig-key
-    --no-unstable-m-sig-alg
-    --no-unstable-m-sig-comp
+    --no-httpsig-keyid
+    --no-httpsig-key
+    --no-httpsig-algo
+    --no-httpsig-headers
     --no-offline
     --no-check-status
     --no-follow

@@ -23,7 +23,7 @@ _xh() {
 
     case "${cmd}" in
         xh)
-            opts="-j -f -s -p -h -b -m -v -P -q -S -x -o -d -c -A -a -F -4 -6 -I -V --json --form --multipart --raw --pretty --format-options --style --response-charset --response-mime --print --headers --body --meta --verbose --debug --all --history-print --quiet --stream --compress --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --unstable-m-sig-id --unstable-m-sig-key --unstable-m-sig-alg --unstable-m-sig-comp --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --resolve --interface --ipv4 --ipv6 --unix-socket --ignore-stdin --curl --curl-long --generate --help --no-json --no-form --no-multipart --no-raw --no-pretty --no-format-options --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-debug --no-all --no-history-print --no-quiet --no-stream --no-compress --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-unstable-m-sig-id --no-unstable-m-sig-key --no-unstable-m-sig-alg --no-unstable-m-sig-comp --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-resolve --no-interface --no-ipv4 --no-ipv6 --no-unix-socket --no-ignore-stdin --no-curl --no-curl-long --no-generate --no-help --version"
+            opts="-j -f -s -p -h -b -m -v -P -q -S -x -o -d -c -A -a -F -4 -6 -I -V --json --form --multipart --raw --pretty --format-options --style --response-charset --response-mime --print --headers --body --meta --verbose --debug --all --history-print --quiet --stream --compress --output --download --continue --session --session-read-only --auth-type --auth --bearer --ignore-netrc --httpsig-keyid --httpsig-key --httpsig-algo --httpsig-headers --offline --check-status --follow --max-redirects --timeout --proxy --verify --cert --cert-key --ssl --native-tls --default-scheme --https --http-version --resolve --interface --ipv4 --ipv6 --unix-socket --ignore-stdin --curl --curl-long --generate --help --no-json --no-form --no-multipart --no-raw --no-pretty --no-format-options --no-style --no-response-charset --no-response-mime --no-print --no-headers --no-body --no-meta --no-verbose --no-debug --no-all --no-history-print --no-quiet --no-stream --no-compress --no-output --no-download --no-continue --no-session --no-session-read-only --no-auth-type --no-auth --no-bearer --no-ignore-netrc --no-httpsig-keyid --no-httpsig-key --no-httpsig-algo --no-httpsig-headers --no-offline --no-check-status --no-follow --no-max-redirects --no-timeout --no-proxy --no-verify --no-cert --no-cert-key --no-ssl --no-native-tls --no-default-scheme --no-https --no-http-version --no-resolve --no-interface --no-ipv4 --no-ipv6 --no-unix-socket --no-ignore-stdin --no-curl --no-curl-long --no-generate --no-help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -109,19 +109,19 @@ _xh() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --unstable-m-sig-id)
+                --httpsig-keyid)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --unstable-m-sig-key)
+                --httpsig-key)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --unstable-m-sig-alg)
-                    COMPREPLY=($(compgen -W "hmac-sha256 ed25519 ecdsa-p256-sha256 ecdsa-p384-sha384 rsa-v1_5-sha256 rsa-pss-sha512" -- "${cur}"))
+                --httpsig-algo)
+                    COMPREPLY=($(compgen -W "hmac-sha256 ed25519" -- "${cur}"))
                     return 0
                     ;;
-                --unstable-m-sig-comp)
+                --httpsig-headers)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

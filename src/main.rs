@@ -590,34 +590,15 @@ fn run(args: Cli) -> Result<ExitCode> {
         }
 
         #[cfg(not(feature = "http-message-signatures"))]
-        if args.m_sig.m_sig_id.is_some()
-            || args.m_sig.m_sig_key.is_some()
-            || args.m_sig.m_sig_alg.is_some()
-            || args.m_sig.has_components()
-        {
+        if args.httpsig.signing_data().is_some() {
             return Err(anyhow!(
                 "This binary was built without message signature support. Enable the `http-message-signatures` feature."
             ));
         }
 
         #[cfg(feature = "http-message-signatures")]
-        if args.m_sig.has_components() && !args.m_sig.has_key_pair() {
-            return Err(anyhow!(
-                "Message signature components require both --unstable-m-sig-id and --unstable-m-sig-key."
-            ));
-        }
-
-        #[cfg(feature = "http-message-signatures")]
-        if let Some((key_id, key_material)) = args.m_sig.key_pair() {
-            let m_sig_components = args.m_sig.flattened_components();
-            let m_sig_algorithm = args.m_sig.algorithm().map(Into::into);
-            message_signature::sign_request(
-                &mut request,
-                key_id,
-                key_material,
-                (!m_sig_components.is_empty()).then_some(m_sig_components.as_slice()),
-                m_sig_algorithm,
-            )?;
+        if let Some((key_id, key, algo, components)) = args.httpsig.signing_data() {
+            message_signature::sign_request(&mut request, key_id, key, algo, components)?;
         }
 
         request
@@ -699,19 +680,27 @@ fn run(args: Cli) -> Result<ExitCode> {
                 });
             }
             if args.follow {
-                #[cfg(feature = "http-message-signatures")]
-                {
-                    let message_signature = args.m_sig.has_key_pair().then_some(args.m_sig.clone());
-
-                    client = client.with(RedirectFollower::new(
-                        args.max_redirects.unwrap_or(10),
-                        message_signature,
-                    ));
-                }
-                #[cfg(not(feature = "http-message-signatures"))]
-                {
-                    client = client.with(RedirectFollower::new(args.max_redirects.unwrap_or(10)));
-                }
+                client = client.with(RedirectFollower::new(
+                    args.max_redirects.unwrap_or(10),
+                    #[allow(unused)]
+                    |previous_url, mut request| {
+                        #[cfg(feature = "http-message-signatures")]
+                        if let Some((key_id, key, algo, components)) = args.httpsig.signing_data() {
+                            request.headers_mut().remove("signature");
+                            request.headers_mut().remove("signature-input");
+                            if !redirect::is_cross_domain_redirect(request.url(), previous_url) {
+                                message_signature::sign_request(
+                                    &mut request,
+                                    key_id,
+                                    key,
+                                    algo,
+                                    components,
+                                )?;
+                            }
+                        }
+                        Ok(request)
+                    },
+                ));
             }
             if let Some(Auth::Digest(username, password)) = &auth {
                 client = client.with(DigestAuthMiddleware::new(username, password));
