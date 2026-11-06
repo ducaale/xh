@@ -36,7 +36,7 @@ impl Middleware for RedirectFollower {
         // reqwest does *not* do this, it ignores 307/308 with a streaming body
         let mut request = clone_request(&mut first_request)?;
         let mut response = self.next(&mut ctx, first_request)?;
-        let mut remaining_redirects = self.max_redirects - 1;
+        let mut remaining_redirects = self.max_redirects.saturating_sub(1);
 
         while let Some(mut next_request) = get_next_request(request, &response) {
             if remaining_redirects > 0 {

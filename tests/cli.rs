@@ -3127,6 +3127,40 @@ fn max_redirects_is_enforced() {
 }
 
 #[test]
+fn max_redirects_zero_errors_on_first_redirect() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(302)
+            .header("Date", "N/A")
+            .header("Location", "/")
+            .body("redirecting...".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args([&server.base_url(), "--follow", "--max-redirects=0"])
+        .assert()
+        .stderr(contains("Too many redirects (--max-redirects=0)"))
+        .code(6);
+}
+
+#[test]
+fn max_redirects_zero_allows_non_redirect_response() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .status(200)
+            .body("hello".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args([&server.base_url(), "--follow", "--max-redirects=0"])
+        .assert()
+        .stdout(contains("hello"))
+        .success();
+}
+
+#[test]
 fn method_is_changed_when_following_302_redirect() {
     let server = server::http(|req| async move {
         match req.uri().path() {
