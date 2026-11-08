@@ -81,6 +81,7 @@ impl std::fmt::Display for Command {
 }
 
 pub fn translate(args: Cli) -> Result<Command> {
+    let file_headers = args.headers && args.http_file_request.is_some();
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
     if let Some(request) = &args.http_file_request {
         let mut file_headers = request.headers.clone();
@@ -180,7 +181,16 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.arg("--max-redirs");
         cmd.arg(num.to_string());
     }
-    if let Some(filename) = args.output {
+    if file_headers {
+        cmd.opt("-D", "--dump-header");
+        cmd.arg(
+            args.output
+                .as_deref()
+                .unwrap_or_else(|| std::path::Path::new("-")),
+        );
+        cmd.opt("-o", "--output");
+        cmd.arg(if cfg!(windows) { "NUL" } else { "/dev/null" });
+    } else if let Some(filename) = args.output {
         let filename = filename.to_str().ok_or_else(|| anyhow!("Invalid UTF-8"))?;
         cmd.opt("-o", "--output");
         cmd.arg(filename);
@@ -267,10 +277,12 @@ pub fn translate(args: Cli) -> Result<Command> {
         cmd.opt("-I", "--head");
     } else if args.method == Some(Method::OPTIONS) {
         // If you're sending an OPTIONS you almost certainly want to see the headers
-        cmd.opt("-i", "--include");
+        if !file_headers {
+            cmd.opt("-i", "--include");
+        }
         cmd.opt("-X", "--request");
         cmd.arg("OPTIONS");
-    } else if args.headers {
+    } else if args.headers && !file_headers {
         // The best option for printing just headers seems to be to use -I
         // but with an explicit method as an override.
         // But this is a hack that actually fails if data is sent.
@@ -374,6 +386,11 @@ pub fn translate(args: Cli) -> Result<Command> {
     }
 
     if let Some(request) = args.http_file_request {
+        if request.method == Method::HEAD && !request.body.is_empty() {
+            return Err(anyhow!(
+                "Cannot translate a HEAD request with a body to curl"
+            ));
+        }
         if !headers.contains_key(reqwest::header::CONTENT_TYPE) {
             cmd.header("content-type", "");
         }
@@ -499,15 +516,23 @@ mod tests {
     use std::io::Write;
 
     fn translate_http_file(method: &str, body: &str) -> Command {
+        translate_http_file_with_flags(method, body, &[]).unwrap()
+    }
+
+    fn translate_http_file_with_flags(method: &str, body: &str, flags: &[&str]) -> Result<Command> {
         let mut file = tempfile::NamedTempFile::new().unwrap();
         write!(file, "{method} / HTTP/1.1\nHost: example.org\n\n{body}").unwrap();
-        let cli = Cli::try_parse_from([
-            OsString::from("xh"),
-            OsString::from("--http-file"),
-            file.path().as_os_str().to_owned(),
-        ])
+        let cli = Cli::try_parse_from(
+            [
+                OsString::from("xh"),
+                OsString::from("--http-file"),
+                file.path().as_os_str().to_owned(),
+            ]
+            .into_iter()
+            .chain(flags.iter().map(OsString::from)),
+        )
         .unwrap();
-        translate(cli).unwrap()
+        translate(cli)
     }
 
     #[test]
@@ -536,6 +561,43 @@ mod tests {
                     .iter()
                     .any(|arg| arg.to_string_lossy().starts_with("--data"))
             );
+        }
+    }
+
+    #[test]
+    fn http_file_curl_headers_preserves_request_body() {
+        for method in ["GET", "POST", "PUT", "DELETE", "OPTIONS"] {
+            for body in ["", "@payload.txt\r\nnext\n"] {
+                let cmd = translate_http_file_with_flags(method, body, &["--headers"]).unwrap();
+                assert!(cmd.args.windows(2).any(|args| args == ["-D", "-"]));
+                assert!(!cmd.args.iter().any(|arg| arg == "-I"));
+                if !body.is_empty() || matches!(method, "POST" | "PUT") {
+                    assert!(cmd.args.windows(2).any(|args| args == ["--data-raw", body]));
+                }
+                assert!(cmd.warnings.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn http_file_curl_headers_respects_output_file() {
+        let cmd =
+            translate_http_file_with_flags("POST", "", &["--headers", "--output=headers.txt"])
+                .unwrap();
+        assert!(
+            cmd.args
+                .windows(2)
+                .any(|args| args == ["-D", "headers.txt"])
+        );
+    }
+
+    #[test]
+    fn http_file_curl_rejects_head_body() {
+        for flags in [&[][..], &["--headers"][..]] {
+            let err = translate_http_file_with_flags("HEAD", "body", flags)
+                .err()
+                .unwrap();
+            assert!(err.to_string().contains("HEAD request with a body"));
         }
     }
 
