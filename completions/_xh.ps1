@@ -22,6 +22,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
     $completions = @(switch ($command) {
         'xh' {
             [CompletionResult]::new('--raw', '--raw', [CompletionResultType]::ParameterName, 'Pass raw request data without extra processing')
+            [CompletionResult]::new('--http-file', '--http-file', [CompletionResultType]::ParameterName, 'Read a request from an HTTP file')
             [CompletionResult]::new('--pretty', '--pretty', [CompletionResultType]::ParameterName, 'Controls output processing')
             [CompletionResult]::new('--format-options', '--format-options', [CompletionResultType]::ParameterName, 'Set output formatting options')
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 'Output coloring style')
@@ -103,6 +104,7 @@ Register-ArgumentCompleter -Native -CommandName 'xh' -ScriptBlock {
             [CompletionResult]::new('--no-form', '--no-form', [CompletionResultType]::ParameterName, 'no-form')
             [CompletionResult]::new('--no-multipart', '--no-multipart', [CompletionResultType]::ParameterName, 'no-multipart')
             [CompletionResult]::new('--no-raw', '--no-raw', [CompletionResultType]::ParameterName, 'no-raw')
+            [CompletionResult]::new('--no-http-file', '--no-http-file', [CompletionResultType]::ParameterName, 'no-http-file')
             [CompletionResult]::new('--no-pretty', '--no-pretty', [CompletionResultType]::ParameterName, 'no-pretty')
             [CompletionResult]::new('--no-format-options', '--no-format-options', [CompletionResultType]::ParameterName, 'no-format-options')
             [CompletionResult]::new('--no-style', '--no-style', [CompletionResultType]::ParameterName, 'no-style')

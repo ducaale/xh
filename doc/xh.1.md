@@ -86,6 +86,10 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `--raw=RAW`: Pass raw request data without extra processing.
 
+- `--http-file=FILE`: Read a request from an HTTP file.
+
+  The file contains one request line (METHOD /path HTTP/1.1), headers including Host, and an optional body separated by a blank line. LF and CRLF are accepted. The URL scheme follows the usual defaults, including --https and xhs. Command-line headers override file headers. Content-Length is recalculated. Standard input is ignored. Multipart requests, templating, and multiple requests in one file are not supported.
+
 - `--pretty=STYLE`: Controls output processing. Possible values are:
   
   - `all`: (default) Enable both coloring and formatting

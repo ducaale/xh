@@ -20,6 +20,7 @@ use reqwest::{Method, Url, tls};
 use serde::Deserialize;
 
 use crate::buffer::Buffer;
+use crate::http_file::HttpFile;
 use crate::redacted::SecretString;
 use crate::request_items::RequestItems;
 use crate::utils::config_dir;
@@ -78,6 +79,20 @@ pub struct Cli {
     /// Pass raw request data without extra processing.
     #[clap(long, value_name = "RAW")]
     pub raw: Option<String>,
+
+    /// Read a request from an HTTP file.
+    ///
+    /// The file contains one request line (METHOD /path HTTP/1.1), headers including
+    /// Host, and an optional body separated by a blank line. LF and CRLF are accepted.
+    /// The URL scheme follows the usual defaults, including --https and xhs.
+    /// Command-line headers override file headers. Content-Length is recalculated.
+    /// Standard input is ignored. Multipart requests, templating, and multiple requests
+    /// in one file are not supported.
+    #[clap(long, value_name = "FILE", conflicts_with_all = &["raw", "form", "json", "multipart"])]
+    pub http_file: Option<PathBuf>,
+
+    #[clap(skip)]
+    pub http_file_request: Option<HttpFile>,
 
     /// Controls output processing.
     #[clap(
@@ -437,7 +452,7 @@ Example: xh --generate=complete-bash > xh.bash",
     ///
     /// A leading colon works as shorthand for localhost. ":8000" is equivalent
     /// to "localhost:8000", and ":/path" is equivalent to "localhost/path".
-    #[clap(value_name = "[METHOD] URL", required = true)]
+    #[clap(value_name = "[METHOD] URL", required_unless_present_any = ["http_file", "generate"])]
     raw_method_or_url: Option<String>,
 
     /// Optional key-value pairs to be included in the request.
@@ -542,7 +557,7 @@ impl Cli {
             return Ok(cli);
         }
 
-        let mut raw_method_or_url = cli.raw_method_or_url.clone().unwrap();
+        let mut raw_method_or_url = cli.raw_method_or_url.clone().unwrap_or_default();
 
         if raw_method_or_url == "help" {
             // opt-out of clap's auto-generated possible values help for --pretty
@@ -553,20 +568,30 @@ impl Cli {
             safe_exit();
         }
 
-        let mut rest_args = mem::take(&mut cli.raw_rest_args).into_iter();
-        let raw_url = match parse_method(&raw_method_or_url) {
-            Some(method) => {
-                cli.method = Some(method);
-                rest_args.next().ok_or_else(|| {
-                    app.error(
-                        clap::error::ErrorKind::MissingRequiredArgument,
-                        "Missing <URL>",
-                    )
-                })?
+        let mut rest_args = mem::take(&mut cli.raw_rest_args);
+        if cli.http_file.is_some() {
+            if let Some(first) = cli.raw_method_or_url.take() {
+                rest_args.insert(0, first);
             }
-            None => {
-                cli.method = None;
-                mem::take(&mut raw_method_or_url)
+        }
+        let mut rest_args = rest_args.into_iter();
+        let raw_url = if cli.http_file.is_some() {
+            String::new()
+        } else {
+            match parse_method(&raw_method_or_url) {
+                Some(method) => {
+                    cli.method = Some(method);
+                    rest_args.next().ok_or_else(|| {
+                        app.error(
+                            clap::error::ErrorKind::MissingRequiredArgument,
+                            "Missing <URL>",
+                        )
+                    })?
+                }
+                None => {
+                    cli.method = None;
+                    mem::take(&mut raw_method_or_url)
+                }
             }
         };
         for request_item in rest_args {
@@ -588,12 +613,36 @@ impl Cli {
 
         cli.process_relations(&matches)?;
 
-        cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
-            app.error(
-                clap::error::ErrorKind::ValueValidation,
-                format!("Invalid <URL>: {err}"),
-            )
-        })?;
+        if let Some(path) = &cli.http_file {
+            if !cli.request_items.is_body_empty() {
+                return Err(app.error(
+                    clap::error::ErrorKind::ValueValidation,
+                    "Request body from --http-file and request data cannot be mixed.",
+                ));
+            }
+            let request = fs::read(path)
+                .with_context(|| format!("Failed to read HTTP file: {}", path.display()))
+                .and_then(|input| {
+                    HttpFile::parse(&input, cli.default_scheme.as_deref().unwrap_or("http"))
+                })
+                .map_err(|err| {
+                    app.error(
+                        clap::error::ErrorKind::ValueValidation,
+                        format!("Invalid --http-file: {err:#}"),
+                    )
+                })?;
+            cli.method = Some(request.method.clone());
+            cli.url = request.url.clone();
+            cli.http_version = cli.http_version.or(Some(request.version.clone()));
+            cli.http_file_request = Some(request);
+        } else {
+            cli.url = construct_url(&raw_url, cli.default_scheme.as_deref()).map_err(|err| {
+                app.error(
+                    clap::error::ErrorKind::ValueValidation,
+                    format!("Invalid <URL>: {err}"),
+                )
+            })?;
+        }
 
         if cfg!(not(feature = "rustls")) {
             cli.native_tls = true;

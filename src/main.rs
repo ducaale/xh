@@ -8,6 +8,7 @@ mod download;
 mod error_reporting;
 mod formatting;
 mod generation;
+mod http_file;
 #[cfg(feature = "http-message-signatures")]
 mod message_signature;
 mod middleware;
@@ -108,10 +109,18 @@ fn run(args: Cli) -> Result<ExitCode> {
     }
 
     let (mut headers, headers_to_unset) = args.request_items.headers()?;
+    if let Some(request) = &args.http_file_request {
+        let mut file_headers = request.headers.clone();
+        file_headers.extend(headers);
+        headers = file_headers;
+    }
     let url = url_with_query(args.url, &args.request_items.query()?);
     log::debug!("Complete URL: {url}");
 
-    let use_stdin = !(args.ignore_stdin || io::stdin().is_terminal() || test_pretend_term());
+    let use_stdin = !(args.ignore_stdin
+        || args.http_file.is_some()
+        || io::stdin().is_terminal()
+        || test_pretend_term());
 
     let body = if use_stdin {
         if !args.request_items.is_body_empty() {
@@ -134,6 +143,8 @@ fn run(args: Cli) -> Result<ExitCode> {
         let mut buffer = Vec::new();
         io::stdin().read_to_end(&mut buffer)?;
         Body::Raw(buffer)
+    } else if let Some(request) = args.http_file_request {
+        Body::Raw(request.body)
     } else if let Some(raw) = args.raw {
         Body::Raw(raw.into_bytes())
     } else {
@@ -474,7 +485,9 @@ fn run(args: Cli) -> Result<ExitCode> {
                 }
             }
             Body::Raw(body) => {
-                if args.form {
+                if args.http_file.is_some() {
+                    request_builder
+                } else if args.form {
                     request_builder
                         .header(CONTENT_TYPE, HeaderValue::from_static(FORM_CONTENT_TYPE))
                 } else {

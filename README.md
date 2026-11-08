@@ -70,10 +70,10 @@ The [release page](https://github.com/ducaale/xh/releases) contains prebuilt bin
 
 ## Usage
 ```
-Usage: xh [OPTIONS] <[METHOD] URL> [REQUEST_ITEM]...
+Usage: xh [OPTIONS] [[METHOD] URL] [REQUEST_ITEM]...
 
 Arguments:
-  <[METHOD] URL>     The request URL, preceded by an optional HTTP method
+  [[METHOD] URL]     The request URL, preceded by an optional HTTP method
   [REQUEST_ITEM]...  Optional key-value pairs to be included in the request.
 
 Options:
@@ -81,6 +81,7 @@ Options:
   -f, --form                             Serialize data items from the command line as form fields
       --multipart                        Like --form, but force a multipart/form-data request even without files
       --raw <RAW>                        Pass raw request data without extra processing
+      --http-file <FILE>                 Read a request from an HTTP file
       --pretty <STYLE>                   Controls output processing [possible values: all, colors, format, none]
       --format-options <FORMAT_OPTIONS>  Set output formatting options
   -s, --style <THEME>                    Output coloring style [possible values: auto, solarized, monokai, fruity]
@@ -150,6 +151,22 @@ The request body can also be read from standard input, or from a file using `@fi
 
 To construct a complex JSON object, a JSON path can be used as a key e.g `app[container][0][id]=090-5`.
 For more information on this syntax, refer to https://httpie.io/docs/cli/nested-json.
+
+### Reusing HTTP requests
+
+Save a request with `--offline`, edit it, and replay it with `--http-file`:
+
+```sh
+xh --offline example.org/posts title=foo > add-post.http
+xh --http-file add-post.http 'Authorization:Bearer secret-token'
+```
+
+The file contains a request line (`POST /posts HTTP/1.1`), headers including
+`Host`, and an optional body after a blank line. Both LF and CRLF line endings
+are accepted. Headers supplied on the command line replace file headers; use
+`Header:` to remove one. The URL scheme follows the usual `xh`/`xhs` defaults
+and `--https`. Content-Length is recalculated, and standard input is ignored.
+Multipart requests, templating, and multiple requests in one file are not supported.
 
 ### Shorthand form for URLs
 

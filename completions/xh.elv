@@ -19,6 +19,7 @@ set edit:completion:arg-completer[xh] = {|@words|
     var completions = [
         &'xh'= {
             cand --raw 'Pass raw request data without extra processing'
+            cand --http-file 'Read a request from an HTTP file'
             cand --pretty 'Controls output processing'
             cand --format-options 'Set output formatting options'
             cand -s 'Output coloring style'
@@ -100,6 +101,7 @@ set edit:completion:arg-completer[xh] = {|@words|
             cand --no-form 'no-form'
             cand --no-multipart 'no-multipart'
             cand --no-raw 'no-raw'
+            cand --no-http-file 'no-http-file'
             cand --no-pretty 'no-pretty'
             cand --no-format-options 'no-format-options'
             cand --no-style 'no-style'

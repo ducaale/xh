@@ -34,6 +34,7 @@ module completions {
     --form(-f)                # Serialize data items from the command line as form fields
     --multipart               # Like --form, but force a multipart/form-data request even without files
     --raw: string             # Pass raw request data without extra processing
+    --http-file: path         # Read a request from an HTTP file
     --pretty: string@"nu-complete xh pretty" # Controls output processing
     --format-options: string  # Set output formatting options
     --style(-s): string@"nu-complete xh style" # Output coloring style
@@ -91,6 +92,7 @@ module completions {
     --no-form
     --no-multipart
     --no-raw
+    --no-http-file
     --no-pretty
     --no-format-options
     --no-style
@@ -145,7 +147,7 @@ module completions {
     --no-generate
     --no-help
     --version(-V)             # Print version
-    raw_method_or_url: string # The request URL, preceded by an optional HTTP method
+    raw_method_or_url?: string # The request URL, preceded by an optional HTTP method
     ...raw_rest_args: string  # Optional key-value pairs to be included in the request.
   ]
 

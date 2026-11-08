@@ -114,6 +114,12 @@ Overrides both \-\-json and \-\-form.
 Pass raw request data without extra processing.
 
 .TP 4
+\fB\-\-http\-file\fR=\fIFILE\fR
+Read a request from an HTTP file.
+
+The file contains one request line (METHOD /path HTTP/1.1), headers including Host, and an optional body separated by a blank line. LF and CRLF are accepted. The URL scheme follows the usual defaults, including \-\-https and xhs. Command\-line headers override file headers. Content\-Length is recalculated. Standard input is ignored. Multipart requests, templating, and multiple requests in one file are not supported.
+
+.TP 4
 \fB\-\-pretty\fR=\fISTYLE\fR
 Controls output processing. Possible values are:
 

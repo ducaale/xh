@@ -81,7 +81,15 @@ impl std::fmt::Display for Command {
 }
 
 pub fn translate(args: Cli) -> Result<Command> {
-    let (headers, headers_to_unset) = args.request_items.headers()?;
+    let (mut headers, headers_to_unset) = args.request_items.headers()?;
+    if let Some(request) = &args.http_file_request {
+        let mut file_headers = request.headers.clone();
+        file_headers.extend(headers);
+        headers = file_headers;
+    }
+    for header in &headers_to_unset {
+        headers.remove(header);
+    }
 
     let mut cmd = Command::new(args.curl_long);
 
@@ -365,7 +373,21 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
-    if let Some(raw) = args.raw {
+    if let Some(request) = args.http_file_request {
+        if !headers.contains_key(reqwest::header::CONTENT_TYPE) {
+            cmd.header("content-type", "");
+        }
+        if !request.body.is_empty() {
+            if request.body.contains(&0) {
+                return Err(anyhow!("Cannot translate a binary HTTP file body to curl"));
+            }
+            cmd.arg("--data-binary");
+            cmd.arg(
+                String::from_utf8(request.body)
+                    .context("Cannot translate a binary HTTP file body to curl")?,
+            );
+        }
+    } else if let Some(raw) = args.raw {
         if args.form {
             cmd.header("content-type", FORM_CONTENT_TYPE);
         } else {

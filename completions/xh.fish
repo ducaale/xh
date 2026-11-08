@@ -6,6 +6,7 @@ end
 complete -c xh -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__xh_complete_data)"
 
 complete -c xh -l raw -d 'Pass raw request data without extra processing' -r
+complete -c xh -l http-file -d 'Read a request from an HTTP file' -r -F
 complete -c xh -l pretty -d 'Controls output processing' -r -f -a "all\t'(default) Enable both coloring and formatting'
 colors\t'Apply syntax highlighting to output'
 format\t'Pretty-print json and sort headers'
@@ -94,6 +95,7 @@ complete -c xh -l no-json
 complete -c xh -l no-form
 complete -c xh -l no-multipart
 complete -c xh -l no-raw
+complete -c xh -l no-http-file
 complete -c xh -l no-pretty
 complete -c xh -l no-format-options
 complete -c xh -l no-style

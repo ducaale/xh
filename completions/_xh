@@ -16,6 +16,7 @@ _xh() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--raw=[Pass raw request data without extra processing]:RAW:_default' \
+'(--raw -f --form -j --json --multipart)--http-file=[Read a request from an HTTP file]:FILE:_files' \
 '--pretty=[Controls output processing]:STYLE:((all\:"(default) Enable both coloring and formatting"
 colors\:"Apply syntax highlighting to output"
 format\:"Pretty-print json and sort headers"
@@ -100,6 +101,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-form[]' \
 '--no-multipart[]' \
 '--no-raw[]' \
+'--no-http-file[]' \
 '--no-pretty[]' \
 '--no-format-options[]' \
 '--no-style[]' \
@@ -155,7 +157,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
+'::raw_method_or_url -- The request URL, preceded by an optional HTTP method:_default' \
 '*::raw_rest_args -- Optional key-value pairs to be included in the request.:_default' \
 && ret=0
 }
