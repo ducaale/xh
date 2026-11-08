@@ -216,7 +216,7 @@ fn http_file_curl_translation() {
         .success()
         .stdout(contains("http://example.org/posts"))
         .stdout(contains("authorization: new"))
-        .stdout(contains("--data-binary"))
+        .stdout(contains("--data-raw"))
         .stdout(contains("a=b&c=d"))
         .stdout(contains("999").not())
         .stdout(contains("old").not());

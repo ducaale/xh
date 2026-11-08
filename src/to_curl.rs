@@ -377,11 +377,11 @@ pub fn translate(args: Cli) -> Result<Command> {
         if !headers.contains_key(reqwest::header::CONTENT_TYPE) {
             cmd.header("content-type", "");
         }
-        if !request.body.is_empty() {
+        if !request.body.is_empty() || matches!(request.method, Method::POST | Method::PUT) {
             if request.body.contains(&0) {
                 return Err(anyhow!("Cannot translate a binary HTTP file body to curl"));
             }
-            cmd.arg("--data-binary");
+            cmd.arg("--data-raw");
             cmd.arg(
                 String::from_utf8(request.body)
                     .context("Cannot translate a binary HTTP file body to curl")?,
@@ -496,6 +496,48 @@ pub fn translate(args: Cli) -> Result<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn translate_http_file(method: &str, body: &str) -> Command {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        write!(file, "{method} / HTTP/1.1\nHost: example.org\n\n{body}").unwrap();
+        let cli = Cli::try_parse_from([
+            OsString::from("xh"),
+            OsString::from("--http-file"),
+            file.path().as_os_str().to_owned(),
+        ])
+        .unwrap();
+        translate(cli).unwrap()
+    }
+
+    #[test]
+    fn http_file_curl_preserves_literal_body() {
+        for body in ["@payload.txt", "@payload.txt\r\nnext\n", "line1\r\nline2\n"] {
+            let cmd = translate_http_file("POST", body);
+            assert!(cmd.args.windows(2).any(|args| args == ["--data-raw", body]));
+        }
+    }
+
+    #[test]
+    fn http_file_curl_sends_empty_post_and_put_body() {
+        for method in ["POST", "PUT"] {
+            let cmd = translate_http_file(method, "");
+            assert!(cmd.args.windows(2).any(|args| args == ["-X", method]));
+            assert!(cmd.args.windows(2).any(|args| args == ["--data-raw", ""]));
+        }
+    }
+
+    #[test]
+    fn http_file_curl_keeps_other_empty_methods_without_data() {
+        for method in ["GET", "HEAD", "DELETE", "OPTIONS"] {
+            let cmd = translate_http_file(method, "");
+            assert!(
+                !cmd.args
+                    .iter()
+                    .any(|arg| arg.to_string_lossy().starts_with("--data"))
+            );
+        }
+    }
 
     #[test]
     fn examples() {
