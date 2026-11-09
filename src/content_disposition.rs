@@ -3,8 +3,24 @@ use percent_encoding::percent_decode_str;
 /// Parse filename from Content-Disposition header
 /// Prioritizes filename* parameter if present, otherwise uses filename parameter
 pub fn parse_filename_from_content_disposition(content_disposition: &str) -> Option<String> {
+    let mut in_quotes = false;
+    let mut escaped = false;
     let parts: Vec<&str> = content_disposition
-        .split(';')
+        .split(|c| {
+            // Semicolons only separate parameters outside quoted strings.
+            // An escaped quote must not end the current quoted string.
+            if escaped {
+                escaped = false;
+                return false;
+            }
+            match c {
+                '\\' if in_quotes => escaped = true,
+                '"' => in_quotes = !in_quotes,
+                ';' if !in_quotes => return true,
+                _ => {}
+            }
+            false
+        })
         .map(|part| part.trim())
         .collect();
 
@@ -109,6 +125,71 @@ mod tests {
         assert_eq!(
             parse_filename_from_content_disposition(header),
             Some("example.pdf".to_string())
+        );
+    }
+
+    #[test]
+    fn test_filename_is_a_semicolon() {
+        let header = r#"attachment; filename=";""#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some(";".to_string())
+        );
+    }
+
+    #[test]
+    fn test_filename_with_semicolons_and_following_parameter() {
+        let header = r#"attachment; filename="report;2026;.txt"; size=123"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("report;2026;.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_filename_parameter_inside_quoted_value() {
+        let header =
+            r#"attachment; foo="ignored; filename*=UTF-8''wrong.txt"; filename=report.txt"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("report.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_encoded_filename_after_quoted_semicolon() {
+        let header = r#"attachment; filename="fallback;name.txt"; filename*=UTF-8''preferred.txt"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("preferred.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_quoted_semicolon_with_bad_encoded_filename() {
+        let header = r#"attachment; filename="report;2026.txt"; filename*=UTF-8'bad_format.txt"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("report;2026.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_escaped_quote_does_not_end_quoted_value() {
+        let header =
+            r#"attachment; foo="escaped\"; filename*=UTF-8''wrong.txt"; filename=report.txt"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("report.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_escaped_backslash_does_not_escape_closing_quote() {
+        let header = r#"attachment; foo="escaped\\"; filename*=UTF-8''preferred.txt"#;
+        assert_eq!(
+            parse_filename_from_content_disposition(header),
+            Some("preferred.txt".to_string())
         );
     }
 
