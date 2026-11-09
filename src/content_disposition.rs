@@ -118,6 +118,8 @@ fn parse_encoded_filename(content: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+    use proptest::prelude::*;
 
     #[test]
     fn test_simple_filename() {
@@ -263,5 +265,55 @@ mod tests {
             parse_filename_from_content_disposition(header),
             Some("测试.pdf".to_string())
         );
+    }
+
+    proptest! {
+        #[test]
+        fn quoted_semicolons_are_preserved(
+            prefix in r#"[^"\p{Cc}\\]{0,32}"#,
+            suffix in r#"[^"\p{Cc}\\]{0,32}"#,
+        ) {
+            let name = format!("{prefix};{suffix}");
+            let header = format!(r#"attachment; filename="{name}"; size=123"#);
+
+            prop_assert_eq!(parse_filename_from_content_disposition(&header), Some(name));
+        }
+
+        #[test]
+        fn encoded_utf8_names_are_preserved(name in r"[^\p{Cc}/\\]{1,32}") {
+            let encoded = utf8_percent_encode(&name, NON_ALPHANUMERIC);
+            let header = format!("attachment; filename*=UTF-8''{encoded}");
+
+            prop_assert_eq!(parse_filename_from_content_disposition(&header), Some(name));
+        }
+
+        #[test]
+        fn extended_filename_has_priority_in_either_order(
+            preferred in r"[^\p{Cc}/\\]{1,32}",
+            fallback in r#"[^"\p{Cc}\\]{0,16}"#,
+            extended_first in any::<bool>(),
+        ) {
+            let encoded = utf8_percent_encode(&preferred, NON_ALPHANUMERIC);
+            let regular = format!(r#"filename="{fallback};fallback""#);
+            let extended = format!("filename*=UTF-8''{encoded}");
+            let header = if extended_first {
+                format!("attachment; {extended}; {regular}")
+            } else {
+                format!("attachment; {regular}; {extended}")
+            };
+
+            prop_assert_eq!(parse_filename_from_content_disposition(&header), Some(preferred));
+        }
+
+        #[test]
+        fn quoted_parameter_contents_do_not_create_a_filename(
+            noise in r#"([a-z; ]|\\["\\]){0,16}"#,
+        ) {
+            let header = format!(
+                r#"attachment; x-note="{noise}; filename*=UTF-8''wrong.txt; {noise}""#
+            );
+
+            prop_assert_eq!(parse_filename_from_content_disposition(&header), None);
+        }
     }
 }

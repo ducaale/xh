@@ -86,6 +86,8 @@ default-features = false
 features = ["dump-create", "plist-load", "regex-onig", "yaml-load"]
 
 [dev-dependencies]
+# proptest 1.12 requires Rust 1.88; preserve the Rust 1.85 MSRV.
+proptest = { version = "~1.11", default-features = false, features = ["std"] }
 assert_cmd = "2.0.8"
 indoc = "2.0"
 rand = "0.8.3"
