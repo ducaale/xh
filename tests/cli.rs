@@ -3878,6 +3878,37 @@ fn non_get_redirect_translation_warning() {
 }
 
 #[test]
+fn modern_powershell_curl_translation() {
+    get_command()
+        .args([
+            "--curl-shell=powershell",
+            "POST",
+            "http://127.0.0.1:1/",
+            "name=Carl",
+        ])
+        .assert()
+        .success()
+        .stdout("curl.exe '-X' POST http://127.0.0.1:1/ '-H' 'content-type: application/json' '-H' 'accept: application/json, */*;q=0.5' '-d' '{\"name\":\"Carl\"}'\n")
+        .stderr("");
+}
+
+#[test]
+fn legacy_powershell_curl_translation() {
+    get_command()
+        .args([
+            "--curl-shell=powershell-legacy",
+            "--curl-long",
+            "POST",
+            "http://127.0.0.1:1/",
+            "name=Carl",
+        ])
+        .assert()
+        .success()
+        .stdout("curl.exe --request POST http://127.0.0.1:1/ --header 'content-type: application/json' --header 'accept: application/json, */*;q=0.5' --data '{\\\"name\\\":\\\"Carl\\\"}'\n")
+        .stderr("");
+}
+
+#[test]
 fn custom_json_indent_level() {
     let server = server::http(|_req| async move {
         hyper::Response::builder()

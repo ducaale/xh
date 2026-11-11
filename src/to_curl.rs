@@ -1,11 +1,11 @@
 use std::io::{Write, stderr, stdout};
 
-use anyhow::{Context, Result, anyhow};
-use os_display::Quotable;
+use anyhow::{Context, Result, anyhow, ensure};
+use os_display::{Quotable, Quoted};
 use reqwest::{Method, tls};
 use std::ffi::OsString;
 
-use crate::cli::{AuthType, Cli, HttpVersion, Verify};
+use crate::cli::{AuthType, Cli, CurlShell, HttpVersion, Verify};
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE, RequestItem};
 use crate::utils::{HeaderValueExt, url_with_query};
 
@@ -24,6 +24,7 @@ pub fn print_curl_translation(args: Cli) -> Result<()> {
 
 pub struct Command {
     pub long: bool,
+    pub shell: Option<CurlShell>,
     pub args: Vec<OsString>,
     pub env: Vec<(&'static str, String)>,
     pub warnings: Vec<String>,
@@ -33,6 +34,7 @@ impl Command {
     fn new(long: bool) -> Command {
         Command {
             long,
+            shell: None,
             args: Vec::new(),
             env: Vec::new(),
             warnings: Vec::new(),
@@ -63,18 +65,99 @@ impl Command {
     fn warn(&mut self, message: impl Into<String>) {
         self.warnings.push(message.into());
     }
+
+    fn is_powershell(&self) -> bool {
+        match self.shell {
+            Some(CurlShell::Bash) => false,
+            Some(CurlShell::Powershell | CurlShell::PowershellLegacy) => true,
+            None => cfg!(windows),
+        }
+    }
+}
+
+impl CurlShell {
+    fn quote(self, text: &str) -> String {
+        if self == Self::PowershellLegacy
+            && text.contains(char::is_whitespace)
+            && (text.ends_with('\\') || text.contains('"'))
+        {
+            // Windows PowerShell and PowerShell Core count escaped quotes
+            // differently when deciding whether to add native argument quotes.
+            let core = legacy_native_argument(text, false);
+            let windows = legacy_native_argument(text, true);
+            if core == windows {
+                return Quoted::windows(&core).force(false).to_string();
+            }
+            return format!(
+                "$(if ($PSVersionTable.PSVersion.Major -eq 5) {{ {} }} else {{ {} }})",
+                Quoted::windows(&windows).force(false),
+                Quoted::windows(&core).force(false),
+            );
+        }
+        match self {
+            Self::Bash => Quoted::unix(text),
+            Self::Powershell => Quoted::windows(text),
+            Self::PowershellLegacy => Quoted::windows(text).external(true),
+        }
+        .force(false)
+        .to_string()
+    }
+}
+
+// Both encodings supply complete native quotes, so the matching legacy binder
+// does not add a second pair. PowerShell quoting is applied by the caller.
+fn legacy_native_argument(text: &str, double_quotes: bool) -> String {
+    let mut native = String::from("\"");
+    let mut backslashes = 0;
+    for ch in text.chars() {
+        if ch == '\\' {
+            backslashes += 1;
+            continue;
+        }
+        if ch == '"' {
+            native.extend(std::iter::repeat_n('\\', 2 * backslashes));
+            native.push(if double_quotes { '"' } else { '\\' });
+        } else {
+            native.extend(std::iter::repeat_n('\\', backslashes));
+        }
+        native.push(ch);
+        backslashes = 0;
+    }
+    native.extend(std::iter::repeat_n('\\', 2 * backslashes));
+    native.push('"');
+    native
 }
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (key, value) in &self.env {
-            // This is wrong for Windows, but there doesn't seem to be a
-            // right way
-            write!(f, "{}={} ", key, value.maybe_quote())?;
+            // Retain the default translation's existing environment assignments.
+            // Explicit PowerShell output rejects these in translate().
+            if self.shell == Some(CurlShell::Bash) {
+                write!(f, "{}={} ", key, Quoted::unix(value).force(false))?;
+            } else {
+                write!(f, "{}={} ", key, value.maybe_quote())?;
+            }
         }
-        write!(f, "curl")?;
+        write!(
+            f,
+            "{}",
+            if self.is_powershell() {
+                "curl.exe"
+            } else {
+                "curl"
+            }
+        )?;
         for arg in &self.args {
-            write!(f, " {}", arg.maybe_quote().external(true))?;
+            if let Some(shell) = self.shell {
+                // Explicit shell selection is validated by translate(). The default
+                // continues to support native strings with non-Unicode filenames.
+                write!(f, " {}", shell.quote(arg.to_str().ok_or(std::fmt::Error)?))?;
+            } else if let (true, Some(arg)) = (cfg!(windows), arg.to_str()) {
+                write!(f, " {}", CurlShell::PowershellLegacy.quote(arg))?;
+            } else {
+                write!(f, " {}", arg.maybe_quote().external(true))?;
+            }
         }
         Ok(())
     }
@@ -84,6 +167,11 @@ pub fn translate(args: Cli) -> Result<Command> {
     let (headers, headers_to_unset) = args.request_items.headers()?;
 
     let mut cmd = Command::new(args.curl_long);
+    cmd.shell = args.curl_shell;
+
+    if cfg!(windows) && cmd.shell.is_none() {
+        cmd.warn("Using legacy PowerShell quoting. For Windows or Standard argument passing in PowerShell 7.3+, use --curl-shell=powershell.");
+    }
 
     let ignored = [
         // No equivalent
@@ -468,12 +556,122 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
+    if cmd.shell.is_some() {
+        ensure!(
+            cmd.args.iter().all(|arg| arg.to_str().is_some()),
+            "Explicit --curl-shell requires Unicode arguments"
+        );
+        ensure!(
+            !cmd.is_powershell() || cmd.env.is_empty(),
+            "Per-protocol proxies are not supported with PowerShell curl output; use --proxy all:URL instead"
+        );
+    }
+
     Ok(cmd)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_shells() {
+        for (shell, executable, body) in [
+            ("bash", "curl", r#"'{"name":"Carl"}'"#),
+            ("powershell", "curl.exe", r#"'{"name":"Carl"}'"#),
+            ("powershell-legacy", "curl.exe", r#"'{\"name\":\"Carl\"}'"#),
+        ] {
+            for long in [false, true] {
+                let mut input = vec![
+                    "xh",
+                    "--curl-shell",
+                    shell,
+                    "POST",
+                    "example.org",
+                    "name=Carl",
+                ];
+                if long {
+                    input.push("--curl-long");
+                }
+                let cli = Cli::try_parse_from(input).unwrap();
+                assert!(cli.curl);
+                let cmd = translate(cli).unwrap();
+                let rendered = cmd.to_string();
+                assert!(rendered.starts_with(executable));
+                assert!(rendered.ends_with(body), "{rendered}");
+                assert_eq!(rendered.lines().count(), 1);
+                assert_eq!(rendered.matches(executable).count(), 1);
+                assert!(rendered.contains(if long { "--data " } else { "-d" }));
+            }
+        }
+    }
+
+    #[test]
+    fn powershell_argument_quoting() {
+        // These check serialization on every host, not PowerShell execution.
+        for (input, modern, legacy) in [
+            ("", "''", "'\"\"'"),
+            ("two words", "'two words'", "'two words'"),
+            ("can't", "\"can't\"", "\"can't\""),
+            (r#"a"b"#, r#"'a"b'"#, r#"'a\"b'"#),
+            (r#"a\"b"#, r#"'a\"b'"#, r#"'a\\\"b'"#),
+            (r"a\b", r"a\b", r"a\b"),
+            (r"two words\", r"'two words\'", r#"'"two words\\"'"#),
+            ("你好 café 🦀", "'你好 café 🦀'", "'你好 café 🦀'"),
+            (
+                r#"it's "quoted""#,
+                r#"'it''s "quoted"'"#,
+                r#"$(if ($PSVersionTable.PSVersion.Major -eq 5) { '"it''s ""quoted"""' } else { '"it''s \"quoted\""' })"#,
+            ),
+            (
+                r#"one\"two words\"#,
+                r#"'one\"two words\'"#,
+                r#"$(if ($PSVersionTable.PSVersion.Major -eq 5) { '"one\\""two words\\"' } else { '"one\\\"two words\\"' })"#,
+            ),
+        ] {
+            assert_eq!(CurlShell::Powershell.quote(input).to_string(), modern);
+            assert_eq!(CurlShell::PowershellLegacy.quote(input).to_string(), legacy);
+        }
+    }
+
+    #[test]
+    fn explicit_powershell_proxy_error() {
+        for shell in ["powershell", "powershell-legacy"] {
+            let cli = Cli::try_parse_from([
+                "xh",
+                "--curl-shell",
+                shell,
+                "--proxy",
+                "http:localhost:1080",
+                "example.org",
+            ])
+            .unwrap();
+            assert!(
+                translate(cli)
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("--proxy all:URL")
+            );
+        }
+        let cli = Cli::try_parse_from([
+            "xh",
+            "--curl-shell=bash",
+            "--proxy",
+            "http:localhost:1080",
+            "example.org",
+        ])
+        .unwrap();
+        assert_eq!(
+            translate(cli).unwrap().to_string(),
+            "http_proxy=localhost:1080 curl http://example.org/"
+        );
+    }
+
+    #[test]
+    fn invalid_shell_is_rejected() {
+        assert!(Cli::try_parse_from(["xh", "--curl-shell=cmd", "example.org"]).is_err());
+    }
 
     #[test]
     fn examples() {
@@ -578,6 +776,11 @@ mod tests {
         for (input, output) in expected {
             let cli = Cli::try_parse_from(input.split_whitespace()).unwrap();
             let cmd = translate(cli).unwrap();
+            let output = if cfg!(windows) {
+                output.replacen("curl", "curl.exe", 1)
+            } else {
+                output.to_string()
+            };
             assert_eq!(cmd.to_string(), output, "Wrong output for {input:?}");
         }
     }

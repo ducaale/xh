@@ -35,7 +35,7 @@ memchr = "2.4.1"
 mime = "0.3.16"
 mime2ext = "0.1.0"
 mime_guess = "2.0"
-os_display = "0.1.3"
+os_display = { version = "0.1.3", features = ["unix", "windows"] }
 pem = "3.0"
 regex-lite = "0.1.5"
 reqwest_cookie_store = "0.10.0"

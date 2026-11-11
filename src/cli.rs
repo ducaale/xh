@@ -401,6 +401,15 @@ Example: --print=Hb"
     #[clap(long)]
     pub curl_long: bool,
 
+    /// Select the shell quoting for --curl (implies --curl).
+    ///
+    /// The default is bash on Unix and powershell-legacy on Windows.
+    /// Use powershell for PowerShell 7.3+ with $PSNativeCommandArgumentPassing
+    /// set to Windows or Standard. Use powershell-legacy for Windows PowerShell
+    /// 5.1 or Legacy argument passing. PowerShell output invokes curl.exe.
+    #[clap(long, value_enum, value_name = "SHELL")]
+    pub curl_shell: Option<CurlShell>,
+
     /// Generate shell completions or man pages.
     #[arg(
         long,
@@ -607,7 +616,7 @@ impl Cli {
         if self.verbose > 0 {
             self.all = true;
         }
-        if self.curl_long {
+        if self.curl_long || self.curl_shell.is_some() {
             self.curl = true;
         }
         if self.https {
@@ -737,6 +746,13 @@ impl Cli {
 #[derive(Deserialize)]
 struct Config {
     default_options: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CurlShell {
+    Bash,
+    Powershell,
+    PowershellLegacy,
 }
 
 fn default_cli_args() -> Option<Vec<String>> {

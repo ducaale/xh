@@ -213,6 +213,38 @@ xh -d httpbin.org/json -o res.json
 xh httpbin.org/get user-agent:foobar
 ```
 
+## Translating to curl
+
+`--curl` prints one command without sending a request. By default it uses bash
+quoting on Unix and legacy PowerShell quoting on Windows. PowerShell output uses
+`curl.exe` to avoid the `curl` alias for `Invoke-WebRequest` in Windows PowerShell.
+
+Use `--curl-shell=powershell` for PowerShell 7.3+ with
+`$PSNativeCommandArgumentPassing` set to `Windows` or `Standard`:
+
+```powershell
+xh POST https://httpbin.org/post name=Carl --curl-shell=powershell
+```
+
+Use `--curl-shell=powershell-legacy` for Windows PowerShell 5.1 or PowerShell 7
+with `Legacy` argument passing. `--curl-shell=bash` selects bash quoting on any
+platform. Each selection implies `--curl` and can be combined with `--curl-long`.
+The quoting must match the shell where the printed command will be run; xh cannot
+read the calling PowerShell session's argument-passing preference.
+
+Legacy output may use a PowerShell version check inside an argument to preserve
+combinations of spaces, quotes, and backslashes. It still invokes curl only once.
+
+Explicit shell selection requires Unicode arguments. Per-protocol proxy options
+(`--proxy http:...` and `--proxy https:...`) are not supported with explicit
+PowerShell output; `--proxy all:...` is supported.
+
+The optional native quoting regression test requires Windows PowerShell 5.1,
+PowerShell 7.3+, `rustc`, and `curl.exe` on Windows. Run it with
+`cargo test --test curl_powershell -- --ignored --nocapture`. It checks both native
+arguments and request bodies against a local HTTP server, including legacy and
+modern argument-passing modes.
+
 ## How xh compares to HTTPie
 
 ### Advantages
