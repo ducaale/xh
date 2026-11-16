@@ -143,6 +143,7 @@ fn build_signature_params(components: &[MessageSignatureComponent]) -> Result<Ht
                 MessageSignatureComponent::Method => "@method",
                 MessageSignatureComponent::Authority => "@authority",
                 MessageSignatureComponent::Path => "@path",
+                MessageSignatureComponent::TargetUri => "@target-uri",
                 MessageSignatureComponent::Query => "@query",
                 MessageSignatureComponent::Header(name) => name,
             };

@@ -3,7 +3,7 @@ name = "xh"
 version = "0.26.3"
 authors = ["ducaale <sharaf.13@hotmail.com>"]
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.87"
 license = "MIT"
 description = "Friendly and fast tool for sending HTTP requests"
 documentation = "https://github.com/ducaale/xh"
@@ -56,7 +56,7 @@ env_logger = { version = "0.11.3", default-features = false, features = ["color"
 log = "0.4.21"
 base64 = "0.22.1"
 form_urlencoded = "1.0.1"
-httpsig-hyper = { version = "0.0.24", optional = true, default-features = false, features = ["blocking"] }
+httpsig-hyper = { version = "0.0.26", optional = true, default-features = false, features = ["blocking", "rsa-signature"] }
 sha2 = { version = "0.10", optional = true }
 
 # Enable logging in transitive dependencies.

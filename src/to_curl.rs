@@ -373,28 +373,43 @@ pub fn translate(args: Cli) -> Result<Command> {
         });
     }
     if let Some(algorithm) = args.httpsig.httpsig_algorithm {
-        cmd.arg("--httpsig-algo");
-        cmd.arg(match algorithm {
-            MessageSignatureAlgorithm::HmacSha256 => "hmac-sha256",
-            MessageSignatureAlgorithm::Ed25519 => "ed25519",
-        });
+        let (name, supported) = match algorithm {
+            MessageSignatureAlgorithm::HmacSha256 => ("hmac-sha256", true),
+            MessageSignatureAlgorithm::Ed25519 => ("ed25519", true),
+            MessageSignatureAlgorithm::EcdsaP256Sha256 => ("ecdsa-p256-sha256", false),
+            MessageSignatureAlgorithm::EcdsaP384Sha384 => ("ecdsa-p384-sha384", false),
+            MessageSignatureAlgorithm::RsaV15Sha256 => ("rsa-v1_5-sha256", false),
+            MessageSignatureAlgorithm::RsaPssSha512 => ("rsa-pss-sha512", false),
+        };
+        if supported {
+            cmd.arg("--httpsig-algo");
+            cmd.arg(name);
+        } else {
+            cmd.warn(format!(
+                "curl does not support --httpsig-algo {name}; ignoring"
+            ));
+        }
     }
     if let Some(ref components) = args.httpsig.httpsig_headers {
-        cmd.arg("--httpsig-headers");
-        cmd.arg(
-            components
-                .0
-                .iter()
-                .map(|component| match component {
-                    MessageSignatureComponent::Method => "method".to_string(),
-                    MessageSignatureComponent::Authority => "authority".to_string(),
-                    MessageSignatureComponent::Path => "path".to_string(),
-                    MessageSignatureComponent::Query => "query".to_string(),
-                    MessageSignatureComponent::Header(name) => format!("{name}:"),
-                })
-                .collect::<Vec<_>>()
-                .join(" "),
-        );
+        let components = components
+            .0
+            .iter()
+            .filter_map(|component| match component {
+                MessageSignatureComponent::Method => Some("method".to_string()),
+                MessageSignatureComponent::Authority => Some("authority".to_string()),
+                MessageSignatureComponent::Path => Some("path".to_string()),
+                MessageSignatureComponent::TargetUri => {
+                    cmd.warn("curl does not support httpsig component target-uri; ignoring");
+                    None
+                }
+                MessageSignatureComponent::Query => Some("query".to_string()),
+                MessageSignatureComponent::Header(name) => Some(format!("{name}:")),
+            })
+            .collect::<Vec<_>>();
+        if !components.is_empty() {
+            cmd.arg("--httpsig-headers");
+            cmd.arg(components.join(" "));
+        }
     }
 
     if let Some(raw) = args.raw {
@@ -616,5 +631,42 @@ mod tests {
             let cmd = translate(cli).unwrap();
             assert_eq!(cmd.to_string(), output, "Wrong output for {input:?}");
         }
+    }
+
+    #[test]
+    fn httpsig_unsupported_options_are_warned_and_ignored() {
+        let cli = Cli::try_parse_from([
+            "xh",
+            "example.com",
+            "--httpsig-keyid=k",
+            "--httpsig-key=00",
+            "--httpsig-algo=rsa-v1_5-sha256",
+            "--httpsig-headers=target-uri method",
+        ])
+        .unwrap();
+        let cmd = translate(cli).unwrap();
+        assert_eq!(
+            cmd.to_string(),
+            "curl http://example.com/ --httpsig-keyid k --httpsig-key 00 --httpsig-headers method"
+        );
+        assert_eq!(
+            cmd.warnings,
+            [
+                "curl does not support --httpsig-algo rsa-v1_5-sha256; ignoring",
+                "curl does not support httpsig component target-uri; ignoring",
+            ]
+        );
+
+        let cli = Cli::try_parse_from([
+            "xh",
+            "example.com",
+            "--httpsig-keyid=k",
+            "--httpsig-key=00",
+            "--httpsig-headers=target-uri",
+        ])
+        .unwrap();
+        let cmd = translate(cli).unwrap();
+        assert!(!cmd.to_string().contains("--httpsig-headers"));
+        assert_eq!(cmd.warnings.len(), 1);
     }
 }

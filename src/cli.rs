@@ -837,7 +837,8 @@ pub struct HttpsigOptions {
 
     /// Message signature algorithm (RFC 9421).
     ///
-    /// Supported algorithms: hmac-sha256 and ed25519.
+    /// Supported algorithms: hmac-sha256, ed25519, ecdsa-p256-sha256,
+    /// ecdsa-p384-sha384, rsa-v1_5-sha256, rsa-pss-sha512.
     #[arg(
         long = "httpsig-algo",
         value_name = "ALG",
@@ -851,7 +852,7 @@ pub struct HttpsigOptions {
     /// If not specified, defaults to "method authority path", plus "query"
     /// when the URL has a query string.
     /// If this flag is passed multiple times, the last value is used.
-    /// Derived components are method, authority, path, and query.
+    /// Derived components are method, authority, path, target-uri, and query.
     /// Header fields use a trailing colon, as in "content-digest:".
     ///
     /// Example: "method path content-digest:"
@@ -911,6 +912,7 @@ pub enum MessageSignatureComponent {
     Method,
     Authority,
     Path,
+    TargetUri,
     Query,
     Header(String),
 }
@@ -962,9 +964,10 @@ impl FromStr for MessageSignatureComponent {
             "method" => Ok(Self::Method),
             "authority" => Ok(Self::Authority),
             "path" => Ok(Self::Path),
+            "target-uri" => Ok(Self::TargetUri),
             "query" => Ok(Self::Query),
             _ => Err(format!(
-                "unknown HTTP message signature component `{component}`; use method, authority, path, query, or a header name ending in `:`"
+                "unknown HTTP message signature component `{component}`; use method, authority, path, target-uri, query, or a header name ending in `:`"
             )),
         }
     }
@@ -977,6 +980,14 @@ pub enum MessageSignatureAlgorithm {
     #[clap(name = "ed25519")]
     #[default]
     Ed25519,
+    #[clap(name = "ecdsa-p256-sha256")]
+    EcdsaP256Sha256,
+    #[clap(name = "ecdsa-p384-sha384")]
+    EcdsaP384Sha384,
+    #[clap(name = "rsa-v1_5-sha256")]
+    RsaV15Sha256,
+    #[clap(name = "rsa-pss-sha512")]
+    RsaPssSha512,
 }
 
 #[cfg(feature = "http-message-signatures")]
@@ -985,6 +996,10 @@ impl From<MessageSignatureAlgorithm> for httpsig_hyper::prelude::AlgorithmName {
         match value {
             MessageSignatureAlgorithm::HmacSha256 => Self::HmacSha256,
             MessageSignatureAlgorithm::Ed25519 => Self::Ed25519,
+            MessageSignatureAlgorithm::EcdsaP256Sha256 => Self::EcdsaP256Sha256,
+            MessageSignatureAlgorithm::EcdsaP384Sha384 => Self::EcdsaP384Sha384,
+            MessageSignatureAlgorithm::RsaV15Sha256 => Self::RsaV1_5Sha256,
+            MessageSignatureAlgorithm::RsaPssSha512 => Self::RsaPssSha512,
         }
     }
 }

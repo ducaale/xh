@@ -9,6 +9,139 @@ const KEY_MATERIAL: &str = "secret-key-material";
 const KEY_HEX: &str = "7365637265742d6b65792d6d6174657269616c";
 const ED25519_KEY_HEX: &str = "0101010101010101010101010101010101010101010101010101010101010101";
 
+#[cfg(feature = "online-tests")]
+const ONLINE_KEY_ID: &str = "https://my.example.com/actor#main-key";
+#[cfg(feature = "online-tests")]
+const ONLINE_PUBLIC_KEY: &str = include_str!("../fixtures/keys/rsa_public_key.pem");
+
+#[cfg(feature = "online-tests")]
+fn httpsig_post(path: &str, body: serde_json::Value) -> serde_json::Value {
+    reqwest::blocking::Client::new()
+        .post(format!("https://httpsig.org{path}"))
+        .json(&body)
+        .send()
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .unwrap()
+}
+
+// Rebuild the signed HTTP message from httpbingo's echo so httpsig.org can
+// verify exactly what xh sent. https://httpsig.org is the sandbox linked from
+#[cfg(feature = "online-tests")]
+fn signed_message(json: &serde_json::Value, tamper_digest: bool) -> (String, String, String) {
+    use reqwest::Url;
+
+    let url = Url::parse(json["url"].as_str().unwrap()).unwrap();
+    let target = format!(
+        "{}{}",
+        url.path(),
+        url.query()
+            .map(|query| format!("?{query}"))
+            .unwrap_or_default()
+    );
+    let host = json["headers"]["Host"][0].as_str().unwrap();
+    let signature = json["headers"]["Signature"][0].as_str().unwrap();
+    let signature_input = json["headers"]["Signature-Input"][0]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let body = json["data"].as_str().unwrap();
+    let digest = json["headers"]["Content-Digest"][0]
+        .as_str()
+        .unwrap_or_default();
+    let digest_line = if digest.is_empty() {
+        String::new()
+    } else {
+        let digest = if tamper_digest {
+            let mut chars: Vec<char> = digest.chars().collect();
+            let offset = "sha-256=:".len();
+            chars[offset] = match chars[offset] {
+                'A' => 'B',
+                _ => 'A',
+            };
+            chars.into_iter().collect()
+        } else {
+            digest.to_string()
+        };
+        format!("Content-Digest: {digest}\n")
+    };
+
+    (
+        format!(
+            "{} {target} HTTP/1.1\nHost: {host}\nContent-Length: {}\n{digest_line}Signature: {signature}\nSignature-Input: {signature_input}\n\n{body}",
+            json["method"].as_str().unwrap(),
+            body.len()
+        ),
+        signature.split_once('=').unwrap().1.to_string(),
+        signature_input,
+    )
+}
+
+#[cfg(feature = "online-tests")]
+fn verified_online(args: &[&str], covered: &[&str], tamper_digest: bool) -> bool {
+    use serde_json::{Value, json};
+
+    let mut cmd = base_get_command();
+    cmd.arg(format!("--httpsig-keyid={ONLINE_KEY_ID}"))
+        .arg("--httpsig-key=@tests/fixtures/keys/rsa_private_key_pkcs1.hex")
+        .arg("--httpsig-algo=rsa-v1_5-sha256")
+        .args(args);
+    let assert = cmd.assert().success();
+    let json: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let (message, signature, signature_input) = signed_message(&json, tamper_digest);
+
+    assert_eq!(json["headers"]["Signature"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        json["headers"]["Signature-Input"].as_array().unwrap().len(),
+        1
+    );
+    for component in covered {
+        assert!(signature_input.contains(&format!("\"{component}\"")));
+    }
+    assert!(signature_input.contains(";created="));
+    assert!(signature_input.contains(";alg=\"rsa-v1_5-sha256\""));
+    assert!(signature_input.contains(&format!(";keyid=\"{ONLINE_KEY_ID}\"")));
+
+    let parsed = httpsig_post("/parse", json!({ "msg": message }));
+    let created: i64 = signature_input
+        .split("created=")
+        .nth(1)
+        .unwrap()
+        .split([';', ')'])
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let base = httpsig_post(
+        "/base",
+        json!({
+            "components": parsed["components"],
+            "coveredComponents": covered.iter().map(|id| json!({ "id": id })).collect::<Vec<_>>(),
+            "params": {
+                "created": created,
+                "alg": "rsa-v1_5-sha256",
+                "keyid": ONLINE_KEY_ID,
+            },
+        }),
+    );
+    let result = httpsig_post(
+        "/verify",
+        json!({
+            "httpMsg": message,
+            "signatureInput": base["signatureInput"],
+            "signatureParams": base["signatureParams"],
+            "signingKeyType": "x509",
+            "signingKeyX509": ONLINE_PUBLIC_KEY,
+            "alg": "rsa-v1_5-sha256",
+            "label": "sig1",
+            "signature": signature,
+        }),
+    );
+    result["signatureVerified"].as_bool().unwrap()
+}
+
 fn key_file(contents: impl AsRef<[u8]>) -> NamedTempFile {
     let mut file = NamedTempFile::new().unwrap();
     for byte in contents.as_ref() {
@@ -559,6 +692,53 @@ fn message_signature_with_basic_auth() {
             "Authorization: Basic dXNlcjpwYXNz",
         ))
         .stdout(predicates::str::contains("Signature: sig1="));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn post_signature_verified_online() {
+    assert!(verified_online(
+        &[
+            "--print=b",
+            "--httpsig-headers=method target-uri content-digest:",
+            "POST",
+            "https://httpbingo.org/anything",
+            "x=1",
+        ],
+        &["@method", "@target-uri", "content-digest"],
+        false,
+    ));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn get_signature_verified_without_content_digest_online() {
+    assert!(verified_online(
+        &[
+            "--print=b",
+            "--httpsig-headers=method target-uri content-digest:",
+            "GET",
+            "https://httpbingo.org/anything",
+        ],
+        &["@method", "@target-uri"],
+        false,
+    ));
+}
+
+#[cfg(feature = "online-tests")]
+#[test]
+fn tampered_content_digest_rejected_online() {
+    assert!(!verified_online(
+        &[
+            "--print=b",
+            "--httpsig-headers=method target-uri content-digest:",
+            "POST",
+            "https://httpbingo.org/anything",
+            "x=1",
+        ],
+        &["@method", "@target-uri", "content-digest"],
+        true,
+    ));
 }
 
 #[test]
