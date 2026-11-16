@@ -6,8 +6,8 @@ use reqwest::{Method, tls};
 use std::ffi::OsString;
 
 use crate::cli::{
-    AuthType, Cli, HttpVersion, MessageSignatureAlgorithm, MessageSignatureComponent,
-    MessageSignatureKey, Verify,
+    AuthType, Cli, HttpVersion, HttpsigOptions, MessageSignatureAlgorithm,
+    MessageSignatureComponent, MessageSignatureKey, Verify,
 };
 use crate::request_items::{Body, FORM_CONTENT_TYPE, JSON_ACCEPT, JSON_CONTENT_TYPE, RequestItem};
 use crate::utils::{HeaderValueExt, url_with_query};
@@ -65,6 +65,73 @@ impl Command {
 
     fn warn(&mut self, message: impl Into<String>) {
         self.warnings.push(message.into());
+    }
+
+    fn httpsig(&mut self, options: &HttpsigOptions) {
+        let algorithm = options.httpsig_algorithm.map(|algorithm| {
+            let (name, supported) = match algorithm {
+                MessageSignatureAlgorithm::HmacSha256 => ("hmac-sha256", true),
+                MessageSignatureAlgorithm::Ed25519 => ("ed25519", true),
+                MessageSignatureAlgorithm::EcdsaP256Sha256 => ("ecdsa-p256-sha256", false),
+                MessageSignatureAlgorithm::EcdsaP384Sha384 => ("ecdsa-p384-sha384", false),
+                MessageSignatureAlgorithm::RsaV15Sha256 => ("rsa-v1_5-sha256", false),
+                MessageSignatureAlgorithm::RsaPssSha512 => ("rsa-pss-sha512", false),
+            };
+            (name, supported)
+        });
+        let components = options.httpsig_headers.as_ref();
+        let has_target_uri = components
+            .is_some_and(|components| components.0.contains(&MessageSignatureComponent::TargetUri));
+
+        // curl cannot express these, so sign nothing rather than sign
+        // something different from what xh would send.
+        let mut unsupported = Vec::new();
+        if let Some((name, false)) = algorithm {
+            unsupported.push(format!("--httpsig-algo {name}"));
+        }
+        if has_target_uri {
+            unsupported.push("httpsig component target-uri".to_string());
+        }
+        if !unsupported.is_empty() {
+            for option in unsupported {
+                self.warn(format!(
+                    "curl does not support {option}; ignoring all --httpsig options"
+                ));
+            }
+            return;
+        }
+
+        if let Some(key_id) = &options.httpsig_key_id {
+            self.arg("--httpsig-keyid");
+            self.arg(key_id);
+        }
+        if let Some(key) = &options.httpsig_key {
+            self.arg("--httpsig-key");
+            self.arg(match key {
+                MessageSignatureKey::Hex(key) => key.clone(),
+                MessageSignatureKey::File(path) => format!("@{}", path.to_string_lossy()),
+            });
+        }
+        if let Some((algorithm, _)) = algorithm {
+            self.arg("--httpsig-algo");
+            self.arg(algorithm);
+        }
+        if let Some(components) = components {
+            let names = components
+                .0
+                .iter()
+                .filter_map(|component| match component {
+                    MessageSignatureComponent::Method => Some("method".to_string()),
+                    MessageSignatureComponent::Authority => Some("authority".to_string()),
+                    MessageSignatureComponent::Path => Some("path".to_string()),
+                    MessageSignatureComponent::TargetUri => None,
+                    MessageSignatureComponent::Query => Some("query".to_string()),
+                    MessageSignatureComponent::Header(name) => Some(format!("{name}:")),
+                })
+                .collect::<Vec<_>>();
+            self.arg("--httpsig-headers");
+            self.arg(names.join(" "));
+        }
     }
 }
 
@@ -360,57 +427,7 @@ pub fn translate(args: Cli) -> Result<Command> {
         }
     }
 
-    if let Some(ref key_id) = args.httpsig.httpsig_key_id {
-        cmd.arg("--httpsig-keyid");
-        cmd.arg(key_id);
-    }
-
-    if let Some(ref key) = args.httpsig.httpsig_key {
-        cmd.arg("--httpsig-key");
-        cmd.arg(match key {
-            MessageSignatureKey::Hex(key) => key.clone(),
-            MessageSignatureKey::File(path) => format!("@{}", path.to_string_lossy()),
-        });
-    }
-    if let Some(algorithm) = args.httpsig.httpsig_algorithm {
-        let (name, supported) = match algorithm {
-            MessageSignatureAlgorithm::HmacSha256 => ("hmac-sha256", true),
-            MessageSignatureAlgorithm::Ed25519 => ("ed25519", true),
-            MessageSignatureAlgorithm::EcdsaP256Sha256 => ("ecdsa-p256-sha256", false),
-            MessageSignatureAlgorithm::EcdsaP384Sha384 => ("ecdsa-p384-sha384", false),
-            MessageSignatureAlgorithm::RsaV15Sha256 => ("rsa-v1_5-sha256", false),
-            MessageSignatureAlgorithm::RsaPssSha512 => ("rsa-pss-sha512", false),
-        };
-        if supported {
-            cmd.arg("--httpsig-algo");
-            cmd.arg(name);
-        } else {
-            cmd.warn(format!(
-                "curl does not support --httpsig-algo {name}; ignoring"
-            ));
-        }
-    }
-    if let Some(ref components) = args.httpsig.httpsig_headers {
-        let components = components
-            .0
-            .iter()
-            .filter_map(|component| match component {
-                MessageSignatureComponent::Method => Some("method".to_string()),
-                MessageSignatureComponent::Authority => Some("authority".to_string()),
-                MessageSignatureComponent::Path => Some("path".to_string()),
-                MessageSignatureComponent::TargetUri => {
-                    cmd.warn("curl does not support httpsig component target-uri; ignoring");
-                    None
-                }
-                MessageSignatureComponent::Query => Some("query".to_string()),
-                MessageSignatureComponent::Header(name) => Some(format!("{name}:")),
-            })
-            .collect::<Vec<_>>();
-        if !components.is_empty() {
-            cmd.arg("--httpsig-headers");
-            cmd.arg(components.join(" "));
-        }
-    }
+    cmd.httpsig(&args.httpsig);
 
     if let Some(raw) = args.raw {
         if args.form {
@@ -645,15 +662,12 @@ mod tests {
         ])
         .unwrap();
         let cmd = translate(cli).unwrap();
-        assert_eq!(
-            cmd.to_string(),
-            "curl http://example.com/ --httpsig-keyid k --httpsig-key 00 --httpsig-headers method"
-        );
+        assert_eq!(cmd.to_string(), "curl http://example.com/");
         assert_eq!(
             cmd.warnings,
             [
-                "curl does not support --httpsig-algo rsa-v1_5-sha256; ignoring",
-                "curl does not support httpsig component target-uri; ignoring",
+                "curl does not support --httpsig-algo rsa-v1_5-sha256; ignoring all --httpsig options",
+                "curl does not support httpsig component target-uri; ignoring all --httpsig options",
             ]
         );
 
@@ -666,7 +680,10 @@ mod tests {
         ])
         .unwrap();
         let cmd = translate(cli).unwrap();
-        assert!(!cmd.to_string().contains("--httpsig-headers"));
-        assert_eq!(cmd.warnings.len(), 1);
+        assert_eq!(cmd.to_string(), "curl http://example.com/");
+        assert_eq!(
+            cmd.warnings,
+            ["curl does not support httpsig component target-uri; ignoring all --httpsig options"]
+        );
     }
 }
