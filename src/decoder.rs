@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use brotli::Decompressor as BrotliDecoder;
-use flate2::read::{GzDecoder, ZlibDecoder};
+use flate2::read::{MultiGzDecoder, ZlibDecoder};
 use reqwest::header::{CONTENT_ENCODING, CONTENT_LENGTH, HeaderMap, TRANSFER_ENCODING};
 use ruzstd::frame::ReadFrameHeaderError;
 use ruzstd::frame_decoder::FrameDecoderError;
@@ -196,7 +196,7 @@ pub fn decompress(
     };
     OuterReader {
         decoder: match compression_type {
-            CompressionType::Gzip => Box::new(GzDecoder::new(reader)),
+            CompressionType::Gzip => Box::new(MultiGzDecoder::new(reader)),
             CompressionType::Deflate => Box::new(ZlibDecoder::new(reader)),
             // 32K is the default buffer size for gzip and deflate
             CompressionType::Brotli => Box::new(BrotliDecoder::new(reader, 32 * 1024)),
@@ -391,6 +391,65 @@ mod tests {
                 reader.read_to_end(&mut buf).unwrap();
                 assert_eq!(buf, b"");
             }
+        }
+    }
+
+    fn gzip_member(data: &[u8]) -> Vec<u8> {
+        use std::io::Write;
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(data).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    #[test]
+    fn gzip_decodes_all_members_including_empty_ones() {
+        let data = [
+            gzip_member(b""),
+            gzip_member(b"first"),
+            gzip_member(b""),
+            gzip_member(b"second"),
+        ]
+        .concat();
+        // Fragment both compressed input and decoded output, including member boundaries.
+        struct Fragmented<'a>(&'a [u8]);
+        impl Read for Fragmented<'_> {
+            fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
+                let len = out.len().min(1);
+                self.0.read(&mut out[..len])
+            }
+        }
+        let mut input = Fragmented(&data);
+        let mut reader = decompress(&mut input, Some(CompressionType::Gzip));
+        let mut output = Vec::new();
+        let mut byte = [0];
+        loop {
+            let n = reader.read(&mut byte).unwrap();
+            if n == 0 {
+                break;
+            }
+            output.extend_from_slice(&byte[..n]);
+        }
+        assert_eq!(output, b"firstsecond");
+        for _ in 0..3 {
+            assert_eq!(reader.read(&mut byte).unwrap(), 0);
+        }
+    }
+
+    #[test]
+    fn gzip_rejects_incomplete_or_corrupt_later_members() {
+        let second = gzip_member(b"second");
+        let mut corrupt = second.clone();
+        let end = corrupt.len();
+        corrupt[end - 8] ^= 1;
+        for tail in [&second[..3], &second[..second.len() - 6], &corrupt[..]] {
+            let input = [gzip_member(b"first"), tail.to_vec()].concat();
+            let mut input = input.as_slice();
+            let mut reader = decompress(&mut input, Some(CompressionType::Gzip));
+            let mut output = Vec::new();
+            let err = reader.read_to_end(&mut output).unwrap_err();
+            assert!(output.starts_with(b"first"));
+            assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+            assert_eq!(err.to_string(), "error decoding gzip response body");
         }
     }
 

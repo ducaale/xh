@@ -3602,6 +3602,52 @@ fn gzip() {
 }
 
 #[test]
+fn gzip_concatenated_members() {
+    for encoding in ["gzip", "x-gzip"] {
+        for stream in [false, true] {
+            let server = server::http(move |_req| async move {
+                let member = include_bytes!("fixtures/responses/hello_world.gz");
+                hyper::Response::builder()
+                    .header("content-encoding", encoding)
+                    .body([member.as_slice(), member.as_slice()].concat().into())
+                    .unwrap()
+            });
+            let mut command = redirecting_command();
+            command.arg(server.base_url()).arg("--body");
+            if stream {
+                command.arg("--stream");
+            }
+            command
+                .assert()
+                .success()
+                .stdout("Hello world\nHello world\n");
+        }
+    }
+}
+
+#[test]
+fn gzip_concatenated_download_to_file() {
+    let server = server::http(|_req| async move {
+        let member = include_bytes!("fixtures/responses/hello_world.gz");
+        hyper::Response::builder()
+            .header("content-encoding", "gzip")
+            .body([member.as_slice(), member.as_slice()].concat().into())
+            .unwrap()
+    });
+    let target = NamedTempFile::new().unwrap();
+    redirecting_command()
+        .arg(server.base_url())
+        .args(["--download", "--quiet", "--output"])
+        .arg(target.path())
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read(target.path()).unwrap(),
+        b"Hello world\nHello world\n"
+    );
+}
+
+#[test]
 fn deflate() {
     let server = server::http(|_req| async move {
         let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.zz").unwrap();
