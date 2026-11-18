@@ -125,6 +125,7 @@ pub struct Printer {
     color: bool,
     theme: Theme,
     stream: Option<bool>,
+    unbuffered: bool,
     buffer: Buffer,
 }
 
@@ -133,6 +134,7 @@ impl Printer {
         pretty: Pretty,
         theme: Theme,
         stream: impl Into<Option<bool>>,
+        unbuffered: bool,
         buffer: Buffer,
         format_options: FormatOptions,
     ) -> Self {
@@ -144,6 +146,7 @@ impl Printer {
             sort_headers: format_options.headers_sort.unwrap_or(pretty.format()),
             color: pretty.color(),
             stream: stream.into(),
+            unbuffered,
             theme,
             buffer,
         }
@@ -328,11 +331,47 @@ impl Printer {
         }
     }
 
+    /// Print a streamed body as soon as each chunk arrives, even if it ends in
+    /// the middle of a line.
+    ///
+    /// Syntax highlighting is skipped because it works on whole lines. JSON is
+    /// still formatted if requested, since the formatter accepts arbitrary chunks.
+    fn print_unbuffered_stream(
+        &mut self,
+        content_type: ContentType,
+        body: &mut impl Read,
+    ) -> io::Result<()> {
+        let check_binary = self.buffer.is_terminal();
+        let mut json_formatter = (self.format_json && matches!(content_type, ContentType::Json))
+            .then(|| get_json_formatter(self.json_indent_level));
+        let mut buf = vec![0; BUFFER_SIZE];
+        loop {
+            let len = match body.read(&mut buf) {
+                Ok(0) => return Ok(()),
+                Ok(len) => len,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            let chunk = &buf[..len];
+            if check_binary && chunk.contains(&b'\0') {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, FoundBinaryData));
+            }
+            match json_formatter.as_mut() {
+                Some(formatter) => formatter.format_buf(chunk, &mut self.buffer)?,
+                None => self.buffer.write_all(chunk)?,
+            }
+            self.buffer.flush()?;
+        }
+    }
+
     fn print_body_stream(
         &mut self,
         content_type: ContentType,
         body: &mut impl Read,
     ) -> io::Result<()> {
+        if self.unbuffered {
+            return self.print_unbuffered_stream(content_type, body);
+        }
         match content_type {
             ContentType::Json => self.print_json_stream(body),
             ContentType::Xml => self.print_syntax_stream(body, "xml"),
@@ -758,7 +797,14 @@ mod tests {
         let theme = args.style.unwrap_or_default();
         let buffer = Buffer::new(args.download, args.output.as_deref(), is_stdout_tty).unwrap();
         let pretty = args.pretty.unwrap_or_else(|| buffer.guess_pretty());
-        Printer::new(pretty, theme, false, buffer, FormatOptions::default())
+        Printer::new(
+            pretty,
+            theme,
+            false,
+            false,
+            buffer,
+            FormatOptions::default(),
+        )
     }
 
     fn temp_path() -> String {

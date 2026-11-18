@@ -245,6 +245,14 @@ Using quiet twice i.e. \-qq will suppress warnings as well.
 Always stream the response body.
 
 .TP 4
+\fB\-\-unbuffered\fR
+Print the streamed response body as it arrives, without waiting for complete lines.
+
+Like `curl \-\-no\-buffer`. This is useful for responses that send data without trailing newlines, such as server\-rendered pages that are flushed in pieces.
+
+Implies \-\-stream. Syntax highlighting is skipped for the body, because it needs complete lines. JSON is still formatted when \-\-pretty asks for it.
+
+.TP 4
 \fB\-x\fR, \fB\-\-compress\fR
 Content compressed (encoded) with Deflate algorithm.
 

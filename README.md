@@ -96,6 +96,7 @@ Options:
   -P, --history-print <FORMAT>           The same as --print but applies only to intermediary requests/responses
   -q, --quiet...                         Do not print to stdout or stderr
   -S, --stream                           Always stream the response body
+      --unbuffered                       Print the streamed response body as it arrives, without waiting for complete lines
   -x, --compress...                      Content compressed (encoded) with Deflate algorithm
   -o, --output <FILE>                    Save output to FILE instead of stdout
   -d, --download                         Download the body to a file instead of printing it

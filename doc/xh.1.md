@@ -155,6 +155,12 @@ Each `--OPTION` can be reset with a `--no-OPTION` argument.
 
 - `-S`, `--stream`: Always stream the response body.
 
+- `--unbuffered`: Print the streamed response body as it arrives, without waiting for complete lines.
+  
+  Like `curl --no-buffer`. This is useful for responses that send data without trailing newlines, such as server-rendered pages that are flushed in pieces.
+  
+  Implies --stream. Syntax highlighting is skipped for the body, because it needs complete lines. JSON is still formatted when --pretty asks for it.
+
 - `-x`, `--compress`: Content compressed (encoded) with Deflate algorithm.
   
   The Content-Encoding header is set to deflate.

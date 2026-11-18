@@ -74,6 +74,7 @@ none\:"Disable both coloring and formatting"))' \
 '*--quiet[Do not print to stdout or stderr]' \
 '-S[Always stream the response body]' \
 '--stream[Always stream the response body]' \
+'--unbuffered[Print the streamed response body as it arrives, without waiting for complete lines]' \
 '*-x[Content compressed (encoded) with Deflate algorithm]' \
 '*--compress[Content compressed (encoded) with Deflate algorithm]' \
 '-d[Download the body to a file instead of printing it]' \
@@ -115,6 +116,7 @@ none\:"Disable both coloring and formatting"))' \
 '--no-history-print[]' \
 '--no-quiet[]' \
 '--no-stream[]' \
+'--no-unbuffered[]' \
 '--no-compress[]' \
 '--no-output[]' \
 '--no-download[]' \

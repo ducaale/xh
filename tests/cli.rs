@@ -566,6 +566,176 @@ fn streaming_binary_detection() {
 }
 
 #[test]
+fn unbuffered_prints_body() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "text/plain")
+            .body("foo\nbar".into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        .stdout("foo\nbar\n");
+}
+
+#[test]
+fn unbuffered_implies_stream() {
+    // Only the streaming code path can tell that a body is binary before it
+    // has been read to the end, this checks that --unbuffered uses it.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .body(b"foo\0bar".as_ref().into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        // Text that arrived before the null byte may already have been printed.
+        .stdout(contains(BINARY_SUPPRESSOR));
+}
+
+#[test]
+fn no_stream_overrides_unbuffered() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "text/plain; charset=latin1")
+            .body(b"\xe9".as_ref().into())
+            .unwrap()
+    });
+
+    get_command()
+        .args([
+            "--print=b",
+            "--unbuffered",
+            "--no-stream",
+            &server.base_url(),
+        ])
+        .assert()
+        .stdout("é\n");
+}
+
+#[test]
+fn unbuffered_formats_json() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "application/json")
+            .body(r#"{"a":[1,2]}"#.into())
+            .unwrap()
+    });
+
+    get_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "a": [
+                    1,
+                    2
+                ]
+            }
+
+
+        "#});
+}
+
+#[test]
+fn unbuffered_skips_syntax_highlighting() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "text/html")
+            .body("<p>hello</p>".into())
+            .unwrap()
+    });
+
+    color_command()
+        .args(["--print=b", "--unbuffered", &server.base_url()])
+        .assert()
+        .stdout("<p>hello</p>\n");
+}
+
+#[test]
+fn unbuffered_to_file_or_pipe() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("Content-Type", "application/json")
+            .body(r#"{"a":1}"#.into())
+            .unwrap()
+    });
+
+    redirecting_command()
+        .args([
+            "--print=b",
+            "--pretty=format",
+            "--unbuffered",
+            &server.base_url(),
+        ])
+        .assert()
+        .stdout("{\n    \"a\": 1\n}\n\n");
+}
+
+/// A response that stops in the middle of a line must be shown right away.
+#[test]
+fn unbuffered_shows_partial_line_before_response_ends() {
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::process::Stdio;
+    use std::sync::mpsc;
+
+    fn write_chunk(conn: &mut std::net::TcpStream, data: &str) {
+        write!(conn, "{:x}\r\n{}\r\n", data.len(), data).unwrap();
+        conn.flush().unwrap();
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (shown_tx, shown_rx) = mpsc::channel::<()>();
+
+    let server = std::thread::spawn(move || {
+        let (mut conn, _) = listener.accept().unwrap();
+        let mut request = [0; 4096];
+        let _ = std::io::Read::read(&mut conn, &mut request).unwrap();
+        conn.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n",
+        )
+        .unwrap();
+        write_chunk(&mut conn, "partial");
+        // Hold back the rest of the line until xh has printed "partial".
+        let shown = shown_rx.recv_timeout(Duration::from_secs(10)).is_ok();
+        write_chunk(&mut conn, " line\n");
+        conn.write_all(b"0\r\n\r\n").unwrap();
+        shown
+    });
+
+    let mut child = std::process::Command::new(assert_cmd::cargo::cargo_bin!("xh"))
+        .args(["--print=b", "--unbuffered", &url])
+        .env("HOME", "")
+        .env("XH_CONFIG_DIR", "")
+        .env("XH_TEST_MODE", "1")
+        .env("XH_TEST_MODE_TERM", "1")
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdout = child.stdout.take().unwrap();
+    let mut first = [0; 7];
+    stdout.read_exact(&mut first).unwrap();
+    assert_eq!(&first, b"partial");
+    shown_tx.send(()).unwrap();
+
+    let mut rest = String::new();
+    stdout.read_to_string(&mut rest).unwrap();
+    assert_eq!(rest, " line\n\n");
+    assert!(child.wait().unwrap().success());
+    assert!(
+        server.join().unwrap(),
+        "xh did not print the partial line while the response was still open"
+    );
+}
+
+#[test]
 fn request_binary_detection() {
     redirecting_command()
         .args(["--print=B", "--offline", ":"])

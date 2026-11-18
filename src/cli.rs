@@ -196,6 +196,16 @@ Example: --print=Hb"
     #[clap(short = 'S', long = "stream", name = "stream")]
     pub stream_raw: bool,
 
+    /// Print the streamed response body as it arrives, without waiting for complete lines.
+    ///
+    ///  Like `curl --no-buffer`. This is useful for responses that send data without
+    ///  trailing newlines, such as server-rendered pages that are flushed in pieces.
+    ///
+    ///  Implies --stream. Syntax highlighting is skipped for the body, because it needs
+    ///  complete lines. JSON is still formatted when --pretty asks for it.
+    #[clap(long, name = "unbuffered")]
+    pub unbuffered: bool,
+
     ///  Content compressed (encoded) with Deflate algorithm.
     ///
     ///  The Content-Encoding header is set to deflate.
@@ -629,6 +639,9 @@ impl Cli {
             (false, true) => Some(false),
             (false, false) => None,
         };
+        if self.unbuffered && self.stream.is_none() {
+            self.stream = Some(true);
+        }
         if self.download {
             self.follow = true;
             self.check_status = Some(true);
@@ -1769,6 +1782,34 @@ mod tests {
 
         let cli = parse(["--no-check-status", "--check-status", ":"]).unwrap();
         assert_eq!(cli.check_status, Some(true));
+    }
+
+    #[test]
+    fn unbuffered_implies_stream() {
+        let cli = parse([":"]).unwrap();
+        assert_eq!(cli.stream, None);
+        assert!(!cli.unbuffered);
+
+        let cli = parse(["--unbuffered", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(true));
+        assert!(cli.unbuffered);
+
+        let cli = parse(["--unbuffered", "--no-stream", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(false));
+
+        let cli = parse(["--no-stream", "--unbuffered", ":"]).unwrap();
+        assert_eq!(cli.stream, Some(false));
+    }
+
+    #[test]
+    fn negating_unbuffered() {
+        let cli = parse(["--unbuffered", "--no-unbuffered", ":"]).unwrap();
+        assert!(!cli.unbuffered);
+        assert_eq!(cli.stream, None);
+
+        let cli = parse(["--no-unbuffered", "--unbuffered", ":"]).unwrap();
+        assert!(cli.unbuffered);
+        assert_eq!(cli.stream, Some(true));
     }
 
     #[test]

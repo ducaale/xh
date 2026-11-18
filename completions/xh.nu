@@ -49,6 +49,7 @@ module completions {
     --history-print(-P): string # The same as --print but applies only to intermediary requests/responses
     --quiet(-q)               # Do not print to stdout or stderr
     --stream(-S)              # Always stream the response body
+    --unbuffered              # Print the streamed response body as it arrives, without waiting for complete lines
     --compress(-x)            # Content compressed (encoded) with Deflate algorithm
     --output(-o): path        # Save output to FILE instead of stdout
     --download(-d)            # Download the body to a file instead of printing it
@@ -106,6 +107,7 @@ module completions {
     --no-history-print
     --no-quiet
     --no-stream
+    --no-unbuffered
     --no-compress
     --no-output
     --no-download
