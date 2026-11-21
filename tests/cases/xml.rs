@@ -21,8 +21,6 @@ fn xml_pretty_printing() {
                 <title>XML Developer Guide</title>
               </book>
             </catalog>
-
-
         "#});
 }
 
@@ -41,8 +39,6 @@ fn xml_pretty_printing_text_xml_content_type() {
             <root>
               <a>text</a>
             </root>
-
-
         "#});
 }
 
@@ -83,8 +79,6 @@ fn xml_custom_indent() {
             <root>
                   <a>text</a>
             </root>
-
-
         "#});
 }
 
@@ -118,8 +112,6 @@ fn xml_declaration_preserved() {
             <root>
               <a>text</a>
             </root>
-
-
         "#});
 }
 
@@ -166,8 +158,6 @@ fn xml_mixed_content_preserved() {
             <root>
               <p>Hello <b>world</b> end</p>
             </root>
-
-
         "#});
 }
 
@@ -188,8 +178,6 @@ fn xml_already_formatted() {
                 <b>text</b>
               </a>
             </root>
-
-
         "#});
 }
 
@@ -210,7 +198,5 @@ fn xml_xhtml_content_type() {
                 <p>hello</p>
               </body>
             </html>
-
-
         "#});
 }

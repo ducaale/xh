@@ -162,8 +162,6 @@ fn basic_json_post() {
                 "got": "name",
                 "status": "ok"
             }
-
-
         "#});
 }
 #[test]
@@ -181,12 +179,13 @@ fn full_json_response_utf8_decode() {
         .arg("--pretty=format")
         .arg("post")
         .arg(server.base_url())
+        // In stream mode jsonxf terminates each record with a blank line
+        // (its record separator), so the body ends with "}\n\n".
         .assert()
         .stdout(indoc! {r#"
             {
                 "hello": "\u4f60\u597d"
             }
-
 
         "#});
 
@@ -200,8 +199,6 @@ fn full_json_response_utf8_decode() {
             {
                 "hello": "你好"
             }
-
-
         "#});
 }
 
@@ -214,7 +211,7 @@ fn basic_get() {
     get_command()
         .args(["--print=b", "get", &server.base_url()])
         .assert()
-        .stdout("foobar\n\n");
+        .stdout("foobar\n");
 }
 
 #[test]
@@ -310,8 +307,6 @@ fn json_path_with_escaped_characters() {
                     "@": "b:::ar"
                 }
             }
-
-
 
         "#});
 }
@@ -444,8 +439,6 @@ fn verbose() {
             {
                 "x": "y"
             }
-
-
 
             HTTP/1.1 200 OK
             Content-Length: 6
@@ -1369,8 +1362,6 @@ fn override_dns_resolution() {
             {
                 "hello": "world"
             }
-
-
         "#});
 }
 
@@ -1578,8 +1569,6 @@ fn formatted_json_output() {
             {
                 "": 0
             }
-
-
         "#});
 }
 
@@ -1598,8 +1587,6 @@ fn inferred_json_output() {
             {
                 "": 0
             }
-
-
         "#});
 }
 
@@ -1618,8 +1605,6 @@ fn inferred_json_javascript_output() {
             {
                 "": 0
             }
-
-
         "#});
 }
 
@@ -1654,6 +1639,124 @@ fn noninferred_json_output() {
         .assert()
         .stdout(indoc! {r#"
             {"":0}
+        "#});
+}
+
+#[test]
+fn pretty_json_output_ends_with_single_newline() {
+    // Regression test for https://github.com/ducaale/xh/issues/349
+    // A pretty-printed JSON body must not be followed by extra blank lines.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"userId":1,"id":1,"title":"delectus aut autem","completed":false}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", &server.base_url()])
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "userId": 1,
+                "id": 1,
+                "title": "delectus aut autem",
+                "completed": false
+            }
+        "#});
+}
+
+#[test]
+fn pretty_json_output_single_newline_when_body_has_trailing_newline() {
+    // The raw body already ends with a newline; pretty printing must not
+    // add extra ones on top of it either.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body("{\"\":0}\n".into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", &server.base_url()])
+        .assert()
+        .stdout("{\n    \"\": 0\n}\n");
+}
+
+#[test]
+fn nonpretty_json_output_ends_with_single_newline() {
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", "--pretty=none", &server.base_url()])
+        .assert()
+        .stdout("{\"\":0}\n");
+}
+
+#[test]
+fn pretty_json_output_single_newline_when_redirected() {
+    // Same when stdout is not a terminal but formatting is requested.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
+    });
+    redirecting_command()
+        .args(["--print=b", "--pretty=format", &server.base_url()])
+        .assert()
+        .stdout("{\n    \"\": 0\n}\n");
+}
+
+#[test]
+fn pretty_json_stream_output_not_terminated_twice() {
+    // With --stream, jsonxf's record separator ("\n\n") already terminates
+    // the record, so the printer must not add another newline on top of it.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "application/json")
+            .body(r#"{"":0}"#.into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", "--stream", &server.base_url()])
+        .assert()
+        .stdout("{\n    \"\": 0\n}\n\n");
+}
+
+#[test]
+fn text_body_with_trailing_newline_is_not_doubled() {
+    // Like the HTML case mentioned in the issue: if the body already ends
+    // with a newline, the printer must not append another one.
+    let server = server::http(|_req| async move {
+        hyper::Response::builder()
+            .header("content-type", "text/html")
+            .body("<HTML><BODY>hello</BODY></HTML>\n".into())
+            .unwrap()
+    });
+    get_command()
+        .args(["--print=b", &server.base_url()])
+        .assert()
+        .stdout("<HTML><BODY>hello</BODY></HTML>\n");
+}
+
+#[test]
+fn pretty_json_request_body_followed_by_single_blank_line() {
+    // The request body is terminated with one newline, then exactly one
+    // blank line of breathing room before the response.
+    get_command()
+        .arg("--print=B")
+        .arg("--offline")
+        .arg(":")
+        .arg("x:=1")
+        .assert()
+        .stdout(indoc! {r#"
+            {
+                "x": 1
+            }
+
         "#});
 }
 
@@ -3440,8 +3543,6 @@ fn override_response_mime() {
         {
             "status": "ok"
         }
-
-
         "#});
 }
 
@@ -3597,7 +3698,6 @@ fn gzip() {
             Date: N/A
 
             Hello world
-
         "#});
 }
 
@@ -3622,7 +3722,6 @@ fn deflate() {
             Date: N/A
 
             Hello world
-
         "#});
 }
 
@@ -3647,7 +3746,6 @@ fn brotli() {
             Date: N/A
 
             Hello world
-
         "#});
 }
 
@@ -3672,7 +3770,6 @@ fn zstd() {
             Date: N/A
 
             Hello world
-
         "#});
 }
 
@@ -3699,7 +3796,6 @@ fn zstd_concatenated_frames() {
 
             Hello world
             Hello world
-
         "#});
 }
 
@@ -3896,8 +3992,6 @@ fn custom_json_indent_level() {
             {
               "hello": "world"
             }
-
-
         "#});
 }
 
@@ -3924,8 +4018,6 @@ fn unsorted_headers() {
             {
                 "hello": "world"
             }
-
-
         "#});
 }
 
@@ -3954,8 +4046,6 @@ fn multiple_format_options_are_merged() {
             {
                     "hello": "world"
             }
-
-
         "#});
 }
 

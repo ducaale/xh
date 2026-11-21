@@ -167,15 +167,19 @@ impl Printer {
         self.get_highlighter(syntax).highlight(text)
     }
 
-    fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<()> {
+    /// Returns whether the printed output ends with a newline, so that callers
+    /// can terminate the final line exactly once.
+    fn print_syntax_text(&mut self, text: &str, syntax: &'static str) -> io::Result<bool> {
         if self.color {
-            self.print_colorized_text(text, syntax)
+            self.print_colorized_text(text, syntax)?;
         } else {
-            self.buffer.print(text)
+            self.buffer.print(text)?;
         }
+        Ok(text.ends_with('\n'))
     }
 
-    fn print_json_text(&mut self, text: &str, check_valid: bool) -> io::Result<()> {
+    /// Returns whether the printed output ends with a newline.
+    fn print_json_text(&mut self, text: &str, check_valid: bool) -> io::Result<bool> {
         if !self.format_json {
             // We don't have to do anything specialized, so fall back to the generic version
             return self.print_syntax_text(text, "json");
@@ -188,23 +192,27 @@ impl Printer {
             return self.print_syntax_text(text, "json");
         }
 
+        // serde_json's PrettyFormatter doesn't emit a trailing newline,
+        // so terminate the formatted document with exactly one newline.
+        // (The caller won't add another one.)
         if self.color {
             let mut buf = Vec::new();
             serde_json_format(self.json_indent_level, text, &mut buf)?;
-            buf.write_all(b"\n\n")?;
+            buf.write_all(b"\n")?;
             // in principle, buf should already be valid UTF-8,
             // because JSONXF doesn't mangle it
             let text = String::from_utf8_lossy(&buf);
-            self.print_colorized_text(&text, "json")
+            self.print_colorized_text(&text, "json")?;
         } else {
             serde_json_format(self.json_indent_level, text, &mut self.buffer)?;
-            self.buffer.write_all(b"\n\n")?;
+            self.buffer.write_all(b"\n")?;
             self.buffer.flush()?;
-            Ok(())
         }
+        Ok(true)
     }
 
-    fn print_xml_text(&mut self, body: &str) -> io::Result<()> {
+    /// Returns whether the printed output ends with a newline.
+    fn print_xml_text(&mut self, body: &str) -> io::Result<bool> {
         if !self.format_xml {
             return self.print_syntax_text(body, "xml");
         }
@@ -216,19 +224,22 @@ impl Printer {
                 return self.print_syntax_text(body, "xml");
             }
         };
-        buf.extend_from_slice(b"\n\n");
+        // Terminate the formatted document with exactly one newline.
+        // (The caller won't add another one.)
+        buf.extend_from_slice(b"\n");
 
         if self.color {
             let text = String::from_utf8_lossy(&buf);
-            self.print_colorized_text(&text, "xml")
+            self.print_colorized_text(&text, "xml")?;
         } else {
             self.buffer.write_all(&buf)?;
             self.buffer.flush()?;
-            Ok(())
         }
+        Ok(true)
     }
 
-    fn print_body_text(&mut self, content_type: ContentType, body: &str) -> io::Result<()> {
+    /// Print a body, returning whether the printed output ends with a newline.
+    fn print_body_text(&mut self, content_type: ContentType, body: &str) -> io::Result<bool> {
         match content_type {
             ContentType::Json => self.print_json_text(body, true),
             ContentType::Xml => self.print_xml_text(body),
@@ -241,43 +252,55 @@ impl Printer {
                 self.print_json_text(body, false)
             }
             ContentType::JavaScript => self.print_syntax_text(body, "js"),
-            _ => self.buffer.print(body),
+            _ => {
+                self.buffer.print(body)?;
+                Ok(body.ends_with('\n'))
+            }
         }
     }
 
-    fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<()> {
+    /// Returns whether the printed output ends with a newline.
+    fn print_stream(&mut self, reader: &mut impl Read) -> io::Result<bool> {
         if !self.buffer.is_terminal() {
-            return copy_largebuf(reader, &mut self.buffer, true);
+            // The return value is only consumed for terminal output.
+            copy_largebuf(reader, &mut self.buffer, true)?;
+            return Ok(false);
         }
         let mut guard = BinaryGuard::new(reader, true);
+        let mut ends_with_newline = false;
         while let Some(lines) = guard.read_lines()? {
             self.buffer.write_all(lines)?;
             self.buffer.flush()?;
+            ends_with_newline = lines.last() == Some(&b'\n');
         }
-        Ok(())
+        Ok(ends_with_newline)
     }
 
+    /// Returns whether the printed output ends with a newline.
     fn print_colorized_stream(
         &mut self,
         stream: &mut impl Read,
         syntax: &'static str,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
         let mut guard = BinaryGuard::new(stream, self.buffer.is_terminal());
         let mut highlighter = self.get_highlighter(syntax);
+        let mut ends_with_newline = false;
         while let Some(lines) = guard.read_lines()? {
             for line in lines.split_inclusive(|&b| b == b'\n') {
                 highlighter.highlight_bytes(line)?;
             }
             highlighter.flush()?;
+            ends_with_newline = lines.last() == Some(&b'\n');
         }
-        Ok(())
+        Ok(ends_with_newline)
     }
 
+    /// Returns whether the printed output ends with a newline.
     fn print_syntax_stream(
         &mut self,
         stream: &mut impl Read,
         syntax: &'static str,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
         if self.color {
             self.print_colorized_stream(stream, syntax)
         } else {
@@ -285,7 +308,8 @@ impl Printer {
         }
     }
 
-    fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<()> {
+    /// Returns whether the printed output ends with a newline.
+    fn print_json_stream(&mut self, stream: &mut impl Read) -> io::Result<bool> {
         if !self.format_json {
             // We don't have to do anything specialized, so fall back to the generic version
             self.print_syntax_stream(stream, "json")
@@ -294,22 +318,25 @@ impl Printer {
             let mut formatter = get_json_formatter(self.json_indent_level);
             let mut highlighter = self.get_highlighter("json");
             let mut buf = Vec::new();
+            let mut ends_with_newline = false;
             while let Some(lines) = guard.read_lines()? {
                 formatter.format_buf(lines, &mut buf)?;
                 for line in buf.split_inclusive(|&b| b == b'\n') {
                     highlighter.highlight_bytes(line)?;
                 }
                 highlighter.flush()?;
+                ends_with_newline = buf.last() == Some(&b'\n');
                 buf.clear();
             }
-            Ok(())
+            Ok(ends_with_newline)
         } else {
             let mut formatter = get_json_formatter(self.json_indent_level);
             if !self.buffer.is_terminal() {
+                // The return value is only consumed for terminal output.
                 let mut buf = vec![0; BUFFER_SIZE];
                 loop {
                     match stream.read(&mut buf) {
-                        Ok(0) => return Ok(()),
+                        Ok(0) => return Ok(false),
                         Ok(n) => {
                             formatter.format_buf(&buf[0..n], &mut self.buffer)?;
                             self.buffer.flush()?;
@@ -320,19 +347,25 @@ impl Printer {
                 }
             }
             let mut guard = BinaryGuard::new(stream, true);
+            let mut buf = Vec::new();
+            let mut ends_with_newline = false;
             while let Some(lines) = guard.read_lines()? {
-                formatter.format_buf(lines, &mut self.buffer)?;
+                formatter.format_buf(lines, &mut buf)?;
+                ends_with_newline = buf.last() == Some(&b'\n');
+                self.buffer.write_all(&buf)?;
                 self.buffer.flush()?;
+                buf.clear();
             }
-            Ok(())
+            Ok(ends_with_newline)
         }
     }
 
+    /// Returns whether the printed output ends with a newline.
     fn print_body_stream(
         &mut self,
         content_type: ContentType,
         body: &mut impl Read,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
         match content_type {
             ContentType::Json => self.print_json_stream(body),
             ContentType::Xml => self.print_syntax_stream(body, "xml"),
@@ -423,8 +456,8 @@ impl Printer {
             let body = body.buffer()?;
             if body.contains(&b'\0') {
                 self.buffer.print(BINARY_SUPPRESSOR)?;
-            } else {
-                self.print_body_text(content_type, &String::from_utf8_lossy(body))?;
+            } else if !self.print_body_text(content_type, &String::from_utf8_lossy(body))? {
+                // Terminate the body unless it already ends with a newline
                 self.buffer.print("\n")?;
             }
             // Breathing room between request and response
@@ -487,8 +520,11 @@ impl Printer {
             match self
                 .print_body_stream(content_type, &mut decode_stream(&mut body, encoding, &url)?)
             {
-                Ok(_) => {
-                    self.buffer.print("\n")?;
+                Ok(ends_with_newline) => {
+                    if !ends_with_newline {
+                        // Terminate the body unless it already ends with a newline
+                        self.buffer.print("\n")?;
+                    }
                 }
                 Err(err) if err.get_ref().is_some_and(|err| err.is::<FoundBinaryData>()) => {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
@@ -503,8 +539,10 @@ impl Printer {
                     self.buffer.print(BINARY_SUPPRESSOR)?;
                 }
                 Some(text) => {
-                    self.print_body_text(content_type, &text)?;
-                    self.buffer.print("\n")?;
+                    if !self.print_body_text(content_type, &text)? {
+                        // Terminate the body unless it already ends with a newline
+                        self.buffer.print("\n")?;
+                    }
                 }
             };
         }

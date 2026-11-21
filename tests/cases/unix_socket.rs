@@ -45,8 +45,6 @@ fn json_post() {
             {
                 "status": "ok"
             }
-
-
         "#});
 }
 
