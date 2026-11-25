@@ -577,6 +577,7 @@ impl ContentType {
 
 impl From<&str> for ContentType {
     fn from(content_type: &str) -> Self {
+        let content_type = content_type.to_ascii_lowercase();
         if content_type.contains("json") {
             ContentType::Json
         } else if content_type.contains("xml") {
@@ -752,6 +753,36 @@ mod tests {
     use crate::{buffer::Buffer, cli::Cli, vec_of_strings};
 
     use super::*;
+
+    #[test]
+    fn event_stream_content_type_is_case_insensitive() {
+        let mut headers = HeaderMap::new();
+        for value in [
+            "text/event-stream",
+            "Text/Event-Stream",
+            "Text/Event-Stream; charset=utf-8",
+        ] {
+            headers.insert(
+                CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_static(value),
+            );
+            assert!(get_content_type(&headers).is_stream(), "{value}");
+        }
+        headers.insert(
+            CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("text/plain"),
+        );
+        assert!(!get_content_type(&headers).is_stream());
+    }
+
+    #[test]
+    fn json_content_type_is_case_insensitive() {
+        assert!(matches!(
+            ContentType::from("Application/JSON"),
+            ContentType::Json
+        ));
+        assert!(matches!(ContentType::from("text/plain"), ContentType::Text));
+    }
 
     fn run_cmd(args: impl IntoIterator<Item = String>, is_stdout_tty: bool) -> Printer {
         let args = Cli::try_parse_from(args).unwrap();
