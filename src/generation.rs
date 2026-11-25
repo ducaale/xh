@@ -39,7 +39,7 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
             stdout.write_all(&buf).unwrap();
         }
         Generate::CompleteNushell => {
-            clap_complete::generate(Nushell, &mut app, bin_name, &mut io::stdout());
+            generate_nushell_completions(app, bin_name, &mut io::stdout());
         }
         Generate::CompletePowershell => {
             clap_complete::generate(Shell::PowerShell, &mut app, bin_name, &mut io::stdout());
@@ -54,6 +54,13 @@ complete -c {bin_name} -n 'string match -qr "@" -- (commandline -ct)' -kxa "(__{
             generate_markdown(&mut app);
         }
     }
+}
+
+/// Generate Nushell completions with `raw_method_or_url` marked optional so
+/// standalone flags like `--generate` do not fail Nushell's parser.
+fn generate_nushell_completions(app: clap::Command, bin_name: &str, out: &mut impl io::Write) {
+    let mut app = app.mut_arg("raw_method_or_url", |arg| arg.required(false));
+    clap_complete::generate(Nushell, &mut app, bin_name, out);
 }
 
 fn generate_markdown(app: &mut clap::Command) {
@@ -463,5 +470,14 @@ mod tests {
                 ParsedHelp::Line("A backslash can be used to escape special characters."),
             ]
         );
+    }
+
+    #[test]
+    fn nushell_completions_optional_url() {
+        let mut buf = Vec::new();
+        generate_nushell_completions(Cli::into_app(), "xh", &mut buf);
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("raw_method_or_url?: string"));
+        assert!(!output.contains("raw_method_or_url: string"));
     }
 }
