@@ -3602,6 +3602,28 @@ fn gzip() {
 }
 
 #[test]
+fn download_gzip_case_insensitive() {
+    let server = server::http(|_req| async move {
+        let compressed_bytes = fs::read("tests/fixtures/responses/hello_world.gz").unwrap();
+        hyper::Response::builder()
+            .header("content-encoding", "GZip")
+            .body(compressed_bytes.into())
+            .unwrap()
+    });
+    let dir = tempdir().unwrap();
+    let output = dir.path().join("download.txt");
+
+    get_command()
+        .args(["--download", "--output"])
+        .arg(&output)
+        .arg(server.base_url())
+        .assert()
+        .success();
+
+    assert_eq!(fs::read(output).unwrap(), b"Hello world\n");
+}
+
+#[test]
 fn deflate() {
     let server = server::http(|_req| async move {
         let compressed_bytes = fs::read("./tests/fixtures/responses/hello_world.zz").unwrap();

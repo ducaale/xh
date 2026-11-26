@@ -21,7 +21,7 @@ pub enum CompressionType {
 impl FromStr for CompressionType {
     type Err = anyhow::Error;
     fn from_str(value: &str) -> anyhow::Result<CompressionType> {
-        match value {
+        match value.to_ascii_lowercase().as_str() {
             // RFC 2616 section 3.5:
             //   For compatibility with previous implementations of HTTP,
             //   applications SHOULD consider "x-gzip" and "x-compress" to be
