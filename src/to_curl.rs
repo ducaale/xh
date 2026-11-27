@@ -373,7 +373,12 @@ pub fn translate(args: Cli) -> Result<Command> {
             cmd.header("accept", JSON_ACCEPT);
         }
 
-        cmd.opt("-d", "--data");
+        if raw.starts_with('@') {
+            // -d would read the body from a file, --data-raw sends it as is
+            cmd.arg("--data-raw");
+        } else {
+            cmd.opt("-d", "--data");
+        }
         cmd.arg(raw);
     } else if args.request_items.is_multipart() {
         // We can't use .body() here because we can't look inside the multipart
@@ -384,7 +389,14 @@ pub fn translate(args: Cli) -> Result<Command> {
                     return Err(anyhow!("JSON values are not supported in multipart fields"));
                 }
                 RequestItem::DataField { key, value, .. } => {
-                    cmd.opt("-F", "--form");
+                    if value.starts_with(['@', '<']) || value.contains(';') {
+                        // -F would read a value that starts with @ or < from a
+                        // file and treat ;type= as an option, --form-string
+                        // sends the value as is
+                        cmd.arg("--form-string");
+                    } else {
+                        cmd.opt("-F", "--form");
+                    }
                     cmd.arg(format!("{key}={value}"));
                 }
                 RequestItem::DataFieldFromFile { key, value, .. } => {
@@ -565,6 +577,17 @@ mod tests {
                 "curl http://httpbin.org/post -H 'content-type: text/plain' --data-binary @foo.txt",
                 #[cfg(windows)]
                 "curl http://httpbin.org/post -H 'content-type: text/plain' --data-binary '@foo.txt'",
+            ),
+            (
+                "xh httpbin.org/post --raw=@foo.txt",
+                #[cfg(not(windows))]
+                "curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' --data-raw @foo.txt",
+                #[cfg(windows)]
+                "curl http://httpbin.org/post -H 'content-type: application/json' -H 'accept: application/json, */*;q=0.5' --data-raw '@foo.txt'",
+            ),
+            (
+                "xh --multipart httpbin.org/post a=<foo.txt b=\\@foo.txt c=x;type=text/html d=y",
+                "curl http://httpbin.org/post --form-string 'a=<foo.txt' --form-string 'b=@foo.txt' --form-string 'c=x;type=text/html' -F 'd=y'",
             ),
             (
                 "xh http://example.com/[1-100].png?q={80,90}",
